@@ -1,0 +1,208 @@
+//! Tiles, the edges between them, and the chunks that hold both.
+
+use std::collections::BTreeMap;
+
+use crate::geom::{CHUNK_SIZE, ChunkPos, Dir8, TilePos, Z_LEVELS, Z_MAX, Z_MIN};
+
+/// What a tile has to stand on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Ground {
+    /// Nothing: outside the world, or a hole. Blocks movement and sight.
+    #[default]
+    Void,
+    /// Outdoors: earth, grass, road.
+    Earth,
+    /// A built floor.
+    Floor,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Tile {
+    pub ground: Ground,
+    /// Furniture or rock fills the tile: it blocks movement and sight.
+    pub solid: bool,
+    /// Under a roof: indoors, for sunlight and rain.
+    pub roof: bool,
+}
+
+impl Tile {
+    pub const VOID: Tile = Tile {
+        ground: Ground::Void,
+        solid: false,
+        roof: false,
+    };
+    pub const EARTH: Tile = Tile {
+        ground: Ground::Earth,
+        solid: false,
+        roof: false,
+    };
+    pub const FLOOR: Tile = Tile {
+        ground: Ground::Floor,
+        solid: false,
+        roof: true,
+    };
+
+    pub fn walkable(self) -> bool {
+        self.ground != Ground::Void && !self.solid
+    }
+
+    pub fn blocks_sight(self) -> bool {
+        self.ground == Ground::Void || self.solid
+    }
+}
+
+/// What's on the edge between two tiles: Zomboid's walls, doors and windows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Edge {
+    #[default]
+    Open,
+    Wall,
+    Door {
+        open: bool,
+    },
+    Window {
+        open: bool,
+    },
+}
+
+impl Edge {
+    /// Can you walk through it?
+    pub fn walkable(self) -> bool {
+        matches!(self, Edge::Open | Edge::Door { open: true })
+    }
+
+    /// Does it stop sight? Glass doesn't.
+    pub fn blocks_sight(self) -> bool {
+        matches!(self, Edge::Wall | Edge::Door { open: false })
+    }
+}
+
+const CELLS: usize = (CHUNK_SIZE * CHUNK_SIZE) as usize * Z_LEVELS;
+
+/// 32 × 32 tiles on every floor, each with its north and west edge.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Chunk {
+    tiles: Vec<Tile>,
+    north: Vec<Edge>,
+    west: Vec<Edge>,
+}
+
+impl Default for Chunk {
+    fn default() -> Chunk {
+        Chunk {
+            tiles: vec![Tile::VOID; CELLS],
+            north: vec![Edge::Open; CELLS],
+            west: vec![Edge::Open; CELLS],
+        }
+    }
+}
+
+/// Where a tile's data sits inside its chunk; None for a floor out of range.
+fn index(pos: TilePos) -> Option<usize> {
+    if !(Z_MIN..=Z_MAX).contains(&pos.z) {
+        return None;
+    }
+    let (lx, ly) = pos.local();
+    let size = CHUNK_SIZE as usize;
+    Some(((pos.z - Z_MIN) as usize * size + ly) * size + lx)
+}
+
+/// The world's tiles, chunk by chunk. A tile in a chunk that doesn't exist is void.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Grid {
+    chunks: BTreeMap<ChunkPos, Chunk>,
+}
+
+impl Grid {
+    pub fn new() -> Grid {
+        Grid::default()
+    }
+
+    pub fn tile(&self, pos: TilePos) -> Tile {
+        match (self.chunks.get(&pos.chunk()), index(pos)) {
+            (Some(chunk), Some(i)) => chunk.tiles[i],
+            _ => Tile::VOID,
+        }
+    }
+
+    pub fn set_tile(&mut self, pos: TilePos, tile: Tile) {
+        if let Some(i) = index(pos) {
+            self.chunks.entry(pos.chunk()).or_default().tiles[i] = tile;
+        }
+    }
+
+    /// The edge on a tile's north side.
+    pub fn north(&self, pos: TilePos) -> Edge {
+        match (self.chunks.get(&pos.chunk()), index(pos)) {
+            (Some(chunk), Some(i)) => chunk.north[i],
+            _ => Edge::Open,
+        }
+    }
+
+    /// The edge on a tile's west side.
+    pub fn west(&self, pos: TilePos) -> Edge {
+        match (self.chunks.get(&pos.chunk()), index(pos)) {
+            (Some(chunk), Some(i)) => chunk.west[i],
+            _ => Edge::Open,
+        }
+    }
+
+    pub fn set_north(&mut self, pos: TilePos, edge: Edge) {
+        if let Some(i) = index(pos) {
+            self.chunks.entry(pos.chunk()).or_default().north[i] = edge;
+        }
+    }
+
+    pub fn set_west(&mut self, pos: TilePos, edge: Edge) {
+        if let Some(i) = index(pos) {
+            self.chunks.entry(pos.chunk()).or_default().west[i] = edge;
+        }
+    }
+
+    /// The edge between a tile and its neighbour in an orthogonal direction. (A diagonal crosses
+    /// two edges; see [`Dir8::split`].)
+    pub fn edge(&self, pos: TilePos, dir: Dir8) -> Edge {
+        match dir {
+            Dir8::N => self.north(pos),
+            Dir8::S => self.north(pos.step(Dir8::S)),
+            Dir8::W => self.west(pos),
+            Dir8::E => self.west(pos.step(Dir8::E)),
+            _ => panic!("a diagonal ({dir:?}) crosses two edges, not one"),
+        }
+    }
+
+    pub fn set_edge(&mut self, pos: TilePos, dir: Dir8, edge: Edge) {
+        match dir {
+            Dir8::N => self.set_north(pos, edge),
+            Dir8::S => self.set_north(pos.step(Dir8::S), edge),
+            Dir8::W => self.set_west(pos, edge),
+            Dir8::E => self.set_west(pos.step(Dir8::E), edge),
+            _ => panic!("a diagonal ({dir:?}) crosses two edges, not one"),
+        }
+    }
+
+    /// Can an actor step from `pos` to its neighbour in `dir`? Other actors aren't counted. A
+    /// diagonal step needs both of its sides open, so nobody cuts a corner past a wall.
+    pub fn can_step(&self, pos: TilePos, dir: Dir8) -> bool {
+        if !self.tile(pos.step(dir)).walkable() {
+            return false;
+        }
+        match dir.split() {
+            None => self.edge(pos, dir).walkable(),
+            Some((a, b)) => {
+                let (via_a, via_b) = (pos.step(a), pos.step(b));
+                self.tile(via_a).walkable()
+                    && self.tile(via_b).walkable()
+                    && self.edge(pos, a).walkable()
+                    && self.edge(via_a, b).walkable()
+                    && self.edge(pos, b).walkable()
+                    && self.edge(via_b, a).walkable()
+            }
+        }
+    }
+
+    /// How many chunks exist.
+    pub fn chunk_count(&self) -> usize {
+        self.chunks.len()
+    }
+}

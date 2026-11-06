@@ -1,0 +1,19 @@
+[workspace]
+members = ["crates/dusk-core", "crates/dusk-cli"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+# The simulation is very slow unoptimised; level 1 keeps builds quick and tests fast.
+opt-level = 1
+
+[profile.release]
+# Profiles show the file and line.
+debug = "line-tables-only"

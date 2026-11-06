@@ -1,0 +1,11 @@
+[package]
+name = "dusk-core"
+description = "Duskhold's simulation: the world, its rules and its systems (no graphics, no files, no threads)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "dusk-cli"
+description = "Duskhold's tools: a text demo of the core, and a benchmark"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+dusk-core = { path = "../dusk-core" }
+
+[lints]
+workspace = true

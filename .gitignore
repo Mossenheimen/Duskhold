@@ -1,0 +1,7 @@
+# Rust build output (CARGO_TARGET_DIR points outside OneDrive; this catches a build without it)
+/target/
+/.venv/
+__pycache__/
+# Godot's import cache and the built extension
+/client/.godot/
+/client/bin/
