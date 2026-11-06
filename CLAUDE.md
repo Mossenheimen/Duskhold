@@ -6,7 +6,9 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
 - `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads).
 - `crates/dusk-cli/`: the demo and the benchmark.
-- `research/`: measurements behind decisions (pure-Python benchmarks of a tick and of its hot spots, run with any Python 3).
+- `research/`: what's behind the decisions.
+  - `game_design.md`: the 2026-11-06 design research (combat, loot, athletics, levelling, pacing and more), with its sources. It was accepted and folded into CONCEPT.md the same day.
+  - The pure-Python benchmarks of a tick and of its hot spots (any Python 3).
 
 ## Commands (PowerShell, from this folder)
 

@@ -1,11 +1,11 @@
 # Duskhold — concept
 
-*Draft 2, 2026-11-05: the concept's questions are settled. Nothing is built yet. How it's built: `ARCHITECTURE.md`.*
+*Draft 3, 2026-11-06: the design research (`research/game_design.md`) is folded in. Nothing is playable yet; the simulation core has begun. How it's built: `ARCHITECTURE.md`.*
 
 > The realm has fallen. Night is coming. Hold until dawn.
 > This is how you died.
 
-## Decided (2026-11-05)
+## Decided (2026-11-05 and 2026-11-06)
 
 - **Regions, each with its own creatures.** Fantasy's variety of monsters, but each region's family keeps what Zomboid's zombies do well: it shapes how you move, sneak, loot, make noise and survive. Each family hunts by a different sense and bends a different rule. The first region is the dead: Zomboid's own.
 - **An open world with base-building from the start,** with holdout towns and camps spread across it. Dungeons come later, as the end-game, where power keeps growing.
@@ -16,8 +16,13 @@
 - **The world is generated from a seed,** out of hand-made pieces.
 - **The six regions** below, with three more on the bench.
 - **Every Default in this draft** was accepted ("everything you listed sounds great").
+- **The design research's 14 recommendations** (2026-11-06, `research/game_design.md`), with its four defaults ("defaults on all four, fold them into the concept"), each folded into its section below:
+  - a grab has a way out;
+  - three skills can be mastered;
+  - no class bias in the world's containers;
+  - sieges on a calendar, as well as the Director's events.
 
-**Default** marks a choice Claude made. All of them were accepted on 2026-11-05 and stand unless revisited.
+**Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited.
 
 ## The pitch
 
@@ -45,8 +50,9 @@ Why build it:
 | Noise draws zombies | Noise, light, movement, scent, heat or fear draws the creatures, depending on the region |
 | Day and night, weather, seasons | The same: night is when most regions are deadliest; rain puts out torches and washes scent away; snow keeps tracks |
 | Occupations and traits | Classes, ancestries and traits |
-| Skills that level by use | Skills that level by use, plus character levels |
-| Loot in every container, where it would be | The same, plus magic items with rarity, affixes, identification, curses and attunement |
+| Endurance, shoves and stomps | The same economy: every swing, shove and sprint draws on one endurance bar, and finishing a downed enemy spares the weapon |
+| Skills that level by use | Skills that level by real use under real risk (three can be mastered), plus character levels from what you bring home |
+| Loot in every container, where it would be | The same, plus a few magic items: rarity, properties that change how you play, identification, curses, attunement |
 | Carry weight, bags, item condition | The same; plate is heavy and loud |
 | Barricades, carpentry, a base | The same, and each region needs a different base: wards against ghosts, stone against fire, locks against goblins |
 | Towns full of loot and no one alive | Towns full of loot, and holdouts full of people: trade, quests, a bunk for the night |
@@ -58,12 +64,19 @@ Why build it:
 ## Pillars
 
 1. **Every region hunts you differently.** Each family of creatures senses something else (noise, light, movement, scent, heat, fear), bends one survival rule, and has a weakness worth crafting for. Moving to a new region means learning to survive again, not just meeting bigger numbers.
-2. **Fragile, not weak.** Progress gives you options, not immunity: a level-10 fighter caught in the open by a crowd still dies. D&D 5e's *bounded accuracy* works this way: weak monsters stay dangerous in numbers.
-3. **Night is the enemy, and light is bait.** In most regions night is when they come. A light lets you see, and lets everything see you. Every action has a time, a noise and a light cost.
-4. **Bring it home.** Most XP comes from what you bring back to your base or a holdout (old-school D&D's 1 gold = 1 XP), plus places found, people helped, quests, rare monsters, bosses and days survived. Ordinary kills pay little.
-5. **Loot tells the story.** Items lie where they would be: smithies hold tools and blades, chapels holy water, kitchens food, goblin warrens whatever goblins took (yours too). Wear, blood and curses say what happened.
-6. **The world goes on without you.** Corpses stay, doors stay open, creatures wander toward what they sense, holdouts grow or fall, the Long Dusk deepens, and your dead get up.
-7. **One set of rules for everyone.** The simulation is the game; the graphics are a view of it. The player, NPCs and creatures all act through the same commands and perceive only what they could. Later, a trained bot can drive any of them.
+2. **What hunts you, you can see.**
+   - Every sense is drawn in the playfield: noise rings, your light's reach, scent trails, heat, tremors, dread, sight cones.
+   - Every attack has a tell before it lands.
+   - Players accept harsh rules they can see and reject fair rules they can't (Mark of the Ninja's lesson). A game whose regions hunt by different senses lives on drawing them.
+3. **Fragile, not weak.** Progress gives you options, not immunity: a level-10 fighter caught in the open by a crowd still dies. D&D 5e's *bounded accuracy* works this way: weak monsters stay dangerous in numbers.
+4. **Night is the enemy, and light is bait.** In most regions night is when they come. A light lets you see, and lets everything see you. Every action has a time, a noise and a light cost.
+5. **Bring it home.**
+   - Most XP comes from what you bring back to your base or a holdout (old-school D&D's 1 gold = 1 XP), and each find counts once.
+   - Places found, people helped, quests, rare monsters, bosses and days survived pay too.
+   - Ordinary kills pay little, so monsters are obstacles, not piñatas.
+6. **Loot tells the story.** Items lie where they would be: smithies hold tools and blades, chapels holy water, kitchens food, goblin warrens whatever goblins took (yours too). Wear, blood and curses say what happened.
+7. **The world goes on without you.** Corpses stay, doors stay open, creatures wander toward what they sense, holdouts grow or fall, the Long Dusk deepens, and your dead get up.
+8. **One set of rules for everyone.** The simulation is the game; the graphics are a view of it. The player, NPCs and creatures all act through the same commands and perceive only what they could. Later, a trained bot can drive any of them.
 
 ## The realm
 
@@ -112,32 +125,81 @@ Within a region the variety comes from the family's kinds, rare monsters with af
 
 ### Classes (Default: four to start)
 
-| Class | Plays like | Resource | Signature |
-|---|---|---|---|
-| Fighter | holds doorways; heavy armour (loud); shields | stamina | shield bash, second wind, cleave |
-| Rogue | dark and quiet; backstabs; locks and traps | none: the dark is its resource | sneak attack from darkness or behind, picking locks, disarming traps |
-| Cleric | healer, and the dead's natural enemy | faith, restored by prayer at shrines | turn undead, cure wounds, cure afflictions, sacred light, wards |
-| Wizard | fragile, versatile, loud when it counts | spell slots, restored by rest | fireball (a huge noise and light), sleep, silence, identify |
+Each class plays a different part of the system:
+
+| Class | Plays like | Its part of the system | Resource | Signature |
+|---|---|---|---|---|
+| Fighter | holds doorways; heavy armour (loud); shields | engagement: the lines to adjacent enemies, and grabs | endurance, more of it than anyone | brace, shield bash, cleave, second wind; shrugs off grabs |
+| Rogue | dark and quiet; backstabs; locks and traps | darkness and the signature | the dark itself | sneak attacks from darkness or behind; reads tracks; picks locks, disarms traps |
+| Cleric | healer, and the dead's natural enemy | dread and the dead | faith, restored by prayer at shrines | turn undead, wards, cures, steadying light |
+| Wizard | fragile, versatile, loud when it counts | the sense fields themselves | spell slots, restored by rest | Silence, Fog, Chill, Light, Knock; fireball (a huge noise and light); identify |
 
 Later: Ranger (bows, tracking, reading wind and tracks), Bard (songs ease dread, and carry), Paladin, Warlock (power at the price of corruption).
 
-A class is a starting kit, starting skills, a talent tree and a resource. Anyone can learn any skill by using it; a class starts ahead in its own. A region's tools (silver, salt, fire oil) work for every class.
+A class is:
+
+- a starting kit;
+- faster learning in its own skills (×1.5, like a Zomboid occupation);
+- a list of talents to pick from (signatures, not trees);
+- a resource;
+- one signature mechanic.
+
+Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oil) work for every class.
 
 ### Ancestry and traits (Default)
 
 - **Ancestries are trait bundles:** human (one more trait), dwarf (darkvision 3 tiles, hardy, slow), elf (keen hearing, darkvision 2 tiles), halfling (small: quieter, lucky). Darkvision matters a great deal in a game about night.
 - **Traits** are Zomboid's point-buy in fantasy dress: Brave / Afraid of the Dark, Light-footed / Clumsy, Keen Ears / Hard of Hearing, Strong Back / Weak Back, Iron Stomach / Weak Stomach, Quick Learner, Fast Healer / Slow Healer, Lucky / Unlucky, Cold-blooded (harder for heat-hunters to find).
 
-### Levelling (Default: two tracks)
+### Levelling (two tracks)
 
-- **Skills by use** (Zomboid): Blade, Blunt, Axe, Spear, Bow, Shield, Sneak, Lockpicking, Traps, First Aid, Lore (identifying), Alchemy, Smithing, Carpentry, Masonry, Cooking, Farming, Tracking, and one per school of magic.
-- **Character level** (D&D) from XP: what you bring home (most of it), places found, people helped, quests, rare monsters and bosses, days survived; ordinary kills a little. Each level: a little more health, a talent, more spell slots or faith. Levels 1–10 in the open world; dungeons take it further. Bounded: level 10 has 2–3× level 1's health, not 10×.
+- **Skills by use** (Zomboid): Blade, Blunt, Axe, Spear, Bow, Shield, Sneak, Lockpicking, Traps, First Aid, Lore (identifying), Alchemy, Smithing, Carpentry, Masonry, Cooking, Farming, Tracking, Athletics, and one per school of magic.
+  - **Only real use under real risk pays:**
+    - combat skills, for hits on things that can hurt you;
+    - Sneak, while hostiles who could notice you are near and don't (Skyrim's rule);
+    - Athletics, for running while chased or while carrying;
+    - crafting, for useful products, the first of each kind paying most.
+  - **Repeats pay less:** the same act on the same target, or in the same spot, earns less each time. Oblivion's players farmed Acrobatics by jumping under a well; here there's nothing to farm.
+  - **Books and trainers:** books are loot that multiply a skill's XP (Zomboid's way), and holdout trainers sell lessons up to a set level.
+  - **Three mastery slots** (decided):
+    - every skill rises to 7 freely;
+    - three can go on to 10, chosen as each first reaches 8;
+    - characters stay distinct (Ultima Online's 700-point cap did that with bookkeeping), and the next one after a death plays differently.
+- **Character level** (D&D) comes from deeds:
+  - what you bring home, which is most of it. Each find counts once: an item is marked as found in the world and pays the first time it reaches a holdout or your base, so selling and buying back earns nothing;
+  - places found, people helped, quests, rare monsters and bosses, days survived;
+  - ordinary kills, a little.
+- **Each level offers three curated talents** from the class list, plus:
+  - a little health, bounded: level 10 has 2–3× level 1's health, not 10×;
+  - more spell slots or faith.
+
+  There are no trees of one-point wonders (Diablo II's lesson), and a holdout trainer re-picks your talents for a price, so a bad pick is never a trap. Levels run 1–10 in the open world; dungeons take it further.
+- **No enemy level scaling** (Oblivion's lesson). The danger comes from:
+  - the region, and how far it lies from the heartland;
+  - the Long Dusk's spread over time;
+  - later, dungeon depth.
+
+  Getting stronger shows as the Hushlands becoming manageable, never as goblins in glass armour.
 
 ## Body, moodles and afflictions
 
 - **The health panel** is Zomboid's: head, torso, arms, hands, legs and feet; scratches, lacerations, deep wounds, fractures, burns and bites; bleeding and pain; bandages, splints and stitches. Armour protects per body part, as Zomboid's clothing does.
-- **Moodles** (Default: Zomboid's set, trimmed, merged with D&D's conditions): hungry, thirsty, tired, exhausted, dread (Zomboid's panic: worse aim; at its worst, frightened, as D&D's condition), wet, cold, hot, heavy load, bleeding, pain, poisoned, diseased, cursed, prone, grappled; and good ones: blessed, inspired, well fed.
-- **Needs** are Zomboid's (hunger, thirst, sleep), since the open world is lived in day after day.
+- **Each kind of injury has one clear effect and one treatment,** and heals over days (Stoneshard's lesson):
+  - arm: accuracy and swing speed;
+  - leg: speed, and endurance per step;
+  - head: aim and sight;
+  - torso: pain and endurance.
+- **Moodles** (Default): Zomboid's set, cut down to the ones that make you decide something, and merged with D&D's conditions:
+  - needs and the body: hungry, thirsty, tired, exhausted, heavy load, bleeding, pain;
+  - the weather: wet, cold, hot;
+  - afflictions: poisoned, diseased, cursed;
+  - the fight: prone, grappled;
+  - good ones: blessed, inspired, well fed.
+- **Dread is the one stat for the mind** (Zomboid's panic). Its thresholds are clear: shaky aim first, then frightened (D&D's condition). Light, company, food and rest ease it.
+- **Needs make plans, not chores** (Default). When hunger and thirst fall too fast, survival turns into errands.
+  - Eat two or three times a game day, drink about as often, and sleep once.
+  - Each need feeds another system: cooking gives buffs, food spoils (a reason to go out), water sources are places on the map, and sleep needs a safe bed.
+  - Consequences come on gradually.
 - **Afflictions** are Zomboid's bite with a way out, one per region:
   - **ghoul fever** (Hushlands; the first): a ghoul's bite. A fever on the first day, weakness on the second, and on the third you die and rise as a revenant;
   - **venom** (Webwood): paralysis at once, sickness after;
@@ -163,12 +225,96 @@ A class is a starting kit, starting skills, a talent tree and a resource. Anyone
 - **Heat:** your body, your clothes (wet means cold: hidden from heat-hunters, and on the way to hypothermia), your fires.
 - **Dread:** rises in the dark, near the dead, alone and wounded; falls with light, company, music, food and rest.
 - **Stealth:** be what they can't sense, and get behind them: a sneak attack.
+- **Every sense is drawn** (a pillar; Mark of the Ninja drew every noise for the same reason: players couldn't make sense of the game without it). In the playfield:
+  - noise rings, for each footstep, swing, door and spell;
+  - your light's reach;
+  - your scent trail, drifting with the wind;
+  - a heat shimmer;
+  - tremors running along webs;
+  - your dread, darkening the edges of the screen;
+  - each creature's sight cone and alert state: unaware, curious (?), hunting (!).
+
+  Paused, a queued action shows its noise and light before you commit.
+
+## Athletics and endurance
+
+- **Two kinds of tiredness:**
+  - endurance: seconds to minutes (fights, sprints, climbs);
+  - fatigue: hours (sleep).
+
+  Both are shown, and kept apart.
+- **Endurance pays for everything active:** swings, shoves, running, climbing, casting. Heavy armour and what you carry raise the cost. Fighting and fleeing draw on the same bar, so what you spend on a fight you can't spend running away.
+- **Exhaustion is dangerous but recoverable.** An empty bar means no running, slow weak swings and an easier grab, until you stop and get your breath back. It is never an instant death: when Breath of the Wild's stamina wheel ran out on a cliff, the fall felt arbitrary.
+- **Movement:**
+  - walk, run, sneak;
+  - climb fences, windows and low walls (a timed action that costs endurance);
+  - vault;
+  - later, swim.
+- **The ground matters:**
+  - snow slows you and keeps your tracks;
+  - a web shakes when you touch it;
+  - what you carry raises every step's endurance, noise and tremor.
+
+  Mud and deep water come with the Drowned Mire.
+- **Fitness and Strength grow over days of real exertion,** as Zomboid's do: running while carrying, fighting, hauling. Returns diminish within a day, so a week of real use beats an hour of jumping on the spot.
+
+## The world's rules
+
+One table of how things act on each other, written before the content, so the game stays consistent and players can invent (Breath of the Wild's "chemistry engine"):
+
+- **fire** burns wood, cloth and webs; it spreads with the wind, gives light, crackles and gives off heat;
+- **water** puts out fire and torches, wets clothes (making you cold and washing away scent), and slows you;
+- **wind** carries scent, sound and fire;
+- **snow** keeps tracks;
+- **salt and iron** stop ghosts;
+- **silver** bites lycanthropes;
+- **blood** draws wolves and ghouls;
+- **the families** fight each other.
 
 ## Combat and magic
 
-- **Real-time and deliberate** (Zomboid): stamina, facing, reach, shoves and knockdowns, crits, weapons that wear and break, crowds that grab and drag you down. Doorways and corridors are your friends.
-- **Weapons** differ in reach, speed, damage and knockback: blunt for skeletons, edges for flesh, points for armour, silver for werewolves and ghosts.
-- **Spells are timed actions:** a cast time, a noise and a light radius, a cost (a slot, faith, a component); a hit can break the cast. Fireball lights up the street and everything on it hears it. Silence is a stealth tool. Knock opens any lock, and (as in the SRD) the knock can be heard 300 feet away.
+- **Fights are an economy, not a damage race** (Zomboid's lesson). Every swing costs endurance, makes noise, risks a wound and wears the weapon. Dark Souls makes each action a commitment for the same reason.
+- **The verbs.** Each has a wind-up, a strike tick and a recovery, shown while paused (like Pillars of Eternity's recovery time):
+  - attack;
+  - heavy attack: a longer wind-up, and it knocks down;
+  - shove: cheap; knocks back, and down with enough Strength;
+  - finish: on someone on the ground; cheap, quiet, no wear on the weapon (Zomboid's stomp);
+  - brace, with a shield;
+  - step back.
+- **Weapons differ in kind, not just in numbers:**
+  - reach, arc (one target or a sweep), wind-up, knockback, noise and wear;
+  - blunt for skeletons, edges for flesh, points for armour, silver for werewolves and ghosts;
+  - a spear holds a doorway; a mace is loud.
+- **Engagement you can see.** While paused, a line runs from each adjacent enemy to you. Stepping away from an engaged enemy gives it a free swing or a chance to grab. Doorways and corridors matter because they cap the number of lines. (Pillars of Eternity's disengagement attack was invisible, and players couldn't tell why they'd been hit.)
+- **Every attack has a tell,** set per family in the data as a wind-up, an arc, a reach, a pose and a ground mark:
+  - the dead lean in and reach;
+  - goblin archers draw with a visible aim line;
+  - spiders rear up;
+  - wolves crouch before a rush.
+
+  No hit lands without one, and two lethal moves never land on the same tick, unless you let a crowd form.
+- **Light is a trade** (Darkest Dungeon's lesson). A torch shows threats early and steadies dread, but everything sees you. The dark gives you surprise (sneak attacks, crits), and gives it to them too.
+- **Crowds are the danger.**
+  - Hit chances and armour stay in a narrow band (bounded accuracy), so weak enemies stay dangerous in numbers.
+  - Each adjacent attacker adds a chance to grab.
+  - **A grab has a way out** (decided): struggle free (endurance) or shove (with a hand free). Each extra grabber makes it harder, and three grabbing at once, or an empty endurance bar, is the drag-down. Deaths stay readable ("I let three get round me") without becoming rare.
+- **Spells are timed actions, stated by their limits** (Sanderson: limits are more interesting than powers). Shown while paused:
+  - cast time, noise and light;
+  - a cost: a slot, faith, a component;
+  - line of sight;
+  - concentration: a hit can break the cast.
+- **Spells work on the sense fields:**
+  - Silence kills sound in a zone;
+  - Fog blocks sight;
+  - Warmth and Chill fool the heat-hunters;
+  - Scent-mask;
+  - Light, to see by or to lure with;
+  - Knock opens any lock, and (as in the SRD) the knock can be heard 300 feet away;
+  - Ward: salt and words;
+  - Fire burns webs, scares wolves, and spreads;
+  - Frost, against the Cinder Reach.
+
+  Fireball lights up the street, and everything on it hears it. Few spells, each a tool for some region's puzzle rather than one more damage number.
 - **Components are loot** (bat guano and sulphur for a fireball, as in D&D), so wizards scavenge too.
 - **Resting** restores slots and health, and means sleeping somewhere that holds: Zomboid's night in a house with zombies outside.
 - Default: about 8 spells per caster class at first; each school levels by use.
@@ -185,6 +331,7 @@ A class is a starting kit, starting skills, a talent tree and a resource. Anyone
   - Cinder Reach: stone, not wood; water barrels; a cool cellar to sleep in;
   - Weeping Moor: wards (salt lines, iron, holy symbols), because walls don't stop them; light and company against dread.
 - **Wards are the wardstones' small cousins:** the same magic at the scale of a house.
+- **Sieges you can see coming give a base its purpose** (see Quests and events). Attackers path to the weakest door, and damage stays until you repair it.
 
 ## Monsters beyond the regions
 
@@ -194,20 +341,56 @@ A class is a starting kit, starting skills, a talent tree and a resource. Anyone
 
 ## Loot
 
-- **Mundane items** (most of the loot, as in Zomboid) come in qualities: crude, standard, fine, masterwork.
-- **Magic items** have D&D's rarities: Uncommon, Rare, Very Rare, Legendary, and Artifacts (boss uniques with a story). Any of them can be **cursed**.
-- **Affixes** (prefixes and suffixes, rolled by rarity and by region) are often trade-offs: a Blazing sword lights the room, and you.
+- **Mundane items are most of the loot** (as in Zomboid): food, tools, bandages, materials, in qualities from crude to standard, fine and masterwork.
+- **Magic items are few, and each one is better** (Diablo III's Loot 2.0). A magic item is an event, not noise.
+  - A starting point for tuning: one early on, then one every day or two of play, with the rarer tiers farther out and deeper down.
+  - They have D&D's rarities: Uncommon, Rare, Very Rare, Legendary, and Artifacts (boss uniques with a story).
+  - Any of them can be **cursed**.
+- **A short list of properties, each changing how you play** (Diablo IV's Season 4 cut the rest):
+  - properties that work on the senses:
+    - Muffled: your swings make less noise;
+    - Shadowed: your light reaches less far;
+    - Scentless;
+    - Coldforged: you give off less heat;
+    - Moonsilver: it bites werewolves;
+    - Sure-footed: you send no tremors along webs;
+  - trade-offs, such as Blazing: it lights the room, and you;
+  - a few plain numbers.
+
+  Every property reads in one line. They're rolled by rarity and by region.
+- **No class bias in the world's containers** (decided). A cupboard holds what it would, whoever opens it. The holdouts make every find worth something instead: trade it, sell it, swap it. A class bias on magic items can be a sandbox option.
 - **Identification:** a magic item is unknown until identified (the Lore skill, a scroll, a holdout's sage) or attuned, which may reveal a curse the hard way.
 - **Attunement:** at most 3 attuned items (D&D), which caps power.
-- **Region tools:** silvered weapons, salt, iron nails, holy water, fire oil, frost charms; from the holdouts that know them (silver from the Wolfmark's mining town) and from crafting.
+- **Pity for named items:** each boss kill or deep vault that doesn't drop its unique raises the chance next time, so a long drought can't happen.
+- **Coin has sinks** (Path of Exile's lesson: money needs a use), so gold doesn't pile up with nothing to buy:
+  - repairs, cures, training;
+  - rebuilding holdouts;
+  - building materials;
+  - bribes.
+- **Region tools and reagents:**
+  - the tools: silvered weapons, salt, iron nails, holy water, fire oil, frost charms;
+  - the reagents: the Wolfmark's silver, web silk, the moor's salt, ember cores, grave dust.
+
+  They come from the holdouts that know them and from the regions themselves (see Crafting).
 - **Drops:** creatures drop what they carry, plus their own table; rares and bosses roll higher.
-- **Wear:** weight and condition on everything; repair with Smithing; blood, dirt and scorch marks on gear.
+- **Wear:** weight and condition on everything, repaired with Smithing, with blood, dirt and scorch marks on gear.
+  - Mundane weapons wear and break, as in Zomboid: they're plentiful.
+  - **Magic items never vanish.** At 0 condition one is broken, unusable until repaired, at a cost that grows with its rarity. Breath of the Wild's weapons broke so fast that players hoarded their best ones unused.
 - **Containers:** cupboards, chests, barrels, bookshelves, sarcophagi, bodies; locks and traps on the good ones; now and then, a mimic.
-- **Inventory** as in Zomboid: lists with weights, bags with capacities, and both hands (a torch takes one).
+- **Inventory** as in Zomboid: lists with weights, not a grid; bags with capacities; both hands (a torch takes one). Weight is noise, endurance and speed here, so what to carry is a real choice.
 
 ## Crafting
 
-Crafting builds the base (carpentry, masonry, wards), keeps you going (torches, bandages, splints, cooking, farming), fixes and improves gear (Smithing, silvering a blade), and makes the region tools (salt lines, holy water, fire oil, frost charms). Alchemy makes potions; wizards scribe scrolls; rogues set traps.
+- **Crafting covers:**
+  - building the base: carpentry, masonry, wards;
+  - keeping you going: torches, bandages, splints, cooking, farming;
+  - fixing and improving gear: Smithing, silvering a blade;
+  - the region tools: salt lines, holy water, fire oil, frost charms.
+
+  Alchemy makes potions, wizards scribe scrolls, and rogues set traps.
+- **Crafting with reagents is the counterweight to luck** (Diablo IV's tempering, Path of Exile's orbs).
+  - Holdout smiths and enchanters spend a region's reagents to add a property you choose: silvering, a salt-lined hem, cold-iron studs, a felt-wrapped grip for quiet.
+  - The reagents are trade goods and crafting materials at once, so progress doesn't hang on luck alone.
 
 ## Quests and events
 
@@ -219,6 +402,17 @@ Crafting builds the base (carpentry, masonry, wards), keeps you going (torches, 
   - supplies for a holdout running short, escorts for a caravan;
   - the arc: the wardstones.
 - **Events:** each region's (the tables above), plus the realm's: blood moons, caravans, a holdout under siege (help it, or loot the ruin), rival survivors (bots: trade, avoid, or fight), the Long Dusk deepening.
+- **A Dusk Director paces each region** (Left 4 Dead's AI Director, RimWorld's storytellers):
+  - it reads the character (wounds, dread, supplies, recent fights) and the world (the Long Dusk, the holdouts);
+  - it schedules events through build-up, peak and relax;
+  - it eases off with something good (a caravan, a quiet night) when you're spent;
+  - presets as sandbox options: Classic, Gentle, Random.
+- **Sieges on a calendar as well** (decided; 7 Days to Die's blood moon):
+  - the Tolling, heard from far off;
+  - a raid's horns the night before;
+  - a hunter's moon you can count down to.
+
+  You know a siege is coming, so you build for it.
 
 ## Dungeons (decided: later, as the end-game)
 
@@ -239,6 +433,7 @@ Crafting builds the base (carpentry, masonry, wards), keeps you going (torches, 
 ## Death and legacy (Default: permadeath in a persistent world)
 
 - **Death ends the character,** as in Zomboid, with a recap: "You survived 23 days, 4 hours. Slain by Grimtooth the Lantern-Eater in the cellar of the old tannery, carrying a Rare longsword you never identified."
+- **A fair death has a readable cause:** tells before hits, grabs with a way out, no unseen instant kills. The recap names the moment it went wrong: "grabbed by a third shambler in the hall".
 - **The world keeps it:** your body and gear lie where you fell, and you rise there as a revenant. Your base stays where it is.
 - **The next character** starts at a holdout and can walk back to the old base. What carries over: the base and what's in it, the holdouts' memory of you, your map, the places found, what you've learned about the creatures.
 - A sandbox option for a softer game: keep the character, lose what you carried.
@@ -281,7 +476,7 @@ The game comes first (2026-11-05). These rules cost the game little and help it 
 - **Zomboid's UI language:** the moodle column, the health panel, inventory windows with weight bars, progress bars over the head, the speed dial (pause, 1×, faster when it's safe), a map that holds only what you've seen and takes your notes, and the signature HUD (how loud, bright, warm and scented you are).
 - **Sound is gameplay:** footsteps, groans in the dark, a bell across the fields, wolves in the hills. A directional sound indicator, for accessibility and as a bot input.
 - **Wear shows:** blood, dirt and scorch marks build up on gear and on the character; bases show their damage.
-- How to make it (2D isometric sprites, or 3D models under a fixed isometric camera, the way Zomboid draws its 3D characters over 2D tiles) is a plan question; free CC0 kits exist for both.
+- **How it's made** (decided, `ARCHITECTURE.md`): 3D low-poly models under a fixed orthographic camera at Zomboid's angle (Zomboid draws 3D characters over 2D tiles), with free CC0 kits first.
 
 ## The core that has to be fun first
 
@@ -290,11 +485,13 @@ Before classes, spells, quests and other regions: is surviving the Hushlands ten
 - the Hushlands as a small open map: a market town, farms, a stretch of forest, a river, the abbey holdout;
 - Zomboid's day and night, and rain;
 - base-building basics: board the windows, barricade the doors, a bed, storage, a fire;
-- the dead: shamblers and ghouls, the Tolling, a handful of rare affixes, revenants;
+- the dead: shamblers and ghouls, the Tolling (the first siege on the calendar), a handful of rare affixes, revenants;
 - one class (Fighter), perhaps two (+ Cleric);
-- loot rarity and identification, weight, containers;
-- wounds, bandages, a few moodles (hungry, thirsty, tired, bleeding, pain, dread, heavy load), ghoul fever;
-- scavenge by day, hold by night, bring it home for XP; death and the revenant.
+- combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;
+- the senses drawn: noise rings, sight cones and alert states, your light's reach;
+- loot: mostly mundane, a few magic items, identification, weight, containers;
+- wounds with clear effects, bandages, a few moodles (hungry, thirsty, tired, bleeding, pain, dread, heavy load), needs that make plans, ghoul fever;
+- skills that grow by real use; scavenge by day, hold by night, bring it home for XP; death and the revenant.
 
 Then the Warren Hills, to prove the first pillar (enemies that see and think instead of hear), then classes and spells, holdout quests and events, more regions, dungeons, co-op and PvP.
 
@@ -306,16 +503,18 @@ Worked out in `ARCHITECTURE.md`.
 - Callable from Python as a Gymnasium environment, in-process and vectorisable: the RL stack is Python.
 - An open world in chunks: full simulation near the character, a summary elsewhere, saved as it changes (bases, corpses, opened doors).
 - A world generated from a seed out of hand-made pieces (decided: towns, buildings, holdouts and camps made by hand, placed on generated land).
-- A renderer that can do isometric cut-away walls, day and night lighting and the vision cone (engine choice: plan).
+- A renderer that can do isometric cut-away walls, day and night lighting and the vision cone (decided: Godot 4).
 - A tile grid (Zomboid's world is tiles too) with 8-direction movement drawn smoothly: fast to simulate, and the 8 moves the bot already has. (Zomboid's own movement is free; this is a Default.)
-- Creatures, items, affixes, spells, buildings and regions in data files (as Zomboid's scripts are), so content is cheap and moddable.
+- Creatures and their affixes, items and their properties, spells, buildings and regions in data files (as Zomboid's scripts are), so content is cheap and moddable.
 - Licensing: the D&D 5e SRD is CC-BY 4.0: its monsters, spells and rules can be used with attribution. Monsters and names outside it (beholders, mind flayers, the Forgotten Realms) can't. Zomboid's art and code are off-limits; it's inspiration only.
 
 ## Open questions
 
-None left for the concept (2026-11-05). The engine and architecture questions are in `ARCHITECTURE.md`.
+None (2026-11-06). The engine and architecture questions are in `ARCHITECTURE.md`.
 
 ## References
+
+The design research behind many of these choices, with its sources, is in `research/game_design.md`.
 
 - Project Zomboid: the model for the simulation, the look and the tone.
 - Valheim: biomes with their own threats, each asking for gear from the last.
@@ -328,3 +527,11 @@ None left for the concept (2026-11-05). The engine and architecture questions ar
 - Old-school D&D: treasure XP; light and rations as the delve's clock.
 - Thief: stealth by light and sound, and the light gem.
 - Cataclysm: Dark Days Ahead (and its Magiclysm mod), Caves of Qud, Dwarf Fortress: simulation first.
+- Mark of the Ninja: every noise drawn, for a stealth game the player can read.
+- Pillars of Eternity: real-time with pause, recovery times, and engagement (made visible here).
+- Dark Souls: stamina as commitment.
+- Diablo III and IV: fewer, better drops; a short list of properties; crafted properties beside random ones.
+- Path of Exile: money that's also crafting.
+- Breath of the Wild: stamina, durability's limits, and the chemistry engine.
+- Kenshi, Ultima Online, the Elder Scrolls: learning by doing, specialisation, and the exploits to avoid.
+- Left 4 Dead and RimWorld: a director that paces tension.

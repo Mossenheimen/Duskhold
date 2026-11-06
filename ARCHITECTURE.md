@@ -361,6 +361,14 @@ obs, rew, term, trunc, info = sim.step(actions)   # 5 ticks a step, 16 worlds on
 
 - **The core runs on its own thread inside the game** (through `dusk-godot`), ticking at the chosen speed. After each tick it publishes a view, and the renderer draws smoothly between the last two.
 - **The view is what the character perceives:** visible and remembered tiles, light, the creatures it can see, items, effects and sounds. The client can't show what the character doesn't know, the same rule as the bot's.
+- **The view also carries what the readability pillar draws** (`CONCEPT.md`, "What hunts you, you can see"):
+  - the noise rings made this tick, with their reach;
+  - each visible creature's sight cone and alert state;
+  - your scent trail, heat and tremors;
+  - the lines from adjacent enemies (engagement);
+  - each attack's tell while it winds up.
+
+  The core computes these anyway, so drawing them costs the client nothing more than a decal.
 - **Rendering** (Default: 3D, orthographic, at Zomboid's angle):
   - chunks as instanced meshes, and walls as thin meshes on tile edges;
   - a cut-away shader for walls between the camera and the character, and the floors above hidden when indoors;
@@ -483,12 +491,15 @@ Game first: every step ends with something to look at or play.
    - The character and shamblers moving smoothly between ticks.
    - Click to walk and WASD as intents.
    - Cut-away walls.
+   - Noise rings and sight cones from the core's view: the readability pillar from the first frame.
    - The first thing you can play with.
 4. **A seeded Hushlands patch** (`dusk-gen`, `dusk-data`): terrain, a road, a hamlet of prefab houses with containers and loot, and chunks waking and sleeping around the character. The rules move into the data files.
 5. **Survival rules:**
    - bodies and wounds, moodles, needs;
    - items and the inventory window;
    - the one rule for timed actions;
+   - combat as an economy (`CONCEPT.md`): endurance shared with running and exhaustion; the verbs, each with a wind-up, a strike tick and a recovery; tells per family; engagement; grabs with a way out;
+   - skill XP gated by risk, with repeats paying less;
    - doors to open and barricade;
    - day and night, light and the field of view.
 6. **The first playable:** base-building basics, the abbey holdout, death and revenants, ghoul fever, the Tolling.
