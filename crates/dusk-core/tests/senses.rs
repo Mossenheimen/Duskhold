@@ -1,5 +1,5 @@
-use dusk_core::senses::{hears, line_of_sight};
-use dusk_core::{Dir8, Event, Intent, Rules, TilePos, World};
+use dusk_core::senses::{Cone, hears, line_of_sight};
+use dusk_core::{Alert, Dir8, Event, Intent, Rules, TilePos, World};
 
 /// Two corridors with a wall between them.
 const CORRIDORS: &str = "\
@@ -62,4 +62,74 @@ fn sight_passes_open_doors_and_glass_but_not_walls_or_shut_doors() {
     );
     assert!(!line_of_sight(&w.grid, p(0), p(3)), "the shut door");
     assert!(!line_of_sight(&w.grid, p(3), p(4)), "the wall");
+}
+
+#[test]
+fn a_cone_sees_ahead_and_to_the_sides_but_not_behind() {
+    let cone = Cone { cos: 5000 }; // 60° either side
+    assert!(cone.contains(Dir8::E, 5, 0), "straight ahead");
+    assert!(cone.contains(Dir8::E, 2, 1), "27° off");
+    assert!(cone.contains(Dir8::E, 1, 1), "45° off");
+    assert!(!cone.contains(Dir8::E, 1, 2), "63° off");
+    assert!(!cone.contains(Dir8::E, 0, 3), "to the side");
+    assert!(!cone.contains(Dir8::E, -4, 0), "behind");
+    assert!(!cone.contains(Dir8::E, 0, 0), "its own tile");
+    assert!(cone.contains(Dir8::NE, 3, -3), "ahead on a diagonal");
+    assert!(cone.contains(Dir8::NE, 4, 0), "45° off a diagonal");
+    assert!(!cone.contains(Dir8::NE, -2, -4), "72° off a diagonal");
+    let half = Cone { cos: 0 };
+    assert!(half.contains(Dir8::E, 0, 3), "90° is in a half-plane");
+    assert!(!half.contains(Dir8::E, -1, 3), "past 90° isn't");
+    assert!(Cone { cos: -10_000 }.contains(Dir8::E, -4, 0), "all round");
+}
+
+#[test]
+fn a_shambler_doesnt_see_you_behind_it_until_it_hears_you() {
+    // It faces south; you stand still just north of it, then take a step.
+    let (mut w, _) = World::from_text(
+        1,
+        "\
++-+-+-+-+-+
+|. . @ . .|
++         +
+|. . z . .|
++         +
+|. . . . .|
++-+-+-+-+-+
+",
+    )
+    .unwrap();
+    w.rules.wander_chance = 0;
+    let me = w.character().unwrap();
+    let z = w.actors().map(|(id, _)| id).find(|&id| id != me).unwrap();
+    let alert = |w: &World| w.actor(z).unwrap().alert();
+    w.step(50);
+    assert!(!w.events().any(|e| matches!(e, Event::Saw { .. })));
+    assert_eq!(alert(&w), Alert::Unaware, "you were behind it, and quiet");
+
+    w.intent(
+        me,
+        Intent::Move {
+            dir: Dir8::W,
+            run: false,
+        },
+    );
+    let mut seen = vec![alert(&w)];
+    let mut reached = false;
+    for t in 0..60 {
+        if t == 8 {
+            w.intent(me, Intent::Idle);
+        }
+        w.step(1);
+        reached |= w.events().any(|e| matches!(e, Event::Reached { .. }));
+        if seen.last() != Some(&alert(&w)) {
+            seen.push(alert(&w));
+        }
+    }
+    assert_eq!(
+        seen,
+        [Alert::Unaware, Alert::Curious, Alert::Hunting],
+        "it heard your step (?), turned to it, and saw you (!)"
+    );
+    assert!(reached, "and it got you");
 }

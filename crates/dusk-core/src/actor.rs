@@ -45,7 +45,20 @@ pub enum Mind {
         since: u64,
         /// Next to its prey right now.
         touching: bool,
+        /// It saw its prey when it last thought.
+        sees: bool,
     },
+}
+
+/// What a creature knows of its prey: the mark the client draws over its head.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Alert {
+    /// Not after anything.
+    Unaware,
+    /// After something it heard, or the place it last saw prey: "?".
+    Curious,
+    /// It sees its prey: "!".
+    Hunting,
 }
 
 /// How fast a kind of actor moves, in thousandths of a tile a second. (These go into the data
@@ -99,6 +112,7 @@ impl Actor {
                 target: None,
                 since: 0,
                 touching: false,
+                sees: false,
             },
             ActorKind::Character => Mind::None,
         };
@@ -114,6 +128,32 @@ impl Actor {
             blocked: 0,
             carry: 0,
             mind,
+        }
+    }
+
+    /// Where the actor is in tiles, part way between two while a step is under way. For drawing
+    /// it smoothly; game logic uses `pos`.
+    pub fn position(&self) -> (f32, f32) {
+        match self.step {
+            Some(s) => {
+                let t = (s.progress as f32 / s.length as f32).min(1.0);
+                (
+                    s.from.x as f32 + (s.to.x - s.from.x) as f32 * t,
+                    s.from.y as f32 + (s.to.y - s.from.y) as f32 * t,
+                )
+            }
+            None => (self.pos.x as f32, self.pos.y as f32),
+        }
+    }
+
+    /// What the actor knows of its prey (a creature's; the character is always `Unaware`).
+    pub fn alert(&self) -> Alert {
+        match self.mind {
+            Mind::Shambler { sees: true, .. } => Alert::Hunting,
+            Mind::Shambler {
+                target: Some(_), ..
+            } => Alert::Curious,
+            _ => Alert::Unaware,
         }
     }
 }

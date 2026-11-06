@@ -359,7 +359,10 @@ obs, rew, term, trunc, info = sim.step(actions)   # 5 ticks a step, 16 worlds on
 
 ## The game: `client/` (Godot)
 
-- **The core runs on its own thread inside the game** (through `dusk-godot`), ticking at the chosen speed. After each tick it publishes a view, and the renderer draws smoothly between the last two.
+- **The core runs inside the game** (through `dusk-godot`), ticking at the chosen speed, and the renderer draws smoothly between the last two ticks. For now it ticks on the main thread (Default, 2026-11-06). When a tick costs enough to drop frames, it moves onto its own thread and publishes a view after each tick.
+- **Getting the extension to Godot** (Default, 2026-11-06): `play.cmd` writes `client/dusk.gdextension`, which names the DLL in the build folder (`%LOCALAPPDATA%\cargo-target`). So the build stays out of OneDrive, and the file isn't committed, because it names this PC's folder.
+  - In the editor, `reloadable = true` makes Godot load a copy of the DLL, so `cargo build` reloads the extension while the editor is open.
+  - A running game holds the DLL itself: close the game before rebuilding.
 - **The view is what the character perceives:** visible and remembered tiles, light, the creatures it can see, items, effects and sounds. The client can't show what the character doesn't know, the same rule as the bot's.
 - **The view also carries what the readability pillar draws** (`CONCEPT.md`, "What hunts you, you can see"):
   - the noise rings made this tick, with their reach;
@@ -428,6 +431,7 @@ State on 2026-11-05:
   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--passive --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
   ```
 - **Godot 4.7.2** (standard build), installed 2026-11-06 in `%LOCALAPPDATA%\Programs\Godot`, outside OneDrive. It came from the official GitHub release, checked against its SHA-512 sum. `Godot_v4.7.2-stable_win64.exe` is the editor; `Godot_v4.7.2-stable_win64_console.exe` is the same program printing to the terminal (for scripts and `--version`).
+- **`play.cmd`** (2026-11-06) builds the extension and starts the game with the console build, so Godot's messages land in the terminal. The first time, it also has Godot import the project (`--headless --import`), which registers the extension in `client/.godot/`. It's a batch file rather than a PowerShell script, so PowerShell's script policy doesn't come into it.
 
 ## Performance budget (per world, one thread)
 
@@ -486,13 +490,22 @@ Game first: every step ends with something to look at or play.
    - the first demo run found the greedy-only chase (a shambler walking away from its door), and the fix came with 3 tests;
    - a state hash with a determinism test, and tests for each of the above;
    - `dusk-cli demo` (the scene, printed once a second), `dusk-cli bench` (the performance table), and the `python_twin` example (the language comparison).
-3. **On screen: the Godot client's skeleton.** Godot 4 and `dusk-godot` (gdext), with the core on its own thread.
-   - The 3D orthographic view of a few chunks: floors and walls on edges.
-   - The character and shamblers moving smoothly between ticks.
-   - Click to walk and WASD as intents.
-   - Cut-away walls.
-   - Noise rings and sight cones from the core's view: the readability pillar from the first frame.
-   - The first thing you can play with.
+3. **On screen: the Godot client's skeleton.** Done 2026-11-06: `play.cmd` builds `dusk-godot` (gdext 0.5.5, API 4.6, running on Godot 4.7.2) and starts `client/`, and 21 tests pass. What it has:
+   - the demo town (`dusk_core::demo`, 32 × 24 tiles: three houses and a shed, the character and nine of the dead) in 3D under an orthographic camera at Zomboid's angle (30° down, north up and to the right), with floors, furniture, and walls, doors and glass on the edges;
+   - the character and the shamblers moving smoothly between ticks, turning to face where they go;
+   - WASD steering and click to walk, sent as intents (Shift runs), plus pause, the speed dial (1×, 2×, 5×) and zoom;
+   - cut-away walls: whatever stands between the camera and the character is cut away round it, with a dithered edge, while the shadows still come from the whole wall (V lowers every wall);
+   - the readability pillar from the first frame:
+     - noise rings for every footstep, out to how far it carries;
+     - over each creature's head, its alert state: "?" curious (it heard something), "!" hunting (it sees you);
+     - on the ground, the tiles each creature can see, tinted by its alert state. They come from `World::sees`, the very rule the dead hunt by, so where the ground is clear, they can't see you;
+   - what happened, in the corner (heard, saw, got you), with a red flash and a count when one reaches you: something to play with until combat comes at step 5;
+   - the core decided three things for this step (Defaults):
+     - **shamblers see in a 120° cone** (8 tiles, 60° either side of their facing), so you can get behind one, as in Zomboid. Your footsteps still turn it: walking carries 3 tiles, running 8;
+     - **a creature plans from the tile it's stepping onto:** its new heading takes effect there. Planning from the tile it was leaving made it side-step its own reserved tile and turn away from you;
+     - **a shambler whose goal tile is taken turns to face it** rather than going round;
+   - the core runs on the game's main thread for now (Default): a tick of the town takes microseconds. It moves onto its own thread when a tick costs enough to drop frames: chunks waking and sleeping (step 4), or the Tolling's crowds;
+   - not yet: more than one chunk (the generated land is step 4), the character's own field of view and fog of war (step 5), real models (CC0 kits).
 4. **A seeded Hushlands patch** (`dusk-gen`, `dusk-data`): terrain, a road, a hamlet of prefab houses with containers and loot, and chunks waking and sleeping around the character. The rules move into the data files.
 5. **Survival rules:**
    - bodies and wounds, moodles, needs;

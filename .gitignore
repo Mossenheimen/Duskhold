@@ -2,6 +2,7 @@
 /target/
 /.venv/
 __pycache__/
-# Godot's import cache and the built extension
+# Godot's import cache, and the extension file play.cmd writes (it names this PC's build folder)
 /client/.godot/
-/client/bin/
+/client/dusk.gdextension
+/client/dusk.gdextension.uid

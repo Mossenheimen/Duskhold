@@ -6,6 +6,9 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
 - `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads).
 - `crates/dusk-cli/`: the demo and the benchmark.
+- `crates/dusk-godot/`: the Godot extension (gdext). Its `DuskWorld` node owns a core world, ticks it, and hands GDScript the map, the actors, what the dead can see, noises and events. It takes intents back.
+- `client/`: the Godot 4.7 project, built in code. `main.gd` handles input, the camera and the loop; `map_view.gd` the ground, walls and the sight-cone overlay; `actor_view.gd`, `noise_rings.gd`, `hud.gd`; `shaders/` (the cut-away is `cut_away.gdshaderinc`). It draws what the core says and decides nothing.
+- `play.cmd`: builds the extension and starts the game.
 - `research/`: what's behind the decisions.
   - `game_design.md`: the 2026-11-06 design research (combat, loot, athletics, levelling, pacing and more), with its sources. It was accepted and folded into CONCEPT.md the same day.
   - The pure-Python benchmarks of a tick and of its hot spots (any Python 3).
@@ -13,7 +16,10 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 ## Commands (PowerShell, from this folder)
 
 ```powershell
-cargo test --workspace                     # 19 tests, about a second
+.\play.cmd                                 # build the extension and play (the first run also imports the project)
+.\play.cmd -e                              # the same, but open the Godot editor on client/
+.\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --walk=X,Y, --zoom, --shot=PNG --shot-after=S
+cargo test --workspace                     # 21 tests, about a second
 cargo clippy --workspace --all-targets     # lints; keep it at zero warnings
 cargo fmt --all                            # standard formatting
 cargo run -p dusk-cli -- demo              # the scene, printed once a second of game time
@@ -33,3 +39,11 @@ Godot 4.7.2 is in `%LOCALAPPDATA%\Programs\Godot`. `Godot_v4.7.2-stable_win64.ex
 - **Test maps are text grids** (`text.rs`), the same format as prefabs and `World::render`.
 - **Rules that will become data** (`world::Rules`, `ActorKind::speeds`) say so in a comment; they move to `data/` at build step 4.
 - **Leave `11_PPO-Zombie` alone.** Don't edit it from here. Copy what's reused (`ppo.py`, telemetry, the dashboard) and note where it came from.
+- **The client:**
+  - **Rules live in the core.** A rule the client draws (sight, noise) comes from a core function (`World::sees`), never a GDScript copy of it.
+  - **Generated files:** `client/dusk.gdextension` is written by `play.cmd` (it names this PC's build folder) and is gitignored, like `client/.godot/`. Commit the `.uid` files Godot makes next to scripts and shaders.
+  - **Close the game before `cargo build`:** a running game holds the DLL. The editor loads a copy, so it reloads on a rebuild.
+  - **Checking the look from the Bash tool:**
+    - `cmd //c ".\\play.cmd --headless --quit-after 300"` runs the scripts with no window, but it can't compile shaders.
+    - `cmd //c ".\\play.cmd -- --shot=<scratchpad>/x.png --shot-after=5"` opens the game for a few seconds on the user's desktop and saves a picture.
+  - **Colours:** client colours are picked in sRGB. MultiMesh instance colours go through `srgb_to_linear()`.

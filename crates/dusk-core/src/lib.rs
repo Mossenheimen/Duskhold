@@ -8,6 +8,7 @@
 
 pub mod actor;
 pub mod arena;
+pub mod demo;
 pub mod geom;
 pub mod grid;
 pub mod hash;
@@ -16,7 +17,7 @@ pub mod senses;
 pub mod text;
 pub mod world;
 
-pub use actor::{Actor, ActorId, ActorKind, Intent, Mind};
+pub use actor::{Actor, ActorId, ActorKind, Alert, Intent, Mind};
 pub use geom::{ChunkPos, Dir8, TilePos};
 pub use grid::{Edge, Grid, Ground, Tile};
 pub use world::{Event, Rules, World};

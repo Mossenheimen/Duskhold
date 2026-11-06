@@ -1,0 +1,16 @@
+[package]
+name = "dusk-godot"
+description = "Duskhold's Godot extension: runs the core inside the game client (gdext)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dusk-core = { path = "../dusk-core" }
+godot = "0.5.5"
+
+# Not the workspace lints: a Godot extension's entry point is an `unsafe impl`, which the
+# workspace forbids. The unsafe stays in this one crate.

@@ -70,7 +70,11 @@ fn demo() {
             }
         }
         w.step(1);
-        let events: Vec<Event> = w.events().collect();
+        // Every footstep is a sound event; the text demo leaves those to the frames.
+        let events: Vec<Event> = w
+            .events()
+            .filter(|e| !matches!(e, Event::Sound { .. }))
+            .collect();
         for e in events {
             println!("   {}", describe(&w, e));
         }
@@ -95,6 +99,9 @@ fn describe(w: &World, e: Event) -> String {
         Event::Reached { who, target } => format!("{} reached {}", name(who), name(target)),
         Event::NoWay { who, to } => {
             format!("{} can't find a way to ({}, {})", name(who), to.x, to.y)
+        }
+        Event::Sound { at, loudness, .. } => {
+            format!("a noise at ({}, {}), carrying {loudness} tiles", at.x, at.y)
         }
     }
 }

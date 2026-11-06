@@ -22,6 +22,35 @@ impl Muffling {
     }
 }
 
+/// How far either side of its facing a creature sees: the cosine of that angle, in ten-thousandths.
+/// 5000 is 60° either side (a 120° cone), 0 is 90° (all that's in front), -10000 all the way round.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Cone {
+    pub cos: i32,
+}
+
+impl Cone {
+    /// Is the offset (dx, dy) inside the cone round `facing`? The creature's own tile isn't. Whole
+    /// numbers only, so every machine agrees.
+    pub fn contains(self, facing: Dir8, dx: i32, dy: i32) -> bool {
+        if (dx, dy) == (0, 0) {
+            return false;
+        }
+        let (fx, fy) = facing.delta();
+        let dot = i128::from(fx * dx + fy * dy);
+        let (dx, dy) = (i128::from(dx), i128::from(dy));
+        // dot / (|f| |d|) >= cos / 10,000, squared: the comparison flips where the signs differ.
+        let lhs = (dot * 10_000).pow(2);
+        let rhs = i128::from(self.cos).pow(2) * i128::from(fx * fx + fy * fy) * (dx * dx + dy * dy);
+        match (dot >= 0, self.cos >= 0) {
+            (true, true) => lhs >= rhs,
+            (true, false) => true,
+            (false, true) => false,
+            (false, false) => lhs <= rhs,
+        }
+    }
+}
+
 /// Walks the straight line from `a` to `b` (Bresenham), one step between neighbours at a time.
 /// `visit(from, dir)` returns false to stop; the walk returns whether it got to `b`.
 fn walk_line(a: TilePos, b: TilePos, mut visit: impl FnMut(TilePos, Dir8) -> bool) -> bool {

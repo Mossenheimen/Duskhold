@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/dusk-core", "crates/dusk-cli"]
+members = ["crates/dusk-core", "crates/dusk-cli", "crates/dusk-godot"]
 resolver = "3"
 
 [workspace.package]

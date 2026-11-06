@@ -8,7 +8,7 @@ use crate::geom::{Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::path::find_path;
-use crate::senses::{Muffling, hears, line_of_sight};
+use crate::senses::{Cone, Muffling, hears, line_of_sight};
 use crate::text::{self, TextError, TextGrid, default_legend};
 
 /// Ticks in a second of action time at 1×.
@@ -29,8 +29,10 @@ pub struct Rules {
     pub walk_noise: i32,
     pub run_noise: i32,
     pub muffling: Muffling,
-    /// How far a shambler sees, in tiles. (Light comes at build step 5.)
+    /// How far a shambler sees, in tiles, and how wide: you can get behind one. (Light comes at
+    /// build step 5.)
     pub shambler_sight: i32,
+    pub shambler_cone: Cone,
     /// Out of 10,000: how often an idle shambler shuffles a step when it thinks.
     pub wander_chance: u32,
     /// Ticks waiting on a blocked path before planning it again.
@@ -54,6 +56,8 @@ impl Default for Rules {
                 shut_window: 1,
             },
             shambler_sight: 8,
+            // 60° either side of its facing: a 120° cone.
+            shambler_cone: Cone { cos: 5000 },
             wander_chance: 1000,
             repath_after: 20,
             path_budget: 4096,
@@ -73,6 +77,13 @@ pub enum Event {
     Reached { who: ActorId, target: ActorId },
     /// An actor asked to walk to `to` found no way there.
     NoWay { who: ActorId, to: TilePos },
+    /// A sound was made (footsteps, a shout), carrying `loudness` tiles in the open. The client
+    /// draws it as a noise ring.
+    Sound {
+        at: TilePos,
+        loudness: i32,
+        by: Option<ActorId>,
+    },
 }
 
 /// A sound made this tick.
@@ -171,9 +182,44 @@ impl World {
         }
     }
 
+    /// How far and how wide a kind of creature sees: None for the character, whose field of view
+    /// is another rule (build step 5).
+    pub fn sight(&self, kind: ActorKind) -> Option<(i32, Cone)> {
+        match kind {
+            ActorKind::Shambler => Some((self.rules.shambler_sight, self.rules.shambler_cone)),
+            ActorKind::Character => None,
+        }
+    }
+
+    /// Can a creature see a tile: in range, inside its cone and in a line of sight? The one rule
+    /// for creatures' eyes. Their hunting uses it, and so does the client's drawing of what they
+    /// see.
+    pub fn sees(&self, who: ActorId, at: TilePos) -> bool {
+        let Some(a) = self.actors.get(who) else {
+            return false;
+        };
+        let Some((range, cone)) = self.sight(a.kind) else {
+            return false;
+        };
+        a.pos.z == at.z
+            && a.pos.dist2(at) <= i64::from(range).pow(2)
+            && cone.contains(a.facing, at.x - a.pos.x, at.y - a.pos.y)
+            && line_of_sight(&self.grid, a.pos, at)
+    }
+
     /// Makes a sound at a tile, heard on the next tick (what a shout or a dropped pan does).
     pub fn make_sound(&mut self, at: TilePos, loudness: i32, by: Option<ActorId>) {
-        self.sounds.push(Sound { at, loudness, by });
+        self.emit(Sound { at, loudness, by });
+    }
+
+    /// A sound made: heard by the creatures on this tick's hearing pass, and told to the client.
+    fn emit(&mut self, s: Sound) {
+        self.sounds.push(s);
+        self.events.push(Event::Sound {
+            at: s.at,
+            loudness: s.loudness,
+            by: s.by,
+        });
     }
 
     /// Advances the world by some ticks.
@@ -300,7 +346,7 @@ impl World {
         });
         self.occupied.remove(&step.from);
         if let Some(loudness) = footsteps {
-            self.sounds.push(Sound {
+            self.emit(Sound {
                 at: step.to,
                 loudness,
                 by: Some(id),
@@ -319,7 +365,10 @@ impl World {
                 continue;
             };
             let Mind::Shambler {
-                target, touching, ..
+                target,
+                touching,
+                sees,
+                ..
             } = a.mind
             else {
                 continue;
@@ -343,6 +392,7 @@ impl World {
                     target: Some(at),
                     since: tick,
                     touching,
+                    sees,
                 };
             }
         }
@@ -359,13 +409,14 @@ impl World {
             mut target,
             mut since,
             touching,
+            ..
         } = a.mind
         else {
             return;
         };
         let pos = a.pos;
 
-        let seen = self.nearest_visible_character(pos, rules.shambler_sight);
+        let seen = self.nearest_visible_character(id);
         if let Some((prey, at)) = seen {
             if target.is_none() {
                 self.events.push(Event::Saw {
@@ -415,6 +466,7 @@ impl World {
                 target,
                 since,
                 touching: next_to.is_some(),
+                sees: seen.is_some(),
             };
             a.intent = intent;
         }
@@ -424,7 +476,9 @@ impl World {
     /// otherwise along a path, through doors and round walls. Where it found no way, it presses
     /// toward the goal anyway, as the dead do against a wall.
     fn chase(&self, a: &Actor, goal: TilePos) -> Intent {
-        let pos = a.pos;
+        // Mid-step, it plans from the tile it's stepping onto: the heading takes effect there.
+        // (From the tile it's leaving, its own reserved tile would look like someone in the way.)
+        let pos = a.step.map_or(a.pos, |s| s.to);
         if line_of_sight(&self.grid, pos, goal)
             && let Some(dir) = self.open_step_toward(pos, goal)
         {
@@ -446,13 +500,15 @@ impl World {
 
     /// The step straight at `goal`, when the walls allow it; None when they don't (then the way
     /// round needs a path: a step to one side would only look closer). Someone standing in that
-    /// tile is gone round by an eighth of a turn if that's free, else waited behind.
+    /// tile is gone round by an eighth of a turn if that's free, else waited behind. When that
+    /// tile is the goal itself, the step stands: it turns to what's there (and so can see it).
     fn open_step_toward(&self, from: TilePos, goal: TilePos) -> Option<Dir8> {
         let dir = Dir8::nearest(goal.x - from.x, goal.y - from.y)?;
         if !self.grid.can_step(from, dir) {
             return None;
         }
-        if !self.occupied.contains_key(&from.step(dir)) {
+        let ahead = from.step(dir);
+        if ahead == goal || !self.occupied.contains_key(&ahead) {
             return Some(dir);
         }
         for d in [dir.turned(1), dir.turned(-1)] {
@@ -485,22 +541,19 @@ impl World {
         dir
     }
 
-    /// The nearest character within `range` tiles that `from` can see.
-    fn nearest_visible_character(&self, from: TilePos, range: i32) -> Option<(ActorId, TilePos)> {
-        if range <= 0 {
-            return None;
-        }
-        let r2 = i64::from(range).pow(2);
+    /// The nearest character that `who` sees.
+    fn nearest_visible_character(&self, who: ActorId) -> Option<(ActorId, TilePos)> {
+        let from = self.actors.get(who)?.pos;
         let mut best: Option<(i64, ActorId, TilePos)> = None;
         for &id in &self.characters {
             let Some(c) = self.actors.get(id) else {
                 continue;
             };
             let d2 = from.dist2(c.pos);
-            if d2 > r2 || best.is_some_and(|(b, ..)| d2 >= b) {
+            if best.is_some_and(|(b, ..)| d2 >= b) {
                 continue;
             }
-            if line_of_sight(&self.grid, from, c.pos) {
+            if self.sees(who, c.pos) {
                 best = Some((d2, id, c.pos));
             }
         }
