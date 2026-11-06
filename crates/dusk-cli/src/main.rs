@@ -3,12 +3,20 @@
 //! - `dusk-cli demo`: a little scene, printed once a second of game time.
 //! - `dusk-cli bench [--dead N] [--ticks N] [--think-every N]`: times the core on the same task as
 //!   `research/python_tick_bench.py`.
+//! - `dusk-cli check`: loads and checks everything in `data/`.
+//! - `dusk-cli prefab <id>`: draws a building, and the same turned a quarter at a time.
+//! - `dusk-cli gen [--seed N] [--png PATH] [--scale N]`: makes a patch of the Hushlands and says
+//!   what's in it; with `--png`, draws its map.
 
+mod png;
+
+use std::path::Path;
 use std::time::Instant;
 
 use dusk_core::hash::{Purpose, below, mix64, roll};
+use dusk_core::text::tile_symbol;
 use dusk_core::world::TICKS_PER_SECOND;
-use dusk_core::{ActorKind, Dir8, Event, Intent, Tile, TilePos, World};
+use dusk_core::{ActorKind, Dir8, Edge, Event, Ground, Intent, Tile, TilePos, World};
 
 /// Rooms and a corridor above a field. `@` is you; each `z` a shambler.
 const DEMO: &str = "\
@@ -30,11 +38,191 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("demo") => demo(),
         Some("bench") => bench(&args[1..]),
+        Some("check") => {
+            let data = load_data();
+            println!(
+                "data/ is fine: {} fixtures, {} prefabs, {} regions",
+                data.fixtures.len(),
+                data.prefabs.len(),
+                data.regions.len()
+            );
+        }
+        Some("prefab") => prefab(args.get(1).map_or("", String::as_str)),
+        Some("gen") => gen_patch(&args[1..]),
         _ => {
-            eprintln!("usage: dusk-cli demo | bench [--dead N] [--ticks N] [--think-every N]");
+            eprintln!(
+                "usage: dusk-cli demo | bench [--dead N] [--ticks N] [--think-every N] | check \
+                 | prefab <id> | gen [--seed N] [--png PATH] [--scale N]"
+            );
             std::process::exit(2);
         }
     }
+}
+
+/// The game's data, or a message saying what's wrong with it.
+fn load_data() -> dusk_data::Data {
+    dusk_data::load(&dusk_data::default_dir()).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    })
+}
+
+fn prefab(id: &str) {
+    let data = load_data();
+    let Some(p) = data.prefab(id) else {
+        let ids: Vec<&str> = data.prefabs.iter().map(|p| p.id.as_str()).collect();
+        eprintln!("no prefab called {id:?}; there are: {}", ids.join(", "));
+        std::process::exit(2);
+    };
+    let symbol = |c: dusk_data::PrefabCell| c.0.map_or(' ', tile_symbol);
+    let mut grid = p.grid.clone();
+    let mut front = p.front;
+    for turn in 0..4 {
+        println!("{} turned {}°, its front {front:?}:", p.id, turn * 90);
+        println!("{}", grid.render(symbol));
+        grid = grid.rotated();
+        front = front.turned();
+    }
+}
+
+fn gen_patch(args: &[String]) {
+    let seed: u64 = flag(args, "--seed").unwrap_or(1);
+    let scale: usize = flag(args, "--scale").unwrap_or(3);
+    let data = load_data();
+    let region = data
+        .region("hushlands")
+        .expect("the Hushlands are in data/");
+    let start = Instant::now();
+    let (world, layout) = dusk_gen::patch(seed, &data, region);
+    let took = start.elapsed();
+    let dead = world
+        .actors()
+        .filter(|(_, a)| a.kind == ActorKind::Shambler)
+        .count();
+    println!(
+        "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead} dead; you start at ({}, {})",
+        region.name,
+        layout.width,
+        layout.height,
+        took.as_secs_f64() * 1000.0,
+        layout.lots.len(),
+        layout.start.x,
+        layout.start.y
+    );
+    for lot in &layout.lots {
+        let side = if lot.north { "north" } else { "south" };
+        println!(
+            "  {:<10} at ({:>3}, {:>3}), {side} of the road, its door at ({}, {})",
+            lot.prefab, lot.origin.x, lot.origin.y, lot.door.x, lot.door.y
+        );
+    }
+    // --ticks N times the patch running N ticks with you standing still in it.
+    if let Some(ticks) = flag::<u32>(args, "--ticks") {
+        let mut running = world.clone();
+        let start = Instant::now();
+        running.step(ticks);
+        let tps = f64::from(ticks) / start.elapsed().as_secs_f64();
+        println!(
+            "  {ticks} ticks: {tps:.0} ticks/s = {:.0}x real time, {} chunks awake",
+            tps / f64::from(TICKS_PER_SECOND),
+            running.awake_chunks().len()
+        );
+    }
+    // --text X,Y,W,H prints that part of the patch as a text grid (@ you, z the dead).
+    if let Some(area) = flag::<String>(args, "--text") {
+        let n: Vec<i32> = area.split(',').filter_map(|v| v.parse().ok()).collect();
+        if let [x, y, w, h] = n[..] {
+            let marks: std::collections::BTreeMap<TilePos, char> = world
+                .actors()
+                .map(|(_, a)| {
+                    let mark = if a.kind == ActorKind::Character {
+                        '@'
+                    } else {
+                        'z'
+                    };
+                    (a.pos, mark)
+                })
+                .collect();
+            let origin = TilePos::new(x, y, 0);
+            print!(
+                "{}",
+                dusk_core::text::render(&world.grid, origin, w, h, |p| marks.get(&p).copied())
+            );
+        }
+    }
+    if let Some(path) = args
+        .iter()
+        .position(|a| a == "--png")
+        .and_then(|i| args.get(i + 1))
+    {
+        draw_map(
+            &world,
+            layout.width,
+            layout.height,
+            scale.max(2),
+            Path::new(path),
+        );
+        println!("drew {path}");
+    }
+}
+
+/// The patch as a picture, `scale` pixels a tile: each tile's ground or fixture, its north and
+/// west edges as lines, the dead in red and you in yellow.
+fn draw_map(world: &World, width: i32, height: i32, scale: usize, path: &Path) {
+    let (w, h) = (width as usize * scale, height as usize * scale);
+    let mut pixels = vec![0u8; w * h * 3];
+    let mut put = |x: usize, y: usize, rgb: [u8; 3]| {
+        let i = (y * w + x) * 3;
+        pixels[i..i + 3].copy_from_slice(&rgb);
+    };
+    let edge_colour = |e: Edge| match e {
+        Edge::Open => None,
+        Edge::Wall => Some([225, 220, 210]),
+        Edge::Door { .. } => Some([170, 110, 50]),
+        Edge::Window { .. } => Some([140, 200, 235]),
+        Edge::Fence => Some([190, 160, 110]),
+    };
+    for ty in 0..height {
+        for tx in 0..width {
+            let at = TilePos::new(tx, ty, 0);
+            let tile = world.grid.tile(at);
+            let fill = match (tile.fixture, tile.ground) {
+                (1, _) => [38, 66, 40], // a tree (the first fixture in the data)
+                (f, _) if f > 0 => [92, 62, 40],
+                (_, Ground::Void) => [18, 20, 26],
+                (_, Ground::Grass) => [92, 112, 74],
+                (_, Ground::Dirt) => [122, 98, 66],
+                (_, Ground::Road) => [152, 138, 108],
+                (_, Ground::Water) => [58, 88, 122],
+                (_, Ground::Floor) => [146, 116, 84],
+            };
+            let (px, py) = (tx as usize * scale, ty as usize * scale);
+            for dy in 0..scale {
+                for dx in 0..scale {
+                    put(px + dx, py + dy, fill);
+                }
+            }
+            if let Some(c) = edge_colour(world.grid.north(at)) {
+                (0..scale).for_each(|dx| put(px + dx, py, c));
+            }
+            if let Some(c) = edge_colour(world.grid.west(at)) {
+                (0..scale).for_each(|dy| put(px, py + dy, c));
+            }
+        }
+    }
+    for (_, a) in world.actors() {
+        let colour = match a.kind {
+            ActorKind::Character => [255, 222, 40],
+            ActorKind::Shambler => [220, 40, 40],
+        };
+        let (px, py) = (a.pos.x as usize * scale, a.pos.y as usize * scale);
+        for dy in 0..scale {
+            for dx in 0..scale {
+                put(px + dx, py + dy, colour);
+            }
+        }
+    }
+    png::write(path, w as u32, h as u32, &pixels).expect("the picture is written");
 }
 
 fn demo() {
@@ -157,13 +345,14 @@ fn open_field(size: i32, dead: usize, seed: u64) -> World {
                 TilePos::new(x, y, 0),
                 Tile {
                     solid: rock,
-                    ..Tile::EARTH
+                    opaque: rock,
+                    ..Tile::GRASS
                 },
             );
         }
     }
     let centre = TilePos::new(size / 2, size / 2, 0);
-    w.grid.set_tile(centre, Tile::EARTH);
+    w.grid.set_tile(centre, Tile::GRASS);
     w.spawn(ActorKind::Character, centre)
         .expect("the centre is clear");
     let (mut placed, mut n) = (0, 0u64);

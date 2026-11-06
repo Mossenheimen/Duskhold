@@ -506,10 +506,41 @@ Game first: every step ends with something to look at or play.
      - **a shambler whose goal tile is taken turns to face it** rather than going round;
    - the core runs on the game's main thread for now (Default): a tick of the town takes microseconds. It moves onto its own thread when a tick costs enough to drop frames: chunks waking and sleeping (step 4), or the Tolling's crowds;
    - not yet: more than one chunk (the generated land is step 4), the character's own field of view and fog of war (step 5), real models (CC0 kits).
-4. **A seeded Hushlands patch** (`dusk-gen`, `dusk-data`): terrain, a road, a hamlet of prefab houses with containers and loot, and chunks waking and sleeping around the character. The rules move into the data files.
+4. **A seeded Hushlands patch** (`dusk-gen`, `dusk-data`). Done 2026-11-06. 32 tests pass, and `play.cmd` drops you on a road 40 tiles from a hamlet. What it has:
+   - **The data files** (`data/`), in a designer's units:
+     - `rules.toml` (the world, sound, the character);
+     - `creatures/hushlands.toml` (the shambler);
+     - `fixtures.toml` (what can stand on a tile, solid and/or opaque);
+     - `prefabs/hamlet.toml` (six buildings as text grids: cottage, longhouse, farmhouse, barn, shed, chapel);
+     - `regions/hushlands.toml` (the patch's size, terrain, road, hamlet and dead).
+   - **`dusk-data`** loads them, turns the units into the core's (tiles a second to thousandths, seconds to ticks, a cone's degrees to a cosine) and checks every reference. A mistake fails the load with the file and what's wrong, including a door that opens onto furniture: the first generator test caught one in the longhouse. `Rules::default()` stays as the tests' fixed set.
+   - **The core's tiles:** grass, dirt, road, water (nobody walks it, everybody sees across it), floors; a fixture number with `solid` and `opaque` flags (a table blocks walking, a tree blocks both); fences on edges (stop walking, not sight or sound).
+   - **Text grids** turn and mirror (`TextGrid::rotated`, `mirrored`), so one building faces any road.
+   - **`dusk-gen`** makes a patch (8 × 8 chunks, 256 × 256 tiles) from a seed in about 25 ms:
+     - the layout first: a road that bends every 24 tiles, and the hamlet's lots from its middle outward, on alternate sides of the road. Each building is mirrored or not, turned to face the road, and set in a fenced yard with a gate and a dirt path to the road;
+     - then every tile and edge is a pure function of the seed, the layout and its place. So a chunk comes out the same in any order (a test checks it), and chunks can be made on demand when the world opens up;
+     - the land: ponds under a height noise, woods over a damp one, lone trees in the fields;
+     - the dead: 0–2 in each building, and about 1.2 a chunk in the open, none within 16 tiles of the start;
+     - tests: the same seed gives the same world; every building's front door can be walked to from the start (three seeds); the dead all stand on walkable tiles.
+   - **Sleeping chunks** (Default): the world runs in full within `active_radius` chunks of the character (3, so 7 × 7 chunks). Farther out, creatures stand as they are until you come near. Folding them into counts (the population layer) comes with the open world.
+   - **The client streams chunks:** those within 3 of the camera's are built, nearest first and 3 a frame, and those past 4 are dropped. Each chunk is drawn as:
+     - its ground, one square with a texel a tile;
+     - trees (a trunk and a low-poly crown);
+     - furniture (sized boxes by fixture id);
+     - walls, doors, windows and fences. Crowns and furniture use the cut-away shader too, so a tree between you and the camera opens like a wall.
+   - **Tools:**
+     - `dusk-cli check` (the data);
+     - `prefab <id>` (a building in its four turns);
+     - `gen --seed N`, which lists the lots, and with flags:
+       - `--png` draws the map;
+       - `--text X,Y,W,H` prints part of it;
+       - `--ticks N` times it.
+     The PNG writer needs no dependencies (stored deflate blocks).
+   - **Measured:** a tick of the whole patch (86 dead, 49 chunks awake, you standing still) takes 1.5 µs: 688,000 ticks/s. The 96 × 96 bench is unchanged: 178,000 ticks/s with 100 dead.
+   - **Moved to step 5** (Default): containers and loot, since they need items, and the inventory comes at step 5. Doors are open in the prefabs until opening and shutting them comes, also at step 5.
 5. **Survival rules:**
    - bodies and wounds, moodles, needs;
-   - items and the inventory window;
+   - items and the inventory window; containers that fill from the seed the first time they're opened, by loot table (moved here from step 4);
    - the one rule for timed actions;
    - combat as an economy (`CONCEPT.md`): endurance shared with running and exhaustion; the verbs, each with a wind-up, a strike tick and a recovery; tells per family; engagement; grabs with a way out;
    - skill XP gated by risk, with repeats paying less;

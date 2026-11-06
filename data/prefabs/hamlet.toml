@@ -1,0 +1,133 @@
+# The Hushlands' hamlet buildings, as text grids (crates/dusk-core/src/text.rs).
+#
+# Edges: - and | walls, D/d a shut/open door, W/w a shut/open window, f a fence, a space open.
+# Cells come from the legend below; a space cell leaves the land as it was.
+# front: the side with the main door. The generator turns each building to face the road.
+# tags: what the region's hamlet asks for (regions/hushlands.toml, [hamlet] lots).
+# Doors are open for now: opening and shutting them comes with build step 5.
+
+[legend]
+"." = { ground = "floor" }
+"," = { ground = "grass" }
+":" = { ground = "dirt" }
+"b" = { ground = "floor", fixture = "bed" }
+"a" = { ground = "floor", fixture = "wardrobe" }
+"c" = { ground = "floor", fixture = "cupboard" }
+"t" = { ground = "floor", fixture = "table" }
+"h" = { ground = "floor", fixture = "chair" }
+"s" = { ground = "floor", fixture = "stove" }
+"k" = { ground = "floor", fixture = "crate" }
+"r" = { ground = "floor", fixture = "barrel" }
+"e" = { ground = "floor", fixture = "shelf" }
+"p" = { ground = "floor", fixture = "pew" }
+"l" = { ground = "floor", fixture = "altar" }
+
+[[prefab]]
+id = "cottage"
+tags = ["house"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+
+|b a|s c c . r|
++   +         +
+|. .d. . . . .|
++-+-+         +
+|b .d. t t h .W
++   +         +
+|. .|. h . . .|
++-+-+-+W+-+d+-+
+"""
+
+[[prefab]]
+id = "longhouse"
+tags = ["house"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+-+-+
+|b b . . s . . k r|
++                 +
+W. . . . . . . . .W
++                 +
+|b . . t t t . . .|
++                 +
+|a . h h . h h . e|
++-+-+-+-+d+-+-+-+-+
+"""
+
+[[prefab]]
+id = "farmhouse"
+tags = ["house"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+d+-+-+
+|b b a .|s c c . . r|
++       +           +
+W. . . .|. . . . t .|
++-+d+-+-+-+d+-+-+-+-+
+|. . . . . . .|k k r|
++             +     +
+|h t t h . . .d. . .|
++             +     +
+|. . . . . . .|. . k|
++             +     +
+|a . . . . . .|r . .W
++-+W+-+d+-+-+W+-+-+-+
+"""
+
+[[prefab]]
+id = "barn"
+tags = ["outbuilding"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+
+|k k . . . r r|
++             +
+|. . . . . . .|
++             +
+W. . . . . . .W
++             +
+|. . . . . . .|
++             +
+|r . . . . . k|
++             +
+|k k . . . . k|
++-+-+d+d+d+-+-+
+"""
+
+[[prefab]]
+id = "shed"
+tags = ["outbuilding"]
+front = "south"
+grid = """
++-+-+-+
+|k . r|
++     +
+|. . k|
++     +
+|r . .|
++-+d+-+
+"""
+
+[[prefab]]
+id = "chapel"
+tags = ["landmark"]
+front = "south"
+grid = """
++-+-+-+-+-+
+|e . l . e|
++         +
+W. . . . .W
++         +
+|p p . p p|
++         +
+|. . . . .|
++         +
+Wp p . p pW
++         +
+|. . . . .|
++         +
+|p p . p p|
++         +
+|. . . . .|
++-+-+d+-+-+
+"""

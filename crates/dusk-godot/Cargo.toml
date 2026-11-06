@@ -10,6 +10,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 dusk-core = { path = "../dusk-core" }
+dusk-data = { path = "../dusk-data" }
+dusk-gen = { path = "../dusk-gen" }
 godot = "0.5.5"
 
 # Not the workspace lints: a Godot extension's entry point is an `unsafe impl`, which the

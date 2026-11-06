@@ -1,0 +1,53 @@
+# What can stand on a tile. solid: nobody walks through it. opaque: nobody sees through it.
+# A tile's fixture number is its place in this list, from 1. The client draws each by its id.
+
+[[fixture]]
+id = "tree"
+solid = true
+opaque = true
+
+[[fixture]]
+id = "bed"
+solid = true
+
+[[fixture]]
+id = "wardrobe"
+solid = true
+opaque = true
+
+[[fixture]]
+id = "cupboard"
+solid = true
+
+[[fixture]]
+id = "table"
+solid = true
+
+[[fixture]]
+id = "chair"
+solid = true
+
+[[fixture]]
+id = "stove"
+solid = true
+
+[[fixture]]
+id = "crate"
+solid = true
+
+[[fixture]]
+id = "barrel"
+solid = true
+
+[[fixture]]
+id = "shelf"
+solid = true
+opaque = true
+
+[[fixture]]
+id = "pew"
+solid = true
+
+[[fixture]]
+id = "altar"
+solid = true

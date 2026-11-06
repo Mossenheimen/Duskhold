@@ -2,9 +2,9 @@
 
 use std::hash::{Hash, Hasher};
 
-use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Step};
+use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
-use crate::geom::{Dir8, TilePos};
+use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::path::find_path;
@@ -18,9 +18,15 @@ pub const TICKS_PER_SECOND: u32 = 10;
 const STRAIGHT: u32 = 1000;
 const DIAGONAL: u32 = 1414;
 
-/// Tunable rules. (They move into the data files at build step 4.)
+/// The tunable rules, in the core's units (thousandths of a tile, ticks, cosines). The game's
+/// come from `data/rules.toml` and the creature files, through `dusk-data`; `Rules::default()`
+/// is a fixed set for tests and tools.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rules {
+    /// How far round a character the world runs in full, in chunks. Farther out it sleeps.
+    pub active_radius: i32,
+    pub character_speed: Speeds,
+    pub shambler_speed: Speeds,
     /// Creatures think every this many ticks, staggered by id.
     pub think_every: u64,
     /// Ticks a shambler keeps after something it heard or saw before giving up on it.
@@ -46,6 +52,16 @@ pub struct Rules {
 impl Default for Rules {
     fn default() -> Rules {
         Rules {
+            active_radius: 3,
+            character_speed: Speeds {
+                walk: 1500,
+                run: 3000,
+            },
+            // Shamblers shuffle when they wander and lurch when they're after something.
+            shambler_speed: Speeds {
+                walk: 500,
+                run: 800,
+            },
             think_every: 5,
             forget_after: 300,
             walk_noise: 3,
@@ -62,6 +78,16 @@ impl Default for Rules {
             repath_after: 20,
             path_budget: 4096,
             dead_path_budget: 400,
+        }
+    }
+}
+
+impl Rules {
+    /// How fast a kind of actor moves.
+    pub fn speeds(&self, kind: ActorKind) -> Speeds {
+        match kind {
+            ActorKind::Character => self.character_speed,
+            ActorKind::Shambler => self.shambler_speed,
         }
     }
 }
@@ -110,11 +136,16 @@ pub struct World {
 }
 
 impl World {
+    /// An empty world with the fixed test rules.
     pub fn new(seed: u64) -> World {
+        World::with_rules(seed, Rules::default())
+    }
+
+    pub fn with_rules(seed: u64, rules: Rules) -> World {
         World {
             seed,
             tick: 0,
-            rules: Rules::default(),
+            rules,
             grid: Grid::new(),
             actors: Arena::new(),
             characters: Vec::new(),
@@ -132,7 +163,7 @@ impl World {
         let mut world = World::new(seed);
         parsed.stamp(&mut world.grid, TilePos::new(0, 0, 0));
         let mut placed = Vec::new();
-        for &(marker, x, y) in &parsed.markers {
+        for (marker, x, y) in parsed.markers() {
             let kind = match marker {
                 '@' => ActorKind::Character,
                 'z' | 'Z' => ActorKind::Shambler,
@@ -267,11 +298,44 @@ impl World {
         text::render(&self.grid, origin, w, h, |p| marks.get(&p).copied())
     }
 
+    /// Whether the world runs in full at a tile: within `active_radius` chunks of a character.
+    /// Elsewhere it sleeps, and creatures there stay as they are until someone comes near.
+    pub fn is_awake(&self, pos: TilePos) -> bool {
+        let r = self.rules.active_radius;
+        self.characters.iter().any(|&id| {
+            self.actors.get(id).is_some_and(|c| {
+                let (a, b) = (pos.chunk(), c.pos.chunk());
+                c.pos.z == pos.z && (a.x - b.x).abs() <= r && (a.y - b.y).abs() <= r
+            })
+        })
+    }
+
+    /// The chunks that are awake, for the tools and the client.
+    pub fn awake_chunks(&self) -> Vec<ChunkPos> {
+        let r = self.rules.active_radius;
+        let mut out: Vec<ChunkPos> = Vec::new();
+        for &id in &self.characters {
+            let Some(c) = self.actors.get(id) else {
+                continue;
+            };
+            let at = c.pos.chunk();
+            for y in at.y - r..=at.y + r {
+                for x in at.x - r..=at.x + r {
+                    out.push(ChunkPos { x, y });
+                }
+            }
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// One tick, in a fixed order: movement, then hearing, then thinking (whose intents act on
-    /// the next tick).
+    /// the next tick). Only the actors where the world is awake take part.
     fn tick_once(&mut self) {
         self.tick += 1;
-        let ids = self.actors.ids();
+        let mut ids = self.actors.ids();
+        ids.retain(|&id| self.actors.get(id).is_some_and(|a| self.is_awake(a.pos)));
         for &id in &ids {
             self.move_actor(id);
         }
@@ -330,7 +394,7 @@ impl World {
             self.occupied.insert(to, id);
         }
         let Some(mut step) = a.step else { return };
-        let speeds = a.kind.speeds();
+        let speeds = rules.speeds(a.kind);
         step.progress += (if step.run { speeds.run } else { speeds.walk }) / TICKS_PER_SECOND;
         if step.progress < step.length {
             a.step = Some(step);

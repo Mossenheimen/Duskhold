@@ -14,7 +14,7 @@ pub struct Muffling {
 impl Muffling {
     pub fn of(self, edge: Edge) -> i32 {
         match edge {
-            Edge::Open | Edge::Door { open: true } | Edge::Window { open: true } => 0,
+            Edge::Open | Edge::Door { open: true } | Edge::Window { open: true } | Edge::Fence => 0,
             Edge::Wall => self.wall,
             Edge::Door { open: false } => self.shut_door,
             Edge::Window { open: false } => self.shut_window,

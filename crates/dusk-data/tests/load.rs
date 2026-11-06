@@ -1,0 +1,166 @@
+//! Loading the data: the game's own, the units it turns into the core's, and what a mistake
+//! looks like.
+
+use std::path::PathBuf;
+
+use dusk_data::{Side, default_dir, doors_on, load};
+
+const RULES: &str = r#"
+[world]
+active_radius = 2
+repath_after = 1.5
+[sound]
+wall = 4
+shut_door = 2
+shut_window = 1
+[character]
+walk = 1.5
+run = 3.25
+walk_noise = 3
+run_noise = 8
+path_budget = 1000
+"#;
+
+const SHAMBLER: &str = r#"
+[[creature]]
+id = "shambler"
+walk = 0.5
+run = 0.8
+sight = 8
+cone = 90
+think_every = 5
+forget_after = 30.0
+wander = 0.1
+path_budget = 400
+"#;
+
+const FIXTURES: &str = r#"
+[[fixture]]
+id = "tree"
+solid = true
+opaque = true
+[[fixture]]
+id = "bed"
+solid = true
+"#;
+
+const PREFABS: &str = r#"
+[legend]
+"." = { ground = "floor" }
+"b" = { ground = "floor", fixture = "bed" }
+[[prefab]]
+id = "hut"
+tags = ["house"]
+front = "south"
+grid = """
++-+-+
+|b .|
++-+d+
+"""
+"#;
+
+const REGION: &str = r#"
+id = "test"
+name = "Test"
+[patch]
+chunks = [2, 2]
+[terrain]
+hill_size = 40.0
+pond_below = 0.2
+woods_from = 0.6
+woods_thick = 0.8
+woods_trees = 0.5
+field_trees = 0.01
+[road]
+width = 3
+bend_every = 16
+sway = 4
+start = 4
+[hamlet]
+lots = ["house"]
+gap = 2
+setback = 2
+yard = 1
+[dead]
+per_chunk = 1.0
+per_house = [0, 1]
+clear_start = 8
+"#;
+
+/// A data folder in the temp directory, from (path, text) pairs.
+fn folder(name: &str, files: &[(&str, &str)]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("dusk-data-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (path, text) in files {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    }
+    dir
+}
+
+fn test_files(prefabs: &str) -> Vec<(&'static str, &str)> {
+    vec![
+        ("rules.toml", RULES),
+        ("creatures/dead.toml", SHAMBLER),
+        ("fixtures.toml", FIXTURES),
+        ("prefabs/huts.toml", prefabs),
+        ("regions/test.toml", REGION),
+    ]
+}
+
+#[test]
+fn the_games_data_loads() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let region = data.region("hushlands").expect("the Hushlands");
+    assert!(!data.prefabs.is_empty() && !data.fixtures.is_empty());
+    for tag in &region.hamlet.lots {
+        assert!(data.prefabs.iter().any(|p| p.tags.contains(tag)), "{tag}");
+    }
+    for p in &data.prefabs {
+        assert!(
+            !doors_on(&p.grid, p.front).is_empty(),
+            "{} has a front door",
+            p.id
+        );
+    }
+}
+
+#[test]
+fn a_designers_units_become_the_cores() {
+    let data = load(&folder("units", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let r = data.rules;
+    assert_eq!(
+        (r.character_speed.walk, r.character_speed.run),
+        (1500, 3250)
+    );
+    assert_eq!((r.shambler_speed.walk, r.shambler_speed.run), (500, 800));
+    assert_eq!(r.shambler_cone.cos, 7071, "90° across is 45° either side");
+    assert_eq!(r.forget_after, 300, "30 seconds in ticks");
+    assert_eq!(r.repath_after, 15);
+    assert_eq!(r.wander_chance, 1000, "a tenth, out of 10,000");
+    let hut = data.prefab("hut").unwrap();
+    assert_eq!(hut.front, Side::South);
+    let bed = hut.grid.cell(0, 0).0.expect("a tile");
+    assert_eq!(data.fixture(bed.fixture).unwrap().id, "bed");
+    assert!(bed.solid && !bed.opaque && bed.roof);
+}
+
+#[test]
+fn a_mistake_says_where_and_what() {
+    let typo = PREFABS.replace("fixture = \"bed\"", "fixture = \"bedd\"");
+    let err = load(&folder("typo", &test_files(&typo))).unwrap_err();
+    assert!(err.file.ends_with("huts.toml"), "{err}");
+    assert!(err.message.contains("\"bedd\""), "{err}");
+
+    let no_door = PREFABS.replace("+-+d+", "+-+-+");
+    let err = load(&folder("no-door", &test_files(&no_door))).unwrap_err();
+    assert!(err.message.contains("no door on its front"), "{err}");
+}
+
+#[test]
+fn a_door_onto_furniture_is_refused() {
+    let blocked = PREFABS.replace("|b .|\n+-+d+", "|. b|\n+-+d+");
+    let err = load(&folder("blocked", &test_files(&blocked))).unwrap_err();
+    assert!(err.message.contains("opens onto something solid"), "{err}");
+}

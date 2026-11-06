@@ -1,0 +1,20 @@
+# The world's rules, in a designer's units. dusk-data turns them into the core's (thousandths of
+# a tile, ticks, cosines). Tests use the core's own fixed rules (Rules::default) instead.
+
+[world]
+active_radius = 3     # chunks round you that run in full; farther out, the world sleeps
+repath_after = 2.0    # seconds held up before looking for another way
+
+[sound]
+# The loudness a sound loses through each kind of edge, in tiles. Fences and open doors cost
+# nothing.
+wall = 4
+shut_door = 2
+shut_window = 1
+
+[character]
+walk = 1.5            # tiles a second
+run = 3.0
+walk_noise = 3        # how far footsteps carry, in tiles
+run_noise = 8
+path_budget = 4096    # the most tiles one search for a way looks at

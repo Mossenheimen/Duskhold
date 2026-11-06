@@ -50,7 +50,7 @@ pub fn town(seed: u64) -> World {
     let g = &mut w.grid;
     for y in 0..TOWN_H {
         for x in 0..TOWN_W {
-            g.set_tile(p(x, y), Tile::EARTH);
+            g.set_tile(p(x, y), Tile::GRASS);
         }
     }
     let open = Edge::Door { open: true };

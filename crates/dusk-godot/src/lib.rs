@@ -3,7 +3,8 @@
 //! `DuskWorld` is a node that owns a `dusk_core::World` and ticks it at 10 ticks a second of game
 //! time (times the speed). It hands GDScript what it needs to draw:
 //!
-//! - the map once: its tiles and the edges that aren't open;
+//! - the map, a chunk at a time as the client asks: its tiles (ground and fixture) and the edges
+//!   that aren't open;
 //! - each frame: the actors' positions, smoothed between the last two ticks, their facing and
 //!   what they know (the alert marks);
 //! - each tick: which tiles the dead can see (their sight cones), the noises made, and what
@@ -11,13 +12,15 @@
 //!
 //! GDScript sends the player's input back as intents. The client never decides anything.
 //!
-//! The core runs on the main thread here: a tick of the demo town takes microseconds.
+//! The core runs on the main thread here: a tick of a patch takes well under a millisecond.
 //! `ARCHITECTURE.md` moves it onto its own thread once the world is big enough to need it.
 
+use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActorId, ActorKind, Alert, Dir8, Edge, Event, Ground, Intent, TilePos, World, demo,
+    ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, TilePos, World, demo,
 };
+use dusk_data::Data;
 use godot::prelude::*;
 
 struct DuskExtension;
@@ -29,6 +32,10 @@ unsafe impl ExtensionLibrary for DuskExtension {}
 /// jumping ahead.
 const MAX_TICKS_PER_FRAME: u32 = 20;
 
+/// How far round the character the sight cones are worked out for the client, in tiles: about
+/// what the camera shows zoomed out.
+const WATCH_RANGE: i32 = 64;
+
 /// The event kinds `take_events` reports.
 const HEARD: i32 = 1;
 const SAW: i32 = 2;
@@ -39,6 +46,8 @@ const NO_WAY: i32 = 4;
 #[class(init, base=Node)]
 pub struct DuskWorld {
     world: Option<World>,
+    /// The game's data, loaded the first time a patch is made.
+    data: Option<Data>,
     /// Game time not yet ticked, in seconds.
     pending: f64,
     /// While paused, nothing ticks; the player can still look and queue.
@@ -94,15 +103,26 @@ fn event_row(world: &World, e: Event) -> Option<[i32; 4]> {
     Some([kind, index_of(world, who), x, y])
 }
 
-/// Which tiles the creatures can see, by the same rule they hunt by (`World::sees`). Each tile
-/// holds 0 if none can, else 1 + the alert level of the most alert one that can.
+/// Which tiles the creatures near the character can see, by the same rule they hunt by
+/// (`World::sees`). Each tile holds 0 if none can, else 1 + the alert level of the most alert
+/// one that can.
 fn watch(world: &World, size: (i32, i32), out: &mut Vec<u8>) {
     out.clear();
     out.resize((size.0 * size.1) as usize, 0);
+    let Some(me) = world
+        .character()
+        .and_then(|id| world.actor(id))
+        .map(|a| a.pos)
+    else {
+        return;
+    };
     for (id, a) in world.actors() {
         let Some((range, _)) = world.sight(a.kind) else {
             continue;
         };
+        if a.pos.steps_to(me) > WATCH_RANGE || !world.is_awake(a.pos) {
+            continue;
+        }
         let level = 1 + alert_level(a.alert());
         for y in (a.pos.y - range).max(0)..=(a.pos.y + range).min(size.1 - 1) {
             for x in (a.pos.x - range).max(0)..=(a.pos.x + range).min(size.0 - 1) {
@@ -112,6 +132,29 @@ fn watch(world: &World, size: (i32, i32), out: &mut Vec<u8>) {
                 }
             }
         }
+    }
+}
+
+fn ground_code(ground: Ground) -> i32 {
+    match ground {
+        Ground::Void => 0,
+        Ground::Grass => 1,
+        Ground::Dirt => 2,
+        Ground::Road => 3,
+        Ground::Water => 4,
+        Ground::Floor => 5,
+    }
+}
+
+fn edge_code(edge: Edge) -> i32 {
+    match edge {
+        Edge::Open => 0,
+        Edge::Wall => 1,
+        Edge::Door { open: false } => 2,
+        Edge::Door { open: true } => 3,
+        Edge::Window { open: false } => 4,
+        Edge::Window { open: true } => 5,
+        Edge::Fence => 6,
     }
 }
 
@@ -151,13 +194,9 @@ impl INode for DuskWorld {
     }
 }
 
-#[godot_api]
 impl DuskWorld {
-    /// Loads the demo town (until the world is generated from a seed).
-    #[func]
-    fn load_town(&mut self, seed: i64) {
-        let world = demo::town(seed as u64);
-        self.size = (demo::TOWN_W, demo::TOWN_H);
+    fn start(&mut self, world: World, size: (i32, i32)) {
+        self.size = size;
         self.after = positions(&world);
         self.before = self.after.clone();
         self.pending = 0.0;
@@ -166,6 +205,36 @@ impl DuskWorld {
         watch(&world, self.size, &mut self.watched);
         self.world = Some(world);
     }
+}
+
+#[godot_api]
+impl DuskWorld {
+    /// Makes a patch of the Hushlands from a seed, from the data in `data/`. Returns "" when
+    /// all's well, or what's wrong with the data.
+    #[func]
+    fn load_patch(&mut self, seed: i64) -> GString {
+        if self.data.is_none() {
+            match dusk_data::load(&dusk_data::default_dir()) {
+                Ok(data) => self.data = Some(data),
+                Err(e) => return GString::from(&e.to_string()),
+            }
+        }
+        let Some(data) = &self.data else {
+            return GString::new();
+        };
+        let Some(region) = data.region("hushlands") else {
+            return GString::from("data/regions has no hushlands.toml");
+        };
+        let (world, layout) = dusk_gen::patch(seed as u64, data, region);
+        self.start(world, (layout.width, layout.height));
+        GString::new()
+    }
+
+    /// Loads the little demo town (build step 3's) instead.
+    #[func]
+    fn load_town(&mut self, seed: i64) {
+        self.start(demo::town(seed as u64), (demo::TOWN_W, demo::TOWN_H));
+    }
 
     /// The map's size in tiles.
     #[func]
@@ -173,53 +242,57 @@ impl DuskWorld {
         Vector2i::new(self.size.0, self.size.1)
     }
 
-    /// Every tile with ground, as (x, y, kind) triples. Kind 1 is earth, 2 a floor, 3 something
-    /// solid (furniture, rock).
+    /// Tiles along a chunk's side.
     #[func]
-    fn tiles(&self) -> PackedInt32Array {
+    fn chunk_size(&self) -> i32 {
+        CHUNK_SIZE
+    }
+
+    /// The fixtures' ids, by number: index n is fixture number n, and 0 is "" (nothing).
+    #[func]
+    fn fixture_names(&self) -> PackedStringArray {
+        let mut names = vec![GString::new()];
+        if let Some(data) = &self.data {
+            names.extend(data.fixtures.iter().map(|f| GString::from(&f.id)));
+        }
+        names.into_iter().collect()
+    }
+
+    /// A chunk's tiles, row by row (32 × 32): each is its ground plus 16 × its fixture number.
+    /// Ground 0 is nothing, 1 grass, 2 dirt, 3 road, 4 water, 5 a floor.
+    #[func]
+    fn chunk_tiles(&self, cx: i32, cy: i32) -> PackedInt32Array {
         let Some(world) = &self.world else {
             return PackedInt32Array::new();
         };
-        let mut out = Vec::new();
-        for y in 0..self.size.1 {
-            for x in 0..self.size.0 {
-                let t = world.grid.tile(TilePos::new(x, y, 0));
-                let kind = match (t.solid, t.ground) {
-                    (_, Ground::Void) => continue,
-                    (true, _) => 3,
-                    (false, Ground::Earth) => 1,
-                    (false, Ground::Floor) => 2,
-                };
-                out.extend([x, y, kind]);
+        let origin = ChunkPos { x: cx, y: cy }.origin(0);
+        let mut out = Vec::with_capacity((CHUNK_SIZE * CHUNK_SIZE) as usize);
+        for y in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let t = world.grid.tile(origin.offset(x, y));
+                out.push(ground_code(t.ground) + 16 * i32::from(t.fixture));
             }
         }
         PackedInt32Array::from(&out[..])
     }
 
-    /// Every edge that isn't open, as (x, y, side, kind) quadruples. Side 0 is the tile's north
-    /// edge and 1 its west edge. Kind 1 is a wall, 2 a shut door, 3 an open door, 4 a shut
-    /// window, 5 an open window.
+    /// The edges a chunk's tiles own that aren't open, as (x, y, side, kind) quadruples in world
+    /// tiles. Side 0 is the tile's north edge and 1 its west edge. Kind 1 is a wall, 2 a shut
+    /// door, 3 an open door, 4 a shut window, 5 an open window, 6 a fence.
     #[func]
-    fn edges(&self) -> PackedInt32Array {
+    fn chunk_edges(&self, cx: i32, cy: i32) -> PackedInt32Array {
         let Some(world) = &self.world else {
             return PackedInt32Array::new();
         };
-        let kind = |e: Edge| match e {
-            Edge::Open => 0,
-            Edge::Wall => 1,
-            Edge::Door { open: false } => 2,
-            Edge::Door { open: true } => 3,
-            Edge::Window { open: false } => 4,
-            Edge::Window { open: true } => 5,
-        };
+        let origin = ChunkPos { x: cx, y: cy }.origin(0);
         let mut out = Vec::new();
-        for y in 0..=self.size.1 {
-            for x in 0..=self.size.0 {
-                let pos = TilePos::new(x, y, 0);
+        for y in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let pos = origin.offset(x, y);
                 for (side, edge) in [(0, world.grid.north(pos)), (1, world.grid.west(pos))] {
-                    let k = kind(edge);
-                    if k != 0 {
-                        out.extend([x, y, side, k]);
+                    let kind = edge_code(edge);
+                    if kind != 0 {
+                        out.extend([pos.x, pos.y, side, kind]);
                     }
                 }
             }
@@ -280,9 +353,9 @@ impl DuskWorld {
         world.character().map_or(-1, |me| index_of(world, me))
     }
 
-    /// Which tiles the creatures can see, one byte a tile, row by row (`map_size().x` a row): 0
-    /// if none can, else 1 + the alert level of the most alert one that can. It's the rule they
-    /// hunt by, so where it's clear, they can't see you.
+    /// Which tiles the creatures near you can see, one byte a tile, row by row (`map_size().x` a
+    /// row): 0 if none can, else 1 + the alert level of the most alert one that can. It's the
+    /// rule they hunt by, so where it's clear, they can't see you.
     #[func]
     fn watched(&self) -> PackedByteArray {
         PackedByteArray::from(&self.watched[..])

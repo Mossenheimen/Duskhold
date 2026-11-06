@@ -1,12 +1,14 @@
 [package]
 name = "dusk-cli"
-description = "Duskhold's tools: a text demo of the core, and a benchmark"
+description = "Duskhold's tools: a text demo of the core, a benchmark, data checks and world generation"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
 dusk-core = { path = "../dusk-core" }
+dusk-data = { path = "../dusk-data" }
+dusk-gen = { path = "../dusk-gen" }
 
 [lints]
 workspace = true

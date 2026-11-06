@@ -5,7 +5,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new town  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far your footsteps carry."
 
 var _state: Label
@@ -51,9 +51,9 @@ func _process(delta: float) -> void:
 
 
 ## `tick` counts tenths of a second of game time; `speed` is the dial (1, 2, 5).
-func show_state(town: int, tick: int, speed: int, paused: bool, caught: int) -> void:
-	_state.text = "DUSKHOLD  ·  build step 3: the client's skeleton\nTown %d  ·  %.1f s  ·  %d×  ·  caught %d" % [
-		town, tick / 10.0, speed, caught]
+func show_state(world_seed: int, tick: int, speed: int, paused: bool, caught: int) -> void:
+	_state.text = "DUSKHOLD  ·  build step 4: a patch of the Hushlands\nSeed %d  ·  %.1f s  ·  %d×  ·  caught %d" % [
+		world_seed, tick / 10.0, speed, caught]
 	_paused.visible = paused
 
 

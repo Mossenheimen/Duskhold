@@ -50,3 +50,42 @@ fn says_where_a_map_is_wrong() {
     let err = TextGrid::parse("+-+\n|?|\n+-+\n", default_legend).unwrap_err();
     assert_eq!((err.line, err.column, err.found), (2, 2, '?'));
 }
+
+/// HOUSE turned a quarter clockwise: the west room is now the north one, the open door on the
+/// east side is on the south side, and the window on the south side is on the west.
+const HOUSE_TURNED: &str = "\
++-+-+
+|. .|
++   +
+W. .|
++ +-+
+|.D.|
++ + +
+|.|.|
++d+-+
+";
+
+fn symbol(cell: dusk_core::text::Cell) -> char {
+    dusk_core::text::tile_symbol(cell.tile)
+}
+
+#[test]
+fn a_quarter_turn_moves_every_edge_round() {
+    let house = TextGrid::parse(HOUSE, default_legend).unwrap();
+    assert_eq!(house.rotated().render(symbol), HOUSE_TURNED);
+}
+
+#[test]
+fn four_turns_or_two_mirrors_change_nothing() {
+    let house = TextGrid::parse(HOUSE, default_legend).unwrap();
+    let turned = house.rotated().rotated().rotated().rotated();
+    assert_eq!(turned, house);
+    assert_eq!(house.mirrored().mirrored(), house);
+    assert_eq!(
+        house.render(symbol),
+        HOUSE,
+        "render reads back the same text"
+    );
+    // Mirrored, the open door moves from the east side to the west.
+    assert_eq!(house.mirrored().west(0, 1), Edge::Door { open: true });
+}

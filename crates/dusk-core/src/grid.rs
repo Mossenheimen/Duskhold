@@ -10,8 +10,14 @@ pub enum Ground {
     /// Nothing: outside the world, or a hole. Blocks movement and sight.
     #[default]
     Void,
-    /// Outdoors: earth, grass, road.
-    Earth,
+    /// Grass and wild ground, outdoors.
+    Grass,
+    /// Bare earth: paths, yards, ploughed fields.
+    Dirt,
+    /// A made road.
+    Road,
+    /// Water too deep to wade: nobody walks it, but it doesn't stop sight.
+    Water,
     /// A built floor.
     Floor,
 }
@@ -19,8 +25,12 @@ pub enum Ground {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Tile {
     pub ground: Ground,
-    /// Furniture or rock fills the tile: it blocks movement and sight.
+    /// What stands on it, by its number in the data's fixture list; 0 for nothing.
+    pub fixture: u16,
+    /// Nobody walks through it: furniture, a tree, rock.
     pub solid: bool,
+    /// Nobody sees through it: a tree, a wardrobe, rock.
+    pub opaque: bool,
     /// Under a roof: indoors, for sunlight and rain.
     pub roof: bool,
 }
@@ -28,26 +38,33 @@ pub struct Tile {
 impl Tile {
     pub const VOID: Tile = Tile {
         ground: Ground::Void,
+        fixture: 0,
         solid: false,
+        opaque: false,
         roof: false,
     };
-    pub const EARTH: Tile = Tile {
-        ground: Ground::Earth,
-        solid: false,
-        roof: false,
+    pub const GRASS: Tile = Tile {
+        ground: Ground::Grass,
+        ..Tile::VOID
     };
     pub const FLOOR: Tile = Tile {
         ground: Ground::Floor,
-        solid: false,
         roof: true,
+        ..Tile::VOID
+    };
+    /// Something with no fixture of its own that blocks movement and sight: test maps' `#`.
+    pub const ROCK: Tile = Tile {
+        solid: true,
+        opaque: true,
+        ..Tile::FLOOR
     };
 
     pub fn walkable(self) -> bool {
-        self.ground != Ground::Void && !self.solid
+        !matches!(self.ground, Ground::Void | Ground::Water) && !self.solid
     }
 
     pub fn blocks_sight(self) -> bool {
-        self.ground == Ground::Void || self.solid
+        self.ground == Ground::Void || self.opaque
     }
 }
 
@@ -63,6 +80,8 @@ pub enum Edge {
     Window {
         open: bool,
     },
+    /// Stops walking (climbing comes later), but not sight or sound.
+    Fence,
 }
 
 impl Edge {

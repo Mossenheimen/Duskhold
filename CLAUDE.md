@@ -5,9 +5,17 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `CONCEPT.md`: what the game is. Decisions go in its "Decided" section.
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
 - `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads).
-- `crates/dusk-cli/`: the demo and the benchmark.
-- `crates/dusk-godot/`: the Godot extension (gdext). Its `DuskWorld` node owns a core world, ticks it, and hands GDScript the map, the actors, what the dead can see, noises and events. It takes intents back.
-- `client/`: the Godot 4.7 project, built in code. `main.gd` handles input, the camera and the loop; `map_view.gd` the ground, walls and the sight-cone overlay; `actor_view.gd`, `noise_rings.gd`, `hud.gd`; `shaders/` (the cut-away is `cut_away.gdshaderinc`). It draws what the core says and decides nothing.
+- `crates/dusk-data/`: loads and checks `data/` (serde + toml), turning a designer's units into the core's.
+- `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, hamlet lots), then every tile as a pure function, then the dead.
+- `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
+- `crates/dusk-godot/`: the Godot extension (gdext). Its `DuskWorld` node makes a patch, ticks it, and hands GDScript the map a chunk at a time, the actors, what the dead can see, noises and events. It takes intents back.
+- `data/`: the game's numbers and content in TOML: `rules.toml`, `creatures/`, `fixtures.toml`, `prefabs/` (buildings as text grids), `regions/`.
+- `client/`: the Godot 4.7 project, built in code. It draws what the core says and decides nothing:
+  - `main.gd`: input, the camera and the loop;
+  - `map_view.gd`: streams chunks round the camera and draws the sight-cone overlay;
+  - `chunk_view.gd`: one chunk's ground, trees, furniture and walls;
+  - `actor_view.gd`, `noise_rings.gd`, `hud.gd`;
+  - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture.
 - `play.cmd`: builds the extension and starts the game.
 - `research/`: what's behind the decisions.
   - `game_design.md`: the 2026-11-06 design research (combat, loot, athletics, levelling, pacing and more), with its sources. It was accepted and folded into CONCEPT.md the same day.
@@ -18,8 +26,11 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 ```powershell
 .\play.cmd                                 # build the extension and play (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
-.\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --walk=X,Y, --zoom, --shot=PNG --shot-after=S
-cargo test --workspace                     # 21 tests, about a second
+.\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --shot=PNG --shot-after=S
+cargo test --workspace                     # 32 tests, a few seconds
+cargo run -p dusk-cli -- check             # load and check everything in data/
+cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
+cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, and a map (--text X,Y,W,H, --ticks N)
 cargo clippy --workspace --all-targets     # lints; keep it at zero warnings
 cargo fmt --all                            # standard formatting
 cargo run -p dusk-cli -- demo              # the scene, printed once a second of game time
@@ -37,7 +48,8 @@ Godot 4.7.2 is in `%LOCALAPPDATA%\Programs\Godot`. `Godot_v4.7.2-stable_win64.ex
   - gameplay randomness only through `hash::roll(seed, tick, who, why)`;
   - actors in id order, and one world per thread.
 - **Test maps are text grids** (`text.rs`), the same format as prefabs and `World::render`.
-- **Rules that will become data** (`world::Rules`, `ActorKind::speeds`) say so in a comment; they move to `data/` at build step 4.
+- **The game's numbers live in `data/`,** in a designer's units (tiles a second, seconds, degrees). `dusk-data` converts them into the core's units and checks every reference: a new field needs its conversion and its check there. `Rules::default()` is a fixed set for tests and tools, not the game's tuning.
+- **Generation stays order-free:** every tile and edge of a patch is a pure function of the seed, the layout and its place (`Layout::tile`, `north_edge`, `west_edge`), never of other chunks. `dusk-gen`'s tests check it.
 - **Leave `11_PPO-Zombie` alone.** Don't edit it from here. Copy what's reused (`ppo.py`, telemetry, the dashboard) and note where it came from.
 - **The client:**
   - **Rules live in the core.** A rule the client draws (sight, noise) comes from a core function (`World::sees`), never a GDScript copy of it.

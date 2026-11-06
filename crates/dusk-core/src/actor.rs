@@ -61,28 +61,11 @@ pub enum Alert {
     Hunting,
 }
 
-/// How fast a kind of actor moves, in thousandths of a tile a second. (These go into the data
-/// files at build step 4.)
+/// How fast a kind of actor moves, in thousandths of a tile a second (`Rules::speeds`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Speeds {
     pub walk: u32,
     pub run: u32,
-}
-
-impl ActorKind {
-    pub fn speeds(self) -> Speeds {
-        match self {
-            ActorKind::Character => Speeds {
-                walk: 1500,
-                run: 3000,
-            },
-            // Shamblers shuffle when they wander and lurch when they're after something.
-            ActorKind::Shambler => Speeds {
-                walk: 500,
-                run: 800,
-            },
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

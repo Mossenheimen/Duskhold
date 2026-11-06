@@ -6,8 +6,9 @@ extends Node3D
 ## The core's tile (x, y) is the 1 × 1 square from (x, 0, y) in 3D: x east, y south, Y up.
 ##
 ## Development flags, after "--" on Godot's command line (play.cmd passes them on):
-## --seed=N the town's seed; --walk=X,Y walk there at the start; --zoom=N;
-## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit.
+## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
+## start; --zoom=N; --speed=N the speed dial; --shot=PATH save a picture after
+## --shot-after=SECONDS (default 3) and quit.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -44,9 +45,11 @@ var focus := Vector3.ZERO  # where the camera looks: the character, smoothed
 var caught := 0
 var low_walls := false
 var last_tick := -1
+var use_town := false
 
 var shot_path := ""
 var shot_after := 3.0
+var start_speed := 1.0
 var walk_at := Vector2i(-1, -1)
 var played := 0.0
 
@@ -71,9 +74,16 @@ func _ready() -> void:
 	_start()
 
 
-## Loads the town afresh. The same seed and the same input play the same game.
+## Makes the world afresh: a patch of the Hushlands from the seed (or the demo town). The same
+## seed and the same input play the same game.
 func _start() -> void:
-	dusk.load_town(town_seed)
+	if use_town:
+		dusk.load_town(town_seed)
+	else:
+		var problem: String = dusk.load_patch(town_seed)
+		if not problem.is_empty():
+			hud.show_problem("The game's data has a problem:\n" + problem)
+			return
 	map_view.build(dusk, low_walls)
 	for view in actors:
 		view.queue_free()
@@ -93,6 +103,7 @@ func _start() -> void:
 		focus = actors[me].position
 	if walk_at.x >= 0:
 		dusk.walk_to(walk_at.x, walk_at.y, false)
+	dusk.speed = start_speed
 
 
 func _process(delta: float) -> void:
@@ -109,8 +120,9 @@ func _process(delta: float) -> void:
 		last_tick = tick
 		map_view.show_watched(dusk.watched())
 	_move_camera(delta)
+	map_view.update(focus)
 	_move_cursor()
-	hud.show_state(town_seed, tick, SPEEDS[speed_index], dusk.paused, caught)
+	hud.show_state(town_seed, tick, roundi(dusk.speed), dusk.paused, caught)
 	_maybe_take_picture(delta)
 
 
@@ -284,10 +296,14 @@ func _read_args() -> void:
 		var value := arg.get_slice("=", 1)
 		if arg.begins_with("--seed="):
 			town_seed = value.to_int()
+		elif arg == "--town":
+			use_town = true
 		elif arg.begins_with("--walk="):
 			walk_at = Vector2i(value.get_slice(",", 0).to_int(), value.get_slice(",", 1).to_int())
 		elif arg.begins_with("--zoom="):
 			zoom = value.to_float()
+		elif arg.begins_with("--speed="):
+			start_speed = value.to_float()
 		elif arg.begins_with("--shot="):
 			shot_path = value
 		elif arg.begins_with("--shot-after="):
