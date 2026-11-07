@@ -10,3 +10,9 @@ think_every = 5       # ticks between thoughts (staggered, so they don't all thi
 forget_after = 30.0   # seconds before it gives up on what it heard or saw
 wander = 0.1          # the chance it shuffles a step when it thinks, if it's after nothing
 path_budget = 400     # the most tiles it searches for a way: the dead aren't clever
+health = 30           # points: three or four blows of a cudgel
+down = 4.0            # seconds it stays down when knocked down
+# It leans in and reaches for 0.8 s (its tell), then strikes. Its hits wound rather than doing
+# damage of their own.
+attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
+wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }   # what a hit leaves

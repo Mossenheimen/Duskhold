@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
+use crate::body::{Body, Part, WoundKind};
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
@@ -47,6 +48,66 @@ pub struct Rules {
     /// clever: a way they can't find nearby, they don't find).
     pub path_budget: usize,
     pub dead_path_budget: usize,
+    pub combat: Combat,
+    pub endurance: Endurance,
+}
+
+/// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
+/// of `body::FULL`); its chance to land, out of 10,000; the harm it does, a range out of
+/// `body::FULL` health; and how far its noise carries, in tiles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Swing {
+    pub wind_up: u32,
+    pub recovery: u32,
+    pub endurance: i32,
+    pub hit: u32,
+    pub damage: (i32, i32),
+    pub noise: i32,
+}
+
+/// What a kind of wound costs: health at once, then ticks of bleeding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WoundRule {
+    pub damage: i32,
+    pub bleed: u32,
+}
+
+/// The fight's numbers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Combat {
+    pub character_health: i32,
+    /// The character's swing: a cudgel, until weapons come with items.
+    pub attack: Swing,
+    /// A shove does no harm (its damage is unused); it knocks back a tile.
+    pub shove: Swing,
+    /// Out of 10,000: the chance a shove knocks down what it pushes.
+    pub knock_down: u32,
+    /// Ticks a knocked-down creature stays down. A blow on one that's down always lands, for
+    /// double harm: Zomboid's stomp.
+    pub prone: u32,
+    /// Opening or shutting a door: ticks, and how far it's heard.
+    pub door_ticks: u32,
+    pub door_noise: i32,
+    pub shambler_health: i32,
+    /// A shambler's swing: it wounds rather than doing `damage`.
+    pub shambler_attack: Swing,
+    /// Out of 10,000, by `WoundKind::ALL`: what a shambler's hit leaves.
+    pub shambler_wounds: [u32; 3],
+    /// By `WoundKind::ALL`.
+    pub wounds: [WoundRule; 3],
+    /// Each bleeding wound costs `bleed_damage` health every `bleed_every` ticks.
+    pub bleed_every: u32,
+    pub bleed_damage: i32,
+}
+
+/// Endurance a tick, out of `body::FULL`: spent running, got back walking and standing still.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Endurance {
+    pub run: i32,
+    pub walk: i32,
+    pub rest: i32,
+    /// Exhausted until endurance is back up to this.
+    pub recover_at: i32,
 }
 
 impl Default for Rules {
@@ -78,6 +139,61 @@ impl Default for Rules {
             repath_after: 20,
             path_budget: 4096,
             dead_path_budget: 400,
+            combat: Combat {
+                character_health: 1000,
+                attack: Swing {
+                    wind_up: 4,
+                    recovery: 6,
+                    endurance: 90,
+                    hit: 8500,
+                    damage: (80, 120),
+                    noise: 4,
+                },
+                shove: Swing {
+                    wind_up: 2,
+                    recovery: 4,
+                    endurance: 60,
+                    hit: 10_000,
+                    damage: (0, 0),
+                    noise: 2,
+                },
+                knock_down: 4000,
+                prone: 40,
+                door_ticks: 5,
+                door_noise: 3,
+                shambler_health: 300,
+                shambler_attack: Swing {
+                    wind_up: 8,
+                    recovery: 8,
+                    endurance: 0,
+                    hit: 5000,
+                    damage: (0, 0),
+                    noise: 3,
+                },
+                shambler_wounds: [7000, 2500, 500],
+                wounds: [
+                    WoundRule {
+                        damage: 80,
+                        bleed: 0,
+                    },
+                    WoundRule {
+                        damage: 150,
+                        bleed: 200,
+                    },
+                    WoundRule {
+                        damage: 300,
+                        bleed: 400,
+                    },
+                ],
+                bleed_every: 20,
+                bleed_damage: 10,
+            },
+            endurance: Endurance {
+                run: 4,
+                walk: 3,
+                rest: 10,
+                recover_at: 300,
+            },
         }
     }
 }
@@ -96,19 +212,64 @@ impl Rules {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Event {
     /// A creature that wasn't after anything heard something at `at`.
-    Heard { who: ActorId, at: TilePos },
+    Heard {
+        who: ActorId,
+        at: TilePos,
+    },
     /// A creature that wasn't after anything saw `target`.
-    Saw { who: ActorId, target: ActorId },
+    Saw {
+        who: ActorId,
+        target: ActorId,
+    },
     /// A creature got next to `target`, close enough to step onto its tile.
-    Reached { who: ActorId, target: ActorId },
+    Reached {
+        who: ActorId,
+        target: ActorId,
+    },
     /// An actor asked to walk to `to` found no way there.
-    NoWay { who: ActorId, to: TilePos },
+    NoWay {
+        who: ActorId,
+        to: TilePos,
+    },
     /// A sound was made (footsteps, a shout), carrying `loudness` tiles in the open. The client
     /// draws it as a noise ring.
     Sound {
         at: TilePos,
         loudness: i32,
         by: Option<ActorId>,
+    },
+    /// `who`'s swing hit `target` for `damage` (out of `body::FULL` health). A creature's hit
+    /// leaves a wound.
+    Struck {
+        who: ActorId,
+        target: ActorId,
+        damage: i32,
+        wound: Option<(WoundKind, Part)>,
+    },
+    /// `who` swung or shoved at `at` and missed, or nobody was there.
+    Missed {
+        who: ActorId,
+        at: TilePos,
+    },
+    /// `who` shoved `target` back; `down`: it fell.
+    Shoved {
+        who: ActorId,
+        target: ActorId,
+        down: bool,
+    },
+    Died {
+        who: ActorId,
+    },
+    /// `who` opened (or shut) the door between `at` and the tile that way.
+    Door {
+        who: ActorId,
+        at: TilePos,
+        dir: Dir8,
+        open: bool,
+    },
+    /// `who` ran out of breath.
+    Exhausted {
+        who: ActorId,
     },
 }
 
@@ -127,12 +288,12 @@ pub struct World {
     pub tick: u64,
     pub rules: Rules,
     pub grid: Grid,
-    actors: Arena<Actor>,
-    characters: Vec<ActorId>,
+    pub(crate) actors: Arena<Actor>,
+    pub(crate) characters: Vec<ActorId>,
     /// Who's on each tile, or stepping onto it.
-    occupied: FastMap<TilePos, ActorId>,
+    pub(crate) occupied: FastMap<TilePos, ActorId>,
     sounds: Vec<Sound>,
-    events: Vec<Event>,
+    pub(crate) events: Vec<Event>,
 }
 
 impl World {
@@ -179,7 +340,12 @@ impl World {
         if !self.grid.tile(pos).walkable() || self.occupied.contains_key(&pos) {
             return None;
         }
-        let id = self.actors.insert(Actor::new(kind, pos));
+        let mut actor = Actor::new(kind, pos);
+        actor.body = Body::new(match kind {
+            ActorKind::Character => self.rules.combat.character_health,
+            ActorKind::Shambler => self.rules.combat.shambler_health,
+        });
+        let id = self.actors.insert(actor);
         self.occupied.insert(pos, id);
         if kind == ActorKind::Character {
             self.characters.push(id);
@@ -229,6 +395,9 @@ impl World {
         let Some(a) = self.actors.get(who) else {
             return false;
         };
+        if a.dead || a.prone_until > 0 {
+            return false; // the dead see nothing, and nor does one lying on its back
+        }
         let Some((range, cone)) = self.sight(a.kind) else {
             return false;
         };
@@ -244,7 +413,7 @@ impl World {
     }
 
     /// A sound made: heard by the creatures on this tick's hearing pass, and told to the client.
-    fn emit(&mut self, s: Sound) {
+    pub(crate) fn emit(&mut self, s: Sound) {
         self.sounds.push(s);
         self.events.push(Event::Sound {
             at: s.at,
@@ -284,6 +453,7 @@ impl World {
         let mut marks: FastMap<TilePos, char> = FastMap::default();
         for (_, a) in self.actors.iter() {
             let mark = match (a.kind, a.mind) {
+                _ if a.dead => 'x',
                 (ActorKind::Character, _) => '@',
                 (
                     ActorKind::Shambler,
@@ -330,40 +500,52 @@ impl World {
         out
     }
 
-    /// One tick, in a fixed order: movement, then hearing, then thinking (whose intents act on
-    /// the next tick). Only the actors where the world is awake take part.
+    /// One tick, in a fixed order: timed actions or else movement, then hearing, then thinking
+    /// (whose intents act on the next tick), then bodies. Only the living where the world is
+    /// awake take part.
     fn tick_once(&mut self) {
         self.tick += 1;
         let mut ids = self.actors.ids();
-        ids.retain(|&id| self.actors.get(id).is_some_and(|a| self.is_awake(a.pos)));
+        ids.retain(|&id| {
+            self.actors
+                .get(id)
+                .is_some_and(|a| !a.dead && self.is_awake(a.pos))
+        });
+        // Each mover's stride this tick (Some(running)), for what its body pays.
+        let mut strides = Vec::with_capacity(ids.len());
         for &id in &ids {
-            self.move_actor(id);
+            let stride = if self.act(id) {
+                None
+            } else {
+                self.move_actor(id)
+            };
+            strides.push((id, stride));
         }
         self.hear(&ids);
         for &id in &ids {
             self.think(id);
         }
+        self.bodies(&strides);
         self.sounds.clear();
     }
 
     /// Starts a step if the actor's intent asks for one, then moves it along. The tile ahead is
     /// taken as the step starts, so two actors never share a tile.
-    fn move_actor(&mut self, id: ActorId) {
+    fn move_actor(&mut self, id: ActorId) -> Option<bool> {
         let rules = self.rules;
-        let Some(a) = self.actors.get_mut(id) else {
-            return;
-        };
+        let a = self.actors.get_mut(id)?;
         if a.step.is_none() {
             let (dir, run) = match next_heading(a, &self.grid, &rules) {
-                Heading::Go(dir, run) => (dir, run),
+                // Out of breath, nobody runs.
+                Heading::Go(dir, run) => (dir, run && !a.body.exhausted),
                 Heading::Stand => {
                     a.carry = 0;
-                    return;
+                    return None;
                 }
                 Heading::NoWay(to) => {
                     a.carry = 0;
                     self.events.push(Event::NoWay { who: id, to });
-                    return;
+                    return None;
                 }
             };
             a.facing = dir;
@@ -371,7 +553,7 @@ impl World {
             if !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
                 a.blocked += 1;
                 a.carry = 0;
-                return;
+                return None;
             }
             a.blocked = 0;
             if matches!(a.intent, Intent::WalkTo { .. }) {
@@ -393,12 +575,12 @@ impl World {
             a.carry = 0;
             self.occupied.insert(to, id);
         }
-        let Some(mut step) = a.step else { return };
+        let mut step = a.step?;
         let speeds = rules.speeds(a.kind);
         step.progress += (if step.run { speeds.run } else { speeds.walk }) / TICKS_PER_SECOND;
         if step.progress < step.length {
             a.step = Some(step);
-            return;
+            return Some(step.run);
         }
         a.step = None;
         a.pos = step.to;
@@ -416,6 +598,7 @@ impl World {
                 by: Some(id),
             });
         }
+        Some(step.run)
     }
 
     /// Creatures hear this tick's sounds: each goes after the nearest one it heard.
@@ -469,6 +652,9 @@ impl World {
             return;
         }
         let Some(a) = self.actors.get(id) else { return };
+        if a.prone_until > 0 || a.dead {
+            return;
+        }
         let Mind::Shambler {
             mut target,
             mut since,
@@ -506,8 +692,11 @@ impl World {
             });
         }
         let intent = match (next_to, target) {
-            // Next to its prey: it stops there. (Grabs and bites come with combat, build step 5.)
-            (Some(_), _) => Intent::Idle,
+            // Next to its prey: it swings at it. (Grabs come next.)
+            (Some(_), Some(goal)) => Intent::Attack {
+                dir: Dir8::toward(goal.x - pos.x, goal.y - pos.y),
+            },
+            (Some(_), None) => Intent::Idle,
             // Got to where the noise was, and nothing's there.
             (None, Some(goal)) if goal == pos => {
                 target = None;
@@ -585,7 +774,7 @@ impl World {
 
     /// Could an actor at `from` step onto `to`'s tile: next to it, with no wall or corner in the
     /// way? (Whoever stands there doesn't count.)
-    fn can_reach(&self, from: TilePos, to: TilePos) -> bool {
+    pub(crate) fn can_reach(&self, from: TilePos, to: TilePos) -> bool {
         from.steps_to(to) == 1
             && Dir8::toward(to.x - from.x, to.y - from.y)
                 .is_some_and(|d| self.grid.can_step(from, d))
@@ -610,7 +799,7 @@ impl World {
         let from = self.actors.get(who)?.pos;
         let mut best: Option<(i64, ActorId, TilePos)> = None;
         for &id in &self.characters {
-            let Some(c) = self.actors.get(id) else {
+            let Some(c) = self.actors.get(id).filter(|c| !c.dead) else {
                 continue;
             };
             let d2 = from.dist2(c.pos);
@@ -637,7 +826,10 @@ enum Heading {
 /// the goal changed, when the next tile isn't next to it any more, or after waiting too long.
 fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
     match a.intent {
-        Intent::Idle => Heading::Stand,
+        // An action waits for the step under way to end; meanwhile the legs stand.
+        Intent::Idle | Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door => {
+            Heading::Stand
+        }
         Intent::Move { dir, run } => Heading::Go(dir, run),
         Intent::WalkTo { to, run } => {
             if a.pos == to {

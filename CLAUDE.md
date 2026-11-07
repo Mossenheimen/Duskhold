@@ -4,7 +4,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 
 - `CONCEPT.md`: what the game is. Decisions go in its "Decided" section.
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
-- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads).
+- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `body.rs` health, endurance and wounds.
 - `crates/dusk-data/`: loads and checks `data/` (serde + toml), turning a designer's units into the core's.
 - `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, hamlet lots), then every tile as a pure function, then the dead.
 - `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
@@ -14,7 +14,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
   - `main.gd`: input, the camera and the loop;
   - `map_view.gd`: streams chunks round the camera and draws the sight-cone overlay;
   - `chunk_view.gd`: one chunk's ground, trees, furniture and walls;
-  - `actor_view.gd`, `noise_rings.gd`, `hud.gd`;
+  - `actor_view.gd` (poses: the lean of a wind-up, lying down, dead), `tells.gd` (a swing's tell on the ground), `noise_rings.gd`, `hud.gd` (body panel, news, death screen);
   - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture.
 - `play.cmd`: builds the extension and starts the game.
 - `research/`: what's behind the decisions.
@@ -27,7 +27,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 .\play.cmd                                 # build the extension and play (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
 .\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --shot=PNG --shot-after=S
-cargo test --workspace                     # 32 tests, a few seconds
+cargo test --workspace                     # 39 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, and a map (--text X,Y,W,H, --ticks N)

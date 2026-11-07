@@ -1,6 +1,7 @@
 extends Node3D
 ## One actor, the character or a shambler. It faces the way the core says, and a mark over its
-## head says what it knows of you: "?" it heard something, "!" it sees you.
+## head says what it knows of you: "?" it heard something, "!" it sees you. It leans in as it
+## winds up a swing (the tell), lies down when knocked down, and stays down, darker, when dead.
 
 const CHARACTER := Color(0.75, 0.32, 0.2)
 const SHAMBLER := Color(0.56, 0.6, 0.5)
@@ -8,6 +9,12 @@ const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
 
 var _turn := 0.0
+var _body: Node3D  # pivots at the feet
+var _skin: StandardMaterial3D
+var _colour := Color.WHITE
+var _stoop := 0.0  # how far forward it stands, in degrees
+var _pitch := 0.0
+var _state := 0
 var _mark: Label3D
 var _alert := 0
 var _pop := 0.0
@@ -17,17 +24,21 @@ var _pop := 0.0
 func setup(kind: int) -> void:
 	var colour := CHARACTER if kind == 0 else SHAMBLER
 	var tall := 1.55 if kind == 0 else 1.45
-	var body := Node3D.new()  # pivots at the feet
-	if kind == 1:
-		body.rotation_degrees.x = -14.0  # the dead stoop
-	add_child(body)
+	_colour = colour
+	_body = Node3D.new()
+	_stoop = -14.0 if kind == 1 else 0.0  # the dead stoop
+	_body.rotation_degrees.x = _stoop
+	_pitch = _stoop
+	add_child(_body)
+	var body := _body
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.22
 	capsule.height = tall
 	var torso := MeshInstance3D.new()
 	torso.mesh = capsule
 	torso.position.y = tall / 2.0
-	torso.material_override = _material(colour)
+	_skin = _material(colour)
+	torso.material_override = _skin
 	body.add_child(torso)
 	# A nose, to show which way it faces (forward is -z).
 	var box := BoxMesh.new()
@@ -71,3 +82,19 @@ func _material(colour: Color) -> StandardMaterial3D:
 	material.albedo_color = colour
 	material.roughness = 0.8
 	return material
+
+
+## Its state (0 standing, 1 knocked down, 2 dead, from DuskWorld.actor_states()) and how far
+## through a swing's wind-up it is (0 to 1; -1 when it isn't winding one up).
+func show_pose(state: int, wind_up: float, delta: float) -> void:
+	if state != _state:
+		_state = state
+		_skin.albedo_color = _colour.darkened(0.55) if state == 2 else _colour
+		_mark.visible = state == 0
+	var target := _stoop
+	if state != 0:
+		target = -88.0  # flat on the ground
+	elif wind_up >= 0.0:
+		target = _stoop - 22.0 * wind_up  # leaning in to strike
+	_pitch = lerpf(_pitch, target, 1.0 - exp(-16.0 * delta)) if delta > 0.0 else target
+	_body.rotation_degrees.x = _pitch

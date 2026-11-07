@@ -538,7 +538,39 @@ Game first: every step ends with something to look at or play.
      The PNG writer needs no dependencies (stored deflate blocks).
    - **Measured:** a tick of the whole patch (86 dead, 49 chunks awake, you standing still) takes 1.5 µs: 688,000 ticks/s. The 96 × 96 bench is unchanged: 178,000 ticks/s with 100 dead.
    - **Moved to step 5** (Default): containers and loot, since they need items, and the inventory comes at step 5. Doors are open in the prefabs until opening and shutting them comes, also at step 5.
-5. **Survival rules:**
+5. **Survival rules,** in slices, each playable:
+   - **Slice 1, fight or flee:** done 2026-11-06; 39 tests pass. What it has:
+     - **the one rule for timed actions** (`dusk-core/src/combat.rs`):
+       - an action starts between steps, faces its way and pays its endurance;
+       - it winds up (the tell), takes effect on its strike tick, then recovers;
+       - nobody moves while acting, and a blow during the wind-up breaks it off;
+       - exhausted, wind-ups and recoveries take half as long again;
+     - **endurance** (`body.rs`): running spends it, walking and standing still give it back. Empty, you're exhausted until it's back to 30: no running, and your blows do half harm. The body pays for the stride actually taken each tick; a test caught running that never tired you, because the tick a step ends counted as rest;
+     - **a body:**
+       - health out of 100, and wounds on ten parts (Zomboid's panel), each with its own odds of being hit;
+       - scratches, lacerations and bites, with damage at once and then bleeding;
+       - death at 0. Corpses stay where they fell, and nobody has to walk round them;
+     - **your verbs:**
+       - swing (aimed at the nearest of the dead you can reach, else ahead; a cudgel's numbers until weapons come with items);
+       - shove (back a tile, breaks off what it was doing, 40% down; one that's down takes every blow, at double harm, Zomboid's stomp);
+       - open or shut a door (0.5 s; it won't shut on someone stepping through, and the dead can't open one);
+     - **the dead fight back:** beside their prey, they swing. A 0.8 s wind-up, then a 50% hit that leaves a scratch (70%), a laceration (25%) or a bite (5%). The dead and the downed see nothing;
+     - **every number is in the data** (`rules.toml`: `[endurance]`, `[attack]`, `[shove]`, `[door]`, `[wounds]`; the shambler's `health`, `down`, `attack`, `wounds`), converted and checked by `dusk-data`;
+     - **the client:**
+       - F swing, Q shove, E door, and a click on one of the dead beside you swings at it;
+       - every wind-up draws its tell: the tile it'll land on fills in, and a shambler's body leans in;
+       - the knocked-down and the dead lie flat (the dead darker);
+       - health and endurance bars, the wounds list and the news;
+       - the death screen: "This is how you died.";
+     - **measured:**
+       - the 96 × 96 bench with 100 dead runs at 99,000 ticks/s (was 178,000): swings are sounds, and a crowd round you fills every listener's ear;
+       - 500 dead: 17,000;
+       - the whole patch: 404,000;
+   - **next slices:**
+     - grabs with a way out, and doors the dead thump down;
+     - items, the inventory and containers (bandages stop bleeding);
+     - needs and moodles;
+     - day and night, light and the field of view;
    - bodies and wounds, moodles, needs;
    - items and the inventory window; containers that fill from the seed the first time they're opened, by loot table (moved here from step 4);
    - the one rule for timed actions;

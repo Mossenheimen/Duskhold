@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use dusk_core::actor::Speeds;
 use dusk_core::senses::{Cone, Muffling};
 use dusk_core::text::TextGrid;
-use dusk_core::world::{Rules, TICKS_PER_SECOND};
+use dusk_core::world::{Combat, Endurance, Rules, Swing, TICKS_PER_SECOND, WoundRule};
 use dusk_core::{Edge, Ground, Tile};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -254,6 +254,112 @@ struct RulesFile {
     world: WorldFile,
     sound: SoundFile,
     character: CharacterFile,
+    endurance: EnduranceFile,
+    attack: SwingFile,
+    shove: SwingFile,
+    door: DoorFile,
+    wounds: WoundsFile,
+}
+
+/// Points out of 100 (health and endurance), as the core's thousandths.
+fn points(p: f64) -> i32 {
+    (p * 10.0).round() as i32
+}
+
+/// A chance from 0 to 1, out of 10,000.
+fn chance(file: &Path, what: &str, p: f64) -> Result<u32, DataError> {
+    if !(0.0..=1.0).contains(&p) {
+        return Err(fail(file, format!("{what} is a chance, from 0 to 1")));
+    }
+    Ok((p * 10_000.0).round() as u32)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EnduranceFile {
+    run: f64,
+    walk: f64,
+    rest: f64,
+    recover_at: f64,
+}
+
+/// A swing or shove: seconds of wind-up and recovery, endurance (points), the chance it lands,
+/// its damage (points of health, a range), and its noise (tiles). A shove has a knock-down
+/// chance and no damage; a creature's swing wounds rather than doing damage.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SwingFile {
+    wind_up: f64,
+    recovery: f64,
+    #[serde(default)]
+    endurance: f64,
+    #[serde(default = "always")]
+    hit: f64,
+    #[serde(default)]
+    damage: (f64, f64),
+    noise: i32,
+    #[serde(default)]
+    knock_down: f64,
+}
+
+fn always() -> f64 {
+    1.0
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DoorFile {
+    time: f64,
+    noise: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WoundFile {
+    damage: f64,
+    bleed: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WoundsFile {
+    scratch: WoundFile,
+    laceration: WoundFile,
+    bite: WoundFile,
+    /// Health a second that each bleeding wound costs.
+    bleeding: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WoundOddsFile {
+    scratch: f64,
+    laceration: f64,
+    bite: f64,
+}
+
+impl SwingFile {
+    fn to_swing(&self, file: &Path, what: &str) -> Result<Swing, DataError> {
+        let t = |s: f64, part: &str| ticks(file, &format!("{what}.{part}"), s);
+        let wind_up = t(self.wind_up, "wind_up")?;
+        if wind_up == 0 || self.damage.0 > self.damage.1 || self.noise < 0 || self.endurance < 0.0 {
+            return Err(fail(
+                file,
+                format!(
+                    "{what}: the wind-up must be at least a tick (0.1 s), damage [least, most], \
+                     and noise and endurance 0 or more"
+                ),
+            ));
+        }
+        Ok(Swing {
+            wind_up: wind_up as u32,
+            recovery: t(self.recovery, "recovery")? as u32,
+            endurance: points(self.endurance),
+            hit: chance(file, &format!("{what}.hit"), self.hit)?,
+            damage: (points(self.damage.0), points(self.damage.1)),
+            noise: self.noise,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -279,6 +385,7 @@ struct CharacterFile {
     walk_noise: i32,
     run_noise: i32,
     path_budget: usize,
+    health: f64,
 }
 
 #[derive(Deserialize)]
@@ -299,6 +406,11 @@ struct CreatureFile {
     forget_after: f64,
     wander: f64,
     path_budget: usize,
+    health: f64,
+    /// Seconds it stays down when knocked down.
+    down: f64,
+    attack: SwingFile,
+    wounds: WoundOddsFile,
 }
 
 #[derive(Deserialize)]
@@ -470,6 +582,71 @@ fn to_rules(
     rules.forget_after = ticks(cfile, "forget_after", c.forget_after)?;
     rules.wander_chance = (c.wander * 10_000.0).round() as u32;
     rules.dead_path_budget = c.path_budget;
+
+    // The fight, and what it costs.
+    let tick_rate = f64::from(TICKS_PER_SECOND);
+    let per_tick = |p: f64| (p * 10.0 / tick_rate).round() as i32;
+    let en = &r.endurance;
+    if en.run < 0.0 || en.walk < 0.0 || en.rest < 0.0 || !(0.0..=100.0).contains(&en.recover_at) {
+        return Err(fail(
+            file,
+            "endurance: rates can't be negative, and recover_at is out of 100",
+        ));
+    }
+    rules.endurance = Endurance {
+        run: per_tick(en.run),
+        walk: per_tick(en.walk),
+        rest: per_tick(en.rest),
+        recover_at: points(en.recover_at),
+    };
+    let wound = |w: &WoundFile, what: &str| -> Result<WoundRule, DataError> {
+        if w.damage < 0.0 {
+            return Err(fail(
+                file,
+                format!("wounds.{what}: damage can't be negative"),
+            ));
+        }
+        Ok(WoundRule {
+            damage: points(w.damage),
+            bleed: ticks(file, &format!("wounds.{what}.bleed"), w.bleed)? as u32,
+        })
+    };
+    let w = &r.wounds;
+    let odds = &c.wounds;
+    let shambler_wounds = [
+        chance(cfile, "wounds.scratch", odds.scratch)?,
+        chance(cfile, "wounds.laceration", odds.laceration)?,
+        chance(cfile, "wounds.bite", odds.bite)?,
+    ];
+    if shambler_wounds.iter().sum::<u32>() != 10_000 {
+        return Err(fail(cfile, "wounds: the three chances must add up to 1"));
+    }
+    if r.character.health <= 0.0 || c.health <= 0.0 || w.bleeding < 0.0 || r.door.noise < 0 {
+        return Err(fail(
+            file,
+            "health must be above 0; bleeding and the door's noise can't be negative",
+        ));
+    }
+    // Bleeding is paid once a second.
+    rules.combat = Combat {
+        character_health: points(r.character.health),
+        attack: r.attack.to_swing(file, "attack")?,
+        shove: r.shove.to_swing(file, "shove")?,
+        knock_down: chance(file, "shove.knock_down", r.shove.knock_down)?,
+        prone: ticks(cfile, "down", c.down)? as u32,
+        door_ticks: (ticks(file, "door.time", r.door.time)? as u32).max(1),
+        door_noise: r.door.noise,
+        shambler_health: points(c.health),
+        shambler_attack: c.attack.to_swing(cfile, "attack")?,
+        shambler_wounds,
+        wounds: [
+            wound(&w.scratch, "scratch")?,
+            wound(&w.laceration, "laceration")?,
+            wound(&w.bite, "bite")?,
+        ],
+        bleed_every: TICKS_PER_SECOND,
+        bleed_damage: points(w.bleeding),
+    };
     Ok(rules)
 }
 

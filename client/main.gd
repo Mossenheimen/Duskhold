@@ -14,6 +14,7 @@ const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
 const NoiseRings = preload("res://noise_rings.gd")
 const Hud = preload("res://hud.gd")
+const Tells = preload("res://tells.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -29,10 +30,19 @@ const HEARD := 1
 const SAW := 2
 const REACHED := 3
 const NO_WAY := 4
+const STRUCK := 5
+const MISSED := 6
+const SHOVED := 7
+const DIED := 8
+const DOOR := 9
+const EXHAUSTED := 10
+## Numbers an event takes.
+const EVENT_SIZE := 6
 
 var dusk: Node  # the DuskWorld
 var map_view: MapView
 var rings: NoiseRings
+var tells: Tells
 var hud: Hud
 var camera: Camera3D
 var cursor: MeshInstance3D
@@ -42,7 +52,10 @@ var town_seed := 1
 var speed_index := 0
 var zoom := 14.0
 var focus := Vector3.ZERO  # where the camera looks: the character, smoothed
-var caught := 0
+var wound_names := PackedStringArray()
+var part_names := PackedStringArray()
+var last_hurt := ""  # what last hurt you, for the death screen
+var dead := false
 var low_walls := false
 var last_tick := -1
 var use_town := false
@@ -71,6 +84,8 @@ func _ready() -> void:
 	add_child(map_view)
 	rings = NoiseRings.new()
 	add_child(rings)
+	tells = Tells.new()
+	add_child(tells)
 	_start()
 
 
@@ -96,7 +111,10 @@ func _start() -> void:
 	me = dusk.character_index()
 	rings.clear()
 	hud.reset()
-	caught = 0
+	wound_names = dusk.wound_names()
+	part_names = dusk.part_names()
+	last_hurt = ""
+	dead = false
 	last_tick = -1
 	_draw_actors(0.0)
 	if me >= 0:
@@ -122,7 +140,8 @@ func _process(delta: float) -> void:
 	_move_camera(delta)
 	map_view.update(focus)
 	_move_cursor()
-	hud.show_state(town_seed, tick, roundi(dusk.speed), dusk.paused, caught)
+	hud.show_state(town_seed, tick, roundi(dusk.speed), dusk.paused)
+	hud.show_body(dusk.character_body(), dusk.character_wounds())
 	_maybe_take_picture(delta)
 
 
@@ -135,12 +154,24 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mouse and mouse.pressed:
 		match mouse.button_index:
 			MOUSE_BUTTON_LEFT:
+				if dead:
+					return
 				var tile := _tile_under(mouse.position)
-				dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
+				var aim := _foe_beside(tile)
+				if aim != Vector2i.ZERO:
+					dusk.attack(aim.x, aim.y)
+				else:
+					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
 			MOUSE_BUTTON_WHEEL_UP:
 				zoom = maxf(ZOOM_MIN, zoom / 1.15)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				zoom = minf(ZOOM_MAX, zoom * 1.15)
+	elif event.is_action_pressed("swing") and not dead:
+		dusk.attack(0, 0)
+	elif event.is_action_pressed("shove") and not dead:
+		dusk.shove(0, 0)
+	elif event.is_action_pressed("door") and not dead:
+		dusk.use_door()
 	elif event.is_action_pressed("pause"):
 		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
@@ -157,8 +188,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		_start()
 
 
+## Which way to swing for a click on `tile`: toward it if one of the living dead stands there
+## beside you, else (0, 0), meaning "not a swing". Whether the blow can land is the core's call.
+func _foe_beside(tile: Vector2i) -> Vector2i:
+	if me < 0:
+		return Vector2i.ZERO
+	var where: PackedVector2Array = dusk.actor_positions()
+	var kinds: PackedInt32Array = dusk.actor_kinds()
+	var states: PackedInt32Array = dusk.actor_states()
+	var mine := Vector2i(roundi(where[me].x), roundi(where[me].y))
+	var aim := tile - mine
+	if aim == Vector2i.ZERO or absi(aim.x) > 1 or absi(aim.y) > 1:
+		return Vector2i.ZERO
+	for i in kinds.size():
+		if kinds[i] == 1 and states[i] != 2 and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
+			return aim
+	return Vector2i.ZERO
+
+
 ## WASD, as a heading on screen. The core turns it into a heading on the map.
 func _steer() -> void:
+	if dead:
+		return
 	var right := int(Input.is_action_pressed("walk_right")) - int(Input.is_action_pressed("walk_left"))
 	var up := int(Input.is_action_pressed("walk_up")) - int(Input.is_action_pressed("walk_down"))
 	dusk.steer(right, up, Input.is_action_pressed("run"))
@@ -174,29 +225,78 @@ func _draw_actors(delta: float) -> void:
 	var where: PackedVector2Array = dusk.actor_positions()
 	var facing: PackedInt32Array = dusk.actor_facing()
 	var alert: PackedInt32Array = dusk.actor_alert()
+	var states: PackedInt32Array = dusk.actor_states()
+	var actions: PackedInt32Array = dusk.actor_actions()
 	for i in actors.size():
 		actors[i].position = Vector3(where[i].x + 0.5, 0.0, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
+		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
+		var swinging := actions[i * 4] == 1 and actions[i * 4 + 1] < 1000
+		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
+	tells.show_actions(actions, me)
 	if me >= 0:
 		map_view.set_focus(actors[me].position + Vector3(0.0, 0.9, 0.0))
 
 
 func _read_events() -> void:
 	var events: PackedInt32Array = dusk.take_events()
-	for i in range(0, events.size(), 4):
+	for i in range(0, events.size(), EVENT_SIZE):
+		var who := events[i + 1]
+		var target := events[i + 2]
+		var extra := events[i + 5]
 		match events[i]:
 			HEARD:
 				hud.say("A shambler heard something.")
 			SAW:
 				hud.say("A shambler saw you!")
-			REACHED:
-				caught += 1
-				hud.say("A shambler got you.")
-				hud.flash()
 			NO_WAY:
-				if events[i + 1] == me:
+				if who == me:
 					hud.say("There's no way there.")
+			STRUCK:
+				if target == me and extra > 0:
+					var wound := wound_names[floori(extra / 100.0) - 1]
+					var part := part_names[extra % 100]
+					last_hurt = "A shambler gave you a %s on the %s." % [wound, part]
+					hud.say(last_hurt)
+					hud.flash()
+				elif who == me:
+					hud.say("You hit it.")
+			MISSED:
+				if who == me:
+					hud.say("You missed.")
+				elif target == me or _beside(who):
+					hud.say("A shambler reached for you and missed.")
+			SHOVED:
+				if who == me:
+					hud.say("You shoved it down." if extra == 1 else "You shoved it back.")
+			DIED:
+				if who == me:
+					_die()
+				else:
+					hud.say("It's down for good.")
+			DOOR:
+				if who == me:
+					hud.say("You opened the door." if extra == 1 else "You shut the door.")
+			EXHAUSTED:
+				if who == me:
+					hud.say("You're out of breath.")
+
+
+## Whether actor `i` stands beside you.
+func _beside(i: int) -> bool:
+	if me < 0 or i < 0:
+		return false
+	var where: PackedVector2Array = dusk.actor_positions()
+	return (where[i] - where[me]).length() < 1.6
+
+
+func _die() -> void:
+	dead = true
+	var how := last_hurt
+	if dusk.character_body()[4] > 0 or how.is_empty():
+		how = "You bled to death." if not how.is_empty() else "You died."
+	hud.show_death(how, dusk.tick() / 10.0)
 
 
 func _move_camera(delta: float) -> void:
@@ -277,6 +377,9 @@ func _add_input_actions() -> void:
 		"speed_1": [KEY_1],
 		"speed_2": [KEY_2],
 		"speed_3": [KEY_3],
+		"swing": [KEY_F],
+		"shove": [KEY_Q],
+		"door": [KEY_E],
 		"low_walls": [KEY_V],
 		"restart": [KEY_R],
 		"quit": [KEY_ESCAPE],

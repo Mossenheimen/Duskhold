@@ -19,6 +19,33 @@ run = 3.25
 walk_noise = 3
 run_noise = 8
 path_budget = 1000
+health = 100
+[endurance]
+run = 4.0
+walk = 3.0
+rest = 10.0
+recover_at = 30
+[attack]
+wind_up = 0.4
+recovery = 0.6
+endurance = 9
+hit = 0.85
+damage = [8, 12]
+noise = 4
+[shove]
+wind_up = 0.2
+recovery = 0.4
+endurance = 6
+knock_down = 0.4
+noise = 2
+[door]
+time = 0.5
+noise = 3
+[wounds]
+scratch = { damage = 8, bleed = 0.0 }
+laceration = { damage = 15, bleed = 20.0 }
+bite = { damage = 30, bleed = 40.0 }
+bleeding = 0.5
 "#;
 
 const SHAMBLER: &str = r#"
@@ -32,6 +59,10 @@ think_every = 5
 forget_after = 30.0
 wander = 0.1
 path_budget = 400
+health = 30
+down = 4.0
+attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
+wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }
 "#;
 
 const FIXTURES: &str = r#"
@@ -163,4 +194,36 @@ fn a_door_onto_furniture_is_refused() {
     let blocked = PREFABS.replace("|b .|\n+-+d+", "|. b|\n+-+d+");
     let err = load(&folder("blocked", &test_files(&blocked))).unwrap_err();
     assert!(err.message.contains("opens onto something solid"), "{err}");
+}
+
+#[test]
+fn the_fights_numbers_become_the_cores() {
+    let data = load(&folder("fight", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let (c, e) = (data.rules.combat, data.rules.endurance);
+    assert_eq!(c.character_health, 1000, "100 points");
+    assert_eq!(
+        (c.attack.wind_up, c.attack.recovery),
+        (4, 6),
+        "seconds in ticks"
+    );
+    assert_eq!((c.attack.damage, c.attack.hit), ((80, 120), 8500));
+    assert_eq!(c.knock_down, 4000);
+    assert_eq!(
+        (c.shambler_health, c.prone, c.shambler_attack.wind_up),
+        (300, 40, 8)
+    );
+    assert_eq!(c.shambler_wounds, [7000, 2500, 500]);
+    assert_eq!((c.wounds[1].damage, c.wounds[1].bleed), (150, 200));
+    assert_eq!(
+        (c.bleed_every, c.bleed_damage),
+        (10, 5),
+        "half a point a second"
+    );
+    assert_eq!((e.run, e.walk, e.rest, e.recover_at), (4, 3, 10, 300));
+
+    let lopsided = SHAMBLER.replace("bite = 0.05", "bite = 0.5");
+    let mut files = test_files(PREFABS);
+    files[1].1 = &lopsided;
+    let err = load(&folder("odds", &files)).unwrap_err();
+    assert!(err.message.contains("add up to 1"), "{err}");
 }

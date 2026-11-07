@@ -291,6 +291,35 @@ fn describe(w: &World, e: Event) -> String {
         Event::Sound { at, loudness, .. } => {
             format!("a noise at ({}, {}), carrying {loudness} tiles", at.x, at.y)
         }
+        Event::Struck {
+            who,
+            target,
+            damage,
+            wound,
+        } => match wound {
+            Some((kind, part)) => format!(
+                "{} gave {} a {} on the {}",
+                name(who),
+                name(target),
+                kind.name(),
+                part.name()
+            ),
+            None => format!("{} hit {} ({damage})", name(who), name(target)),
+        },
+        Event::Missed { who, .. } => format!("{} missed", name(who)),
+        Event::Shoved { who, target, down } => format!(
+            "{} shoved {}{}",
+            name(who),
+            name(target),
+            if down { " down" } else { "" }
+        ),
+        Event::Died { who } => format!("{} died", name(who)),
+        Event::Door { who, open, .. } => format!(
+            "{} {} a door",
+            name(who),
+            if open { "opened" } else { "shut" }
+        ),
+        Event::Exhausted { who } => format!("{} ran out of breath", name(who)),
     }
 }
 

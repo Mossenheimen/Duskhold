@@ -44,6 +44,11 @@ pub enum Purpose {
     WanderDir = 2,
     Map = 3,
     Place = 4,
+    Hit = 5,
+    Damage = 6,
+    Wound = 7,
+    Part = 8,
+    KnockDown = 9,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

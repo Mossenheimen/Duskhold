@@ -18,3 +18,41 @@ run = 3.0
 walk_noise = 3        # how far footsteps carry, in tiles
 run_noise = 8
 path_budget = 4096    # the most tiles one search for a way looks at
+health = 100          # points
+
+[endurance]
+# A bar of 100 points that pays for everything active. Empty, you're out of breath: no running,
+# and slow, weak swings, until it's back to recover_at.
+run = 4.0             # spent a second running
+walk = 3.0            # got back a second walking
+rest = 10.0           # got back a second standing still
+recover_at = 30
+
+[attack]
+# Your swing: a cudgel, until weapons come with items. The wind-up is the tell the dead see.
+wind_up = 0.4         # seconds
+recovery = 0.6
+endurance = 9
+hit = 0.85            # the chance it lands (on one that's down, it always does)
+damage = [8, 12]      # health, out of a shambler's 30; double on one that's down
+noise = 4             # tiles
+
+[shove]
+# No harm: it pushes back a tile, breaks off what they were doing, and sometimes knocks down.
+wind_up = 0.2
+recovery = 0.4
+endurance = 6
+knock_down = 0.4      # the chance it knocks down what it pushes
+noise = 2
+
+[door]
+time = 0.5            # seconds to open or shut one
+noise = 3
+
+[wounds]
+# What each kind of wound costs: health at once, then seconds of bleeding (bandages come with
+# items).
+scratch = { damage = 8, bleed = 0.0 }
+laceration = { damage = 15, bleed = 20.0 }
+bite = { damage = 30, bleed = 40.0 }
+bleeding = 0.5        # health a second for each wound that's bleeding

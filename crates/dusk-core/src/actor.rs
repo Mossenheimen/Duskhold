@@ -1,5 +1,6 @@
 //! Actors (the character, NPCs, creatures) and what their controllers ask of them.
 
+use crate::body::Body;
 use crate::geom::{Dir8, TilePos};
 
 pub type ActorId = crate::arena::Id;
@@ -19,6 +20,52 @@ pub enum Intent {
     Move { dir: Dir8, run: bool },
     /// Walk (or run) to a tile, finding the way there.
     WalkTo { to: TilePos, run: bool },
+    /// Swing at whatever is that way; None: the nearest enemy beside you, else straight ahead.
+    /// One swing: the intent goes back to idle once it starts.
+    Attack { dir: Option<Dir8> },
+    /// Shove that way (None as for `Attack`): it knocks back, and sometimes down.
+    Shove { dir: Option<Dir8> },
+    /// Open or shut the door beside you: the one you face, else the first of north, east,
+    /// south and west.
+    Door,
+}
+
+impl Intent {
+    /// Whether it asks for a timed action rather than for the legs.
+    pub fn is_action(self) -> bool {
+        matches!(
+            self,
+            Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door
+        )
+    }
+}
+
+/// The timed actions (`ARCHITECTURE.md`, one rule for every timed action).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ActionKind {
+    Attack,
+    Shove,
+    Door,
+}
+
+/// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
+/// then a recovery until `length`. Nobody moves while acting, and a hit during the wind-up
+/// breaks it off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Action {
+    pub kind: ActionKind,
+    pub dir: Dir8,
+    /// Ticks since it began.
+    pub elapsed: u32,
+    pub strike: u32,
+    pub length: u32,
+}
+
+impl Action {
+    /// Still winding up: it hasn't taken effect yet.
+    pub fn winding_up(&self) -> bool {
+        self.elapsed < self.strike
+    }
 }
 
 /// A step under way from one tile to the next. `progress` and `length` are in thousandths of a
@@ -86,6 +133,12 @@ pub struct Actor {
     /// Progress left over from the last step, carried into the next, so speeds come out exact.
     pub carry: u32,
     pub mind: Mind,
+    pub action: Option<Action>,
+    pub body: Body,
+    /// Knocked down until this tick (0: standing).
+    pub prone_until: u64,
+    /// A corpse: it stays where it fell and takes no part in the tick.
+    pub dead: bool,
 }
 
 impl Actor {
@@ -111,6 +164,10 @@ impl Actor {
             blocked: 0,
             carry: 0,
             mind,
+            action: None,
+            body: Body::new(crate::body::FULL),
+            prone_until: 0,
+            dead: false,
         }
     }
 
@@ -131,6 +188,9 @@ impl Actor {
 
     /// What the actor knows of its prey (a creature's; the character is always `Unaware`).
     pub fn alert(&self) -> Alert {
+        if self.dead {
+            return Alert::Unaware;
+        }
         match self.mind {
             Mind::Shambler { sees: true, .. } => Alert::Hunting,
             Mind::Shambler {

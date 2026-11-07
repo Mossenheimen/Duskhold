@@ -18,7 +18,8 @@
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, TilePos, World, demo,
+    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Part,
+    TilePos, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -41,6 +42,15 @@ const HEARD: i32 = 1;
 const SAW: i32 = 2;
 const REACHED: i32 = 3;
 const NO_WAY: i32 = 4;
+const STRUCK: i32 = 5;
+const MISSED: i32 = 6;
+const SHOVED: i32 = 7;
+const DIED: i32 = 8;
+const DOOR: i32 = 9;
+const EXHAUSTED: i32 = 10;
+
+/// Numbers an event takes in `take_events`.
+const EVENT_SIZE: usize = 6;
 
 #[derive(GodotClass)]
 #[class(init, base=Node)]
@@ -62,7 +72,7 @@ pub struct DuskWorld {
     after: Vec<(f32, f32)>,
     /// Noises made since GDScript last took them: x, y, and how far each carries.
     noises: Vec<Vector3>,
-    /// What happened since GDScript last asked, four numbers an event (see `take_events`).
+    /// What happened since GDScript last asked, six numbers an event (see `take_events`).
     events: Vec<i32>,
     /// Per tile, row by row: the most alert creature that can see it (see `watched`).
     watched: Vec<u8>,
@@ -91,16 +101,33 @@ fn alert_level(alert: Alert) -> u8 {
 }
 
 /// An event as (kind, who, x, y), or None for the ones GDScript gets another way (sounds).
-fn event_row(world: &World, e: Event) -> Option<[i32; 4]> {
+fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
     let at = |id: ActorId| world.actor(id).map_or((-1, -1), |a| (a.pos.x, a.pos.y));
-    let (kind, who, (x, y)) = match e {
-        Event::Heard { who, at: p } => (HEARD, who, (p.x, p.y)),
-        Event::Saw { who, target } => (SAW, who, at(target)),
-        Event::Reached { who, target } => (REACHED, who, at(target)),
-        Event::NoWay { who, to } => (NO_WAY, who, (to.x, to.y)),
+    let index = |id: ActorId| index_of(world, id);
+    // (kind, who, target, x, y, extra)
+    let (kind, who, target, (x, y), extra) = match e {
+        Event::Heard { who, at: p } => (HEARD, who, None, (p.x, p.y), 0),
+        Event::Saw { who, target } => (SAW, who, Some(target), at(target), 0),
+        Event::Reached { who, target } => (REACHED, who, Some(target), at(target), 0),
+        Event::NoWay { who, to } => (NO_WAY, who, None, (to.x, to.y), 0),
+        Event::Struck {
+            who, target, wound, ..
+        } => {
+            let extra = wound.map_or(0, |(kind, part)| (kind as i32 + 1) * 100 + part as i32);
+            (STRUCK, who, Some(target), at(target), extra)
+        }
+        Event::Missed { who, at: p } => (MISSED, who, None, (p.x, p.y), 0),
+        Event::Shoved { who, target, down } => {
+            (SHOVED, who, Some(target), at(target), i32::from(down))
+        }
+        Event::Died { who } => (DIED, who, None, at(who), 0),
+        Event::Door {
+            who, at: p, open, ..
+        } => (DOOR, who, None, (p.x, p.y), i32::from(open)),
+        Event::Exhausted { who } => (EXHAUSTED, who, None, at(who), 0),
         Event::Sound { .. } => return None,
     };
-    Some([kind, index_of(world, who), x, y])
+    Some([kind, index(who), target.map_or(-1, index), x, y, extra])
 }
 
 /// Which tiles the creatures near the character can see, by the same rule they hunt by
@@ -195,6 +222,18 @@ impl INode for DuskWorld {
 }
 
 impl DuskWorld {
+    /// Asks the character for a timed action, unless it's dead.
+    fn act(&mut self, intent: Intent) {
+        let Some(world) = self.world.as_mut() else {
+            return;
+        };
+        if let Some(me) = world.character()
+            && world.actor(me).is_some_and(|a| !a.dead)
+        {
+            world.intent(me, intent);
+        }
+    }
+
     fn start(&mut self, world: World, size: (i32, i32)) {
         self.size = size;
         self.after = positions(&world);
@@ -369,9 +408,15 @@ impl DuskWorld {
         out
     }
 
-    /// What happened since the last call, as (kind, who, x, y) quadruples. `who` is the actor's
-    /// index in the actor arrays. Kind 1: it heard a noise at (x, y). 2: it saw its prey, at
-    /// (x, y). 3: it reached its prey, at (x, y). 4: it found no way to (x, y).
+    /// What happened since the last call, six numbers an event: (kind, who, target, x, y,
+    /// extra). `who` and `target` are indices in the actor arrays (-1: none).
+    ///
+    /// - 1: `who` heard a noise at (x, y). 2: it saw `target`. 3: it reached `target`.
+    /// - 4: `who` found no way to (x, y).
+    /// - 5: `who` hit `target`; extra is 0, or a wound: 100 × (1 + its kind in `wound_names`)
+    ///   + its part in `part_names`.
+    /// - 6: `who` swung at (x, y) and missed. 7: it shoved `target`; extra 1 if it fell.
+    /// - 8: `who` died. 9: it opened (extra 1) or shut a door. 10: it ran out of breath.
     #[func]
     fn take_events(&mut self) -> PackedInt32Array {
         let out = PackedInt32Array::from(&self.events[..]);
@@ -396,6 +441,129 @@ impl DuskWorld {
             None => return,
         };
         world.intent(me, intent);
+    }
+
+    /// Swings at what's beside you, toward (dx, dy) in tiles; (0, 0) at the nearest of the dead
+    /// you can reach, else straight ahead.
+    #[func]
+    fn attack(&mut self, dx: i32, dy: i32) {
+        self.act(Intent::Attack {
+            dir: Dir8::toward(dx, dy),
+        });
+    }
+
+    /// Shoves what's beside you, aimed as for `attack`.
+    #[func]
+    fn shove(&mut self, dx: i32, dy: i32) {
+        self.act(Intent::Shove {
+            dir: Dir8::toward(dx, dy),
+        });
+    }
+
+    /// Opens or shuts the door beside you.
+    #[func]
+    fn use_door(&mut self) {
+        self.act(Intent::Door);
+    }
+
+    /// Each actor's state: 0 standing, 1 knocked down, 2 dead.
+    #[func]
+    fn actor_states(&self) -> PackedInt32Array {
+        self.world
+            .iter()
+            .flat_map(|w| w.actors())
+            .map(|(_, a)| match (a.dead, a.prone_until > 0) {
+                (true, _) => 2,
+                (false, true) => 1,
+                (false, false) => 0,
+            })
+            .collect()
+    }
+
+    /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
+    /// 3 a door), how far through its wind-up it is (0 to 1000; 1000 once it has struck), and
+    /// the tile it's aimed at. The client draws the wind-up as the tell.
+    #[func]
+    fn actor_actions(&self) -> PackedInt32Array {
+        let mut out = Vec::new();
+        for (_, a) in self.world.iter().flat_map(|w| w.actors()) {
+            let at = a.pos.step(a.action.map_or(a.facing, |act| act.dir));
+            out.extend(match a.action {
+                None => [0, 0, at.x, at.y],
+                Some(act) => [
+                    match act.kind {
+                        ActionKind::Attack => 1,
+                        ActionKind::Shove => 2,
+                        ActionKind::Door => 3,
+                    },
+                    (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
+                    at.x,
+                    at.y,
+                ],
+            });
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// Your body: [health, endurance (both out of 1000), exhausted (0 or 1), dead (0 or 1),
+    /// wounds bleeding].
+    #[func]
+    fn character_body(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let b = &a.body;
+        let bleeding = b.wounds.iter().filter(|w| w.bleeding > 0).count() as i32;
+        PackedInt32Array::from(&[
+            b.health.max(0),
+            b.endurance,
+            i32::from(b.exhausted),
+            i32::from(a.dead),
+            bleeding,
+        ])
+    }
+
+    /// Your wounds, worst first, as lines for the health panel ("bite, left arm, bleeding").
+    #[func]
+    fn character_wounds(&self) -> PackedStringArray {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedStringArray::new();
+        };
+        let mut wounds = a.body.wounds.clone();
+        wounds.sort_by_key(|w| (std::cmp::Reverse(w.kind), w.part));
+        wounds
+            .iter()
+            .map(|w| {
+                let bleeding = if w.bleeding > 0 { ", bleeding" } else { "" };
+                GString::from(&format!("{}, {}{bleeding}", w.kind.name(), w.part.name()))
+            })
+            .collect()
+    }
+
+    /// The names of the kinds of wound and of the parts of the body, in the order `take_events`
+    /// counts them.
+    #[func]
+    fn wound_names(&self) -> PackedStringArray {
+        WoundKind::ALL
+            .iter()
+            .map(|k| GString::from(k.name()))
+            .collect()
+    }
+
+    #[func]
+    fn part_names(&self) -> PackedStringArray {
+        Part::ODDS
+            .iter()
+            .map(|(p, _)| GString::from(p.name()))
+            .collect()
     }
 
     /// Walks the character to a tile, finding the way.

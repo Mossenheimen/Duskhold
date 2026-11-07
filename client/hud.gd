@@ -1,11 +1,11 @@
 extends CanvasLayer
-## What's drawn over the world: the state of play, the controls, what just happened, and a red
-## flash when the dead get you.
+## What's drawn over the world: the state of play, your body (health, endurance, wounds), the
+## controls, what just happened, a red flash when the dead hurt you, and how you died.
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far your footsteps carry."
 
 var _state: Label
@@ -16,6 +16,11 @@ var _flash: ColorRect
 var _lines: Array[String] = []
 var _ages: Array[float] = []
 var _flash_left := 0.0
+var _health: ProgressBar
+var _endurance: ProgressBar
+var _breath: Label
+var _wounds: Label
+var _death: Label
 
 
 func _ready() -> void:
@@ -37,6 +42,9 @@ func _ready() -> void:
 	_paused.visible = false
 	_problem = _label(26, Control.PRESET_CENTER)
 	_problem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death = _label(30, Control.PRESET_CENTER)
+	_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_body_panel()
 
 
 func _process(delta: float) -> void:
@@ -51,9 +59,9 @@ func _process(delta: float) -> void:
 
 
 ## `tick` counts tenths of a second of game time; `speed` is the dial (1, 2, 5).
-func show_state(world_seed: int, tick: int, speed: int, paused: bool, caught: int) -> void:
-	_state.text = "DUSKHOLD  ·  build step 4: a patch of the Hushlands\nSeed %d  ·  %.1f s  ·  %d×  ·  caught %d" % [
-		world_seed, tick / 10.0, speed, caught]
+func show_state(world_seed: int, tick: int, speed: int, paused: bool) -> void:
+	_state.text = "DUSKHOLD  ·  build step 5: fight or flee\nSeed %d  ·  %.1f s  ·  %d×" % [
+		world_seed, tick / 10.0, speed]
 	_paused.visible = paused
 
 
@@ -74,6 +82,7 @@ func reset() -> void:
 	_lines.clear()
 	_ages.clear()
 	_flash_left = 0.0
+	_death.text = ""
 
 
 func show_problem(text: String) -> void:
@@ -97,3 +106,66 @@ func _label(size: int, preset: Control.LayoutPreset) -> Label:
 	label.grow_vertical = Control.GROW_DIRECTION_BOTH if preset == Control.PRESET_CENTER else (
 		Control.GROW_DIRECTION_BEGIN if bottom else Control.GROW_DIRECTION_END)
 	return label
+
+
+## Your body, from DuskWorld.character_body() and character_wounds().
+func show_body(body: PackedInt32Array, wounds: PackedStringArray) -> void:
+	if body.size() < 5:
+		return
+	_health.value = body[0] / 10.0
+	_endurance.value = body[1] / 10.0
+	_breath.text = "Out of breath" if body[2] == 1 else ""
+	_wounds.text = "\n".join(wounds)
+
+
+## The end: how you died, and how long you lasted.
+func show_death(how: String, seconds: float) -> void:
+	_death.text = "This is how you died.\n%s\nYou lasted %d minutes %d seconds.\n\nR to begin again, in a new patch." % [
+		how, int(seconds) / 60, int(seconds) % 60]
+
+
+func _build_body_panel() -> void:
+	var panel := VBoxContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.position = Vector2(16, 76)
+	add_child(panel)
+	_health = _bar(panel, "Health", Color(0.75, 0.16, 0.14))
+	_endurance = _bar(panel, "Endurance", Color(0.85, 0.68, 0.22))
+	_breath = Label.new()
+	_breath.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+	_breath.add_theme_constant_override("outline_size", 6)
+	_breath.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	panel.add_child(_breath)
+	_wounds = Label.new()
+	_wounds.add_theme_font_size_override("font_size", 15)
+	_wounds.add_theme_color_override("font_color", Color(1.0, 0.82, 0.78))
+	_wounds.add_theme_constant_override("outline_size", 6)
+	_wounds.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	panel.add_child(_wounds)
+
+
+func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = name
+	label.custom_minimum_size = Vector2(96, 0)
+	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	row.add_child(label)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(220, 16)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.show_percentage = false
+	bar.max_value = 100.0
+	bar.value = 100.0
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = colour
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0, 0, 0, 0.5)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", back)
+	row.add_child(bar)
+	return bar
