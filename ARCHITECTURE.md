@@ -583,8 +583,29 @@ Game first: every step ends with something to look at or play.
        - dev flags: `--data=PATH` (another data folder: the start of mods) and `--do=S:ACTION` (scripted presses, for pictures);
      - **numbers** in `rules.toml` `[grab]` and `[door]` (strength, thump noise) and the shambler's `thump`;
      - **measured:** 100 dead 130,000 ticks/s, 500 dead 14,700, the patch 400,000;
+   - **Slice 3, items:** done 2026-11-08; 52 tests pass. What it has:
+     - **items as values** (`dusk-core/src/items.rs`): a definition's number, a count and a condition. The definitions come from `data/items/` (7 weapons, 10 supplies), shared read-only by every world as `Defs` (an `Arc`, the first of the architecture's shared definitions);
+     - **containers fill from the seed:**
+       - a container's contents are a function of the seed, its place and its loot table (`data/loot/`; the fixture names its table in `fixtures.toml`), worked out whenever it's looked into;
+       - they're stored only once something is taken, so an unopened cupboard costs nothing and looking changes nothing (a test checks the state hash);
+       - floors hold what's dropped there, and the client draws a bundle on each such tile;
+     - **your pack and your hands:** a list with weights, Zomboid's. Over your carry weight (15 kg) you can't run;
+     - **the item actions** (the one rule; a blow breaks them off):
+       - take (0.4 s plus 0.1 s a kg) from a container or the floor within reach (beside you, no wall between);
+       - drop;
+       - use: a bandage (2 s) or a rag (3.5 s) stops the worst wound that's bleeding, which then shows as bandaged;
+       - take a weapon in hand, or put it away;
+       - each intent names the item it expects, so a click on a stale list takes nothing rather than the wrong thing;
+     - **weapons:** each has its own swing (wind-up, damage, noise and endurance), from a quick, quiet kitchen knife to a slow, loud wood axe. Each blow that lands wears it, and at 0 it breaks. Nothing in hand, you fight with your fists (2–4 damage);
+     - **the start kit** (`rules.toml`): a cudgel in hand and a bandage;
+     - **the client:**
+       - the pack panel (Tab): your load against what you can carry, what's in your hand, and the buttons;
+       - the "within reach" panel: each container and the floor, with Take and Take all;
+       - a progress bar for your own timed actions;
+       - the news of what you took, dropped, wielded, bandaged or broke;
+     - **food and drink** are loot now; eating and drinking come with needs;
+     - **measured:** 100 dead 143,000 ticks/s; the patch 450,000;
    - **next slices:**
-     - items, the inventory and containers (bandages stop bleeding);
      - needs and moodles;
      - day and night, light and the field of view;
    - bodies and wounds, moodles, needs;

@@ -5,10 +5,14 @@
 //! exist (fixtures in a legend, prefab tags in a region), and every number must make sense, or
 //! loading fails with the file and what's wrong.
 
+mod items;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use dusk_core::Defs;
 use dusk_core::actor::Speeds;
 use dusk_core::senses::{Cone, Muffling};
 use dusk_core::text::TextGrid;
@@ -21,6 +25,8 @@ use serde::de::DeserializeOwned;
 #[derive(Clone, Debug)]
 pub struct Data {
     pub rules: Rules,
+    /// The items, loot tables, containers and start kit, as the core uses them while it runs.
+    pub defs: Arc<Defs>,
     /// A tile's fixture number n is `fixtures[n - 1]` (0 is no fixture).
     pub fixtures: Vec<Fixture>,
     pub prefabs: Vec<Prefab>,
@@ -53,6 +59,9 @@ pub struct Fixture {
     /// Nobody sees through it.
     #[serde(default)]
     pub opaque: bool,
+    /// A container: the loot table it fills from.
+    #[serde(default)]
+    pub loot: Option<String>,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -200,13 +209,13 @@ pub fn default_dir() -> PathBuf {
 /// Loads and checks everything in a data folder.
 pub fn load(dir: &Path) -> Result<Data, DataError> {
     let rules_file = dir.join("rules.toml");
-    let rules: RulesFile = read(&rules_file)?;
+    let raw: RulesFile = read(&rules_file)?;
     let mut creatures = Vec::new();
     for file in files_in(&dir.join("creatures"))? {
         let parsed: CreaturesFile = read(&file)?;
         creatures.extend(parsed.creature.into_iter().map(|c| (file.clone(), c)));
     }
-    let rules = to_rules(&rules_file, &rules, &creatures)?;
+    let rules = to_rules(&rules_file, &raw, &creatures)?;
 
     let fixtures_file = dir.join("fixtures.toml");
     let fixtures = read::<FixturesFile>(&fixtures_file)?.fixture;
@@ -214,6 +223,18 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     if fixtures.len() >= usize::from(u16::MAX) {
         return Err(fail(&fixtures_file, "too many fixtures"));
     }
+    let kit = items::Kit {
+        carry: raw.character.carry,
+        wield: raw.character.wield.as_deref(),
+        kit: &raw.character.kit,
+    };
+    let defs = Arc::new(items::load_defs(
+        dir,
+        &rules_file,
+        kit,
+        &raw.items,
+        &fixtures,
+    )?);
 
     let mut prefabs = Vec::new();
     for file in files_in(&dir.join("prefabs"))? {
@@ -242,6 +263,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
 
     Ok(Data {
         rules,
+        defs,
         fixtures,
         prefabs,
         regions,
@@ -254,6 +276,7 @@ struct RulesFile {
     world: WorldFile,
     sound: SoundFile,
     character: CharacterFile,
+    items: items::ItemTimesFile,
     endurance: EnduranceFile,
     attack: SwingFile,
     shove: SwingFile,
@@ -402,6 +425,11 @@ struct CharacterFile {
     run_noise: i32,
     path_budget: usize,
     health: f64,
+    carry: f64,
+    #[serde(default)]
+    wield: Option<String>,
+    #[serde(default)]
+    kit: Vec<String>,
 }
 
 #[derive(Deserialize)]

@@ -1,0 +1,69 @@
+# Supplies. weight in kg for one; stack: how many make one stack. A bandage goes on the worst
+# wound that's bleeding and stops it (time: seconds to put on). Food and drink are carried now,
+# and eaten and drunk when needs come (build step 5, slice 4).
+
+[[item]]
+id = "bandage"
+name = "bandage"
+weight = 0.1
+stack = 10
+bandage = { time = 2.0 }
+
+[[item]]
+id = "rag"
+name = "rag"
+weight = 0.1
+stack = 10
+bandage = { time = 3.5 }   # slower to tie than a bandage
+
+[[item]]
+id = "bread"
+name = "loaf of bread"
+weight = 0.5
+stack = 4
+food = true
+
+[[item]]
+id = "apple"
+name = "apple"
+weight = 0.15
+stack = 10
+food = true
+
+[[item]]
+id = "jerky"
+name = "dried meat"
+weight = 0.1
+stack = 10
+food = true
+
+[[item]]
+id = "water"
+name = "bottle of water"
+weight = 0.6
+stack = 4
+drink = true
+
+[[item]]
+id = "candle"
+name = "candle"
+weight = 0.1
+stack = 10
+
+[[item]]
+id = "nails"
+name = "box of nails"
+weight = 0.3
+stack = 5
+
+[[item]]
+id = "plank"
+name = "plank"
+weight = 2.0
+stack = 5
+
+[[item]]
+id = "coins"
+name = "coins"
+weight = 0.01
+stack = 100

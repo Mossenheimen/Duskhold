@@ -52,6 +52,8 @@ pub enum Purpose {
     Grab = 10,
     Struggle = 11,
     Thump = 12,
+    Loot = 13,
+    LootCount = 14,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

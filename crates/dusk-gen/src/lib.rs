@@ -404,7 +404,7 @@ impl Layout {
 /// the dead.
 pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     let layout = Layout::new(seed, data, region);
-    let mut world = World::with_rules(seed, data.rules);
+    let mut world = World::with_defs(seed, data.rules, data.defs.clone());
     for chunk in layout.chunks() {
         layout.fill(chunk, &mut world.grid);
     }

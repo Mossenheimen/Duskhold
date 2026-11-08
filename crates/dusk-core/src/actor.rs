@@ -2,6 +2,7 @@
 
 use crate::body::Body;
 use crate::geom::{Dir8, TilePos};
+use crate::items::Item;
 
 pub type ActorId = crate::arena::Id;
 
@@ -30,14 +31,25 @@ pub enum Intent {
     Door,
     /// Fight free of what holds you.
     Struggle,
+    /// Take the stack at `slot` from the container or floor on `at` (within reach). `def` is
+    /// what the controller saw there, so a stale click takes nothing rather than the wrong item.
+    Take { at: TilePos, slot: u16, def: u16 },
+    /// Drop the stack at `slot` of your pack onto your tile.
+    Drop { slot: u16, def: u16 },
+    /// Use the item at `slot` of your pack: a bandage goes on the worst wound that's bleeding.
+    Use { slot: u16, def: u16 },
+    /// Take the weapon at `slot` of your pack in hand.
+    Wield { slot: u16, def: u16 },
+    /// Put what's in your hand into your pack.
+    Unwield,
 }
 
 impl Intent {
     /// Whether it asks for a timed action rather than for the legs.
     pub fn is_action(self) -> bool {
-        matches!(
+        !matches!(
             self,
-            Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door | Intent::Struggle
+            Intent::Idle | Intent::Move { .. } | Intent::WalkTo { .. }
         )
     }
 }
@@ -49,6 +61,11 @@ pub enum ActionKind {
     Shove,
     Door,
     Struggle,
+    Take { at: TilePos, slot: u16, def: u16 },
+    Drop { slot: u16, def: u16 },
+    Use { slot: u16, def: u16 },
+    Wield { slot: u16, def: u16 },
+    Unwield,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -144,6 +161,9 @@ pub struct Actor {
     pub dead: bool,
     /// Who it has hold of (`grab.rs`).
     pub holding: Option<ActorId>,
+    /// What it has in hand (a weapon), and in its pack. Both count toward what it carries.
+    pub hands: Option<Item>,
+    pub items: Vec<Item>,
 }
 
 impl Actor {
@@ -174,6 +194,8 @@ impl Actor {
             prone_until: 0,
             dead: false,
             holding: None,
+            hands: None,
+            items: Vec::new(),
         }
     }
 

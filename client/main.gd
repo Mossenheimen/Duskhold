@@ -9,7 +9,8 @@ extends Node3D
 ## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
-## --do=S:ACTION,... press swing, shove, door or struggle S real seconds in.
+## --do=S:ACTION,... press swing, shove, door, struggle or drop (the first thing in the pack)
+## S real seconds in.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -17,6 +18,8 @@ const NoiseRings = preload("res://noise_rings.gd")
 const Hud = preload("res://hud.gd")
 const Tells = preload("res://tells.gd")
 const Threats = preload("res://threats.gd")
+const Bag = preload("res://bag.gd")
+const Litter = preload("res://litter.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -44,6 +47,13 @@ const STRUGGLED := 13
 const THUMPED := 14
 const DOOR_BROKE := 15
 const DRAGGED_DOWN := 16
+const TOOK := 17
+const DROPPED := 18
+const WIELDED := 19
+const WEAPON_BROKE := 20
+const BANDAGED := 21
+## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
+const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand", 10: "Putting it away"}
 ## Numbers an event takes.
 const EVENT_SIZE := 6
 
@@ -52,6 +62,9 @@ var map_view: MapView
 var rings: NoiseRings
 var tells: Tells
 var threats: Threats
+var bag: Bag
+var litter: Litter
+var item_names := PackedStringArray()
 var hud: Hud
 var camera: Camera3D
 var cursor: MeshInstance3D
@@ -103,6 +116,10 @@ func _ready() -> void:
 	add_child(tells)
 	threats = Threats.new()
 	add_child(threats)
+	bag = Bag.new()
+	add_child(bag)
+	litter = Litter.new()
+	add_child(litter)
 	_start()
 
 
@@ -129,6 +146,8 @@ func _start() -> void:
 	rings.clear()
 	hud.reset()
 	wound_names = dusk.wound_names()
+	item_names = dusk.item_names()
+	bag.start(dusk)
 	part_names = dusk.part_names()
 	last_hurt = ""
 	dead = false
@@ -164,6 +183,10 @@ func _process(delta: float) -> void:
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds())
+	var doing := _my_action()
+	bag.refresh(doing.x != 0, dead)
+	litter.show_floors(dusk.floor_items())
+	hud.show_action(DOING.get(doing.x, ""), doing.y / 1000.0)
 	played += delta
 	_run_script()
 	_maybe_take_picture()
@@ -211,6 +234,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_speed(1)
 	elif event.is_action_pressed("speed_3"):
 		_set_speed(2)
+	elif event.is_action_pressed("pack"):
+		bag.toggle()
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -339,6 +364,21 @@ func _read_events() -> void:
 			DRAGGED_DOWN:
 				if who == me:
 					dragged_by = extra
+			TOOK:
+				if who == me:
+					hud.say("You took %s." % _items(extra))
+			DROPPED:
+				if who == me:
+					hud.say("You dropped %s." % _items(extra))
+			WIELDED:
+				if who == me:
+					hud.say("You took the %s in hand." % _item_name(extra))
+			WEAPON_BROKE:
+				if who == me:
+					hud.say("Your %s broke!" % _item_name(extra))
+			BANDAGED:
+				if who == me:
+					hud.say("You bandaged your %s." % part_names[extra])
 
 
 ## Whether actor `i` stands beside you.
@@ -443,6 +483,7 @@ func _add_input_actions() -> void:
 		"shove": [KEY_Q],
 		"door": [KEY_E],
 		"low_walls": [KEY_V],
+		"pack": [KEY_TAB],
 		"restart": [KEY_R],
 		"quit": [KEY_ESCAPE],
 	}
@@ -506,3 +547,26 @@ func _run_script() -> void:
 				dusk.use_door()
 			"struggle":
 				dusk.struggle()
+			"drop":  # the first thing in the pack
+				var items: PackedInt32Array = dusk.character_items()
+				if items.size() >= 3:
+					dusk.drop_item(0, items[0])
+
+
+## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).
+func _my_action() -> Vector2i:
+	if me < 0:
+		return Vector2i.ZERO
+	var actions: PackedInt32Array = dusk.actor_actions()
+	return Vector2i(actions[me * 4], actions[me * 4 + 1])
+
+
+func _item_name(def: int) -> String:
+	return item_names[def] if def >= 0 and def < item_names.size() else "something"
+
+
+## "3 apples" or "the axe", from an event's 1000 × item + count.
+func _items(packed: int) -> String:
+	var count := packed % 1000
+	var def := floori(packed / 1000.0)
+	return ("the " + _item_name(def)) if count == 1 else "%d × %s" % [count, _item_name(def)]

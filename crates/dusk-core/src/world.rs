@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
@@ -9,6 +10,7 @@ use crate::body::{Body, Part, WoundKind};
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::{Edge, Grid};
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
+use crate::items::{Defs, Item};
 use crate::path::find_path;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
 use crate::text::{self, TextError, TextGrid, default_legend};
@@ -77,7 +79,7 @@ pub struct WoundRule {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Combat {
     pub character_health: i32,
-    /// The character's swing: a cudgel, until weapons come with items.
+    /// The character's swing with nothing in hand (a weapon brings its own: `items.rs`).
     pub attack: Swing,
     /// A shove does no harm (its damage is unused); it knocks back a tile.
     pub shove: Swing,
@@ -340,6 +342,33 @@ pub enum Event {
         who: ActorId,
         holders: u32,
     },
+    /// `who` took `count` of an item (by definition number) from a container or the floor.
+    Took {
+        who: ActorId,
+        item: u16,
+        count: u16,
+    },
+    /// `who` dropped `count` of an item on its tile.
+    Dropped {
+        who: ActorId,
+        item: u16,
+        count: u16,
+    },
+    /// `who` took a weapon in hand.
+    Wielded {
+        who: ActorId,
+        item: u16,
+    },
+    /// The weapon in `who`'s hand broke.
+    WeaponBroke {
+        who: ActorId,
+        item: u16,
+    },
+    /// `who` bandaged the wound on a part, and it stopped bleeding.
+    Bandaged {
+        who: ActorId,
+        part: Part,
+    },
 }
 
 /// A sound made this tick.
@@ -365,15 +394,25 @@ pub struct World {
     pub(crate) events: Vec<Event>,
     /// The harm each beaten door has taken, by (owner tile, side). Ordered, for the hash.
     pub(crate) door_damage: BTreeMap<(TilePos, Dir8), i32>,
+    /// The data's definitions (items, loot tables, containers, the start kit), shared
+    /// read-only by every world.
+    pub defs: Arc<Defs>,
+    /// What containers and floors hold, once something changed it (`items.rs`): an unopened
+    /// container isn't here, its contents come from the seed. Ordered, for the hash.
+    pub(crate) stores: BTreeMap<TilePos, Vec<Item>>,
 }
 
 impl World {
-    /// An empty world with the fixed test rules.
+    /// An empty world with the fixed test rules, and no items.
     pub fn new(seed: u64) -> World {
         World::with_rules(seed, Rules::default())
     }
 
     pub fn with_rules(seed: u64, rules: Rules) -> World {
+        World::with_defs(seed, rules, Arc::new(Defs::default()))
+    }
+
+    pub fn with_defs(seed: u64, rules: Rules, defs: Arc<Defs>) -> World {
         World {
             seed,
             tick: 0,
@@ -385,6 +424,8 @@ impl World {
             sounds: Vec::new(),
             events: Vec::new(),
             door_damage: BTreeMap::new(),
+            defs,
+            stores: BTreeMap::new(),
         }
     }
 
@@ -417,6 +458,13 @@ impl World {
             ActorKind::Character => self.rules.combat.character_health,
             ActorKind::Shambler => self.rules.combat.shambler_health,
         });
+        // A character starts with the kit: something in hand, the rest in its pack.
+        if kind == ActorKind::Character {
+            actor.hands = self.defs.wield.map(|def| Item::new(def, 1));
+            for &item in &self.defs.kit {
+                self.defs.stow(&mut actor.items, item);
+            }
+        }
         let id = self.actors.insert(actor);
         self.occupied.insert(pos, id);
         if kind == ActorKind::Character {
@@ -513,6 +561,7 @@ impl World {
         self.tick.hash(&mut h);
         self.grid.hash(&mut h);
         self.door_damage.hash(&mut h);
+        self.stores.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -615,6 +664,7 @@ impl World {
             .get(id)
             .is_some_and(|a| a.kind == ActorKind::Character && a.step.is_none());
         let held = starting && self.is_held(id);
+        let heavy = starting && self.weighed_down(id);
         let on_me: Vec<(ActorId, TilePos)> = if starting && !held {
             self.engaged(id)
                 .into_iter()
@@ -636,8 +686,8 @@ impl World {
                 return None;
             }
             let (dir, run) = match next_heading(a, &self.grid, &rules) {
-                // Out of breath, nobody runs.
-                Heading::Go(dir, run) => (dir, run && !a.body.exhausted),
+                // Out of breath or weighed down, nobody runs.
+                Heading::Go(dir, run) => (dir, run && !a.body.exhausted && !heavy),
                 Heading::Stand => {
                     a.carry = 0;
                     return None;
@@ -962,12 +1012,6 @@ enum Heading {
 /// the goal changed, when the next tile isn't next to it any more, or after waiting too long.
 fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
     match a.intent {
-        // An action waits for the step under way to end; meanwhile the legs stand.
-        Intent::Idle
-        | Intent::Attack { .. }
-        | Intent::Shove { .. }
-        | Intent::Door
-        | Intent::Struggle => Heading::Stand,
         Intent::Move { dir, run } => Heading::Go(dir, run),
         Intent::WalkTo { to, run } => {
             if a.pos == to {
@@ -1009,6 +1053,8 @@ fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
                 None => Heading::Stand,
             }
         }
+        // Idle, or an action waiting for the step under way to end: the legs stand.
+        _ => Heading::Stand,
     }
 }
 

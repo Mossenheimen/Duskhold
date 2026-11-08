@@ -58,20 +58,64 @@ impl World {
                 ActionKind::Shove => self.shove(id, action.dir),
                 ActionKind::Door => self.toggle_door(id, action.dir),
                 ActionKind::Struggle => self.struggle(id),
+                ActionKind::Take { at, slot, def } => self.take(id, at, slot, def),
+                ActionKind::Drop { slot, def } => self.drop_item(id, slot, def),
+                ActionKind::Use { slot, def } => self.use_item(id, slot, def),
+                ActionKind::Wield { slot, def } => self.wield(id, slot, def),
+                ActionKind::Unwield => self.unwield(id),
             }
         }
         true
     }
 
     /// Starts the action an intent asks for, if it can start here and now. Held, you can only
-    /// struggle or shove; struggling is only for the held.
+    /// struggle or shove; struggling is only for the held. Item actions take all their time
+    /// before they take effect, so a blow breaks them off.
     fn begin(&mut self, id: ActorId, intent: Intent) -> Option<Action> {
-        let c = self.rules.combat;
         let held = self.is_held(id);
         let a = self.actors.get(id)?;
         let (kind, dir, wind_up, recovery, endurance) = match intent {
-            Intent::Attack { .. } | Intent::Door if held => return None,
             Intent::Struggle if !held => return None,
+            Intent::Struggle | Intent::Shove { .. } => {
+                // the two things the held can do: below
+                return self.begin_free(id, intent, held);
+            }
+            _ if held => return None,
+            Intent::Take { at, slot, def } => {
+                let ticks = self.take_ticks(at, slot, def)?;
+                if !crate::items::within_reach(&self.grid, a.pos, at) {
+                    return None;
+                }
+                (ActionKind::Take { at, slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Drop { slot, def } => {
+                a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
+                let kind = ActionKind::Drop { slot, def };
+                (kind, a.facing, self.defs.drop.max(1), 0, 0)
+            }
+            Intent::Use { slot, def } => {
+                let ticks = self.item_ticks(id, slot, def, true)?;
+                (ActionKind::Use { slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Wield { slot, def } => {
+                let ticks = self.item_ticks(id, slot, def, false)?;
+                (ActionKind::Wield { slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Unwield => {
+                a.hands?;
+                (ActionKind::Unwield, a.facing, self.defs.unwield_time, 0, 0)
+            }
+            _ => return self.begin_free(id, intent, held),
+        };
+        self.start(id, kind, dir, wind_up, recovery, endurance)
+    }
+
+    /// The fight's actions: a swing, a shove, a door, a struggle.
+    fn begin_free(&mut self, id: ActorId, intent: Intent, held: bool) -> Option<Action> {
+        let c = self.rules.combat;
+        let a = self.actors.get(id)?;
+        let (kind, dir, wind_up, recovery, endurance) = match intent {
+            Intent::Attack { .. } | Intent::Door if held => return None,
             Intent::Struggle => {
                 let s = c.struggle;
                 (
@@ -83,10 +127,7 @@ impl World {
                 )
             }
             Intent::Attack { dir } => {
-                let s = match a.kind {
-                    ActorKind::Character => c.attack,
-                    ActorKind::Shambler => c.shambler_attack,
-                };
+                let s = self.swing_of(id);
                 let dir = self.aim(id, dir);
                 (ActionKind::Attack, dir, s.wind_up, s.recovery, s.endurance)
             }
@@ -101,6 +142,20 @@ impl World {
             }
             _ => return None,
         };
+        self.start(id, kind, dir, wind_up, recovery, endurance)
+    }
+
+    /// An action begins: it faces its way and pays its endurance. Out of breath, it takes half
+    /// as long again.
+    fn start(
+        &mut self,
+        id: ActorId,
+        kind: ActionKind,
+        dir: Dir8,
+        wind_up: u32,
+        recovery: u32,
+        endurance: i32,
+    ) -> Option<Action> {
         let a = self.actors.get_mut(id)?;
         let slow = |t: u32| if a.body.exhausted { t * 3 / 2 } else { t };
         let (wind_up, recovery) = (slow(wind_up).max(1), slow(recovery));
@@ -172,10 +227,7 @@ impl World {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
-        let swing = match kind {
-            ActorKind::Character => c.attack,
-            ActorKind::Shambler => c.shambler_attack,
-        };
+        let swing = self.swing_of(id);
         self.emit(Sound {
             at: pos,
             loudness: swing.noise,
@@ -241,6 +293,7 @@ impl World {
                     part,
                     kind,
                     bleeding,
+                    bandaged: false,
                 });
             }
         }
@@ -251,6 +304,8 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
+        // Every blow that lands wears the weapon that struck it.
+        self.wear(id);
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
             return;
@@ -271,7 +326,7 @@ impl World {
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
         let (lo, hi) = match kind {
-            ActorKind::Character => c.attack.damage,
+            ActorKind::Character => self.swing_of(id).damage,
             ActorKind::Shambler => c.shambler_thump,
         };
         let span = (hi - lo).max(0) as u32 + 1;
@@ -289,6 +344,7 @@ impl World {
             by: Some(id),
         });
         self.events.push(Event::Thumped { who: id, at, side });
+        self.wear(id);
         if broke {
             self.door_damage.remove(&(at, side));
             self.grid.set_edge(pos, dir, Edge::Open);
@@ -381,6 +437,25 @@ impl World {
             side,
             open: !open,
         });
+    }
+
+    /// Wounds an actor as a creature's blow would, by the rules for that kind of wound: for
+    /// tests, tools and, later, traps.
+    pub fn wound(&mut self, id: ActorId, kind: WoundKind, part: Part) {
+        let rule = self.rules.combat.wounds[kind as usize];
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
+        a.body.health -= rule.damage;
+        a.body.wounds.push(Wound {
+            part,
+            kind,
+            bleeding: rule.bleed,
+            bandaged: false,
+        });
+        if a.body.health <= 0 {
+            self.kill(id);
+        }
     }
 
     /// Death: the body stays where it fell, as a corpse that nobody has to walk round.

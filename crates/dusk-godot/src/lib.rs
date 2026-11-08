@@ -18,8 +18,8 @@
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Part,
-    TilePos, World, WoundKind, demo,
+    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
+    Part, TilePos, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -54,6 +54,11 @@ const STRUGGLED: i32 = 13;
 const THUMPED: i32 = 14;
 const DOOR_BROKE: i32 = 15;
 const DRAGGED_DOWN: i32 = 16;
+const TOOK: i32 = 17;
+const DROPPED: i32 = 18;
+const WIELDED: i32 = 19;
+const WEAPON_BROKE: i32 = 20;
+const BANDAGED: i32 = 21;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -149,6 +154,26 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::DraggedDown { who, holders } => {
             (DRAGGED_DOWN, Some(who), None, at(who), holders as i32)
         }
+        // An item and how many: 1000 × its definition number + the count.
+        Event::Took { who, item, count } => (
+            TOOK,
+            Some(who),
+            None,
+            at(who),
+            i32::from(item) * 1000 + i32::from(count),
+        ),
+        Event::Dropped { who, item, count } => (
+            DROPPED,
+            Some(who),
+            None,
+            at(who),
+            i32::from(item) * 1000 + i32::from(count),
+        ),
+        Event::Wielded { who, item } => (WIELDED, Some(who), None, at(who), i32::from(item)),
+        Event::WeaponBroke { who, item } => {
+            (WEAPON_BROKE, Some(who), None, at(who), i32::from(item))
+        }
+        Event::Bandaged { who, part } => (BANDAGED, Some(who), None, at(who), part as i32),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -459,6 +484,9 @@ impl DuskWorld {
     /// - 14: `who` beat on a shut door, and 15: a door gave way; (x, y) is the tile owning the
     ///   edge, extra its side (0 north, 1 west).
     /// - 16: `who` was dragged down by extra of them.
+    /// - 17: `who` took, and 18: dropped, an item: extra is 1000 × its definition number + how
+    ///   many. 19: `who` took a weapon in hand, and 20: its weapon broke; extra is the item.
+    /// - 21: `who` bandaged a wound; extra is the part, in `part_names`.
     #[func]
     fn take_events(&mut self) -> PackedInt32Array {
         let out = PackedInt32Array::from(&self.events[..]);
@@ -508,6 +536,169 @@ impl DuskWorld {
         self.act(Intent::Door);
     }
 
+    /// The items' names, by definition number (what the item arrays and events count by).
+    #[func]
+    fn item_names(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .items
+            .iter()
+            .map(|i| GString::from(&i.name))
+            .collect()
+    }
+
+    /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
+    /// 4 drink.
+    #[func]
+    fn item_kinds(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .defs
+            .items
+            .iter()
+            .map(|i| match i.kind {
+                ItemKind::Other => 0,
+                ItemKind::Weapon { .. } => 1,
+                ItemKind::Bandage { .. } => 2,
+                ItemKind::Food => 3,
+                ItemKind::Drink => 4,
+            })
+            .collect()
+    }
+
+    /// Each item's weight in grams, by definition number.
+    #[func]
+    fn item_weights(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world.defs.items.iter().map(|i| i.weight as i32).collect()
+    }
+
+    /// What's in your hand: [definition, condition out of 1000], or nothing.
+    #[func]
+    fn character_hands(&self) -> PackedInt32Array {
+        let held = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+            .and_then(|a| a.hands);
+        match held {
+            Some(h) => PackedInt32Array::from(&[i32::from(h.def), i32::from(h.condition)]),
+            None => PackedInt32Array::new(),
+        }
+    }
+
+    /// Your pack, in order (the slots the item intents name): (definition, count, condition)
+    /// three numbers each.
+    #[func]
+    fn character_items(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let out: Vec<i32> = a
+            .items
+            .iter()
+            .flat_map(|i| [i32::from(i.def), i32::from(i.count), i32::from(i.condition)])
+            .collect();
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// [grams you carry, grams you can carry before you're weighed down and can't run].
+    #[func]
+    fn character_load(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        PackedInt32Array::from(&[world.load(me) as i32, world.defs.carry as i32])
+    }
+
+    /// The containers and floors within your reach, your own tile first: for each, x, y, its
+    /// fixture number (0 a bare floor), how many stacks, then (definition, count, condition)
+    /// three numbers a stack.
+    #[func]
+    fn stores_in_reach(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for (at, fixture, held) in world.stores_in_reach(me) {
+            out.extend([at.x, at.y, i32::from(fixture), held.len() as i32]);
+            for i in held {
+                out.extend([i32::from(i.def), i32::from(i.count), i32::from(i.condition)]);
+            }
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// The tiles with something lying on the floor, as (x, y) pairs.
+    #[func]
+    fn floor_items(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let out: Vec<i32> = world.floors().iter().flat_map(|p| [p.x, p.y]).collect();
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// Takes the stack at `slot` of what's on (x, y); `def` is what you saw there.
+    #[func]
+    fn take(&mut self, x: i32, y: i32, slot: i32, def: i32) {
+        self.act(Intent::Take {
+            at: TilePos::new(x, y, 0),
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Drops the stack at `slot` of your pack.
+    #[func]
+    fn drop_item(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Drop {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Uses the item at `slot` of your pack (a bandage).
+    #[func]
+    fn use_item(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Use {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Takes the weapon at `slot` of your pack in hand.
+    #[func]
+    fn wield(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Wield {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Puts what's in your hand into your pack.
+    #[func]
+    fn unwield(&mut self) {
+        self.act(Intent::Unwield);
+    }
+
     /// Fights free of what holds you.
     #[func]
     fn struggle(&mut self) {
@@ -554,7 +745,8 @@ impl DuskWorld {
     }
 
     /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
-    /// 3 a door, 4 a blow at a shut door, 5 a struggle), how far through its wind-up it is (0 to
+    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 using, 9 taking a
+    /// weapon in hand, 10 putting it away), how far through its wind-up it is (0 to
     /// 1000; 1000 once it has struck), and the tile it's aimed at. The client draws the wind-up
     /// of a swing or a shove as its tell.
     #[func]
@@ -580,6 +772,11 @@ impl DuskWorld {
                         ActionKind::Shove => 2,
                         ActionKind::Door => 3,
                         ActionKind::Struggle => 5,
+                        ActionKind::Take { .. } => 6,
+                        ActionKind::Drop { .. } => 7,
+                        ActionKind::Use { .. } => 8,
+                        ActionKind::Wield { .. } => 9,
+                        ActionKind::Unwield => 10,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -630,8 +827,12 @@ impl DuskWorld {
         wounds
             .iter()
             .map(|w| {
-                let bleeding = if w.bleeding > 0 { ", bleeding" } else { "" };
-                GString::from(&format!("{}, {}{bleeding}", w.kind.name(), w.part.name()))
+                let state = match (w.bleeding > 0, w.bandaged) {
+                    (true, _) => ", bleeding",
+                    (false, true) => ", bandaged",
+                    (false, false) => "",
+                };
+                GString::from(&format!("{}, {}{state}", w.kind.name(), w.part.name()))
             })
             .collect()
     }

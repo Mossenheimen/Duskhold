@@ -5,7 +5,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door  ·  Tab pack\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 var _state: Label
@@ -22,6 +22,8 @@ var _breath: Label
 var _wounds: Label
 var _death: Label
 var _held: Label
+var _doing: Label
+var _doing_bar: ProgressBar
 
 
 func _ready() -> void:
@@ -49,6 +51,7 @@ func _ready() -> void:
 	_held.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_held.position.y += 120.0
 	_held.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+	_build_action_bar()
 	_build_body_panel()
 
 
@@ -65,7 +68,7 @@ func _process(delta: float) -> void:
 
 ## `tick` counts tenths of a second of game time; `speed` is the dial (1, 2, 5).
 func show_state(world_seed: int, tick: int, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 5: grabs and doors\nSeed %d  ·  %.1f s  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 5: items\nSeed %d  ·  %.1f s  ·  %d×" % [
 		world_seed, tick / 10.0, speed]
 	_paused.visible = paused
 
@@ -182,3 +185,36 @@ func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:
 	bar.add_theme_stylebox_override("background", back)
 	row.add_child(bar)
 	return bar
+
+
+## What you're doing now, with how far along it is (Zomboid's progress bar): "" for nothing.
+func show_action(label: String, progress: float) -> void:
+	_doing.text = label + "…" if label != "" else ""
+	_doing_bar.visible = label != ""
+	_doing_bar.value = progress * 100.0
+
+
+func _build_action_bar() -> void:
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 140)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_doing = Label.new()
+	_doing.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_doing.add_theme_constant_override("outline_size", 6)
+	_doing.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	box.add_child(_doing)
+	_doing_bar = ProgressBar.new()
+	_doing_bar.custom_minimum_size = Vector2(200, 10)
+	_doing_bar.show_percentage = false
+	_doing_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_doing_bar.visible = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.85, 0.85, 0.75)
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0, 0, 0, 0.5)
+	_doing_bar.add_theme_stylebox_override("fill", fill)
+	_doing_bar.add_theme_stylebox_override("background", back)
+	box.add_child(_doing_bar)

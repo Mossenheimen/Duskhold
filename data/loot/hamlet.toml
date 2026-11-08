@@ -1,0 +1,58 @@
+# What the hamlet's containers hold. A table makes so many draws (rolls: the fewest and the
+# most); each draw picks one line by its weight, and so many of it (count, 1 if not given).
+# A fixture names its table in fixtures.toml. A container's contents come from the seed and its
+# place: the same whenever it's opened, and nothing is stored until something is taken.
+
+[[loot]]
+id = "kitchen"        # cupboards
+rolls = [1, 3]
+items = [
+  { item = "bread", weight = 4 },
+  { item = "apple", weight = 4, count = [1, 4] },
+  { item = "water", weight = 3 },
+  { item = "kitchen_knife", weight = 2 },
+  { item = "rag", weight = 2, count = [1, 2] },
+  { item = "candle", weight = 1, count = [1, 3] },
+]
+
+[[loot]]
+id = "bedroom"        # wardrobes
+rolls = [0, 2]
+items = [
+  { item = "rag", weight = 4, count = [1, 3] },
+  { item = "bandage", weight = 2, count = [1, 2] },
+  { item = "coins", weight = 3, count = [3, 20] },
+  { item = "candle", weight = 1 },
+]
+
+[[loot]]
+id = "shed"           # crates
+rolls = [1, 2]
+items = [
+  { item = "hammer", weight = 3 },
+  { item = "nails", weight = 3, count = [1, 2] },
+  { item = "plank", weight = 2, count = [1, 3] },
+  { item = "shovel", weight = 2 },
+  { item = "pitchfork", weight = 1 },
+  { item = "hand_axe", weight = 1 },
+  { item = "wood_axe", weight = 1 },
+]
+
+[[loot]]
+id = "stores"         # barrels
+rolls = [1, 2]
+items = [
+  { item = "water", weight = 3, count = [1, 2] },
+  { item = "apple", weight = 3, count = [2, 6] },
+  { item = "jerky", weight = 2, count = [1, 4] },
+]
+
+[[loot]]
+id = "shelf"          # shelves
+rolls = [0, 2]
+items = [
+  { item = "candle", weight = 3, count = [1, 4] },
+  { item = "bandage", weight = 2 },
+  { item = "jerky", weight = 2, count = [1, 3] },
+  { item = "nails", weight = 1 },
+]

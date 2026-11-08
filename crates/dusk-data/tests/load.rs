@@ -20,6 +20,13 @@ walk_noise = 3
 run_noise = 8
 path_budget = 1000
 health = 100
+carry = 15.0
+[items]
+take = 0.4
+per_kg = 0.1
+drop = 0.2
+wield = 0.5
+unwield = 0.3
 [endurance]
 run = 4.0
 walk = 3.0
@@ -254,5 +261,56 @@ fn grabs_and_doors_become_the_cores() {
     assert_eq!(
         (c.door_strength, c.shambler_thump, c.thump_noise),
         (600, (20, 40), 8)
+    );
+}
+
+#[test]
+fn the_games_items_and_loot_load() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let id = |name: &str| d.items.iter().position(|i| i.id == name).unwrap() as u16;
+    let cudgel = &d.items[usize::from(id("cudgel"))];
+    assert_eq!(cudgel.weight, 1500, "1.5 kg in grams");
+    let dusk_core::ItemKind::Weapon { swing, wear } = cudgel.kind else {
+        panic!("a cudgel is a weapon");
+    };
+    assert_eq!((swing.wind_up, swing.damage, wear), (4, (80, 120), 10));
+    assert_eq!(d.wield, Some(id("cudgel")));
+    assert_eq!(d.kit, vec![dusk_core::Item::new(id("bandage"), 1)]);
+    assert_eq!(d.carry, 15_000);
+    // Every container's table is there, and the cupboard's is the kitchen's.
+    let cupboard = data
+        .fixtures
+        .iter()
+        .position(|f| f.id == "cupboard")
+        .unwrap()
+        + 1;
+    let table = d.containers[cupboard].expect("a cupboard is a container");
+    assert_eq!(d.loot[usize::from(table)].id, "kitchen");
+    assert!(d.containers[1].is_none(), "a tree isn't a container");
+}
+
+#[test]
+fn a_loot_table_naming_no_item_is_refused() {
+    let loot = r#"
+[[loot]]
+id = "kitchen"
+rolls = [1, 2]
+items = [{ item = "breadd", weight = 1 }]
+"#;
+    let items = r#"
+[[item]]
+id = "bread"
+name = "bread"
+weight = 0.5
+food = true
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/food.toml", items));
+    files.push(("loot/kitchen.toml", loot));
+    let err = load(&folder("loot-typo", &files)).unwrap_err();
+    assert!(
+        err.file.ends_with("kitchen.toml") && err.message.contains("\"breadd\""),
+        "{err}"
     );
 }

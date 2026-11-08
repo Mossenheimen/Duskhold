@@ -1,0 +1,48 @@
+# Weapons. Each brings its own swing: wind-up and recovery in seconds (the wind-up is the tell the
+# dead see), endurance and damage in points (a shambler has 30 health), the chance a blow lands,
+# and its noise in tiles. wear: the condition (out of 100) it loses with every blow that lands; at
+# 0 it breaks. Nothing in hand, you swing as rules.toml's [attack] says: bare hands.
+
+[[item]]
+id = "cudgel"
+name = "cudgel"
+weight = 1.5          # kg
+weapon = { wind_up = 0.4, recovery = 0.6, endurance = 9, hit = 0.85, damage = [8, 12], noise = 4, wear = 1.0 }
+
+[[item]]
+id = "kitchen_knife"
+name = "kitchen knife"
+weight = 0.3
+# Quick and quiet, but light work, and it blunts fast.
+weapon = { wind_up = 0.2, recovery = 0.4, endurance = 5, hit = 0.9, damage = [5, 8], noise = 2, wear = 2.5 }
+
+[[item]]
+id = "hammer"
+name = "hammer"
+weight = 1.0
+weapon = { wind_up = 0.35, recovery = 0.5, endurance = 8, hit = 0.85, damage = [7, 11], noise = 4, wear = 0.8 }
+
+[[item]]
+id = "hand_axe"
+name = "hand axe"
+weight = 1.8
+weapon = { wind_up = 0.5, recovery = 0.7, endurance = 12, hit = 0.8, damage = [13, 19], noise = 5, wear = 1.5 }
+
+[[item]]
+id = "wood_axe"
+name = "wood axe"
+weight = 3.0
+# Two blows fell a shambler, but every one is slow, tiring and loud.
+weapon = { wind_up = 0.8, recovery = 1.0, endurance = 18, hit = 0.8, damage = [20, 30], noise = 6, wear = 1.0 }
+
+[[item]]
+id = "shovel"
+name = "shovel"
+weight = 2.2
+weapon = { wind_up = 0.6, recovery = 0.8, endurance = 14, hit = 0.85, damage = [10, 16], noise = 5, wear = 0.8 }
+
+[[item]]
+id = "pitchfork"
+name = "pitchfork"
+weight = 2.0
+weapon = { wind_up = 0.6, recovery = 0.7, endurance = 12, hit = 0.8, damage = [11, 17], noise = 3, wear = 1.2 }

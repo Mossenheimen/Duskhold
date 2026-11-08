@@ -15,6 +15,7 @@ pub mod geom;
 mod grab;
 pub mod grid;
 pub mod hash;
+pub mod items;
 pub mod path;
 pub mod senses;
 pub mod text;
@@ -24,4 +25,5 @@ pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mi
 pub use body::{Body, Part, Wound, WoundKind};
 pub use geom::{ChunkPos, Dir8, TilePos};
 pub use grid::{Edge, Grid, Ground, Tile};
+pub use items::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
 pub use world::{Event, Rules, World};

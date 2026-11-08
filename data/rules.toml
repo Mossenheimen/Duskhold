@@ -19,6 +19,17 @@ walk_noise = 3        # how far footsteps carry, in tiles
 run_noise = 8
 path_budget = 4096    # the most tiles one search for a way looks at
 health = 100          # points
+carry = 15.0          # kg you carry before you're weighed down: no running
+wield = "cudgel"      # in hand at the start (items/*.toml)
+kit = ["bandage"]     # and in the pack (name one twice for two)
+
+[items]
+# Seconds each item action takes. Like every timed action, a blow breaks it off.
+take = 0.4            # to take a stack from a container or the floor...
+per_kg = 0.1          # ...and this much more for each kg of it
+drop = 0.2
+wield = 0.5           # to take a weapon in hand
+unwield = 0.3         # to put it away
 
 [endurance]
 # A bar of 100 points that pays for everything active. Empty, you're out of breath: no running,
@@ -29,13 +40,14 @@ rest = 10.0           # got back a second standing still
 recover_at = 30
 
 [attack]
-# Your swing: a cudgel, until weapons come with items. The wind-up is the tell the dead see.
-wind_up = 0.4         # seconds
-recovery = 0.6
-endurance = 9
+# Your swing with nothing in hand: fists. A weapon brings its own (items/weapons.toml). The
+# wind-up is the tell the dead see.
+wind_up = 0.3         # seconds
+recovery = 0.4
+endurance = 5
 hit = 0.85            # the chance it lands (on one that's down, it always does)
-damage = [8, 12]      # health, out of a shambler's 30; double on one that's down
-noise = 4             # tiles
+damage = [2, 4]       # health, out of a shambler's 30; double on one that's down
+noise = 2             # tiles
 
 [shove]
 # No harm: it pushes back a tile, breaks off what they were doing, and sometimes knocks down.

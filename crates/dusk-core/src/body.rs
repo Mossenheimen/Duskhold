@@ -93,6 +93,8 @@ pub struct Wound {
     pub kind: WoundKind,
     /// Ticks it goes on bleeding (bandages come with items).
     pub bleeding: u32,
+    /// A bandage stopped it.
+    pub bandaged: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
