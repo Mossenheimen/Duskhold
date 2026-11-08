@@ -126,6 +126,17 @@ fn index(pos: TilePos) -> Option<usize> {
     Some(((pos.z - Z_MIN) as usize * size + ly) * size + lx)
 }
 
+/// The tile that owns the edge on a tile's side, and which of its own sides that is (north or
+/// west): how doors are named in events and in the door damage the world keeps.
+pub fn edge_owner(pos: TilePos, dir: Dir8) -> (TilePos, Dir8) {
+    match dir {
+        Dir8::S => (pos.step(Dir8::S), Dir8::N),
+        Dir8::E => (pos.step(Dir8::E), Dir8::W),
+        Dir8::N | Dir8::W => (pos, dir),
+        _ => panic!("a diagonal ({dir:?}) crosses two edges, not one"),
+    }
+}
+
 /// The world's tiles, chunk by chunk. A tile in a chunk that doesn't exist is void.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Grid {

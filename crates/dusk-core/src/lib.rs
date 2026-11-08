@@ -12,6 +12,7 @@ pub mod body;
 mod combat;
 pub mod demo;
 pub mod geom;
+mod grab;
 pub mod grid;
 pub mod hash;
 pub mod path;

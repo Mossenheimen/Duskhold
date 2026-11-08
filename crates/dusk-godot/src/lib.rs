@@ -48,6 +48,12 @@ const SHOVED: i32 = 7;
 const DIED: i32 = 8;
 const DOOR: i32 = 9;
 const EXHAUSTED: i32 = 10;
+const GRABBED: i32 = 11;
+const FREED: i32 = 12;
+const STRUGGLED: i32 = 13;
+const THUMPED: i32 = 14;
+const DOOR_BROKE: i32 = 15;
+const DRAGGED_DOWN: i32 = 16;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -78,6 +84,10 @@ pub struct DuskWorld {
     watched: Vec<u8>,
     /// The map's size in tiles.
     size: (i32, i32),
+    /// Where the data files are; empty for the game's own `data/` (a mod or a test can point
+    /// elsewhere). Read the first time a patch is made.
+    #[var]
+    data_dir: GString,
 }
 
 fn positions(world: &World) -> Vec<(f32, f32)> {
@@ -104,30 +114,51 @@ fn alert_level(alert: Alert) -> u8 {
 fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
     let at = |id: ActorId| world.actor(id).map_or((-1, -1), |a| (a.pos.x, a.pos.y));
     let index = |id: ActorId| index_of(world, id);
+    // Doors are named by the tile owning the edge, and the side: 0 north, 1 west.
+    let side = |d: Dir8| i32::from(d == Dir8::W);
     // (kind, who, target, x, y, extra)
     let (kind, who, target, (x, y), extra) = match e {
-        Event::Heard { who, at: p } => (HEARD, who, None, (p.x, p.y), 0),
-        Event::Saw { who, target } => (SAW, who, Some(target), at(target), 0),
-        Event::Reached { who, target } => (REACHED, who, Some(target), at(target), 0),
-        Event::NoWay { who, to } => (NO_WAY, who, None, (to.x, to.y), 0),
+        Event::Heard { who, at: p } => (HEARD, Some(who), None, (p.x, p.y), 0),
+        Event::Saw { who, target } => (SAW, Some(who), Some(target), at(target), 0),
+        Event::Reached { who, target } => (REACHED, Some(who), Some(target), at(target), 0),
+        Event::NoWay { who, to } => (NO_WAY, Some(who), None, (to.x, to.y), 0),
         Event::Struck {
             who, target, wound, ..
         } => {
             let extra = wound.map_or(0, |(kind, part)| (kind as i32 + 1) * 100 + part as i32);
-            (STRUCK, who, Some(target), at(target), extra)
+            (STRUCK, Some(who), Some(target), at(target), extra)
         }
-        Event::Missed { who, at: p } => (MISSED, who, None, (p.x, p.y), 0),
+        Event::Missed { who, at: p } => (MISSED, Some(who), None, (p.x, p.y), 0),
         Event::Shoved { who, target, down } => {
-            (SHOVED, who, Some(target), at(target), i32::from(down))
+            (SHOVED, Some(who), Some(target), at(target), i32::from(down))
         }
-        Event::Died { who } => (DIED, who, None, at(who), 0),
+        Event::Died { who } => (DIED, Some(who), None, at(who), 0),
         Event::Door {
             who, at: p, open, ..
-        } => (DOOR, who, None, (p.x, p.y), i32::from(open)),
-        Event::Exhausted { who } => (EXHAUSTED, who, None, at(who), 0),
+        } => (DOOR, Some(who), None, (p.x, p.y), i32::from(open)),
+        Event::Exhausted { who } => (EXHAUSTED, Some(who), None, at(who), 0),
+        Event::Grabbed { who, target } => (GRABBED, Some(who), Some(target), at(target), 0),
+        Event::Freed { who, from } => (FREED, Some(who), Some(from), at(who), 0),
+        Event::StruggledInVain { who } => (STRUGGLED, Some(who), None, at(who), 0),
+        Event::Thumped {
+            who,
+            at: p,
+            side: s,
+        } => (THUMPED, Some(who), None, (p.x, p.y), side(s)),
+        Event::DoorBroke { at: p, side: s } => (DOOR_BROKE, None, None, (p.x, p.y), side(s)),
+        Event::DraggedDown { who, holders } => {
+            (DRAGGED_DOWN, Some(who), None, at(who), holders as i32)
+        }
         Event::Sound { .. } => return None,
     };
-    Some([kind, index(who), target.map_or(-1, index), x, y, extra])
+    Some([
+        kind,
+        who.map_or(-1, index),
+        target.map_or(-1, index),
+        x,
+        y,
+        extra,
+    ])
 }
 
 /// Which tiles the creatures near the character can see, by the same rule they hunt by
@@ -253,7 +284,12 @@ impl DuskWorld {
     #[func]
     fn load_patch(&mut self, seed: i64) -> GString {
         if self.data.is_none() {
-            match dusk_data::load(&dusk_data::default_dir()) {
+            let dir = if self.data_dir.is_empty() {
+                dusk_data::default_dir()
+            } else {
+                std::path::PathBuf::from(self.data_dir.to_string())
+            };
+            match dusk_data::load(&dir) {
                 Ok(data) => self.data = Some(data),
                 Err(e) => return GString::from(&e.to_string()),
             }
@@ -416,7 +452,13 @@ impl DuskWorld {
     /// - 5: `who` hit `target`; extra is 0, or a wound: 100 × (1 + its kind in `wound_names`)
     ///   + its part in `part_names`.
     /// - 6: `who` swung at (x, y) and missed. 7: it shoved `target`; extra 1 if it fell.
-    /// - 8: `who` died. 9: it opened (extra 1) or shut a door. 10: it ran out of breath.
+    /// - 8: `who` died. 9: it opened (extra 1) or shut a door; (x, y) is the tile owning the
+    ///   edge. 10: it ran out of breath.
+    /// - 11: `who` took hold of `target`. 12: `who` got free of `target`. 13: `who` struggled in
+    ///   vain.
+    /// - 14: `who` beat on a shut door, and 15: a door gave way; (x, y) is the tile owning the
+    ///   edge, extra its side (0 north, 1 west).
+    /// - 16: `who` was dragged down by extra of them.
     #[func]
     fn take_events(&mut self) -> PackedInt32Array {
         let out = PackedInt32Array::from(&self.events[..]);
@@ -466,6 +508,37 @@ impl DuskWorld {
         self.act(Intent::Door);
     }
 
+    /// Fights free of what holds you.
+    #[func]
+    fn struggle(&mut self) {
+        self.act(Intent::Struggle);
+    }
+
+    /// The dead on you, two numbers each: the actor's index, and 1 if it has hold of you. The
+    /// client draws a line from each (`CONCEPT.md`: engagement you can see).
+    #[func]
+    fn character_threats(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let mut on_me = world.engaged(me);
+        for holder in world.holders(me) {
+            if !on_me.contains(&holder) {
+                on_me.push(holder);
+            }
+        }
+        on_me.sort();
+        let mut out = Vec::new();
+        for id in on_me {
+            let holds = world.actor(id).is_some_and(|a| a.holding == Some(me));
+            out.extend([index_of(world, id), i32::from(holds)]);
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
     /// Each actor's state: 0 standing, 1 knocked down, 2 dead.
     #[func]
     fn actor_states(&self) -> PackedInt32Array {
@@ -481,20 +554,32 @@ impl DuskWorld {
     }
 
     /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
-    /// 3 a door), how far through its wind-up it is (0 to 1000; 1000 once it has struck), and
-    /// the tile it's aimed at. The client draws the wind-up as the tell.
+    /// 3 a door, 4 a blow at a shut door, 5 a struggle), how far through its wind-up it is (0 to
+    /// 1000; 1000 once it has struck), and the tile it's aimed at. The client draws the wind-up
+    /// of a swing or a shove as its tell.
     #[func]
     fn actor_actions(&self) -> PackedInt32Array {
         let mut out = Vec::new();
-        for (_, a) in self.world.iter().flat_map(|w| w.actors()) {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        for (_, a) in world.actors() {
             let at = a.pos.step(a.action.map_or(a.facing, |act| act.dir));
             out.extend(match a.action {
                 None => [0, 0, at.x, at.y],
                 Some(act) => [
                     match act.kind {
+                        ActionKind::Attack
+                            if act.dir.split().is_none()
+                                && world.grid.edge(a.pos, act.dir)
+                                    == (Edge::Door { open: false }) =>
+                        {
+                            4
+                        }
                         ActionKind::Attack => 1,
                         ActionKind::Shove => 2,
                         ActionKind::Door => 3,
+                        ActionKind::Struggle => 5,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -506,13 +591,15 @@ impl DuskWorld {
     }
 
     /// Your body: [health, endurance (both out of 1000), exhausted (0 or 1), dead (0 or 1),
-    /// wounds bleeding].
+    /// wounds bleeding, how many have hold of you].
     #[func]
     fn character_body(&self) -> PackedInt32Array {
-        let Some(a) = self
-            .world
-            .as_ref()
-            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some((me, a)) = world
+            .character()
+            .and_then(|id| world.actor(id).map(|a| (id, a)))
         else {
             return PackedInt32Array::new();
         };
@@ -524,6 +611,7 @@ impl DuskWorld {
             i32::from(b.exhausted),
             i32::from(a.dead),
             bleeding,
+            world.holders(me).len() as i32,
         ])
     }
 

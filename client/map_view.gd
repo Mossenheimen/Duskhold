@@ -87,6 +87,14 @@ func set_low_walls(low: bool) -> void:
 		view.build_walls(low)
 
 
+## An edge owned by `tile` changed in the core (a door opened, shut or gave way): its chunk
+## draws its walls again, if it's drawn.
+func refresh_edge(tile: Vector2i) -> void:
+	var at := Vector2i(floori(tile.x / float(_chunk_size)), floori(tile.y / float(_chunk_size)))
+	if _chunks.has(at):
+		_chunks[at].refresh_walls()
+
+
 ## Where the character is: walls, furniture and trees between it and the camera are cut away
 ## round it.
 func set_focus(at: Vector3) -> void:

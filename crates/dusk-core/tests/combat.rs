@@ -31,6 +31,8 @@ fn you_can_kill_a_shambler_and_it_stays_as_a_corpse() {
     )
     .unwrap();
     w.rules.wander_chance = 0;
+    // No grabs: held, you can't swing (grab.rs has those tests).
+    (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
     let (me, z) = (w.character().unwrap(), shambler(&w));
     let mut died = false;
     for _ in 0..400 {
@@ -148,6 +150,8 @@ fn a_shut_door_keeps_the_dead_out() {
     )
     .unwrap();
     w.rules.wander_chance = 0;
+    // A door that never gives: beating doors down has its own test (grab.rs).
+    w.rules.combat.door_strength = i32::MAX;
     let (me, z) = (w.character().unwrap(), shambler(&w));
     w.intent(me, Intent::Door);
     w.step(10);

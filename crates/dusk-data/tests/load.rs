@@ -41,11 +41,22 @@ noise = 2
 [door]
 time = 0.5
 noise = 3
+strength = 60
+thump_noise = 8
 [wounds]
 scratch = { damage = 8, bleed = 0.0 }
 laceration = { damage = 15, bleed = 20.0 }
 bite = { damage = 30, bleed = 40.0 }
 bleeding = 0.5
+[grab]
+chance = 0.15
+per_extra = 0.15
+tired = 0.2
+parting = 0.25
+bite = 0.35
+drag_down = 3
+struggle = { wind_up = 0.5, recovery = 0.2, endurance = 12, hit = 0.7, noise = 3 }
+struggle_per_extra = 0.2
 "#;
 
 const SHAMBLER: &str = r#"
@@ -63,6 +74,7 @@ health = 30
 down = 4.0
 attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }
+thump = [2, 4]
 "#;
 
 const FIXTURES: &str = r#"
@@ -226,4 +238,21 @@ fn the_fights_numbers_become_the_cores() {
     files[1].1 = &lopsided;
     let err = load(&folder("odds", &files)).unwrap_err();
     assert!(err.message.contains("add up to 1"), "{err}");
+}
+
+#[test]
+fn grabs_and_doors_become_the_cores() {
+    let data = load(&folder("grab", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let c = data.rules.combat;
+    assert_eq!((c.grab, c.grab_per_extra, c.grab_tired), (1500, 1500, 2000));
+    assert_eq!((c.parting_grab, c.held_bite, c.drag_down), (2500, 3500, 3));
+    assert_eq!(
+        (c.struggle.wind_up, c.struggle.endurance, c.struggle.hit),
+        (5, 120, 7000)
+    );
+    assert_eq!(c.struggle_per_extra, 2000);
+    assert_eq!(
+        (c.door_strength, c.shambler_thump, c.thump_noise),
+        (600, (20, 40), 8)
+    );
 }

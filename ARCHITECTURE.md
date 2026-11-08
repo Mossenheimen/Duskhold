@@ -566,8 +566,24 @@ Game first: every step ends with something to look at or play.
        - the 96 × 96 bench with 100 dead runs at 99,000 ticks/s (was 178,000): swings are sounds, and a crowd round you fills every listener's ear;
        - 500 dead: 17,000;
        - the whole patch: 404,000;
+   - **Slice 2, grabs and doors:** done 2026-11-07; 45 tests pass. What it has:
+     - **engaged** (`grab.rs`): a creature is on you when it stands beside you, sees you, and could reach you. The client draws a line from each, thick when it holds you;
+     - **taking hold:** a creature's hit has a 15% chance to hold you, plus 15% for each other one on you, plus 20% when you're out of breath. Step out of reach of one on you, and it grabs as you go one time in four;
+     - **held:**
+       - you can't walk or swing, and get no breath back;
+       - its blows always land, and 35% are bites;
+       - the hold breaks when the holder is shoved, knocked down or killed, or you're out of its reach;
+     - **the way out:** struggle (F while held: 0.5 s, 12 endurance, 70% less 20% for each other holder, half when out of breath), or shove the holder off (Q);
+     - **the drag-down:** three holding you at once, or a hold with no breath left, and they drag you down. The death screen says which;
+     - **doors the dead beat down:** a shambler with no way to you and a shut door straight ahead beats on it (2–4 a blow, heard 8 tiles off, so the noise draws the rest). At 60 it gives way for good, and the edge is open. You can beat doors down too. The world keeps each door's damage, in its hash;
+     - **the client:**
+       - engagement lines, and a "held" banner with its way out;
+       - the news of grabs, struggles, blows on doors and broken doors;
+       - **fixed:** a door opened, shut or broken now redraws its chunk's walls. Slice 1's doors changed in the core but never on screen;
+       - dev flags: `--data=PATH` (another data folder: the start of mods) and `--do=S:ACTION` (scripted presses, for pictures);
+     - **numbers** in `rules.toml` `[grab]` and `[door]` (strength, thump noise) and the shambler's `thump`;
+     - **measured:** 100 dead 130,000 ticks/s, 500 dead 14,700, the patch 400,000;
    - **next slices:**
-     - grabs with a way out, and doors the dead thump down;
      - items, the inventory and containers (bandages stop bleeding);
      - needs and moodles;
      - day and night, light and the field of view;

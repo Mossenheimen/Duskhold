@@ -320,6 +320,16 @@ fn describe(w: &World, e: Event) -> String {
             if open { "opened" } else { "shut" }
         ),
         Event::Exhausted { who } => format!("{} ran out of breath", name(who)),
+        Event::Grabbed { who, target } => format!("{} took hold of {}", name(who), name(target)),
+        Event::Freed { who, from } => format!("{} got free of {}", name(who), name(from)),
+        Event::StruggledInVain { who } => format!("{} struggled, in vain", name(who)),
+        Event::Thumped { who, at, .. } => {
+            format!("{} beat on the door by ({}, {})", name(who), at.x, at.y)
+        }
+        Event::DoorBroke { at, .. } => format!("the door by ({}, {}) gave way", at.x, at.y),
+        Event::DraggedDown { who, holders } => {
+            format!("{holders} of them dragged {} down", name(who))
+        }
     }
 }
 

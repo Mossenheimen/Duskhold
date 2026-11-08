@@ -8,7 +8,7 @@
 use crate::actor::{Action, ActionKind, ActorId, ActorKind, Intent};
 use crate::body::{Part, Wound, WoundKind};
 use crate::geom::{Dir8, TilePos};
-use crate::grid::Edge;
+use crate::grid::{Edge, edge_owner};
 use crate::hash::{Purpose, below, roll};
 use crate::world::{Event, Sound, World};
 
@@ -57,16 +57,31 @@ impl World {
                 ActionKind::Attack => self.strike(id, action.dir),
                 ActionKind::Shove => self.shove(id, action.dir),
                 ActionKind::Door => self.toggle_door(id, action.dir),
+                ActionKind::Struggle => self.struggle(id),
             }
         }
         true
     }
 
-    /// Starts the action an intent asks for, if it can start here and now.
+    /// Starts the action an intent asks for, if it can start here and now. Held, you can only
+    /// struggle or shove; struggling is only for the held.
     fn begin(&mut self, id: ActorId, intent: Intent) -> Option<Action> {
         let c = self.rules.combat;
+        let held = self.is_held(id);
         let a = self.actors.get(id)?;
         let (kind, dir, wind_up, recovery, endurance) = match intent {
+            Intent::Attack { .. } | Intent::Door if held => return None,
+            Intent::Struggle if !held => return None,
+            Intent::Struggle => {
+                let s = c.struggle;
+                (
+                    ActionKind::Struggle,
+                    a.facing,
+                    s.wind_up,
+                    s.recovery,
+                    s.endurance,
+                )
+            }
             Intent::Attack { dir } => {
                 let s = match a.kind {
                     ActorKind::Character => c.attack,
@@ -168,12 +183,21 @@ impl World {
         });
         let at = pos.step(dir);
         let Some(target) = self.target_at(id, at) else {
-            self.events.push(Event::Missed { who: id, at });
+            if dir.split().is_none() && self.grid.edge(pos, dir) == (Edge::Door { open: false }) {
+                self.thump(id, dir);
+            } else {
+                self.events.push(Event::Missed { who: id, at });
+            }
             return;
         };
         let who = id.index() as u64;
         let down = self.actors.get(target).is_some_and(|t| t.prone_until > 0);
-        if !down && below(roll(seed, tick, who, Purpose::Hit), 10_000) >= swing.hit {
+        let holds = self
+            .actors
+            .get(id)
+            .is_some_and(|a| a.holding == Some(target));
+        // On one that's down, or one it holds, a blow always lands.
+        if !down && !holds && below(roll(seed, tick, who, Purpose::Hit), 10_000) >= swing.hit {
             self.events.push(Event::Missed { who: id, at });
             return;
         }
@@ -193,12 +217,17 @@ impl World {
             ActorKind::Shambler => {
                 let mut left = below(roll(seed, tick, who, Purpose::Wound), 10_000);
                 let mut kind = WoundKind::Scratch;
-                for (k, &odds) in WoundKind::ALL.iter().zip(&c.shambler_wounds) {
-                    if left < odds {
-                        kind = *k;
-                        break;
+                if holds && left < c.held_bite {
+                    // Held, the mouth gets close.
+                    kind = WoundKind::Bite;
+                } else {
+                    for (k, &odds) in WoundKind::ALL.iter().zip(&c.shambler_wounds) {
+                        if left < odds {
+                            kind = *k;
+                            break;
+                        }
+                        left -= odds;
                     }
-                    left -= odds;
                 }
                 let part = Part::from_roll(below(roll(seed, tick, who, Purpose::Part), 100));
                 let rule = c.wounds[kind as usize];
@@ -224,6 +253,46 @@ impl World {
         });
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
+            return;
+        }
+        // A creature's hit may take hold, the likelier the more of them are on you.
+        if kind != ActorKind::Character
+            && !holds
+            && self.actors.get(id).is_some_and(|a| a.holding.is_none())
+            && below(roll(seed, tick, who, Purpose::Grab), 10_000) < self.grab_chance(target)
+        {
+            self.grab(id, target);
+        }
+    }
+
+    /// A blow on a shut door. Beaten past its strength, the door gives way for good.
+    fn thump(&mut self, id: ActorId, dir: Dir8) {
+        let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
+        let Some(a) = self.actors.get(id) else { return };
+        let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
+        let (lo, hi) = match kind {
+            ActorKind::Character => c.attack.damage,
+            ActorKind::Shambler => c.shambler_thump,
+        };
+        let span = (hi - lo).max(0) as u32 + 1;
+        let mut harm = lo + below(roll(seed, tick, id.index() as u64, Purpose::Thump), span) as i32;
+        if tired {
+            harm /= 2;
+        }
+        let (at, side) = edge_owner(pos, dir);
+        let taken = self.door_damage.entry((at, side)).or_insert(0);
+        *taken += harm;
+        let broke = *taken >= c.door_strength;
+        self.emit(Sound {
+            at: pos,
+            loudness: c.thump_noise,
+            by: Some(id),
+        });
+        self.events.push(Event::Thumped { who: id, at, side });
+        if broke {
+            self.door_damage.remove(&(at, side));
+            self.grid.set_edge(pos, dir, Edge::Open);
+            self.events.push(Event::DoorBroke { at, side });
         }
     }
 
@@ -250,6 +319,8 @@ impl World {
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,
         ) < c.knock_down;
+        // A shove breaks a hold.
+        self.release(target);
         let Some(t) = self.actors.get_mut(target) else {
             return;
         };
@@ -303,10 +374,11 @@ impl World {
             loudness: c.door_noise,
             by: Some(id),
         });
+        let (at, side) = edge_owner(pos, dir);
         self.events.push(Event::Door {
             who: id,
-            at: pos,
-            dir,
+            at,
+            side,
             open: !open,
         });
     }
@@ -323,6 +395,13 @@ impl World {
         a.action = None;
         a.prone_until = 0;
         a.intent = Intent::Idle;
+        let held = a.holding.is_some();
+        if held {
+            self.release(id);
+        }
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
         let mut freed = vec![a.pos];
         freed.extend(a.step.take().map(|s| s.to));
         for tile in freed {
@@ -339,6 +418,8 @@ impl World {
         let (e, c, tick) = (self.rules.endurance, self.rules.combat, self.tick);
         for i in 0..self.characters.len() {
             let id = self.characters[i];
+            // Held, you strain: no breath comes back.
+            let held = self.is_held(id);
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -352,6 +433,7 @@ impl World {
                 .and_then(|&(_, s)| s);
             match (stride, a.action) {
                 (Some(true), _) => a.body.spend(e.run),
+                _ if held => {}
                 (Some(false), _) => a.body.endurance += e.walk,
                 (None, None) => a.body.endurance += e.rest,
                 (None, Some(_)) => {}

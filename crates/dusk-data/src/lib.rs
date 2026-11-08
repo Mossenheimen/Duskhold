@@ -259,6 +259,7 @@ struct RulesFile {
     shove: SwingFile,
     door: DoorFile,
     wounds: WoundsFile,
+    grab: GrabFile,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -311,6 +312,21 @@ fn always() -> f64 {
 struct DoorFile {
     time: f64,
     noise: i32,
+    strength: f64,
+    thump_noise: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GrabFile {
+    chance: f64,
+    per_extra: f64,
+    tired: f64,
+    parting: f64,
+    bite: f64,
+    drag_down: u32,
+    struggle: SwingFile,
+    struggle_per_extra: f64,
 }
 
 #[derive(Deserialize)]
@@ -411,6 +427,8 @@ struct CreatureFile {
     down: f64,
     attack: SwingFile,
     wounds: WoundOddsFile,
+    /// What its blow does to a shut door in its way, in points.
+    thump: (f64, f64),
 }
 
 #[derive(Deserialize)]
@@ -627,8 +645,32 @@ fn to_rules(
             "health must be above 0; bleeding and the door's noise can't be negative",
         ));
     }
+    let (g, d) = (&r.grab, &r.door);
+    if g.drag_down == 0
+        || d.strength <= 0.0
+        || d.thump_noise < 0
+        || c.thump.0 < 0.0
+        || c.thump.0 > c.thump.1
+    {
+        return Err(fail(
+            file,
+            "grab.drag_down and door.strength must be above 0, door.thump_noise can't be \
+             negative, and a creature's thump is [least, most]",
+        ));
+    }
     // Bleeding is paid once a second.
     rules.combat = Combat {
+        grab: chance(file, "grab.chance", g.chance)?,
+        grab_per_extra: chance(file, "grab.per_extra", g.per_extra)?,
+        grab_tired: chance(file, "grab.tired", g.tired)?,
+        parting_grab: chance(file, "grab.parting", g.parting)?,
+        held_bite: chance(file, "grab.bite", g.bite)?,
+        drag_down: g.drag_down,
+        struggle: g.struggle.to_swing(file, "grab.struggle")?,
+        struggle_per_extra: chance(file, "grab.struggle_per_extra", g.struggle_per_extra)?,
+        door_strength: points(d.strength),
+        shambler_thump: (points(c.thump.0), points(c.thump.1)),
+        thump_noise: d.thump_noise,
         character_health: points(r.character.health),
         attack: r.attack.to_swing(file, "attack")?,
         shove: r.shove.to_swing(file, "shove")?,

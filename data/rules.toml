@@ -48,6 +48,8 @@ noise = 2
 [door]
 time = 0.5            # seconds to open or shut one
 noise = 3
+strength = 60         # what a door takes before it gives way: health points of beating
+thump_noise = 8       # how far a blow on a door is heard, in tiles
 
 [wounds]
 # What each kind of wound costs: health at once, then seconds of bleeding (bandages come with
@@ -56,3 +58,16 @@ scratch = { damage = 8, bleed = 0.0 }
 laceration = { damage = 15, bleed = 20.0 }
 bite = { damage = 30, bleed = 40.0 }
 bleeding = 0.5        # health a second for each wound that's bleeding
+
+[grab]
+# A shambler's hit can take hold of you, the likelier the more of them are on you. Held, you
+# can't walk or swing, its blows always land, and you get no breath back: struggle (F) or shove
+# (Q) it off. Three holding you at once, or a hold on you with no breath left, drag you down.
+chance = 0.15         # a hit's chance to take hold
+per_extra = 0.15      # more for each other one on you
+tired = 0.2           # more when you're out of breath
+parting = 0.25        # the chance one on you grabs you as you step out of its reach
+bite = 0.35           # while it holds you, the share of its hits that are bites
+drag_down = 3         # this many holding you at once drag you down
+struggle = { wind_up = 0.5, recovery = 0.2, endurance = 12, hit = 0.7, noise = 3 }
+struggle_per_extra = 0.2   # less chance for each other one holding you; half when out of breath

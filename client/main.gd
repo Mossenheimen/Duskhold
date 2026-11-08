@@ -7,14 +7,16 @@ extends Node3D
 ##
 ## Development flags, after "--" on Godot's command line (play.cmd passes them on):
 ## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
-## start; --zoom=N; --speed=N the speed dial; --shot=PATH save a picture after
-## --shot-after=SECONDS (default 3) and quit.
+## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
+## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
+## --do=S:ACTION,... press swing, shove, door or struggle S real seconds in.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
 const NoiseRings = preload("res://noise_rings.gd")
 const Hud = preload("res://hud.gd")
 const Tells = preload("res://tells.gd")
+const Threats = preload("res://threats.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -36,6 +38,12 @@ const SHOVED := 7
 const DIED := 8
 const DOOR := 9
 const EXHAUSTED := 10
+const GRABBED := 11
+const FREED := 12
+const STRUGGLED := 13
+const THUMPED := 14
+const DOOR_BROKE := 15
+const DRAGGED_DOWN := 16
 ## Numbers an event takes.
 const EVENT_SIZE := 6
 
@@ -43,6 +51,7 @@ var dusk: Node  # the DuskWorld
 var map_view: MapView
 var rings: NoiseRings
 var tells: Tells
+var threats: Threats
 var hud: Hud
 var camera: Camera3D
 var cursor: MeshInstance3D
@@ -56,6 +65,9 @@ var wound_names := PackedStringArray()
 var part_names := PackedStringArray()
 var last_hurt := ""  # what last hurt you, for the death screen
 var dead := false
+var held := 0  # how many have hold of you
+var dragged_by := 0  # how many dragged you down, for the death screen
+var last_thump := -100.0  # when the news last told of a blow on a door, in game seconds
 var low_walls := false
 var last_tick := -1
 var use_town := false
@@ -63,8 +75,10 @@ var use_town := false
 var shot_path := ""
 var shot_after := 3.0
 var start_speed := 1.0
+var data_dir := ""  # --data: another data folder (a mod, or a test)
 var walk_at := Vector2i(-1, -1)
 var played := 0.0
+var scripted: Array = []  # --do: [real seconds, action], soonest first
 
 
 func _ready() -> void:
@@ -79,6 +93,7 @@ func _ready() -> void:
 		return
 	dusk = ClassDB.instantiate("DuskWorld")
 	dusk.process_priority = -1  # tick the world before this script draws it
+	dusk.data_dir = data_dir
 	add_child(dusk)
 	map_view = MapView.new()
 	add_child(map_view)
@@ -86,6 +101,8 @@ func _ready() -> void:
 	add_child(rings)
 	tells = Tells.new()
 	add_child(tells)
+	threats = Threats.new()
+	add_child(threats)
 	_start()
 
 
@@ -115,6 +132,9 @@ func _start() -> void:
 	part_names = dusk.part_names()
 	last_hurt = ""
 	dead = false
+	held = 0
+	dragged_by = 0
+	last_thump = -100.0
 	last_tick = -1
 	_draw_actors(0.0)
 	if me >= 0:
@@ -141,8 +161,12 @@ func _process(delta: float) -> void:
 	map_view.update(focus)
 	_move_cursor()
 	hud.show_state(town_seed, tick, roundi(dusk.speed), dusk.paused)
-	hud.show_body(dusk.character_body(), dusk.character_wounds())
-	_maybe_take_picture(delta)
+	var body: PackedInt32Array = dusk.character_body()
+	held = body[5] if body.size() > 5 else 0
+	hud.show_body(body, dusk.character_wounds())
+	played += delta
+	_run_script()
+	_maybe_take_picture()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -159,7 +183,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				var tile := _tile_under(mouse.position)
 				var aim := _foe_beside(tile)
 				if aim != Vector2i.ZERO:
-					dusk.attack(aim.x, aim.y)
+					if held > 0:
+						dusk.struggle()
+					else:
+						dusk.attack(aim.x, aim.y)
 				else:
 					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
 			MOUSE_BUTTON_WHEEL_UP:
@@ -167,7 +194,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				zoom = minf(ZOOM_MAX, zoom * 1.15)
 	elif event.is_action_pressed("swing") and not dead:
-		dusk.attack(0, 0)
+		# Held, the swing key struggles: you can't swing with one on you.
+		if held > 0:
+			dusk.struggle()
+		else:
+			dusk.attack(0, 0)
 	elif event.is_action_pressed("shove") and not dead:
 		dusk.shove(0, 0)
 	elif event.is_action_pressed("door") and not dead:
@@ -235,6 +266,10 @@ func _draw_actors(delta: float) -> void:
 		var swinging := actions[i * 4] == 1 and actions[i * 4 + 1] < 1000
 		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
 	tells.show_actions(actions, me)
+	var drawn := []
+	for view in actors:
+		drawn.append(view.position)
+	threats.show_threats(dusk.character_threats(), drawn, me)
 	if me >= 0:
 		map_view.set_focus(actors[me].position + Vector3(0.0, 0.9, 0.0))
 
@@ -276,11 +311,34 @@ func _read_events() -> void:
 				else:
 					hud.say("It's down for good.")
 			DOOR:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You opened the door." if extra == 1 else "You shut the door.")
 			EXHAUSTED:
 				if who == me:
 					hud.say("You're out of breath.")
+			GRABBED:
+				if target == me:
+					hud.say("It has hold of you! F to struggle, Q to shove it off.")
+					hud.flash()
+			FREED:
+				if who == me:
+					hud.say("You got free.")
+			STRUGGLED:
+				if who == me:
+					hud.say("You couldn't get free.")
+			THUMPED:
+				# Doors are loud: tell of it now and then, not at every blow.
+				var now: float = dusk.tick() / 10.0
+				if now - last_thump > 6.0:
+					last_thump = now
+					hud.say("Something is beating on a door.")
+			DOOR_BROKE:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				hud.say("A door gave way!")
+			DRAGGED_DOWN:
+				if who == me:
+					dragged_by = extra
 
 
 ## Whether actor `i` stands beside you.
@@ -294,7 +352,11 @@ func _beside(i: int) -> bool:
 func _die() -> void:
 	dead = true
 	var how := last_hurt
-	if dusk.character_body()[4] > 0 or how.is_empty():
+	if dragged_by >= 3:
+		how = "%d of them got hold of you, and dragged you down." % dragged_by
+	elif dragged_by > 0:
+		how = "It had hold of you, and you had no breath left to throw it off."
+	elif dusk.character_body()[4] > 0 or how.is_empty():
 		how = "You bled to death." if not how.is_empty() else "You died."
 	hud.show_death(how, dusk.tick() / 10.0)
 
@@ -405,8 +467,13 @@ func _read_args() -> void:
 			walk_at = Vector2i(value.get_slice(",", 0).to_int(), value.get_slice(",", 1).to_int())
 		elif arg.begins_with("--zoom="):
 			zoom = value.to_float()
+		elif arg.begins_with("--data="):
+			data_dir = value
 		elif arg.begins_with("--speed="):
 			start_speed = value.to_float()
+		elif arg.begins_with("--do="):
+			for step in value.split(","):
+				scripted.append([step.get_slice(":", 0).to_float(), step.get_slice(":", 1)])
 		elif arg.begins_with("--shot="):
 			shot_path = value
 		elif arg.begins_with("--shot-after="):
@@ -414,10 +481,9 @@ func _read_args() -> void:
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
-func _maybe_take_picture(delta: float) -> void:
+func _maybe_take_picture() -> void:
 	if shot_path.is_empty():
 		return
-	played += delta
 	if played < shot_after:
 		return
 	var path := shot_path
@@ -426,3 +492,17 @@ func _maybe_take_picture(delta: float) -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	print("Saved ", path)
 	get_tree().quit()
+
+
+## --do: presses the scripted actions as their time comes (for pictures of a fight or a door).
+func _run_script() -> void:
+	while not scripted.is_empty() and played >= scripted[0][0]:
+		match scripted.pop_front()[1]:
+			"swing":
+				dusk.attack(0, 0)
+			"shove":
+				dusk.shove(0, 0)
+			"door":
+				dusk.use_door()
+			"struggle":
+				dusk.struggle()

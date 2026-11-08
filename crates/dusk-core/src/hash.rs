@@ -49,6 +49,9 @@ pub enum Purpose {
     Wound = 7,
     Part = 8,
     KnockDown = 9,
+    Grab = 10,
+    Struggle = 11,
+    Thump = 12,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

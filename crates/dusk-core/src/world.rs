@@ -1,12 +1,13 @@
 //! The world, and its tick.
 
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 
 use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
 use crate::body::{Body, Part, WoundKind};
 use crate::geom::{ChunkPos, Dir8, TilePos};
-use crate::grid::Grid;
+use crate::grid::{Edge, Grid};
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::path::find_path;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
@@ -98,6 +99,25 @@ pub struct Combat {
     /// Each bleeding wound costs `bleed_damage` health every `bleed_every` ticks.
     pub bleed_every: u32,
     pub bleed_damage: i32,
+    /// Grabs (`grab.rs`), out of 10,000: a hit's chance to take hold, more for each other one
+    /// on the victim and when it's out of breath; the chance one on you grabs as you step out
+    /// of its reach; and how often a hit by one that holds you is a bite.
+    pub grab: u32,
+    pub grab_per_extra: u32,
+    pub grab_tired: u32,
+    pub parting_grab: u32,
+    pub held_bite: u32,
+    /// This many holding you at once drag you down.
+    pub drag_down: u32,
+    /// Struggling free: its timing and cost, and its chance (`hit`), less for each other
+    /// holder.
+    pub struggle: Swing,
+    pub struggle_per_extra: u32,
+    /// A door's strength (out of `body::FULL`), what a shambler's blow does to it, and how far
+    /// a blow on a door is heard. Beaten past its strength, a door gives way.
+    pub door_strength: i32,
+    pub shambler_thump: (i32, i32),
+    pub thump_noise: i32,
 }
 
 /// Endurance a tick, out of `body::FULL`: spent running, got back walking and standing still.
@@ -187,6 +207,24 @@ impl Default for Rules {
                 ],
                 bleed_every: 20,
                 bleed_damage: 10,
+                grab: 1500,
+                grab_per_extra: 1500,
+                grab_tired: 2000,
+                parting_grab: 2500,
+                held_bite: 3500,
+                drag_down: 3,
+                struggle: Swing {
+                    wind_up: 5,
+                    recovery: 2,
+                    endurance: 120,
+                    hit: 7000,
+                    damage: (0, 0),
+                    noise: 3,
+                },
+                struggle_per_extra: 2000,
+                door_strength: 600,
+                shambler_thump: (20, 40),
+                thump_noise: 8,
             },
             endurance: Endurance {
                 run: 4,
@@ -260,16 +298,47 @@ pub enum Event {
     Died {
         who: ActorId,
     },
-    /// `who` opened (or shut) the door between `at` and the tile that way.
+    /// `who` opened (or shut) a door. Doors are named by the tile that owns the edge and its
+    /// side, north or west (`grid::edge_owner`).
     Door {
         who: ActorId,
         at: TilePos,
-        dir: Dir8,
+        side: Dir8,
         open: bool,
     },
     /// `who` ran out of breath.
     Exhausted {
         who: ActorId,
+    },
+    /// `who` took hold of `target`.
+    Grabbed {
+        who: ActorId,
+        target: ActorId,
+    },
+    /// `who` got free of `from` (it was shoved off, struggled loose, let go or went down).
+    Freed {
+        who: ActorId,
+        from: ActorId,
+    },
+    /// `who` struggled, and didn't get free.
+    StruggledInVain {
+        who: ActorId,
+    },
+    /// `who` beat on a shut door.
+    Thumped {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+    },
+    /// A door gave way: the edge is open now, for good.
+    DoorBroke {
+        at: TilePos,
+        side: Dir8,
+    },
+    /// `holders` of them held `who` at once, or held it with no breath left: it was dragged down.
+    DraggedDown {
+        who: ActorId,
+        holders: u32,
     },
 }
 
@@ -294,6 +363,8 @@ pub struct World {
     pub(crate) occupied: FastMap<TilePos, ActorId>,
     sounds: Vec<Sound>,
     pub(crate) events: Vec<Event>,
+    /// The harm each beaten door has taken, by (owner tile, side). Ordered, for the hash.
+    pub(crate) door_damage: BTreeMap<(TilePos, Dir8), i32>,
 }
 
 impl World {
@@ -313,6 +384,7 @@ impl World {
             occupied: FastMap::default(),
             sounds: Vec::new(),
             events: Vec::new(),
+            door_damage: BTreeMap::new(),
         }
     }
 
@@ -440,6 +512,7 @@ impl World {
         let mut h = Fnv64::default();
         self.tick.hash(&mut h);
         self.grid.hash(&mut h);
+        self.door_damage.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -525,7 +598,9 @@ impl World {
         for &id in &ids {
             self.think(id);
         }
+        self.grips();
         self.bodies(&strides);
+        self.drag_downs();
         self.sounds.clear();
     }
 
@@ -533,8 +608,33 @@ impl World {
     /// taken as the step starts, so two actors never share a tile.
     fn move_actor(&mut self, id: ActorId) -> Option<bool> {
         let rules = self.rules;
+        // Held, a character can't step; and as it steps out of reach of the dead on it, each
+        // may grab it as it goes (`grab.rs`). Only characters are held, which keeps this cheap.
+        let starting = self
+            .actors
+            .get(id)
+            .is_some_and(|a| a.kind == ActorKind::Character && a.step.is_none());
+        let held = starting && self.is_held(id);
+        let on_me: Vec<(ActorId, TilePos)> = if starting && !held {
+            self.engaged(id)
+                .into_iter()
+                .filter_map(|e| {
+                    self.actors
+                        .get(e)
+                        .filter(|o| o.holding.is_none())
+                        .map(|o| (e, o.pos))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         let a = self.actors.get_mut(id)?;
         if a.step.is_none() {
+            // Holding on to its prey, or held, nobody steps.
+            if held || a.holding.is_some() {
+                a.carry = 0;
+                return None;
+            }
             let (dir, run) = match next_heading(a, &self.grid, &rules) {
                 // Out of breath, nobody runs.
                 Heading::Go(dir, run) => (dir, run && !a.body.exhausted),
@@ -556,6 +656,17 @@ impl World {
                 return None;
             }
             a.blocked = 0;
+            let (seed, tick) = (self.seed, self.tick);
+            let parting = on_me.iter().find(|&&(e, at)| {
+                !reaches(&self.grid, at, to)
+                    && below(roll(seed, tick, e.index() as u64, Purpose::Grab), 10_000)
+                        < rules.combat.parting_grab
+            });
+            if let Some(&(e, _)) = parting {
+                a.carry = 0;
+                self.grab(e, id);
+                return None;
+            }
             if matches!(a.intent, Intent::WalkTo { .. }) {
                 a.path.pop();
             }
@@ -655,6 +766,15 @@ impl World {
         if a.prone_until > 0 || a.dead {
             return;
         }
+        // Holding on to its prey, it keeps at it.
+        if let Some(victim) = a.holding {
+            let at = self.actors.get(victim).map_or(a.pos, |v| v.pos);
+            let dir = Dir8::toward(at.x - a.pos.x, at.y - a.pos.y);
+            if let Some(a) = self.actors.get_mut(id) {
+                a.intent = Intent::Attack { dir };
+            }
+            return;
+        }
         let Mind::Shambler {
             mut target,
             mut since,
@@ -738,6 +858,12 @@ impl World {
             return Intent::Move { dir, run: true };
         }
         if a.no_way.is_some_and(|tried| tried.steps_to(goal) <= 1) {
+            // No way round: a shut door straight ahead gets beaten on; a wall, pressed against.
+            if let Some(side) = Dir8::nearest(goal.x - pos.x, goal.y - pos.y)
+                .and_then(|d| self.shut_door_toward(pos, d))
+            {
+                return Intent::Attack { dir: Some(side) };
+            }
             return Intent::Move {
                 dir: self.lurch_toward(pos, goal),
                 run: true,
@@ -775,9 +901,19 @@ impl World {
     /// Could an actor at `from` step onto `to`'s tile: next to it, with no wall or corner in the
     /// way? (Whoever stands there doesn't count.)
     pub(crate) fn can_reach(&self, from: TilePos, to: TilePos) -> bool {
-        from.steps_to(to) == 1
-            && Dir8::toward(to.x - from.x, to.y - from.y)
-                .is_some_and(|d| self.grid.can_step(from, d))
+        reaches(&self.grid, from, to)
+    }
+
+    /// The side of `from` with a shut door, going `dir` (for a diagonal, either of its sides).
+    fn shut_door_toward(&self, from: TilePos, dir: Dir8) -> Option<Dir8> {
+        let sides = match dir.split() {
+            Some((a, b)) => [Some(a), Some(b)],
+            None => [Some(dir), None],
+        };
+        sides
+            .into_iter()
+            .flatten()
+            .find(|&d| self.grid.edge(from, d) == Edge::Door { open: false })
     }
 
     /// The heading a shambler lurches in to reach `goal`: straight at it, or an eighth of a turn
@@ -827,9 +963,11 @@ enum Heading {
 fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
     match a.intent {
         // An action waits for the step under way to end; meanwhile the legs stand.
-        Intent::Idle | Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door => {
-            Heading::Stand
-        }
+        Intent::Idle
+        | Intent::Attack { .. }
+        | Intent::Shove { .. }
+        | Intent::Door
+        | Intent::Struggle => Heading::Stand,
         Intent::Move { dir, run } => Heading::Go(dir, run),
         Intent::WalkTo { to, run } => {
             if a.pos == to {
@@ -872,4 +1010,11 @@ fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
             }
         }
     }
+}
+
+/// Could an actor at `from` step onto `to`'s tile: next to it, with no wall or corner in the
+/// way? (Whoever stands there doesn't count.) The reach of a swing, a grab and a shove.
+pub(crate) fn reaches(grid: &Grid, from: TilePos, to: TilePos) -> bool {
+    from.steps_to(to) == 1
+        && Dir8::toward(to.x - from.x, to.y - from.y).is_some_and(|d| grid.can_step(from, d))
 }

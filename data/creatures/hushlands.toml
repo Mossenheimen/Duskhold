@@ -16,3 +16,4 @@ down = 4.0            # seconds it stays down when knocked down
 # damage of their own.
 attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }   # what a hit leaves
+thump = [2, 4]        # what a blow does to a shut door in its way (rules.toml, [door])

@@ -6,7 +6,7 @@ const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
 const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
-const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far your footsteps carry."
+const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 var _state: Label
 var _news: Label
@@ -21,6 +21,7 @@ var _endurance: ProgressBar
 var _breath: Label
 var _wounds: Label
 var _death: Label
+var _held: Label
 
 
 func _ready() -> void:
@@ -44,6 +45,10 @@ func _ready() -> void:
 	_problem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_death = _label(30, Control.PRESET_CENTER)
 	_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_held = _label(30, Control.PRESET_CENTER_TOP)
+	_held.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_held.position.y += 120.0
+	_held.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
 	_build_body_panel()
 
 
@@ -60,7 +65,7 @@ func _process(delta: float) -> void:
 
 ## `tick` counts tenths of a second of game time; `speed` is the dial (1, 2, 5).
 func show_state(world_seed: int, tick: int, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 5: fight or flee\nSeed %d  ·  %.1f s  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 5: grabs and doors\nSeed %d  ·  %.1f s  ·  %d×" % [
 		world_seed, tick / 10.0, speed]
 	_paused.visible = paused
 
@@ -116,6 +121,14 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray) -> void:
 	_endurance.value = body[1] / 10.0
 	_breath.text = "Out of breath" if body[2] == 1 else ""
 	_wounds.text = "\n".join(wounds)
+	var holding := body[5] if body.size() > 5 and body[3] == 0 else 0
+	match holding:
+		0:
+			_held.text = ""
+		1:
+			_held.text = "IT HAS HOLD OF YOU\nF struggle  ·  Q shove it off"
+		_:
+			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  Q shove one off  ·  three drag you down" % holding
 
 
 ## The end: how you died, and how long you lasted.

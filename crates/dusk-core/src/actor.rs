@@ -28,6 +28,8 @@ pub enum Intent {
     /// Open or shut the door beside you: the one you face, else the first of north, east,
     /// south and west.
     Door,
+    /// Fight free of what holds you.
+    Struggle,
 }
 
 impl Intent {
@@ -35,7 +37,7 @@ impl Intent {
     pub fn is_action(self) -> bool {
         matches!(
             self,
-            Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door
+            Intent::Attack { .. } | Intent::Shove { .. } | Intent::Door | Intent::Struggle
         )
     }
 }
@@ -46,6 +48,7 @@ pub enum ActionKind {
     Attack,
     Shove,
     Door,
+    Struggle,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -139,6 +142,8 @@ pub struct Actor {
     pub prone_until: u64,
     /// A corpse: it stays where it fell and takes no part in the tick.
     pub dead: bool,
+    /// Who it has hold of (`grab.rs`).
+    pub holding: Option<ActorId>,
 }
 
 impl Actor {
@@ -168,6 +173,7 @@ impl Actor {
             body: Body::new(crate::body::FULL),
             prone_until: 0,
             dead: false,
+            holding: None,
         }
     }
 

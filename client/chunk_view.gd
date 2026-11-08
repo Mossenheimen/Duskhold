@@ -52,6 +52,9 @@ const EDGE_FENCE := 6
 var _edges := PackedInt32Array()
 var _materials: Dictionary
 var _walls: Node3D
+var _dusk: Node
+var _chunk := Vector2i.ZERO
+var _low_walls := false
 
 
 ## Builds the chunk (cx, cy) from the core. `names` are the fixtures' ids by number;
@@ -59,6 +62,8 @@ var _walls: Node3D
 func build(dusk: Node, cx: int, cy: int, names: PackedStringArray, materials: Dictionary,
 		low_walls: bool) -> void:
 	_materials = materials
+	_dusk = dusk
+	_chunk = Vector2i(cx, cy)
 	var size: int = dusk.chunk_size()
 	var origin := Vector2i(cx * size, cy * size)
 	var tiles: PackedInt32Array = dusk.chunk_tiles(cx, cy)
@@ -70,9 +75,16 @@ func build(dusk: Node, cx: int, cy: int, names: PackedStringArray, materials: Di
 	build_walls(low_walls)
 
 
+## The chunk's edges changed in the core (a door opened, shut or gave way): fetch them again.
+func refresh_walls() -> void:
+	_edges = _dusk.chunk_edges(_chunk.x, _chunk.y)
+	build_walls(_low_walls)
+
+
 ## The walls, doors, windows and fences, full height or low. Low walls are only a way of
 ## looking: the core's walls don't change.
 func build_walls(low_walls: bool) -> void:
+	_low_walls = low_walls
 	for child in _walls.get_children():
 		child.queue_free()
 	var height := LOW_WALL_HEIGHT if low_walls else WALL_HEIGHT
