@@ -43,7 +43,15 @@ fn defs() -> Defs {
                 },
             ),
             item("bandage", 100, 10, ItemKind::Bandage { time: 20 }),
-            item("bread", 300, 5, ItemKind::Food),
+            item(
+                "bread",
+                300,
+                5,
+                ItemKind::Food {
+                    nutrition: 30_000,
+                    time: 30,
+                },
+            ),
             item("anvil", 30_000, 1, ItemKind::Other),
         ],
         loot: vec![LootTable {
@@ -63,6 +71,7 @@ fn defs() -> Defs {
             ],
         }],
         containers: vec![None, Some(0)],
+        beds: Vec::new(),
         wield: None,
         kit: Vec::new(),
         carry: 15_000,

@@ -32,6 +32,14 @@ impl World {
             }
             a.prone_until = 0;
         }
+        // Asleep, nothing happens until something wakes you: any intent does.
+        if a.body.asleep {
+            if a.intent != Intent::Idle {
+                a.intent = Intent::Idle;
+                self.wake(id, crate::needs::Woke::Chose);
+            }
+            return true;
+        }
         if a.action.is_none() {
             if a.step.is_some() || !a.intent.is_action() {
                 return false;
@@ -63,6 +71,8 @@ impl World {
                 ActionKind::Use { slot, def } => self.use_item(id, slot, def),
                 ActionKind::Wield { slot, def } => self.wield(id, slot, def),
                 ActionKind::Unwield => self.unwield(id),
+                ActionKind::Sleep => self.fall_asleep(id),
+                ActionKind::DrinkWater => self.drink_water(id),
             }
         }
         true
@@ -96,6 +106,16 @@ impl World {
             Intent::Use { slot, def } => {
                 let ticks = self.item_ticks(id, slot, def, true)?;
                 (ActionKind::Use { slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Sleep => {
+                self.can_sleep(id).ok()?;
+                let ticks = self.rules.needs.lie_down;
+                (ActionKind::Sleep, a.facing, ticks, 0, 0)
+            }
+            Intent::DrinkWater => {
+                self.water_beside(a.pos)?;
+                let ticks = self.rules.needs.drink_water;
+                (ActionKind::DrinkWater, a.facing, ticks, 0, 0)
             }
             Intent::Wield { slot, def } => {
                 let ticks = self.item_ticks(id, slot, def, false)?;
@@ -146,7 +166,7 @@ impl World {
     }
 
     /// An action begins: it faces its way and pays its endurance. Out of breath, it takes half
-    /// as long again.
+    /// as long again; tired, longer still (`needs.rs`).
     fn start(
         &mut self,
         id: ActorId,
@@ -156,8 +176,12 @@ impl World {
         recovery: u32,
         endurance: i32,
     ) -> Option<Action> {
+        let tired = self.tired_slow(id);
         let a = self.actors.get_mut(id)?;
-        let slow = |t: u32| if a.body.exhausted { t * 3 / 2 } else { t };
+        let slow = |t: u32| {
+            let t = t * tired / 1000;
+            if a.body.exhausted { t * 3 / 2 } else { t }
+        };
         let (wind_up, recovery) = (slow(wind_up).max(1), slow(recovery));
         let was = a.body.exhausted;
         a.facing = dir;
@@ -294,10 +318,12 @@ impl World {
                     kind,
                     bleeding,
                     bandaged: false,
+                    heal_left: self.rules.needs.wound_heal[kind as usize],
                 });
             }
         }
         self.interrupt(target);
+        self.wake(target, crate::needs::Woke::Hurt);
         self.events.push(Event::Struck {
             who: id,
             target,
@@ -452,6 +478,7 @@ impl World {
             kind,
             bleeding: rule.bleed,
             bandaged: false,
+            heal_left: self.rules.needs.wound_heal[kind as usize],
         });
         if a.body.health <= 0 {
             self.kill(id);
@@ -493,8 +520,9 @@ impl World {
         let (e, c, tick) = (self.rules.endurance, self.rules.combat, self.tick);
         for i in 0..self.characters.len() {
             let id = self.characters[i];
-            // Held, you strain: no breath comes back.
+            // Held, you strain: no breath comes back. Hungry or thirsty, it comes back slower.
             let held = self.is_held(id);
+            let recovery = self.recovery(id) as i32;
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -509,8 +537,8 @@ impl World {
             match (stride, a.action) {
                 (Some(true), _) => a.body.spend(e.run),
                 _ if held => {}
-                (Some(false), _) => a.body.endurance += e.walk,
-                (None, None) => a.body.endurance += e.rest,
+                (Some(false), _) => a.body.endurance += e.walk * recovery / 1000,
+                (None, None) => a.body.endurance += e.rest * recovery / 1000,
                 (None, Some(_)) => {}
             }
             a.body.endurance = a.body.endurance.min(crate::body::FULL);

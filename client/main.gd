@@ -9,8 +9,8 @@ extends Node3D
 ## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
-## --do=S:ACTION,... press swing, shove, door, struggle or drop (the first thing in the pack)
-## S real seconds in.
+## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
+## sleep or drink (from water) S real seconds in; --news print the news too (for --headless).
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -52,8 +52,22 @@ const DROPPED := 18
 const WIELDED := 19
 const WEAPON_BROKE := 20
 const BANDAGED := 21
+const ATE := 22
+const DRANK := 23
+const DRANK_WATER := 24
+const FELL_ASLEEP := 25
+const WOKE := 26
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
-const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand", 10: "Putting it away"}
+const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
+	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking"}
+## Moodles (DuskWorld.character_moodles()) the client acts on.
+const HUNGRY := 0
+const THIRSTY := 1
+const ASLEEP := 8
+## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
+const SLEEP_SPEED := 60.0
+## Why you woke, by WOKE's extra.
+const WOKE_BY := ["You woke, rested.", "You got up.", "You woke to pain!", "A noise woke you."]
 ## Numbers an event takes.
 const EVENT_SIZE := 6
 
@@ -77,6 +91,10 @@ var focus := Vector3.ZERO  # where the camera looks: the character, smoothed
 var wound_names := PackedStringArray()
 var part_names := PackedStringArray()
 var last_hurt := ""  # what last hurt you, for the death screen
+var last_hurt_at := -100  # the tick it did
+var moodles := PackedInt32Array()  # yours, as of the last frame
+var sleeping := false  # asleep, and the clock running fast
+var wake_speed := 1.0  # the speed to go back to on waking
 var dead := false
 var held := 0  # how many have hold of you
 var dragged_by := 0  # how many dragged you down, for the death screen
@@ -88,6 +106,7 @@ var use_town := false
 var shot_path := ""
 var shot_after := 3.0
 var start_speed := 1.0
+var print_news := false  # --news
 var data_dir := ""  # --data: another data folder (a mod, or a test)
 var walk_at := Vector2i(-1, -1)
 var played := 0.0
@@ -99,6 +118,7 @@ func _ready() -> void:
 	_add_input_actions()
 	_build_stage()
 	hud = Hud.new()
+	hud.echo = print_news
 	add_child(hud)
 	if not ClassDB.class_exists("DuskWorld"):
 		hud.show_problem("The game's core (the Rust extension) isn't loaded.\n"
@@ -150,6 +170,9 @@ func _start() -> void:
 	bag.start(dusk)
 	part_names = dusk.part_names()
 	last_hurt = ""
+	last_hurt_at = -100
+	moodles = PackedInt32Array()
+	sleeping = false
 	dead = false
 	held = 0
 	dragged_by = 0
@@ -179,7 +202,13 @@ func _process(delta: float) -> void:
 	_move_camera(delta)
 	map_view.update(focus)
 	_move_cursor()
-	hud.show_state(town_seed, tick, roundi(dusk.speed), dusk.paused)
+	var clock: PackedInt32Array = dusk.clock()
+	moodles = dusk.character_moodles()
+	var asleep := _moodle(ASLEEP) > 0
+	_sleep_speed(asleep)
+	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused)
+	hud.show_moodles(moodles)
+	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds())
@@ -226,6 +255,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		dusk.shove(0, 0)
 	elif event.is_action_pressed("door") and not dead:
 		dusk.use_door()
+	elif event.is_action_pressed("sleep") and not dead:
+		_sleep_or_wake()
+	elif event.is_action_pressed("drink") and not dead:
+		if dusk.water_in_reach():
+			dusk.drink_water()
+		else:
+			hud.say("There's no water within reach.")
 	elif event.is_action_pressed("pause"):
 		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
@@ -273,8 +309,47 @@ func _steer() -> void:
 
 func _set_speed(index: int) -> void:
 	speed_index = index
-	dusk.speed = float(SPEEDS[index])
+	if sleeping:
+		wake_speed = float(SPEEDS[index])  # for when you wake
+	else:
+		dusk.speed = float(SPEEDS[index])
 	dusk.paused = false
+
+
+## Z: lie down to sleep, or get up. The core says whether you can; this says why not.
+func _sleep_or_wake() -> void:
+	if _moodle(ASLEEP) > 0:
+		dusk.wake()
+		return
+	match dusk.sleep_check():
+		-1:
+			hud.say("You're not tired enough to sleep.")
+		-2:
+			hud.say("You can't sleep with the dead after you.")
+		-3:
+			hud.say("Not with it holding you!")
+		_:
+			dusk.sleep()
+
+
+## Asleep, time runs at SLEEP_SPEED; awake again, at the speed it was.
+func _sleep_speed(asleep: bool) -> void:
+	if asleep and not sleeping:
+		sleeping = true
+		wake_speed = dusk.speed
+		dusk.speed = SLEEP_SPEED
+		dusk.paused = false
+	elif not asleep and sleeping:
+		sleeping = false
+		dusk.speed = wake_speed
+
+
+## A moodle's level now (0 if you haven't got it).
+func _moodle(code: int) -> int:
+	for i in range(0, moodles.size() - 1, 2):
+		if moodles[i] == code:
+			return moodles[i + 1]
+	return 0
 
 
 func _draw_actors(delta: float) -> void:
@@ -318,6 +393,7 @@ func _read_events() -> void:
 					var wound := wound_names[floori(extra / 100.0) - 1]
 					var part := part_names[extra % 100]
 					last_hurt = "A shambler gave you a %s on the %s." % [wound, part]
+					last_hurt_at = dusk.tick()
 					hud.say(last_hurt)
 					hud.flash()
 				elif who == me:
@@ -379,6 +455,21 @@ func _read_events() -> void:
 			BANDAGED:
 				if who == me:
 					hud.say("You bandaged your %s." % part_names[extra])
+			ATE:
+				if who == me:
+					hud.say("You ate the %s." % _item_name(extra))
+			DRANK:
+				if who == me:
+					hud.say("You drank the %s." % _item_name(extra))
+			DRANK_WATER:
+				if who == me:
+					hud.say("You drank your fill.")
+			FELL_ASLEEP:
+				if who == me:
+					hud.say("You fell asleep in the bed." if extra == 1 else "You fell asleep on the ground.")
+			WOKE:
+				if who == me and extra >= 0 and extra < WOKE_BY.size():
+					hud.say(WOKE_BY[extra])
 
 
 ## Whether actor `i` stands beside you.
@@ -389,16 +480,30 @@ func _beside(i: int) -> bool:
 	return (where[i] - where[me]).length() < 1.6
 
 
+## How you died, from what the client last saw: a hold, a blow just now, bleeding, or hunger and
+## thirst (the moodles of the frame before).
 func _die() -> void:
 	dead = true
 	var how := last_hurt
+	var starving := _moodle(HUNGRY) >= 3
+	var parched := _moodle(THIRSTY) >= 3
 	if dragged_by >= 3:
 		how = "%d of them got hold of you, and dragged you down." % dragged_by
 	elif dragged_by > 0:
 		how = "It had hold of you, and you had no breath left to throw it off."
-	elif dusk.character_body()[4] > 0 or how.is_empty():
-		how = "You bled to death." if not how.is_empty() else "You died."
-	hud.show_death(how, dusk.tick() / 10.0)
+	elif dusk.tick() - last_hurt_at <= 1:
+		pass  # the blow itself
+	elif dusk.character_body()[4] > 0:
+		how = "You bled to death."
+	elif starving and parched:
+		how = "Hunger and thirst wore you down."
+	elif parched:
+		how = "You died of thirst."
+	elif starving:
+		how = "You starved."
+	elif how.is_empty():
+		how = "You died."
+	hud.show_death(how, dusk.clock()[3])
 
 
 func _move_camera(delta: float) -> void:
@@ -482,6 +587,8 @@ func _add_input_actions() -> void:
 		"swing": [KEY_F],
 		"shove": [KEY_Q],
 		"door": [KEY_E],
+		"sleep": [KEY_Z],
+		"drink": [KEY_X],
 		"low_walls": [KEY_V],
 		"pack": [KEY_TAB],
 		"restart": [KEY_R],
@@ -519,6 +626,8 @@ func _read_args() -> void:
 			shot_path = value
 		elif arg.begins_with("--shot-after="):
 			shot_after = value.to_float()
+		elif arg == "--news":
+			print_news = true
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
@@ -551,6 +660,10 @@ func _run_script() -> void:
 				var items: PackedInt32Array = dusk.character_items()
 				if items.size() >= 3:
 					dusk.drop_item(0, items[0])
+			"sleep":
+				_sleep_or_wake()
+			"drink":
+				dusk.drink_water()
 
 
 ## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).

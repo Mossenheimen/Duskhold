@@ -42,6 +42,13 @@ pub enum Intent {
     Wield { slot: u16, def: u16 },
     /// Put what's in your hand into your pack.
     Unwield,
+    /// Lie down and sleep (tired, and with none of the dead about): a bed beside you rests you
+    /// twice as fast as the ground.
+    Sleep,
+    /// Get up. (Asleep, any intent wakes you; this one does nothing else.)
+    Wake,
+    /// Drink your fill from the water beside you.
+    DrinkWater,
 }
 
 impl Intent {
@@ -66,6 +73,8 @@ pub enum ActionKind {
     Use { slot: u16, def: u16 },
     Wield { slot: u16, def: u16 },
     Unwield,
+    Sleep,
+    DrinkWater,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,

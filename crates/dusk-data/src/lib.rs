@@ -6,6 +6,7 @@
 //! loading fails with the file and what's wrong.
 
 mod items;
+mod needs;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -62,6 +63,9 @@ pub struct Fixture {
     /// A container: the loot table it fills from.
     #[serde(default)]
     pub loot: Option<String>,
+    /// A bed: you sleep best beside one.
+    #[serde(default)]
+    pub bed: bool,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -283,6 +287,13 @@ struct RulesFile {
     door: DoorFile,
     wounds: WoundsFile,
     grab: GrabFile,
+    clock: needs::ClockFile,
+    hunger: needs::NeedFile,
+    thirst: needs::NeedFile,
+    fatigue: needs::FatigueFile,
+    sleep: needs::SleepFile,
+    healing: needs::HealingFile,
+    water: needs::WaterFile,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -717,6 +728,7 @@ fn to_rules(
         bleed_every: TICKS_PER_SECOND,
         bleed_damage: points(w.bleeding),
     };
+    (rules.clock, rules.needs) = needs::to_needs(file, r)?;
     Ok(rules)
 }
 

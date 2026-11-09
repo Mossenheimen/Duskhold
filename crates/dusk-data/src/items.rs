@@ -37,9 +37,9 @@ struct ItemFile {
     #[serde(default)]
     bandage: Option<BandageFile>,
     #[serde(default)]
-    food: bool,
+    food: Option<FoodFile>,
     #[serde(default)]
-    drink: bool,
+    drink: Option<DrinkFile>,
 }
 
 /// A weapon's swing (as rules.toml's [attack]) and the condition, out of 100, a blow costs it.
@@ -58,6 +58,22 @@ struct WeaponFile {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BandageFile {
+    time: f64,
+}
+
+/// Food: the hunger it takes away (points, out of 100) and seconds to eat it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FoodFile {
+    nutrition: f64,
+    time: f64,
+}
+
+/// Drink: the thirst it takes away and seconds to drink it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DrinkFile {
+    water: f64,
     time: f64,
 }
 
@@ -142,6 +158,19 @@ fn weapon(file: &Path, id: &str, w: &WeaponFile) -> Result<ItemKind, DataError> 
     })
 }
 
+/// Food or drink: what it takes off its need (points out of 100, as thousandths) and the ticks
+/// it takes.
+fn eaten(file: &Path, id: &str, what: &str, off: f64, time: f64) -> Result<(i32, u32), DataError> {
+    if !(off > 0.0 && off <= 100.0) {
+        return Err(fail(
+            file,
+            format!("item {id:?}: what {what} takes away is above 0 and at most 100"),
+        ));
+    }
+    let t = ticks(file, &format!("item {id:?}: {what}.time"), time)?;
+    Ok(((off * 1000.0).round() as i32, (t as u32).max(1)))
+}
+
 /// Loads the items and loot tables and puts the `Defs` together.
 pub(crate) fn load_defs(
     dir: &Path,
@@ -153,7 +182,12 @@ pub(crate) fn load_defs(
     let mut items: Vec<ItemDef> = Vec::new();
     for file in files_maybe(&dir.join("items"))? {
         for i in read::<ItemsFile>(&file)?.item {
-            let kinds = [i.weapon.is_some(), i.bandage.is_some(), i.food, i.drink];
+            let kinds = [
+                i.weapon.is_some(),
+                i.bandage.is_some(),
+                i.food.is_some(),
+                i.drink.is_some(),
+            ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
@@ -179,10 +213,12 @@ pub(crate) fn load_defs(
                 ItemKind::Bandage {
                     time: (time as u32).max(1),
                 }
-            } else if i.food {
-                ItemKind::Food
-            } else if i.drink {
-                ItemKind::Drink
+            } else if let Some(f) = &i.food {
+                let (nutrition, time) = eaten(&file, &i.id, "food", f.nutrition, f.time)?;
+                ItemKind::Food { nutrition, time }
+            } else if let Some(d) = &i.drink {
+                let (water, time) = eaten(&file, &i.id, "drink", d.water, d.time)?;
+                ItemKind::Drink { water, time }
             } else {
                 ItemKind::Other
             };
@@ -275,6 +311,9 @@ pub(crate) fn load_defs(
         items: Vec::new(),
         loot,
         containers,
+        beds: std::iter::once(false)
+            .chain(fixtures.iter().map(|f| f.bed))
+            .collect(),
         wield,
         kit: Vec::new(),
         carry: (kit.carry * 1000.0).round().max(0.0) as u32,

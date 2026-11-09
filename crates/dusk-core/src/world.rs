@@ -11,6 +11,7 @@ use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::{Edge, Grid};
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::items::{Defs, Item};
+use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
 use crate::path::find_path;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
 use crate::text::{self, TextError, TextGrid, default_legend};
@@ -53,6 +54,8 @@ pub struct Rules {
     pub dead_path_budget: usize,
     pub combat: Combat,
     pub endurance: Endurance,
+    pub clock: Clock,
+    pub needs: Needs,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -234,6 +237,41 @@ impl Default for Rules {
                 rest: 10,
                 recover_at: 300,
             },
+            // 24× action time: a game minute is 25 ticks. Day 1 starts at 08:00.
+            clock: Clock {
+                ticks_per_minute: 25,
+                start: 8 * 60,
+            },
+            // A game hour: hunger 6 points, thirst 8, fatigue 4 (12.5 off asleep in a bed);
+            // starving costs 2 health an hour, dying of thirst 4; healing gives back 1 (health
+            // counts tenths of a point).
+            needs: Needs {
+                hunger: Need {
+                    rise: 100,
+                    levels: [30_000, 55_000, 85_000],
+                    recovery: 750,
+                    harm: 20,
+                },
+                thirst: Need {
+                    rise: 133,
+                    levels: [30_000, 55_000, 85_000],
+                    recovery: 500,
+                    harm: 40,
+                },
+                fatigue: Fatigue {
+                    rise: 67,
+                    rest: 208,
+                    levels: [45_000, 70_000, 90_000],
+                    slow: [1250, 1500],
+                },
+                asleep: 500,
+                heal: 10,
+                sleep_heal: 3,
+                wound_heal: [12 * 60, 48 * 60, 96 * 60],
+                lie_down: 10,
+                drink_water: 30,
+                sleep_clear: 10,
+            },
         }
     }
 }
@@ -368,6 +406,29 @@ pub enum Event {
     Bandaged {
         who: ActorId,
         part: Part,
+    },
+    /// `who` ate, or drank, an item.
+    Ate {
+        who: ActorId,
+        item: u16,
+    },
+    Drank {
+        who: ActorId,
+        item: u16,
+    },
+    /// `who` drank its fill from the water beside it.
+    DrankWater {
+        who: ActorId,
+    },
+    /// `who` fell asleep, in a bed or on the ground.
+    FellAsleep {
+        who: ActorId,
+        in_bed: bool,
+    },
+    /// `who` woke, and why.
+    WokeUp {
+        who: ActorId,
+        why: Woke,
     },
 }
 
@@ -649,6 +710,7 @@ impl World {
         }
         self.grips();
         self.bodies(&strides);
+        self.needs();
         self.drag_downs();
         self.sounds.clear();
     }
@@ -772,6 +834,17 @@ impl World {
             let Some(a) = self.actors.get(id) else {
                 continue;
             };
+            // A sleeper wakes to any noise that reaches it, but its own.
+            if a.body.asleep {
+                let pos = a.pos;
+                let woken = self.sounds.iter().any(|s| {
+                    s.by != Some(id) && hears(&self.grid, s.at, pos, s.loudness, rules.muffling)
+                });
+                if woken {
+                    self.wake(id, Woke::Noise);
+                }
+                continue;
+            }
             let Mind::Shambler {
                 target,
                 touching,

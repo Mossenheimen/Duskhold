@@ -1,18 +1,45 @@
 extends CanvasLayer
-## What's drawn over the world: the state of play, your body (health, endurance, wounds), the
-## controls, what just happened, a red flash when the dead hurt you, and how you died.
+## What's drawn over the world: the state of play and the clock, your body (health, endurance,
+## wounds), Zomboid's moodle column, the controls, what just happened, a red flash when the dead
+## hurt you, a dark veil while you sleep, and how you died.
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door  ·  Tab pack\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door  ·  Tab pack  ·  Z sleep  ·  X drink water\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
+
+## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
+## you, and how bad its first level already is (0 mild, 1 bad, 2 dire; the colour).
+const MOODLES := [
+	[["Peckish", "Hungry", "Starving"],
+		["eat something soon", "your breath comes back slower", "losing health"], 0],
+	[["Thirsty", "Parched", "Dying of thirst"],
+		["drink something soon", "your breath comes back slower", "losing health"], 0],
+	[["Drowsy", "Tired", "Falling asleep"],
+		["Z to sleep", "slower swings  ·  Z to sleep", "much slower swings  ·  Z to sleep"], 0],
+	[["Hurt", "Badly hurt", "Near death"],
+		["fed, watered and not bleeding, you heal", "sleep heals fastest", "sleep heals fastest"], 0],
+	[["Bleeding", "Bleeding badly", "Bleeding heavily"],
+		["bandage it: Tab", "bandage them: Tab", "bandage them: Tab"], 1],
+	[["Out of breath"], ["no running, weak swings"], 1],
+	[["Heavy load"], ["no running"], 0],
+	[["Held", "Held by two", "Held by three"], ["F struggle  ·  Q shove", "F struggle  ·  Q shove", "F struggle  ·  Q shove"], 2],
+	[["Asleep"], ["Z to get up"], -1],
+]
+const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
+const RESTFUL := Color(0.6, 0.72, 1.0)
+
+## When set (--news), every line of news is printed too: for runs with no window.
+var echo := false
 
 var _state: Label
 var _news: Label
 var _paused: Label
 var _problem: Label
 var _flash: ColorRect
+var _veil: ColorRect
+var _asleep: Label
 var _lines: Array[String] = []
 var _ages: Array[float] = []
 var _flash_left := 0.0
@@ -24,6 +51,8 @@ var _death: Label
 var _held: Label
 var _doing: Label
 var _doing_bar: ProgressBar
+var _moodles: VBoxContainer
+var _shown_moodles := PackedInt32Array()
 
 
 func _ready() -> void:
@@ -32,6 +61,16 @@ func _ready() -> void:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flash)
 	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_veil = ColorRect.new()
+	_veil.color = Color(0.02, 0.03, 0.08, 0.6)
+	_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_veil.visible = false
+	add_child(_veil)
+	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_asleep = _label(30, Control.PRESET_CENTER_TOP)  # above the sleeper, not on it
+	_asleep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_asleep.position.y += 110.0
+	_asleep.add_theme_color_override("font_color", RESTFUL)
 	_state = _label(20, Control.PRESET_TOP_LEFT)
 	var legend := _label(14, Control.PRESET_BOTTOM_LEFT)
 	legend.text = LEGEND + "\n" + CONTROLS
@@ -53,6 +92,7 @@ func _ready() -> void:
 	_held.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
 	_build_action_bar()
 	_build_body_panel()
+	_build_moodle_column()
 
 
 func _process(delta: float) -> void:
@@ -66,15 +106,24 @@ func _process(delta: float) -> void:
 	_flash.color.a = 0.35 * _flash_left / FLASH_LIFE
 
 
-## `tick` counts tenths of a second of game time; `speed` is the dial (1, 2, 5).
-func show_state(world_seed: int, tick: int, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 5: items\nSeed %d  ·  %.1f s  ·  %d×" % [
-		world_seed, tick / 10.0, speed]
+## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
+func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
+	_state.text = "DUSKHOLD  ·  build step 5: needs\n%s  ·  Seed %d  ·  %d×" % [
+		time_of_day(clock), world_seed, speed]
 	_paused.visible = paused
+
+
+## "Day 2  ·  06:45", from DuskWorld.clock().
+static func time_of_day(clock: PackedInt32Array) -> String:
+	if clock.size() < 3:
+		return ""
+	return "Day %d  ·  %02d:%02d" % [clock[0], clock[1], clock[2]]
 
 
 ## A line of news, at the top right; the newest last.
 func say(line: String) -> void:
+	if echo:
+		print(line)
 	_lines.append(line)
 	_ages.append(0.0)
 	if _lines.size() > 6:
@@ -91,6 +140,10 @@ func reset() -> void:
 	_ages.clear()
 	_flash_left = 0.0
 	_death.text = ""
+	_veil.visible = false
+	_asleep.text = ""
+	_shown_moodles = PackedInt32Array()
+	show_moodles(PackedInt32Array())
 
 
 func show_problem(text: String) -> void:
@@ -134,10 +187,69 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray) -> void:
 			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  Q shove one off  ·  three drag you down" % holding
 
 
-## The end: how you died, and how long you lasted.
-func show_death(how: String, seconds: float) -> void:
-	_death.text = "This is how you died.\n%s\nYou lasted %d minutes %d seconds.\n\nR to begin again, in a new patch." % [
-		how, int(seconds) / 60, int(seconds) % 60]
+## The moodle column, from DuskWorld.character_moodles(): rebuilt only when it changes.
+func show_moodles(moodles: PackedInt32Array) -> void:
+	if moodles == _shown_moodles:
+		return
+	_shown_moodles = moodles
+	for child in _moodles.get_children():
+		child.queue_free()
+	for i in range(0, moodles.size() - 1, 2):
+		var code := moodles[i]
+		if code < 0 or code >= MOODLES.size():
+			continue
+		var moodle: Array = MOODLES[code]
+		var names: Array = moodle[0]
+		var level := clampi(moodles[i + 1], 1, names.size())
+		var colour := RESTFUL if moodle[2] < 0 else SEVERITY[mini(level - 1 + moodle[2], 2)]
+		_moodle(names[level - 1], moodle[1][level - 1], colour)
+
+
+func _moodle(heading: String, effect: String, colour: Color) -> void:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
+	style.border_color = colour
+	style.border_width_left = 4
+	style.content_margin_left = 10.0
+	style.content_margin_right = 8.0
+	style.content_margin_top = 3.0
+	style.content_margin_bottom = 4.0
+	panel.add_theme_stylebox_override("panel", style)
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", 0)
+	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(lines)
+	var title := Label.new()
+	title.text = heading
+	title.add_theme_font_size_override("font_size", 17)
+	title.add_theme_color_override("font_color", colour)
+	lines.add_child(title)
+	var what := Label.new()
+	what.text = effect
+	what.add_theme_font_size_override("font_size", 12)
+	what.modulate = Color(1, 1, 1, 0.8)
+	lines.add_child(what)
+	_moodles.add_child(panel)
+
+
+## Asleep, the world is veiled and the clock runs fast; awake, the veil lifts.
+func show_asleep(asleep: bool, clock: PackedInt32Array) -> void:
+	_veil.visible = asleep
+	_asleep.text = "Asleep\n%s\n\nZ to get up" % time_of_day(clock) if asleep else ""
+
+
+## The end: how you died, and how long you lasted in game time (DuskWorld.clock()[3]).
+func show_death(how: String, minutes: int) -> void:
+	var days := floori(minutes / 1440.0)
+	var hours := floori((minutes % 1440) / 60.0)
+	var lasted := "%d hours %d minutes" % [hours, minutes % 60]
+	if days > 0:
+		lasted = "%d day%s %d hours" % [days, "" if days == 1 else "s", hours]
+	_death.text = "This is how you died.\n%s\nYou lasted %s.\n\nR to begin again, in a new patch." % [how, lasted]
+	_veil.visible = false
+	_asleep.text = ""
 
 
 func _build_body_panel() -> void:
@@ -158,6 +270,18 @@ func _build_body_panel() -> void:
 	_wounds.add_theme_constant_override("outline_size", 6)
 	_wounds.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	panel.add_child(_wounds)
+
+
+## Zomboid's column: down the right side, under the news.
+func _build_moodle_column() -> void:
+	_moodles = VBoxContainer.new()
+	_moodles.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_moodles.add_theme_constant_override("separation", 4)
+	add_child(_moodles)
+	_moodles.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	_moodles.position.y += 180.0
+	_moodles.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_moodles.custom_minimum_size = Vector2(200, 0)
 
 
 func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:

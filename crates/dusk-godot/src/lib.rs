@@ -19,7 +19,7 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
-    Part, TilePos, World, WoundKind, demo,
+    NoSleep, Part, TilePos, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -59,6 +59,11 @@ const DROPPED: i32 = 18;
 const WIELDED: i32 = 19;
 const WEAPON_BROKE: i32 = 20;
 const BANDAGED: i32 = 21;
+const ATE: i32 = 22;
+const DRANK: i32 = 23;
+const DRANK_WATER: i32 = 24;
+const FELL_ASLEEP: i32 = 25;
+const WOKE: i32 = 26;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -174,6 +179,14 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             (WEAPON_BROKE, Some(who), None, at(who), i32::from(item))
         }
         Event::Bandaged { who, part } => (BANDAGED, Some(who), None, at(who), part as i32),
+        Event::Ate { who, item } => (ATE, Some(who), None, at(who), i32::from(item)),
+        Event::Drank { who, item } => (DRANK, Some(who), None, at(who), i32::from(item)),
+        Event::DrankWater { who } => (DRANK_WATER, Some(who), None, at(who), 0),
+        Event::FellAsleep { who, in_bed } => {
+            (FELL_ASLEEP, Some(who), None, at(who), i32::from(in_bed))
+        }
+        // Why: 0 rested, 1 chose to get up, 2 hurt, 3 a noise.
+        Event::WokeUp { who, why } => (WOKE, Some(who), None, at(who), why as i32),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -565,8 +578,8 @@ impl DuskWorld {
                 ItemKind::Other => 0,
                 ItemKind::Weapon { .. } => 1,
                 ItemKind::Bandage { .. } => 2,
-                ItemKind::Food => 3,
-                ItemKind::Drink => 4,
+                ItemKind::Food { .. } => 3,
+                ItemKind::Drink { .. } => 4,
             })
             .collect()
     }
@@ -675,7 +688,7 @@ impl DuskWorld {
         });
     }
 
-    /// Uses the item at `slot` of your pack (a bandage).
+    /// Uses the item at `slot` of your pack: puts a bandage on, eats food, drinks a drink.
     #[func]
     fn use_item(&mut self, slot: i32, def: i32) {
         self.act(Intent::Use {
@@ -730,23 +743,25 @@ impl DuskWorld {
         PackedInt32Array::from(&out[..])
     }
 
-    /// Each actor's state: 0 standing, 1 knocked down, 2 dead.
+    /// Each actor's state: 0 standing, 1 knocked down, 2 dead, 3 asleep.
     #[func]
     fn actor_states(&self) -> PackedInt32Array {
         self.world
             .iter()
             .flat_map(|w| w.actors())
-            .map(|(_, a)| match (a.dead, a.prone_until > 0) {
-                (true, _) => 2,
-                (false, true) => 1,
-                (false, false) => 0,
+            .map(|(_, a)| match (a.dead, a.prone_until > 0, a.body.asleep) {
+                (true, _, _) => 2,
+                (false, true, _) => 1,
+                (false, false, true) => 3,
+                (false, false, false) => 0,
             })
             .collect()
     }
 
     /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
-    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 using, 9 taking a
-    /// weapon in hand, 10 putting it away), how far through its wind-up it is (0 to
+    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging, 9 taking a
+    /// weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from water, 13 eating,
+    /// 14 drinking a drink), how far through its wind-up it is (0 to
     /// 1000; 1000 once it has struck), and the tile it's aimed at. The client draws the wind-up
     /// of a swing or a shove as its tell.
     #[func]
@@ -774,9 +789,17 @@ impl DuskWorld {
                         ActionKind::Struggle => 5,
                         ActionKind::Take { .. } => 6,
                         ActionKind::Drop { .. } => 7,
-                        ActionKind::Use { .. } => 8,
+                        ActionKind::Use { def, .. } => {
+                            match world.defs.item(def).map(|d| &d.kind) {
+                                Some(ItemKind::Food { .. }) => 13,
+                                Some(ItemKind::Drink { .. }) => 14,
+                                _ => 8,
+                            }
+                        }
                         ActionKind::Wield { .. } => 9,
                         ActionKind::Unwield => 10,
+                        ActionKind::Sleep => 11,
+                        ActionKind::DrinkWater => 12,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -853,6 +876,82 @@ impl DuskWorld {
             .iter()
             .map(|(p, _)| GString::from(p.name()))
             .collect()
+    }
+
+    /// The clock: [day (from 1), hour, minute, game minutes since the start].
+    #[func]
+    fn clock(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::from(&[1, 0, 0, 0]);
+        };
+        let (day, hour, minute) = world.clock();
+        let played = world.clock_minutes() - u64::from(world.rules.clock.start);
+        PackedInt32Array::from(&[day as i32, hour as i32, minute as i32, played as i32])
+    }
+
+    /// Your moodles, two numbers each: which (0 hungry, 1 thirsty, 2 tired, 3 injured,
+    /// 4 bleeding, 5 out of breath, 6 heavy load, 7 held, 8 asleep) and its level (1 up).
+    #[func]
+    fn character_moodles(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        world
+            .moodles(me)
+            .into_iter()
+            .flat_map(|(m, level)| [m as i32, i32::from(level)])
+            .collect()
+    }
+
+    /// Whether you can lie down to sleep now: 1 beside a bed, 0 on the ground, or why not:
+    /// -1 not tired, -2 the dead are about, -3 something has hold of you.
+    #[func]
+    fn sleep_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_sleep(me) {
+            Ok(in_bed) => i32::from(in_bed),
+            Err(NoSleep::NotTired) => -1,
+            Err(NoSleep::DeadAbout) => -2,
+            Err(NoSleep::Held) => -3,
+        }
+    }
+
+    /// Lies down to sleep (see `sleep_check`).
+    #[func]
+    fn sleep(&mut self) {
+        self.act(Intent::Sleep);
+    }
+
+    /// Gets up.
+    #[func]
+    fn wake(&mut self) {
+        self.act(Intent::Wake);
+    }
+
+    /// Whether there's water within your reach to drink from.
+    #[func]
+    fn water_in_reach(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world
+            .character()
+            .and_then(|id| world.actor(id))
+            .is_some_and(|a| world.water_beside(a.pos).is_some())
+    }
+
+    /// Drinks your fill from the water beside you.
+    #[func]
+    fn drink_water(&mut self) {
+        self.act(Intent::DrinkWater);
     }
 
     /// Walks the character to a tile, finding the way.

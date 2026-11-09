@@ -64,6 +64,36 @@ bite = 0.35
 drag_down = 3
 struggle = { wind_up = 0.5, recovery = 0.2, endurance = 12, hit = 0.7, noise = 3 }
 struggle_per_extra = 0.2
+[clock]
+rate = 12
+start = 6.5
+[hunger]
+rise = 6.0
+levels = [30, 55, 85]
+recovery = 0.75
+harm = 2.0
+[thirst]
+rise = 9.0
+levels = [25, 50, 80]
+recovery = 0.5
+harm = 4.0
+[fatigue]
+rise = 4.0
+rest = 12.5
+levels = [45, 70, 90]
+slow = [1.25, 1.5]
+[sleep]
+lie_down = 1.0
+needs = 0.5
+clear = 10
+[healing]
+health = 1.0
+asleep = 3
+scratch = 12.0
+laceration = 48.0
+bite = 96.0
+[water]
+drink = 3.0
 "#;
 
 const SHAMBLER: &str = r#"
@@ -92,6 +122,7 @@ opaque = true
 [[fixture]]
 id = "bed"
 solid = true
+bed = true
 "#;
 
 const PREFABS: &str = r#"
@@ -265,6 +296,43 @@ fn grabs_and_doors_become_the_cores() {
 }
 
 #[test]
+fn the_clock_and_needs_become_the_cores() {
+    let data = load(&folder("needs", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let (c, n) = (data.rules.clock, data.rules.needs);
+    assert_eq!(
+        (c.ticks_per_minute, c.start),
+        (50, 390),
+        "12× action time: a game minute is 5 seconds; day 1 begins at 06:30"
+    );
+    assert_eq!(
+        (n.hunger.rise, n.thirst.rise, n.fatigue.rise, n.fatigue.rest),
+        (100, 150, 67, 208),
+        "points a game hour, as thousandths a game minute"
+    );
+    assert_eq!(n.thirst.levels, [25_000, 50_000, 80_000]);
+    assert_eq!((n.hunger.recovery, n.hunger.harm), (750, 20));
+    assert_eq!((n.fatigue.slow, n.asleep), ([1250, 1500], 500));
+    assert_eq!(
+        (n.heal, n.sleep_heal),
+        (10, 3),
+        "a point of health a game hour"
+    );
+    assert_eq!(n.wound_heal, [720, 2880, 5760], "game hours, in minutes");
+    assert_eq!((n.lie_down, n.drink_water, n.sleep_clear), (10, 30, 10));
+    assert_eq!(
+        data.defs.beds,
+        vec![false, false, true],
+        "no fixture, tree, bed"
+    );
+
+    let fast = RULES.replace("rate = 12", "rate = 1000");
+    let mut files = test_files(PREFABS);
+    files[0].1 = &fast;
+    let err = load(&folder("clock", &files)).unwrap_err();
+    assert!(err.message.contains("clock.rate"), "{err}");
+}
+
+#[test]
 fn the_games_items_and_loot_load() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let d = &data.defs;
@@ -278,6 +346,16 @@ fn the_games_items_and_loot_load() {
     assert_eq!(d.wield, Some(id("cudgel")));
     assert_eq!(d.kit, vec![dusk_core::Item::new(id("bandage"), 1)]);
     assert_eq!(d.carry, 15_000);
+    assert_eq!(
+        d.items[usize::from(id("bread"))].kind,
+        dusk_core::ItemKind::Food {
+            nutrition: 40_000,
+            time: 40
+        },
+        "40 points of hunger off, in 4 seconds"
+    );
+    let bed = data.fixtures.iter().position(|f| f.id == "bed").unwrap() + 1;
+    assert!(d.beds[bed] && !d.beds[1], "a bed is a bed, a tree isn't");
     // Every container's table is there, and the cupboard's is the kitchen's.
     let cupboard = data
         .fixtures
@@ -303,7 +381,7 @@ items = [{ item = "breadd", weight = 1 }]
 id = "bread"
 name = "bread"
 weight = 0.5
-food = true
+food = { nutrition = 40, time = 4.0 }
 "#;
     let mut files = test_files(PREFABS);
     files.push(("items/food.toml", items));

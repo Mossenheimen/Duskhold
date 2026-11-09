@@ -95,6 +95,8 @@ pub struct Wound {
     pub bleeding: u32,
     /// A bandage stopped it.
     pub bandaged: bool,
+    /// Game minutes left before it closes, counted once it's stopped bleeding.
+    pub heal_left: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -104,6 +106,13 @@ pub struct Body {
     /// Out of breath: set when endurance runs out, cleared once it's back to the rules' level.
     pub exhausted: bool,
     pub wounds: Vec<Wound>,
+    /// Needs, out of 100 points in thousandths (0 is fine; `needs.rs`).
+    pub hunger: i32,
+    pub thirst: i32,
+    pub fatigue: i32,
+    /// Asleep, and whether in a bed (where sleep rests you twice as fast).
+    pub asleep: bool,
+    pub in_bed: bool,
 }
 
 impl Body {
@@ -113,6 +122,11 @@ impl Body {
             endurance: FULL,
             exhausted: false,
             wounds: Vec::new(),
+            hunger: 0,
+            thirst: 0,
+            fatigue: 0,
+            asleep: false,
+            in_bed: false,
         }
     }
 

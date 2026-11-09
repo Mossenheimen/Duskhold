@@ -158,9 +158,9 @@ A player's click names exactly which item; a bot's "pick up food" names the near
 
   | Every | Runs |
   |---|---|
-  | tick | actions, movement, combat |
+  | tick | actions, movement, combat, endurance and bleeding |
   | 5 ticks | perception and AI for most creatures, the sound and scent fields, the bot's decision (Default) |
-  | 10 ticks | bodies, needs, moodles |
+  | 25 ticks (a game minute) | needs, sleep, healing; moodles are worked out when asked |
   | 100 ticks | fire, weather, the population layer |
   | clock hour or day | holdout stores, loot respawn, the Long Dusk |
 
@@ -228,7 +228,7 @@ A* runs over tiles and edges: doors cost time, and closed doors are passable onl
 
 ### Bodies, items and combat
 
-All the numbers come from the data files. A body has parts with wounds (type, severity, bleeding, bandaged, infected), pain and armour per part; moodles are worked out from these every 10 ticks. An attack is an action: a wind-up, a strike tick and a recovery.
+All the numbers come from the data files. A body has parts with wounds (type, severity, bleeding, bandaged, infected), pain and armour per part; moodles are worked out from these and the needs when asked. An attack is an action: a wind-up, a strike tick and a recovery.
 
 ### The open world: chunks and the population layer
 
@@ -605,9 +605,37 @@ Game first: every step ends with something to look at or play.
        - the news of what you took, dropped, wielded, bandaged or broke;
      - **food and drink** are loot now; eating and drinking come with needs;
      - **measured:** 100 dead 143,000 ticks/s; the patch 450,000;
+   - **Slice 4, needs and moodles:** done 2026-11-08; 59 tests pass. What it has:
+     - **the clock** (`dusk-core/src/needs.rs`): 24× action time, so a game minute is 25 ticks and a game day an hour at 1×. Day 1 begins at 08:00. Needs, sleep and healing run on it, a game minute at a time;
+     - **hunger, thirst and fatigue,** out of 100, each with three levels and one clear effect at each:
+       - hunger rises 6 a game hour, thirst 8. First peckish or thirsty; then hungry or parched (your breath comes back at 75% or 50%); then starving or dying of thirst (2 or 4 health a game hour);
+       - fatigue rises 4 a game hour awake: drowsy at 45 (you can sleep), tired at 70 (wind-ups 25% slower), falling asleep at 90 (50% slower);
+     - **eating and drinking** (the item action "use"): bread takes 40 off hunger in 4 s, an apple 10, dried meat 20, and a bottle of water 40 off thirst. Water beside you (a pond) slakes it all in 3 s;
+     - **sleep:**
+       - only when drowsy or worse, not held, and with none of the dead after you within 10 tiles;
+       - beside a bed, fatigue falls 12.5 a game hour; on the ground, half that. Hunger and thirst rise at half pace;
+       - a blow, a grab, any noise that reaches you, or choosing to get up wakes you; so does being rested;
+     - **healing:** fed, watered and not bleeding, you get a point of health back a game hour (three asleep). A wound that's stopped bleeding closes in 12 game hours (a scratch), 48 (a laceration) or 96 (a bite);
+     - **moodles,** worked out when asked (`World::moodles`): hungry, thirsty, tired, injured, bleeding, out of breath, heavy load, held and asleep, each with its level;
+     - **numbers:**
+       - `rules.toml`: `[clock]`, `[hunger]`, `[thirst]`, `[fatigue]`, `[sleep]`, `[healing]` and `[water]`;
+       - food and drink: `items/supplies.toml`;
+       - beds: `fixtures.toml`;
+     - **the client:**
+       - the clock in the top line;
+       - the moodle column on the right: a name for each level, what it does to you, and a colour for how bad it is;
+       - Z sleeps or gets up, and says why when you can't. X drinks from water, and the "within reach" panel shows water with a Drink button. The pack has Eat and Drink;
+       - asleep, the world is veiled, the sleeper lies down with a "z", and the clock runs at 60× until you wake;
+       - the death screen tells starving and thirst apart from blows and bleeding, and counts game time ("You lasted 14 hours 20 minutes");
+       - **fixed:**
+         - the tells drew a square for every timed action; now they draw one only for swings, shoves and blows on doors;
+         - the empty "within reach" panel showed as a dark box at the start, and kept the last game's contents after R;
+       - the dev flag `--news` prints the news (for `--headless` runs);
+     - **measured:** 100 dead 140,000 ticks/s; the patch 357,000–393,000 over three runs (slice 3 noted 450,000; the needs run once a game minute, for characters only);
    - **next slices:**
-     - needs and moodles;
      - day and night, light and the field of view;
+     - skill XP;
+     - barricading doors;
    - bodies and wounds, moodles, needs;
    - items and the inventory window; containers that fill from the seed the first time they're opened, by loot table (moved here from step 4);
    - the one rule for timed actions;

@@ -83,3 +83,42 @@ bite = 0.35           # while it holds you, the share of its hits that are bites
 drag_down = 3         # this many holding you at once drag you down
 struggle = { wind_up = 0.5, recovery = 0.2, endurance = 12, hit = 0.7, noise = 3 }
 struggle_per_extra = 0.2   # less chance for each other one holding you; half when out of breath
+
+[clock]
+rate = 24             # the clock runs this many times as fast as action time: a game day is an hour at 1×
+start = 8.0           # the hour day 1 begins
+
+# Needs, out of 100 (0 is fine). Each has three levels, and each level one clear effect.
+[hunger]
+rise = 6.0            # a game hour: eat two or three times a game day
+levels = [30, 55, 85] # peckish, hungry, starving
+recovery = 0.75       # hungry or worse: endurance comes back at this pace
+harm = 2.0            # starving: health lost a game hour
+
+[thirst]
+rise = 8.0
+levels = [30, 55, 85] # thirsty, parched, dying of thirst
+recovery = 0.5
+harm = 4.0
+
+[fatigue]
+rise = 4.0            # a game hour awake: sleep once a game day
+rest = 12.5           # a game hour asleep beside a bed; on the ground, half that
+levels = [45, 70, 90] # drowsy, tired, falling asleep (you can lie down from drowsy on)
+slow = [1.25, 1.5]    # tired, falling asleep: wind-ups take this much longer
+
+[sleep]
+lie_down = 1.0        # seconds to lie down
+needs = 0.5           # asleep, hunger and thirst rise at this pace
+clear = 10            # no sleep with one of the dead after you within this many tiles
+# Asleep, a blow, a grab or any noise that reaches you wakes you; so does being rested.
+
+[healing]
+health = 1.0          # health back a game hour, fed, watered and not bleeding
+asleep = 3            # asleep, this many times as fast
+scratch = 12.0        # game hours a wound takes to close, once it's stopped bleeding
+laceration = 48.0
+bite = 96.0
+
+[water]
+drink = 3.0           # seconds to drink your fill from water beside you (a pond, a stream)

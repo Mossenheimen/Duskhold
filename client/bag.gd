@@ -2,11 +2,13 @@ extends CanvasLayer
 ## Zomboid's inventory windows, as lists with weights (CONCEPT.md: no grid). On the right, your
 ## pack: what's in your hand, and what you carry, with its weight against what you can carry
 ## before you can't run. On the left, what's within your reach: each container beside you, and
-## the floor. Each line has its buttons: they ask the core for a timed action, which a blow breaks
-## off. "Take all" asks for one take after another.
+## the floor, and water to drink from. Each line has its buttons: they ask the core for a timed
+## action, which a blow breaks off. "Take all" asks for one take after another.
 
 const WEAPON := 1
 const BANDAGE := 2
+const FOOD := 3
+const DRINK := 4
 
 var _dusk: Node
 var _names := PackedStringArray()
@@ -19,6 +21,7 @@ var _pack_panel: PanelContainer
 var _reach_panel: PanelContainer
 var _shown_pack := []  # what the pack panel shows now, to rebuild only when it changes
 var _shown_reach := PackedInt32Array()
+var _shown_water := false
 var _queue: Array = []  # takes still to ask for: [x, y, def]
 
 
@@ -27,6 +30,7 @@ func _ready() -> void:
 	_pack = _pack_panel.get_child(0)
 	_reach_panel = _panel(Control.PRESET_BOTTOM_LEFT)
 	_reach_panel.position.y -= 100.0  # above the legend
+	_reach_panel.visible = false  # until something's within reach
 	_reach = _reach_panel.get_child(0)
 
 
@@ -39,6 +43,8 @@ func start(dusk: Node) -> void:
 	_fixtures = dusk.fixture_names()
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
+	_shown_water = false
+	_draw_reach(_shown_reach, false)
 	_queue.clear()
 
 
@@ -63,9 +69,11 @@ func refresh(busy: bool, dead: bool) -> void:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried)
 	var reach: PackedInt32Array = _dusk.stores_in_reach()
-	if reach != _shown_reach:
+	var water: bool = _dusk.water_in_reach()
+	if reach != _shown_reach or water != _shown_water:
 		_shown_reach = reach
-		_draw_reach(reach)
+		_shown_water = water
+		_draw_reach(reach, water)
 	if not busy and not _queue.is_empty():
 		_take_next(reach)
 
@@ -96,13 +104,20 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Wield", func() -> void: _dusk.wield(slot, def))
 			BANDAGE:
 				_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
+			FOOD:
+				_button(row, "Eat", func() -> void: _dusk.use_item(slot, def))
+			DRINK:
+				_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
 
 
-func _draw_reach(reach: PackedInt32Array) -> void:
+func _draw_reach(reach: PackedInt32Array, water: bool) -> void:
 	for child in _reach.get_children():
 		child.queue_free()
-	_reach_panel.visible = reach.size() > 0
+	_reach_panel.visible = reach.size() > 0 or water
+	if water:
+		var row := _row(_reach, "Water")
+		_button(row, "Drink", func() -> void: _dusk.drink_water())
 	var i := 0
 	while i + 4 <= reach.size():
 		var x := reach[i]

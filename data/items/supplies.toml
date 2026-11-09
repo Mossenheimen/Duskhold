@@ -1,6 +1,6 @@
 # Supplies. weight in kg for one; stack: how many make one stack. A bandage goes on the worst
-# wound that's bleeding and stops it (time: seconds to put on). Food and drink are carried now,
-# and eaten and drunk when needs come (build step 5, slice 4).
+# wound that's bleeding and stops it (time: seconds to put on). Food takes hunger away and drink
+# thirst (out of 100: rules.toml's [hunger] and [thirst]).
 
 [[item]]
 id = "bandage"
@@ -21,28 +21,28 @@ id = "bread"
 name = "loaf of bread"
 weight = 0.5
 stack = 4
-food = true
+food = { nutrition = 40, time = 4.0 }   # hunger it takes away, seconds to eat
 
 [[item]]
 id = "apple"
 name = "apple"
 weight = 0.15
 stack = 10
-food = true
+food = { nutrition = 10, time = 1.5 }
 
 [[item]]
 id = "jerky"
 name = "dried meat"
 weight = 0.1
 stack = 10
-food = true
+food = { nutrition = 20, time = 2.5 }
 
 [[item]]
 id = "water"
 name = "bottle of water"
 weight = 0.6
 stack = 4
-drink = true
+drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
 
 [[item]]
 id = "candle"

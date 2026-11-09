@@ -21,8 +21,8 @@ func show_actions(actions: PackedInt32Array, me: int) -> void:
 		actor += 1
 		var kind := actions[i]
 		var progress := actions[i + 1]
-		# Swings and shoves still winding up; doors have no tell.
-		if kind == 0 or kind == 3 or progress >= 1000:
+		# Swings, shoves and blows on doors still winding up. Nothing else lands on a tile.
+		if kind not in [1, 2, 4] or progress >= 1000:
 			continue
 		var mark := _mark(used)
 		used += 1

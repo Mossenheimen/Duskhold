@@ -1,12 +1,15 @@
 extends Node3D
 ## One actor, the character or a shambler. It faces the way the core says, and a mark over its
 ## head says what it knows of you: "?" it heard something, "!" it sees you. It leans in as it
-## winds up a swing (the tell), lies down when knocked down, and stays down, darker, when dead.
+## winds up a swing (the tell), lies down when knocked down or asleep ("z"), and stays down,
+## darker, when dead.
 
 const CHARACTER := Color(0.75, 0.32, 0.2)
 const SHAMBLER := Color(0.56, 0.6, 0.5)
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
+const SLEEPING := Color(0.6, 0.72, 1.0)
+const ASLEEP := 3
 
 var _turn := 0.0
 var _body: Node3D  # pivots at the feet
@@ -71,10 +74,19 @@ func show_alert(level: int, delta: float) -> void:
 	if level != _alert:
 		_alert = level
 		_pop = 1.0
-		_mark.text = ["", "?", "!"][level]
-		_mark.modulate = [Color.WHITE, CURIOUS, HUNTING][level]
+		_show_mark()
 	_pop = maxf(0.0, _pop - delta * 4.0)
 	_mark.scale = Vector3.ONE * (1.0 + _pop * 0.6)
+
+
+## The mark over its head: "z" asleep, else what it knows of you.
+func _show_mark() -> void:
+	if _state == ASLEEP:
+		_mark.text = "z"
+		_mark.modulate = SLEEPING
+	else:
+		_mark.text = ["", "?", "!"][_alert]
+		_mark.modulate = [Color.WHITE, CURIOUS, HUNTING][_alert]
 
 
 func _material(colour: Color) -> StandardMaterial3D:
@@ -84,13 +96,14 @@ func _material(colour: Color) -> StandardMaterial3D:
 	return material
 
 
-## Its state (0 standing, 1 knocked down, 2 dead, from DuskWorld.actor_states()) and how far
-## through a swing's wind-up it is (0 to 1; -1 when it isn't winding one up).
+## Its state (0 standing, 1 knocked down, 2 dead, 3 asleep, from DuskWorld.actor_states()) and
+## how far through a swing's wind-up it is (0 to 1; -1 when it isn't winding one up).
 func show_pose(state: int, wind_up: float, delta: float) -> void:
 	if state != _state:
 		_state = state
 		_skin.albedo_color = _colour.darkened(0.55) if state == 2 else _colour
-		_mark.visible = state == 0
+		_mark.visible = state == 0 or state == ASLEEP
+		_show_mark()
 	var target := _stoop
 	if state != 0:
 		target = -88.0  # flat on the ground

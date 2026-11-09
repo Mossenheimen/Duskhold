@@ -339,6 +339,15 @@ fn describe(w: &World, e: Event) -> String {
         Event::Bandaged { who, part } => {
             format!("{} bandaged the {}", name(who), part.name())
         }
+        Event::Ate { who, item } => format!("{} ate item {item}", name(who)),
+        Event::Drank { who, item } => format!("{} drank item {item}", name(who)),
+        Event::DrankWater { who } => format!("{} drank from the water", name(who)),
+        Event::FellAsleep { who, in_bed } => format!(
+            "{} fell asleep{}",
+            name(who),
+            if in_bed { " in bed" } else { " on the ground" }
+        ),
+        Event::WokeUp { who, why } => format!("{} woke ({why:?})", name(who)),
     }
 }
 

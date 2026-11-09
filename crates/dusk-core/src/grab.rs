@@ -82,6 +82,7 @@ impl World {
                 t.action = None;
             }
         }
+        self.wake(target, crate::needs::Woke::Hurt);
         self.events.push(Event::Grabbed { who, target });
     }
 

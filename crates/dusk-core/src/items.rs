@@ -39,17 +39,13 @@ impl Item {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ItemKind {
     /// Swung in hand: its swing, and the condition it loses a blow.
-    Weapon {
-        swing: Swing,
-        wear: u16,
-    },
+    Weapon { swing: Swing, wear: u16 },
     /// Put on a bleeding wound, it stops the bleeding: `time` ticks to put on.
-    Bandage {
-        time: u32,
-    },
-    /// Eaten and drunk when needs come (build step 5, slice 4).
-    Food,
-    Drink,
+    Bandage { time: u32 },
+    /// Eaten: hunger falls by `nutrition` (thousandths of a point); `time` ticks to eat.
+    Food { nutrition: i32, time: u32 },
+    /// Drunk: thirst falls by `water`; `time` ticks to drink.
+    Drink { water: i32, time: u32 },
     /// Everything else: materials, junk.
     Other,
 }
@@ -88,6 +84,8 @@ pub struct Defs {
     pub loot: Vec<LootTable>,
     /// By fixture number: the loot table of a container (None for a fixture that isn't one).
     pub containers: Vec<Option<u16>>,
+    /// By fixture number: whether it's a bed (sleep beside one rests you twice as fast).
+    pub beds: Vec<bool>,
     /// What a character starts with: in hand, and carried.
     pub wield: Option<u16>,
     pub kit: Vec<Item>,
@@ -105,6 +103,14 @@ pub struct Defs {
 impl Defs {
     pub fn item(&self, def: u16) -> Option<&ItemDef> {
         self.items.get(usize::from(def))
+    }
+
+    /// Whether a fixture is a bed.
+    pub fn is_bed(&self, fixture: u16) -> bool {
+        self.beds
+            .get(usize::from(fixture))
+            .copied()
+            .unwrap_or(false)
     }
 
     /// Whether a fixture is a container, and its loot table.
@@ -407,7 +413,8 @@ impl World {
         }
     }
 
-    /// Uses the item at `slot`: a bandage goes on the worst wound that's bleeding.
+    /// Uses the item at `slot`: a bandage goes on the worst wound that's bleeding; food is eaten
+    /// and drink drunk. One of the stack is used up.
     pub(crate) fn use_item(&mut self, id: ActorId, slot: u16, def: u16) {
         let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
@@ -417,36 +424,53 @@ impl World {
         if a.items.get(slot).is_none_or(|i| i.def != def) {
             return;
         }
-        let Some(ItemKind::Bandage { .. }) = defs.item(def).map(|d| &d.kind) else {
-            return;
+        let event = match defs.item(def).map(|d| &d.kind) {
+            Some(ItemKind::Bandage { .. }) => {
+                let Some(wound) = a
+                    .body
+                    .wounds
+                    .iter_mut()
+                    .filter(|w| w.bleeding > 0)
+                    .max_by_key(|w| (w.kind, w.bleeding))
+                else {
+                    return;
+                };
+                wound.bleeding = 0;
+                wound.bandaged = true;
+                Event::Bandaged {
+                    who: id,
+                    part: wound.part,
+                }
+            }
+            Some(ItemKind::Food { nutrition, .. }) => {
+                a.body.hunger = (a.body.hunger - nutrition).max(0);
+                Event::Ate { who: id, item: def }
+            }
+            Some(ItemKind::Drink { water, .. }) => {
+                a.body.thirst = (a.body.thirst - water).max(0);
+                Event::Drank { who: id, item: def }
+            }
+            _ => return,
         };
-        let Some(wound) = a
-            .body
-            .wounds
-            .iter_mut()
-            .filter(|w| w.bleeding > 0)
-            .max_by_key(|w| (w.kind, w.bleeding))
-        else {
-            return;
-        };
-        wound.bleeding = 0;
-        wound.bandaged = true;
-        let part = wound.part;
         a.items[slot].count -= 1;
         if a.items[slot].count == 0 {
             a.items.remove(slot);
         }
-        self.events.push(Event::Bandaged { who: id, part });
+        self.events.push(event);
     }
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
-    /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound bleeding.
+    /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound bleeding,
+    /// food or drink.
     pub(crate) fn item_ticks(&self, id: ActorId, slot: u16, def: u16, using: bool) -> Option<u32> {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         match (using, &self.defs.item(def)?.kind) {
             (false, ItemKind::Weapon { .. }) => Some(self.defs.wield_time),
             (true, ItemKind::Bandage { time }) if a.body.bleeding() => Some(*time),
+            (true, ItemKind::Food { time, .. } | ItemKind::Drink { time, .. }) => {
+                Some((*time).max(1))
+            }
             _ => None,
         }
     }

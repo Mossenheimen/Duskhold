@@ -1,6 +1,6 @@
 # What can stand on a tile. solid: nobody walks through it. opaque: nobody sees through it.
 # A tile's fixture number is its place in this list, from 1. The client draws each by its id.
-# loot: it's a container, filled from that loot table (loot/*.toml).
+# loot: it's a container, filled from that loot table (loot/*.toml). bed: you sleep best beside one.
 
 [[fixture]]
 id = "tree"
@@ -10,6 +10,7 @@ opaque = true
 [[fixture]]
 id = "bed"
 solid = true
+bed = true
 
 [[fixture]]
 id = "wardrobe"
