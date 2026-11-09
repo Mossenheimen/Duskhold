@@ -11,6 +11,7 @@ use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::{Edge, Grid};
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::items::{Defs, Item};
+use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
 use crate::path::find_path;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
@@ -40,10 +41,13 @@ pub struct Rules {
     pub walk_noise: i32,
     pub run_noise: i32,
     pub muffling: Muffling,
-    /// How far a shambler sees, in tiles, and how wide: you can get behind one. (Light comes at
-    /// build step 5.)
+    /// How far a shambler sees in full light, in tiles, and how wide: you can get behind one. In
+    /// less light it sees less far (`light.rs`), but always `shambler_darkvision` tiles.
     pub shambler_sight: i32,
     pub shambler_cone: Cone,
+    pub shambler_darkvision: i32,
+    /// At night the dead move this much faster, per mille.
+    pub shambler_night_speed: u32,
     /// Out of 10,000: how often an idle shambler shuffles a step when it thinks.
     pub wander_chance: u32,
     /// Ticks waiting on a blocked path before planning it again.
@@ -56,6 +60,9 @@ pub struct Rules {
     pub endurance: Endurance,
     pub clock: Clock,
     pub needs: Needs,
+    pub day: Day,
+    /// The character's eyes (`view.rs`).
+    pub sight: Sight,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -160,6 +167,8 @@ impl Default for Rules {
             shambler_sight: 8,
             // 60° either side of its facing: a 120° cone.
             shambler_cone: Cone { cos: 5000 },
+            shambler_darkvision: 1,
+            shambler_night_speed: 1250,
             wander_chance: 1000,
             repath_after: 20,
             path_budget: 4096,
@@ -271,6 +280,22 @@ impl Default for Rules {
                 lie_down: 10,
                 drink_water: 30,
                 sleep_clear: 10,
+            },
+            // Full day from 07:00 to 19:00, dark from 21:00 to 05:00; the night sky gives a
+            // fifth of the day's light, and a roof leaves 60% of the sky's.
+            day: Day {
+                dawn: 5 * 60,
+                sunrise: 7 * 60,
+                sunset: 19 * 60,
+                dark: 21 * 60,
+                night: 20,
+                indoors: 600,
+            },
+            // 20 tiles in full light, 80° either side (a 160° cone), and the tiles beside you.
+            sight: Sight {
+                range: 20,
+                cone: Cone { cos: 1736 },
+                beside: 1,
             },
         }
     }
@@ -430,6 +455,22 @@ pub enum Event {
         who: ActorId,
         why: Woke,
     },
+    /// `who` lit a light and held it up, put it out, or it burnt out.
+    Lit {
+        who: ActorId,
+        item: u16,
+    },
+    Doused {
+        who: ActorId,
+        item: u16,
+    },
+    BurntOut {
+        who: ActorId,
+        item: u16,
+    },
+    /// The sun is going down (sunset), or the sky is lightening (dawn).
+    Nightfall,
+    Daybreak,
 }
 
 /// A sound made this tick.
@@ -560,8 +601,8 @@ impl World {
         }
     }
 
-    /// How far and how wide a kind of creature sees: None for the character, whose field of view
-    /// is another rule (build step 5).
+    /// How far a kind of creature sees in full light, and how wide: None for the character, whose
+    /// field of view is another rule (`view.rs`).
     pub fn sight(&self, kind: ActorKind) -> Option<(i32, Cone)> {
         match kind {
             ActorKind::Shambler => Some((self.rules.shambler_sight, self.rules.shambler_cone)),
@@ -569,9 +610,9 @@ impl World {
         }
     }
 
-    /// Can a creature see a tile: in range, inside its cone and in a line of sight? The one rule
-    /// for creatures' eyes. Their hunting uses it, and so does the client's drawing of what they
-    /// see.
+    /// Can a creature see a tile: in range, inside its cone, lit enough for how far off it is
+    /// (or within its darkvision), and in a line of sight? The one rule for creatures' eyes.
+    /// Their hunting uses it, and so does the client's drawing of what they see.
     pub fn sees(&self, who: ActorId, at: TilePos) -> bool {
         let Some(a) = self.actors.get(who) else {
             return false;
@@ -582,9 +623,12 @@ impl World {
         let Some((range, cone)) = self.sight(a.kind) else {
             return false;
         };
+        let d2 = a.pos.dist2(at);
         a.pos.z == at.z
-            && a.pos.dist2(at) <= i64::from(range).pow(2)
+            && d2 <= i64::from(range).pow(2)
             && cone.contains(a.facing, at.x - a.pos.x, at.y - a.pos.y)
+            && (a.pos.steps_to(at) <= self.rules.shambler_darkvision
+                || bright_enough(d2, self.light_at(at), range))
             && line_of_sight(&self.grid, a.pos, at)
     }
 
@@ -696,11 +740,12 @@ impl World {
         });
         // Each mover's stride this tick (Some(running)), for what its body pays.
         let mut strides = Vec::with_capacity(ids.len());
+        let night = self.is_night();
         for &id in &ids {
             let stride = if self.act(id) {
                 None
             } else {
-                self.move_actor(id)
+                self.move_actor(id, night)
             };
             strides.push((id, stride));
         }
@@ -711,13 +756,14 @@ impl World {
         self.grips();
         self.bodies(&strides);
         self.needs();
+        self.burn_lights();
         self.drag_downs();
         self.sounds.clear();
     }
 
     /// Starts a step if the actor's intent asks for one, then moves it along. The tile ahead is
-    /// taken as the step starts, so two actors never share a tile.
-    fn move_actor(&mut self, id: ActorId) -> Option<bool> {
+    /// taken as the step starts, so two actors never share a tile. At night the dead are faster.
+    fn move_actor(&mut self, id: ActorId, night: bool) -> Option<bool> {
         let rules = self.rules;
         // Held, a character can't step; and as it steps out of reach of the dead on it, each
         // may grab it as it goes (`grab.rs`). Only characters are held, which keeps this cheap.
@@ -800,7 +846,11 @@ impl World {
         }
         let mut step = a.step?;
         let speeds = rules.speeds(a.kind);
-        step.progress += (if step.run { speeds.run } else { speeds.walk }) / TICKS_PER_SECOND;
+        let mut speed = if step.run { speeds.run } else { speeds.walk };
+        if night && a.kind == ActorKind::Shambler {
+            speed = speed * rules.shambler_night_speed / 1000;
+        }
+        step.progress += speed / TICKS_PER_SECOND;
         if step.progress < step.length {
             a.step = Some(step);
             return Some(step.run);

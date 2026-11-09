@@ -4,7 +4,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 
 - `CONCEPT.md`: what the game is. Decisions go in its "Decided" section.
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
-- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles.
+- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles; `light.rs` day and night, each tile's light, and the torches and candles held up; `view.rs` the character's field of view and the fog of war.
 - `crates/dusk-data/`: loads and checks `data/` (serde + toml), turning a designer's units into the core's.
 - `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, hamlet lots), then every tile as a pure function, then the dead.
 - `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
@@ -12,10 +12,10 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `data/`: the game's numbers and content in TOML: `rules.toml`, `creatures/`, `fixtures.toml`, `items/`, `loot/`, `prefabs/` (buildings as text grids), `regions/`.
 - `client/`: the Godot 4.7 project, built in code. It draws what the core says and decides nothing:
   - `main.gd`: input, the camera and the loop;
-  - `map_view.gd`: streams chunks round the camera and draws the sight-cone overlay;
+  - `map_view.gd`: streams chunks round the camera, and draws the fog of war and the sight-cone overlay;
   - `chunk_view.gd`: one chunk's ground, trees, furniture and walls;
   - `actor_view.gd` (poses: the lean of a wind-up, lying down, dead), `tells.gd` (a swing's tell on the ground), `threats.gd` (engagement lines), `bag.gd` (the pack and "within reach" panels), `litter.gd` (what lies on the floor), `noise_rings.gd`, `hud.gd` (clock, body panel, moodle column, news, the sleep veil, death screen);
-  - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture.
+  - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture. `fog_of_war.gdshader` is a full-screen pass over everything opaque, before the overlays.
 - `play.cmd`: builds the extension and starts the game.
 - `research/`: what's behind the decisions.
   - `game_design.md`: the 2026-11-06 design research (combat, loot, athletics, levelling, pacing and more), with its sources. It was accepted and folded into CONCEPT.md the same day.
@@ -26,8 +26,8 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 ```powershell
 .\play.cmd                                 # build the extension and play (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
-.\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION, --news, --shot=PNG --shot-after=S
-cargo test --workspace                     # 59 tests, a few seconds
+.\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION, --news, --hour=H, --shot=PNG --shot-after=S
+cargo test --workspace                     # 67 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, and a map (--text X,Y,W,H, --ticks N)

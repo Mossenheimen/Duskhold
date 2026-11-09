@@ -46,6 +46,9 @@ pub enum ItemKind {
     Food { nutrition: i32, time: u32 },
     /// Drunk: thirst falls by `water`; `time` ticks to drink.
     Drink { water: i32, time: u32 },
+    /// Held up lit (`light.rs`): it lights `radius` tiles round it, and loses `wane` of its
+    /// condition a game minute until it burns out.
+    Light { radius: i32, wane: u16 },
     /// Everything else: materials, junk.
     Other,
 }
@@ -92,12 +95,15 @@ pub struct Defs {
     /// Grams a character carries before it's weighed down (no running).
     pub carry: u32,
     /// How long item actions take, in ticks: taking (plus `take_per_kg` for each kilogram),
-    /// dropping, taking something in hand, and putting it away.
+    /// dropping, taking something in hand, putting it away, lighting a light and holding it up,
+    /// and putting it out.
     pub take: u32,
     pub take_per_kg: u32,
     pub drop: u32,
     pub wield_time: u32,
     pub unwield_time: u32,
+    pub light_time: u32,
+    pub douse_time: u32,
 }
 
 impl Defs {
@@ -131,13 +137,15 @@ impl Defs {
             .map_or(0, |d| d.weight * u32::from(item.count))
     }
 
-    /// How a stack goes into a list: onto a stack of the same that has room, else on its own.
+    /// How a stack goes into a list: onto a stack of the same, in the same condition, that has
+    /// room (a half-burnt candle doesn't join new ones), else on its own.
     pub fn stow(&self, list: &mut Vec<Item>, item: Item) {
         let stack = self.item(item.def).map_or(1, |d| d.stack.max(1));
         let mut left = item.count;
         if stack > 1 {
             for held in list.iter_mut() {
-                if held.def == item.def && held.count < stack && left > 0 {
+                let same = held.def == item.def && held.condition == item.condition;
+                if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
                     held.count += room;
                     left -= room;
@@ -282,6 +290,7 @@ impl World {
             a.items
                 .iter()
                 .chain(&a.hands)
+                .chain(&a.light)
                 .map(|i| self.defs.weight(i))
                 .sum()
         })

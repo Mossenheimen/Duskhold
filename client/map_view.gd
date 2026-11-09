@@ -1,7 +1,8 @@
 extends Node3D
 ## The map, a chunk at a time round the camera (chunk_view.gd draws each). Chunks are built
-## nearest first, a few a frame, and dropped once they're well out of view. Over the ground,
-## what the dead can see: their sight cones, tile by tile.
+## nearest first, a few a frame, and dropped once they're well out of view. Over it all, the fog
+## of war: what you don't see now is dim, and what you've never seen is black. Over the ground,
+## what the dead you see can see: their sight cones, tile by tile.
 
 const ChunkView = preload("res://chunk_view.gd")
 
@@ -22,6 +23,10 @@ var _watched_material := ShaderMaterial.new()
 var _watched_image: Image
 var _watched_texture: ImageTexture
 var _overlay: MeshInstance3D
+var _fog_material := ShaderMaterial.new()
+var _view_image: Image
+var _view_texture: ImageTexture
+var _fog: MeshInstance3D
 
 
 func _init() -> void:
@@ -34,9 +39,11 @@ func _init() -> void:
 	plain.roughness = 0.95
 	_materials = {"cut_away": cut_away, "glass": glass, "plain": plain}
 	_watched_material.shader = preload("res://shaders/watched.gdshader")
+	_fog_material.shader = preload("res://shaders/fog_of_war.gdshader")
+	_fog_material.render_priority = Material.RENDER_PRIORITY_MIN  # before the cones and rings
 
 
-## Starts drawing a new world: no chunks yet (update() brings them in), and the overlay.
+## Starts drawing a new world: no chunks yet (update() brings them in), the fog and the overlay.
 func build(dusk: Node, low_walls: bool) -> void:
 	for view in _chunks.values():
 		view.queue_free()
@@ -47,6 +54,7 @@ func build(dusk: Node, low_walls: bool) -> void:
 	_names = dusk.fixture_names()
 	map_size = dusk.map_size()
 	_build_watched()
+	_build_fog()
 
 
 ## Brings in the chunks round `focus` (a point in the world), nearest first, and lets the far
@@ -108,6 +116,31 @@ func show_watched(levels: PackedByteArray) -> void:
 		return
 	_watched_image.set_data(map_size.x, map_size.y, false, Image.FORMAT_R8, levels)
 	_watched_texture.update(_watched_image)
+
+
+## What you make out of the map, from DuskWorld.view_tiles().
+func show_view(tiles: PackedByteArray) -> void:
+	if tiles.size() != map_size.x * map_size.y:
+		return
+	_view_image.set_data(map_size.x, map_size.y, false, Image.FORMAT_R8, tiles)
+	_view_texture.update(_view_image)
+
+
+func _build_fog() -> void:
+	if _fog:
+		_fog.queue_free()
+	_view_image = Image.create_empty(map_size.x, map_size.y, false, Image.FORMAT_R8)
+	_view_texture = ImageTexture.create_from_image(_view_image)
+	_fog_material.set_shader_parameter("view", _view_texture)
+	_fog_material.set_shader_parameter("map_size", Vector2(map_size))
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2.0, 2.0)
+	_fog = MeshInstance3D.new()
+	_fog.mesh = quad
+	_fog.material_override = _fog_material
+	_fog.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_fog.extra_cull_margin = 16384.0  # it covers the screen, wherever the camera looks
+	add_child(_fog)
 
 
 func _build_watched() -> void:

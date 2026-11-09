@@ -36,6 +36,7 @@ items = [
   { item = "pitchfork", weight = 1 },
   { item = "hand_axe", weight = 1 },
   { item = "wood_axe", weight = 1 },
+  { item = "torch", weight = 3, count = [1, 3] },
 ]
 
 [[loot]]
@@ -52,6 +53,7 @@ id = "shelf"          # shelves
 rolls = [0, 2]
 items = [
   { item = "candle", weight = 3, count = [1, 4] },
+  { item = "torch", weight = 1 },
   { item = "bandage", weight = 2 },
   { item = "jerky", weight = 2, count = [1, 3] },
   { item = "nails", weight = 1 },

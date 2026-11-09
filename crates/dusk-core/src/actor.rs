@@ -49,6 +49,10 @@ pub enum Intent {
     Wake,
     /// Drink your fill from the water beside you.
     DrinkWater,
+    /// Light the torch or candle at `slot` of your pack and hold it up in your other hand.
+    Light { slot: u16, def: u16 },
+    /// Put out the light you hold up.
+    Douse,
 }
 
 impl Intent {
@@ -75,6 +79,8 @@ pub enum ActionKind {
     Unwield,
     Sleep,
     DrinkWater,
+    Light { slot: u16, def: u16 },
+    Douse,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -173,6 +179,8 @@ pub struct Actor {
     /// What it has in hand (a weapon), and in its pack. Both count toward what it carries.
     pub hands: Option<Item>,
     pub items: Vec<Item>,
+    /// The light it holds up in its other hand, lit (`light.rs`).
+    pub light: Option<Item>,
 }
 
 impl Actor {
@@ -205,6 +213,7 @@ impl Actor {
             holding: None,
             hands: None,
             items: Vec::new(),
+            light: None,
         }
     }
 

@@ -9,6 +9,7 @@ const WEAPON := 1
 const BANDAGE := 2
 const FOOD := 3
 const DRINK := 4
+const LIGHT := 5
 
 var _dusk: Node
 var _names := PackedStringArray()
@@ -64,10 +65,11 @@ func refresh(busy: bool, dead: bool) -> void:
 	var hands: PackedInt32Array = _dusk.character_hands()
 	var items: PackedInt32Array = _dusk.character_items()
 	var carried: PackedInt32Array = _dusk.character_load()
-	var pack := [hands, items, carried]
+	var light: PackedInt32Array = _dusk.character_light()
+	var pack := [hands, items, carried, light]
 	if pack != _shown_pack:
 		_shown_pack = pack
-		_draw_pack(hands, items, carried)
+		_draw_pack(hands, items, carried, light)
 	var reach: PackedInt32Array = _dusk.stores_in_reach()
 	var water: bool = _dusk.water_in_reach()
 	if reach != _shown_reach or water != _shown_water:
@@ -78,7 +80,8 @@ func refresh(busy: bool, dead: bool) -> void:
 		_take_next(reach)
 
 
-func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: PackedInt32Array) -> void:
+func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: PackedInt32Array,
+		light: PackedInt32Array) -> void:
 	for child in _pack.get_children():
 		child.queue_free()
 	if carried.size() < 2:
@@ -93,12 +96,18 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		_button(row, "Put away", func() -> void: _dusk.unwield())
 	else:
 		_line(_pack, "In hand: nothing (bare fists)", 15)
+	if light.size() >= 2:
+		var row := _row(_pack, "Held up: %s, lit (%d%% left)" % [_name(light[0]), roundi(light[1] / 10.0)])
+		_button(row, "Put out", func() -> void: _dusk.douse())
 	var slot := -1
 	for i in range(0, items.size(), 3):
 		slot += 1
 		var def := items[i]
 		var count := items[i + 1]
-		var row := _row(_pack, _describe(def, count))
+		var label := _describe(def, count)
+		if _kind(def) == LIGHT and items[i + 2] < 1000:
+			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
+		var row := _row(_pack, label)
 		match _kind(def):
 			WEAPON:
 				_button(row, "Wield", func() -> void: _dusk.wield(slot, def))
@@ -108,6 +117,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Eat", func() -> void: _dusk.use_item(slot, def))
 			DRINK:
 				_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
+			LIGHT:
+				_button(row, "Light", func() -> void: _dusk.light(slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
 
 

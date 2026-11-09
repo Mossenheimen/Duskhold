@@ -21,7 +21,7 @@ path_budget = 4096    # the most tiles one search for a way looks at
 health = 100          # points
 carry = 15.0          # kg you carry before you're weighed down: no running
 wield = "cudgel"      # in hand at the start (items/*.toml)
-kit = ["bandage"]     # and in the pack (name one twice for two)
+kit = ["bandage", "torch"]   # and in the pack (name one twice for two)
 
 [items]
 # Seconds each item action takes. Like every timed action, a blow breaks it off.
@@ -30,6 +30,8 @@ per_kg = 0.1          # ...and this much more for each kg of it
 drop = 0.2
 wield = 0.5           # to take a weapon in hand
 unwield = 0.3         # to put it away
+light = 1.5           # to light a torch or a candle and hold it up in your other hand
+douse = 0.5           # to put it out
 
 [endurance]
 # A bar of 100 points that pays for everything active. Empty, you're out of breath: no running,
@@ -122,3 +124,21 @@ bite = 96.0
 
 [water]
 drink = 3.0           # seconds to drink your fill from water beside you (a pond, a stream)
+
+[day]
+# The sky's light, out of 100, from the clock: full by day, `night` after dark, rising from dawn
+# and falling from sunset.
+dawn = 5.0            # hours
+sunrise = 7.0
+sunset = 19.0
+dark = 21.0
+night = 20            # a moon and the stars
+indoors = 0.6         # under a roof, the share of the sky's light that's left
+
+[sight]
+# What you see: a cone ahead, and what's beside you all round, as far as the light lets you. A
+# tile lit at 100 is seen out to `range`, one lit at 50 half as far. The dead's eyes work the
+# same way (creatures/*.toml: sight, cone, darkvision).
+range = 20            # tiles, in full light
+cone = 160            # degrees across
+beside = 1            # tiles all round that you see in any light

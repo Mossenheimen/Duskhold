@@ -19,7 +19,7 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
-    NoSleep, Part, TilePos, World, WoundKind, demo,
+    NoSleep, Part, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -64,6 +64,11 @@ const DRANK: i32 = 23;
 const DRANK_WATER: i32 = 24;
 const FELL_ASLEEP: i32 = 25;
 const WOKE: i32 = 26;
+const LIT: i32 = 27;
+const DOUSED: i32 = 28;
+const BURNT_OUT: i32 = 29;
+const NIGHTFALL: i32 = 30;
+const DAYBREAK: i32 = 31;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -92,12 +97,19 @@ pub struct DuskWorld {
     events: Vec<i32>,
     /// Per tile, row by row: the most alert creature that can see it (see `watched`).
     watched: Vec<u8>,
+    /// What the character makes out of the map, and remembers (see `view_tiles`).
+    #[init(val = View::new(0, 0))]
+    view: View,
     /// The map's size in tiles.
     size: (i32, i32),
     /// Where the data files are; empty for the game's own `data/` (a mod or a test can point
     /// elsewhere). Read the first time a patch is made.
     #[var]
     data_dir: GString,
+    /// The hour of day the game starts at, for development (`--hour`); -1 for the data's.
+    #[var]
+    #[init(val = -1)]
+    start_hour: i32,
 }
 
 fn positions(world: &World) -> Vec<(f32, f32)> {
@@ -187,6 +199,11 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         }
         // Why: 0 rested, 1 chose to get up, 2 hurt, 3 a noise.
         Event::WokeUp { who, why } => (WOKE, Some(who), None, at(who), why as i32),
+        Event::Lit { who, item } => (LIT, Some(who), None, at(who), i32::from(item)),
+        Event::Doused { who, item } => (DOUSED, Some(who), None, at(who), i32::from(item)),
+        Event::BurntOut { who, item } => (BURNT_OUT, Some(who), None, at(who), i32::from(item)),
+        Event::Nightfall => (NIGHTFALL, None, None, (-1, -1), 0),
+        Event::Daybreak => (DAYBREAK, None, None, (-1, -1), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -199,10 +216,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
     ])
 }
 
-/// Which tiles the creatures near the character can see, by the same rule they hunt by
+/// Which tiles the creatures the character sees can see, by the same rule they hunt by
 /// (`World::sees`). Each tile holds 0 if none can, else 1 + the alert level of the most alert
-/// one that can.
-fn watch(world: &World, size: (i32, i32), out: &mut Vec<u8>) {
+/// one that can. Those the character can't see draw nothing: you don't know where they look.
+fn watch(world: &World, size: (i32, i32), view: &View, out: &mut Vec<u8>) {
     out.clear();
     out.resize((size.0 * size.1) as usize, 0);
     let Some(me) = world
@@ -216,7 +233,7 @@ fn watch(world: &World, size: (i32, i32), out: &mut Vec<u8>) {
         let Some((range, _)) = world.sight(a.kind) else {
             continue;
         };
-        if a.pos.steps_to(me) > WATCH_RANGE || !world.is_awake(a.pos) {
+        if a.pos.steps_to(me) > WATCH_RANGE || !world.is_awake(a.pos) || !view.sees(a.pos) {
             continue;
         }
         let level = 1 + alert_level(a.alert());
@@ -285,7 +302,10 @@ impl INode for DuskWorld {
             self.pending = 0.0;
         }
         if ticks > 0 {
-            watch(world, self.size, &mut self.watched);
+            if let Some(me) = world.character() {
+                world.look(me, &mut self.view);
+            }
+            watch(world, self.size, &self.view, &mut self.watched);
         }
     }
 }
@@ -303,14 +323,21 @@ impl DuskWorld {
         }
     }
 
-    fn start(&mut self, world: World, size: (i32, i32)) {
+    fn start(&mut self, mut world: World, size: (i32, i32)) {
+        if (0..24).contains(&self.start_hour) {
+            world.rules.clock.start = self.start_hour as u32 * 60;
+        }
         self.size = size;
         self.after = positions(&world);
         self.before = self.after.clone();
         self.pending = 0.0;
         self.noises.clear();
         self.events.clear();
-        watch(&world, self.size, &mut self.watched);
+        self.view = View::new(size.0, size.1);
+        if let Some(me) = world.character() {
+            world.look(me, &mut self.view);
+        }
+        watch(&world, self.size, &self.view, &mut self.watched);
         self.world = Some(world);
     }
 }
@@ -564,7 +591,7 @@ impl DuskWorld {
     }
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
-    /// 4 drink.
+    /// 4 drink, 5 a light.
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -580,6 +607,7 @@ impl DuskWorld {
                 ItemKind::Bandage { .. } => 2,
                 ItemKind::Food { .. } => 3,
                 ItemKind::Drink { .. } => 4,
+                ItemKind::Light { .. } => 5,
             })
             .collect()
     }
@@ -759,11 +787,11 @@ impl DuskWorld {
     }
 
     /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
-    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging, 9 taking a
-    /// weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from water, 13 eating,
-    /// 14 drinking a drink), how far through its wind-up it is (0 to
-    /// 1000; 1000 once it has struck), and the tile it's aimed at. The client draws the wind-up
-    /// of a swing or a shove as its tell.
+    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging,
+    /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
+    /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out), how far
+    /// through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's aimed
+    /// at. The client draws the wind-up of a swing or a shove as its tell.
     #[func]
     fn actor_actions(&self) -> PackedInt32Array {
         let mut out = Vec::new();
@@ -798,6 +826,8 @@ impl DuskWorld {
                         }
                         ActionKind::Wield { .. } => 9,
                         ActionKind::Unwield => 10,
+                        ActionKind::Light { .. } => 15,
+                        ActionKind::Douse => 16,
                         ActionKind::Sleep => 11,
                         ActionKind::DrinkWater => 12,
                     },
@@ -952,6 +982,69 @@ impl DuskWorld {
     #[func]
     fn drink_water(&mut self) {
         self.act(Intent::DrinkWater);
+    }
+
+    /// The sky's light now, out of 100: the client lights the scene by it.
+    #[func]
+    fn daylight(&self) -> i32 {
+        self.world.as_ref().map_or(100, |w| w.daylight() as i32)
+    }
+
+    /// What the character makes out of the map, per tile, row by row: 0 never seen,
+    /// 1 remembered, 2 seen now. As of the last tick.
+    #[func]
+    fn view_tiles(&self) -> PackedByteArray {
+        PackedByteArray::from(&self.view.tiles[..])
+    }
+
+    /// Per actor: 1 if the character sees it (it's on a tile seen now), else 0. The character
+    /// always sees itself.
+    #[func]
+    fn actor_seen(&self) -> PackedByteArray {
+        let Some(world) = &self.world else {
+            return PackedByteArray::new();
+        };
+        let me = world.character();
+        world
+            .actors()
+            .map(|(id, a)| u8::from(Some(id) == me || self.view.sees(a.pos)))
+            .collect()
+    }
+
+    /// The light you hold up: [its definition number, its condition (out of 1000), its radius in
+    /// tiles], or nothing.
+    #[func]
+    fn character_light(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(lit) = world
+            .character()
+            .and_then(|id| world.actor(id))
+            .and_then(|a| a.light)
+        else {
+            return PackedInt32Array::new();
+        };
+        let radius = match world.defs.item(lit.def).map(|d| &d.kind) {
+            Some(ItemKind::Light { radius, .. }) => *radius,
+            _ => 0,
+        };
+        PackedInt32Array::from(&[i32::from(lit.def), i32::from(lit.condition), radius])
+    }
+
+    /// Lights the torch or candle at `slot` of your pack and holds it up.
+    #[func]
+    fn light(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Light {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Puts out the light you hold up.
+    #[func]
+    fn douse(&mut self) {
+        self.act(Intent::Douse);
     }
 
     /// Walks the character to a tile, finding the way.

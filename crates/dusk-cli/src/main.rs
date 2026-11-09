@@ -348,6 +348,11 @@ fn describe(w: &World, e: Event) -> String {
             if in_bed { " in bed" } else { " on the ground" }
         ),
         Event::WokeUp { who, why } => format!("{} woke ({why:?})", name(who)),
+        Event::Lit { who, item } => format!("{} lit item {item}", name(who)),
+        Event::Doused { who, item } => format!("{} put out item {item}", name(who)),
+        Event::BurntOut { who, item } => format!("{}'s item {item} burnt out", name(who)),
+        Event::Nightfall => "the sun is going down".to_string(),
+        Event::Daybreak => "the sky is lightening".to_string(),
     }
 }
 

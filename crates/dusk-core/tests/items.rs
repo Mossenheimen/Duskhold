@@ -80,6 +80,8 @@ fn defs() -> Defs {
         drop: 2,
         wield_time: 5,
         unwield_time: 3,
+        light_time: 15,
+        douse_time: 5,
     }
 }
 

@@ -204,8 +204,10 @@ In ZomboidRL this hold, carry-on and interrupt logic grew one action at a time (
   - scent, left on its trail;
   - heat, from its body, clothes and fires;
   - dread, its own.
-- **Light:** sky light (time of day, weather, roofs, windows letting it in) is cached per chunk and redone when something changes. Moving lights (torches, fires, spells) use shadowcasting within their radius. The result is one number per tile.
-- **Sight:** the character's field of view uses symmetric shadowcasting, adapted to walls on edges, then cut to its vision cone, to lit tiles and to darkvision. A creature checks a line of sight only to a target it could see: in range, and lit or within its darkvision.
+- **Light** (`light.rs`, built at step 5): one number per tile, out of 100, worked out when asked. It's the brighter of the sky's light (from the clock; 60% under a roof) and any carried light that reaches the tile in a straight line (full out to half its radius, then less). Later: weather, windows letting light in, fires and braziers. If asking ever costs too much, the sky's part gets cached per chunk.
+- **Sight scales with light:** a tile lit at 100 is seen out to an eye's full range, at 50 half as far, and everyone sees what's right beside them (darkvision) in any light.
+  - A creature's eyes (`World::sees`): in range, in its cone, lit enough for how far off (or within its darkvision), and in a line of sight.
+  - The character's field of view (`view.rs`) is the same rule, with a 160° cone and the tiles beside it all round. It's perception, not simulation: worked out when asked (each frame for the client), into a `View` that also remembers what was seen (the fog of war). It checks a straight line to each tile in range. Symmetric shadowcasting adapted to edge walls is the faster way, for when the bot asks every few ticks.
 - **Sounds** are events (where, how loud, what kind). Creatures in range hear them, and every wall on the way costs loudness.
 - **Scent** is a coarse grid, one cell per 2 × 2 tiles, with deposits, decay, wind and rain.
 - **Heat** comes from emitters plus the ambient temperature, and needs a line of sight to sense.
@@ -375,7 +377,7 @@ obs, rew, term, trunc, info = sim.step(actions)   # 5 ticks a step, 16 worlds on
 - **Rendering** (Default: 3D, orthographic, at Zomboid's angle):
   - chunks as instanced meshes, and walls as thin meshes on tile edges;
   - a cut-away shader for walls between the camera and the character, and the floors above hidden when indoors;
-  - the core's light and visibility as textures (one texel per tile, sampled smoothly), plus real shadows from the light the character carries;
+  - the core's view as a texture (one texel per tile, sampled smoothly) for the fog of war, drawn by one full-screen pass. The sun and the sky's light follow the core's daylight, and the light the character carries is a real light with shadows;
   - weather particles.
 - **UI** (Godot controls): the moodle column, the health panel, inventory windows with weight bars, Zomboid-style right-click menus, progress bars, the map, the speed dial, build mode.
 - **Input becomes intents:** click to walk (pathfinding), WASD to steer, hotkeys, context actions, and a queue while paused.
@@ -632,8 +634,32 @@ Game first: every step ends with something to look at or play.
          - the empty "within reach" panel showed as a dark box at the start, and kept the last game's contents after R;
        - the dev flag `--news` prints the news (for `--headless` runs);
      - **measured:** 100 dead 140,000 ticks/s; the patch 357,000–393,000 over three runs (slice 3 noted 450,000; the needs run once a game minute, for characters only);
+   - **Slice 5, day and night, light and the field of view:** done 2026-11-09; 67 tests pass. What it has:
+     - **the sky** (`dusk-core/src/light.rs`): full light from 07:00 to 19:00, falling to the night's 20% by 21:00 and rising again from 05:00. Under a roof, 60% of the sky's. The news says when the sun goes down and when the sky lightens;
+     - **carried lights:** a torch (lights 5 tiles, burns about a game hour) or a candle (2 tiles, about 4 hours), lit and held up in your other hand, so your weapon stays in hand:
+       - 1.5 s to light, 0.5 s to put out;
+       - it burns down a game minute at a time and goes out at nothing. One put out early keeps what's left, in a stack of its own;
+       - the start kit now has a torch. Sheds and shelves have more;
+     - **sight scales with light:** a tile lit at 100 is seen out to an eye's full range, at 50 half as far, and everyone sees what's beside them in any light:
+       - by day a shambler sees you 8 tiles off; at night only beside it, unless you carry a light, and then from 8 tiles again. Light is bait (`CONCEPT.md`);
+       - indoors by day it sees about 5 tiles;
+     - **your field of view** (`view.rs`): a 160° cone, 20 tiles in full light (4 at night under the open sky, 5 with a torch), and the tiles beside you all round, past no wall. What you saw, you remember: the fog of war;
+     - **the dead are a quarter faster at night,** the Hushlands' rule (the "more at night" comes with the population layer);
+     - **numbers:**
+       - `rules.toml`: `[day]`, `[sight]`, and `[items]` light and douse times;
+       - the shambler's `darkvision` and `night_speed`;
+       - `light = { radius, burn }` on the torch and the candle;
+     - **the client:**
+       - the sun, the sky's light and the background follow the core's daylight: a low blue moon at night, warm at dusk and dawn;
+       - the light you hold up is a real light with shadows;
+       - the fog of war is one full-screen pass (`shaders/fog_of_war.gdshader`). It reads each pixel's tile from the depth buffer and the core's view: seen tiles as they are, remembered ones dim and grey, the rest black;
+       - creatures you don't see aren't drawn, and neither are their sight cones or tells. "Something has seen you" when one you can't see spots you;
+       - L lights a light or puts it out. The pack shows what you hold up, with Light and Put out buttons;
+       - the dev flag `--hour=H` starts at that hour;
+       - **checked on screen:** at night with the torch lit, and by day after a walk (the seen cone, the remembered strip behind, black beyond). The day shot caught a bug: the shader read "seen" as "remembered" (bytes scaled by 127.5, not 255);
+     - **also fixed:** a stack takes only items in the same condition, so a half-burnt candle doesn't join new ones;
+     - **measured:** 100 dead 136,000 ticks/s, 500 dead 16,000, the patch 372,000;
    - **next slices:**
-     - day and night, light and the field of view;
      - skill XP;
      - barricading doors;
    - bodies and wounds, moodles, needs;

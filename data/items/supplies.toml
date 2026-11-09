@@ -1,6 +1,7 @@
 # Supplies. weight in kg for one; stack: how many make one stack. A bandage goes on the worst
 # wound that's bleeding and stops it (time: seconds to put on). Food takes hunger away and drink
-# thirst (out of 100: rules.toml's [hunger] and [thirst]).
+# thirst (out of 100: rules.toml's [hunger] and [thirst]). A light is held up lit in your other
+# hand: it lights the tiles round it, and burns down until it goes out (rules.toml, [day]).
 
 [[item]]
 id = "bandage"
@@ -45,10 +46,18 @@ stack = 4
 drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
 
 [[item]]
+id = "torch"
+name = "torch"
+weight = 0.6
+stack = 5
+light = { radius = 5, burn = 1.0 }   # tiles it lights, game hours it burns (held up, lit)
+
+[[item]]
 id = "candle"
 name = "candle"
 weight = 0.1
 stack = 10
+light = { radius = 2, burn = 4.0 }
 
 [[item]]
 id = "nails"

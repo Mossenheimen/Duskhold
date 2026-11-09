@@ -73,6 +73,8 @@ impl World {
                 ActionKind::Unwield => self.unwield(id),
                 ActionKind::Sleep => self.fall_asleep(id),
                 ActionKind::DrinkWater => self.drink_water(id),
+                ActionKind::Light { slot, def } => self.hold_light(id, slot, def),
+                ActionKind::Douse => self.douse(id),
             }
         }
         true
@@ -124,6 +126,20 @@ impl World {
             Intent::Unwield => {
                 a.hands?;
                 (ActionKind::Unwield, a.facing, self.defs.unwield_time, 0, 0)
+            }
+            Intent::Light { slot, def } => {
+                let ticks = self.light_ticks(id, slot, def)?;
+                (ActionKind::Light { slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Douse => {
+                a.light?;
+                (
+                    ActionKind::Douse,
+                    a.facing,
+                    self.defs.douse_time.max(1),
+                    0,
+                    0,
+                )
             }
             _ => return self.begin_free(id, intent, held),
         };

@@ -4,7 +4,9 @@
 id = "shambler"
 walk = 0.5            # tiles a second, shuffling about
 run = 0.8             # lurching after something
-sight = 8             # tiles
+night_speed = 1.25    # at night (the sky under half its light) it moves this much faster
+sight = 8             # tiles, in full light: in less it sees less far (rules.toml, [sight])
+darkvision = 1        # tiles it sees in any light
 cone = 120            # degrees across: you can get behind one
 think_every = 5       # ticks between thoughts (staggered, so they don't all think at once)
 forget_after = 30.0   # seconds before it gives up on what it heard or saw

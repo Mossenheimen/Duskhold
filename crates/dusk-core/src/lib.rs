@@ -16,10 +16,12 @@ mod grab;
 pub mod grid;
 pub mod hash;
 pub mod items;
+pub mod light;
 pub mod needs;
 pub mod path;
 pub mod senses;
 pub mod text;
+pub mod view;
 pub mod world;
 
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind};
@@ -28,4 +30,5 @@ pub use geom::{ChunkPos, Dir8, TilePos};
 pub use grid::{Edge, Grid, Ground, Tile};
 pub use items::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
 pub use needs::{Moodle, NoSleep, Woke};
+pub use view::View;
 pub use world::{Event, Rules, World};

@@ -27,6 +27,8 @@ per_kg = 0.1
 drop = 0.2
 wield = 0.5
 unwield = 0.3
+light = 1.5
+douse = 0.5
 [endurance]
 run = 4.0
 walk = 3.0
@@ -94,6 +96,17 @@ laceration = 48.0
 bite = 96.0
 [water]
 drink = 3.0
+[day]
+dawn = 5.0
+sunrise = 7.0
+sunset = 19.5
+dark = 21.0
+night = 25
+indoors = 0.5
+[sight]
+range = 16
+cone = 180
+beside = 1
 "#;
 
 const SHAMBLER: &str = r#"
@@ -112,6 +125,8 @@ down = 4.0
 attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }
 thump = [2, 4]
+darkvision = 2
+night_speed = 1.5
 "#;
 
 const FIXTURES: &str = r#"
@@ -333,6 +348,32 @@ fn the_clock_and_needs_become_the_cores() {
 }
 
 #[test]
+fn day_night_and_sight_become_the_cores() {
+    let data = load(&folder("day", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let r = data.rules;
+    let d = r.day;
+    assert_eq!(
+        (d.dawn, d.sunrise, d.sunset, d.dark),
+        (300, 420, 1170, 1260),
+        "hours, in game minutes"
+    );
+    assert_eq!((d.night, d.indoors), (25, 500));
+    assert_eq!(
+        (r.sight.range, r.sight.cone.cos, r.sight.beside),
+        (16, 0, 1),
+        "180° across is 90° either side"
+    );
+    assert_eq!((r.shambler_darkvision, r.shambler_night_speed), (2, 1500));
+    assert_eq!((data.defs.light_time, data.defs.douse_time), (15, 5));
+
+    let backwards = RULES.replace("sunset = 19.5", "sunset = 6.0");
+    let mut files = test_files(PREFABS);
+    files[0].1 = &backwards;
+    let err = load(&folder("night", &files)).unwrap_err();
+    assert!(err.message.contains("in that order"), "{err}");
+}
+
+#[test]
 fn the_games_items_and_loot_load() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let d = &data.defs;
@@ -344,7 +385,13 @@ fn the_games_items_and_loot_load() {
     };
     assert_eq!((swing.wind_up, swing.damage, wear), (4, (80, 120), 10));
     assert_eq!(d.wield, Some(id("cudgel")));
-    assert_eq!(d.kit, vec![dusk_core::Item::new(id("bandage"), 1)]);
+    assert_eq!(
+        d.kit,
+        vec![
+            dusk_core::Item::new(id("bandage"), 1),
+            dusk_core::Item::new(id("torch"), 1)
+        ]
+    );
     assert_eq!(d.carry, 15_000);
     assert_eq!(
         d.items[usize::from(id("bread"))].kind,
@@ -353,6 +400,14 @@ fn the_games_items_and_loot_load() {
             time: 40
         },
         "40 points of hunger off, in 4 seconds"
+    );
+    assert_eq!(
+        d.items[usize::from(id("torch"))].kind,
+        dusk_core::ItemKind::Light {
+            radius: 5,
+            wane: 17
+        },
+        "an hour's burn: 17 of its 1000 a game minute"
     );
     let bed = data.fixtures.iter().position(|f| f.id == "bed").unwrap() + 1;
     assert!(d.beds[bed] && !d.beds[1], "a bed is a bed, a tree isn't");

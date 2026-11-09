@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use dusk_core::items::NEW;
 use dusk_core::world::Swing;
 use dusk_core::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
 use serde::Deserialize;
@@ -40,6 +41,8 @@ struct ItemFile {
     food: Option<FoodFile>,
     #[serde(default)]
     drink: Option<DrinkFile>,
+    #[serde(default)]
+    light: Option<LightFile>,
 }
 
 /// A weapon's swing (as rules.toml's [attack]) and the condition, out of 100, a blow costs it.
@@ -77,6 +80,33 @@ struct DrinkFile {
     time: f64,
 }
 
+/// A light: the tiles it lights round it, and the game hours it burns.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LightFile {
+    radius: i32,
+    burn: f64,
+}
+
+/// A light's burn time as the condition it loses a game minute (out of `NEW`): at least one, so
+/// a light burns 1000 game minutes at most.
+fn light(file: &Path, id: &str, l: &LightFile) -> Result<ItemKind, DataError> {
+    if !(1..=20).contains(&l.radius) || !(l.burn > 0.0 && l.burn <= 16.0) {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a light's radius is 1 to 20 tiles, and it burns above 0 and at \
+                 most 16 game hours"
+            ),
+        ));
+    }
+    let wane = (f64::from(NEW) / (l.burn * 60.0)).round().max(1.0) as u16;
+    Ok(ItemKind::Light {
+        radius: l.radius,
+        wane,
+    })
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct LootsFile {
@@ -109,6 +139,8 @@ pub(crate) struct ItemTimesFile {
     drop: f64,
     wield: f64,
     unwield: f64,
+    light: f64,
+    douse: f64,
 }
 
 /// What a character starts with and can carry: rules.toml's [character].
@@ -187,12 +219,13 @@ pub(crate) fn load_defs(
                 i.bandage.is_some(),
                 i.food.is_some(),
                 i.drink.is_some(),
+                i.light.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food and drink",
+                        "item {:?} is more than one of weapon, bandage, food, drink and light",
                         i.id
                     ),
                 ));
@@ -219,6 +252,8 @@ pub(crate) fn load_defs(
             } else if let Some(d) = &i.drink {
                 let (water, time) = eaten(&file, &i.id, "drink", d.water, d.time)?;
                 ItemKind::Drink { water, time }
+            } else if let Some(l) = &i.light {
+                light(&file, &i.id, l)?
             } else {
                 ItemKind::Other
             };
@@ -322,6 +357,8 @@ pub(crate) fn load_defs(
         drop: ticks(rules_file, "items.drop", times.drop)? as u32,
         wield_time: (ticks(rules_file, "items.wield", times.wield)? as u32).max(1),
         unwield_time: (ticks(rules_file, "items.unwield", times.unwield)? as u32).max(1),
+        light_time: (ticks(rules_file, "items.light", times.light)? as u32).max(1),
+        douse_time: (ticks(rules_file, "items.douse", times.douse)? as u32).max(1),
     };
     let mut start = Vec::new();
     for name in kit.kit {

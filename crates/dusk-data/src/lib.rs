@@ -6,6 +6,7 @@
 //! loading fails with the file and what's wrong.
 
 mod items;
+mod light;
 mod needs;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -15,7 +16,7 @@ use std::sync::Arc;
 
 use dusk_core::Defs;
 use dusk_core::actor::Speeds;
-use dusk_core::senses::{Cone, Muffling};
+use dusk_core::senses::Muffling;
 use dusk_core::text::TextGrid;
 use dusk_core::world::{Combat, Endurance, Rules, Swing, TICKS_PER_SECOND, WoundRule};
 use dusk_core::{Edge, Ground, Tile};
@@ -294,6 +295,8 @@ struct RulesFile {
     sleep: needs::SleepFile,
     healing: needs::HealingFile,
     water: needs::WaterFile,
+    day: light::DayFile,
+    sight: light::SightFile,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -468,6 +471,10 @@ struct CreatureFile {
     wounds: WoundOddsFile,
     /// What its blow does to a shut door in its way, in points.
     thump: (f64, f64),
+    /// Tiles it sees in any light (`sight` is in full light).
+    darkvision: i32,
+    /// At night it moves this many times as fast.
+    night_speed: f64,
 }
 
 #[derive(Deserialize)]
@@ -632,9 +639,15 @@ fn to_rules(
     };
     rules.shambler_sight = c.sight;
     // The cone's half-angle as a cosine, in ten-thousandths: worked out once, here.
-    rules.shambler_cone = Cone {
-        cos: ((c.cone / 2.0).to_radians().cos() * 10_000.0).round() as i32,
-    };
+    rules.shambler_cone = light::cone(c.cone);
+    if c.darkvision < 0 || !(0.5..=3.0).contains(&c.night_speed) {
+        return Err(fail(
+            cfile,
+            "darkvision can't be negative, and night_speed is a pace from 0.5 to 3",
+        ));
+    }
+    rules.shambler_darkvision = c.darkvision;
+    rules.shambler_night_speed = (c.night_speed * 1000.0).round() as u32;
     rules.think_every = c.think_every;
     rules.forget_after = ticks(cfile, "forget_after", c.forget_after)?;
     rules.wander_chance = (c.wander * 10_000.0).round() as u32;
@@ -729,6 +742,7 @@ fn to_rules(
         bleed_damage: points(w.bleeding),
     };
     (rules.clock, rules.needs) = needs::to_needs(file, r)?;
+    (rules.day, rules.sight) = light::to_light(file, r)?;
     Ok(rules)
 }
 

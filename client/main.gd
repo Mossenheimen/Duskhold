@@ -10,7 +10,8 @@ extends Node3D
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
-## sleep or drink (from water) S real seconds in; --news print the news too (for --headless).
+## sleep, drink (from water) or light S real seconds in; --news print the news too (for
+## --headless); --hour=H start at that hour of the day.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -57,9 +58,17 @@ const DRANK := 23
 const DRANK_WATER := 24
 const FELL_ASLEEP := 25
 const WOKE := 26
+const LIT := 27
+const DOUSED := 28
+const BURNT_OUT := 29
+const NIGHTFALL := 30
+const DAYBREAK := 31
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
-	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking"}
+	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
+	15: "Lighting it", 16: "Putting it out"}
+## A light, by DuskWorld.item_kinds().
+const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
 const HUNGRY := 0
 const THIRSTY := 1
@@ -82,6 +91,10 @@ var item_names := PackedStringArray()
 var hud: Hud
 var camera: Camera3D
 var cursor: MeshInstance3D
+var sun: DirectionalLight3D
+var sky: Environment
+var torch: OmniLight3D  # the light you hold up, drawn as a real light with shadows
+var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
 var town_seed := 1
@@ -107,6 +120,7 @@ var shot_path := ""
 var shot_after := 3.0
 var start_speed := 1.0
 var print_news := false  # --news
+var start_hour := -1  # --hour: -1 for the data's
 var data_dir := ""  # --data: another data folder (a mod, or a test)
 var walk_at := Vector2i(-1, -1)
 var played := 0.0
@@ -127,6 +141,7 @@ func _ready() -> void:
 	dusk = ClassDB.instantiate("DuskWorld")
 	dusk.process_priority = -1  # tick the world before this script draws it
 	dusk.data_dir = data_dir
+	dusk.start_hour = start_hour
 	add_child(dusk)
 	map_view = MapView.new()
 	add_child(map_view)
@@ -199,6 +214,9 @@ func _process(delta: float) -> void:
 	if tick != last_tick:
 		last_tick = tick
 		map_view.show_watched(dusk.watched())
+		map_view.show_view(dusk.view_tiles())
+	_light_the_sky(dusk.daylight())
+	_hold_up_light()
 	_move_camera(delta)
 	map_view.update(focus)
 	_move_cursor()
@@ -262,6 +280,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			dusk.drink_water()
 		else:
 			hud.say("There's no water within reach.")
+	elif event.is_action_pressed("light") and not dead:
+		_light_or_douse()
 	elif event.is_action_pressed("pause"):
 		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
@@ -358,14 +378,17 @@ func _draw_actors(delta: float) -> void:
 	var alert: PackedInt32Array = dusk.actor_alert()
 	var states: PackedInt32Array = dusk.actor_states()
 	var actions: PackedInt32Array = dusk.actor_actions()
+	seen = dusk.actor_seen()
 	for i in actors.size():
+		# What you don't see isn't drawn (CONCEPT.md: never a live monster you can't see).
+		actors[i].visible = _seen(i)
 		actors[i].position = Vector3(where[i].x + 0.5, 0.0, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
 		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
 		var swinging := actions[i * 4] == 1 and actions[i * 4 + 1] < 1000
 		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
-	tells.show_actions(actions, me)
+	tells.show_actions(actions, me, seen)
 	var drawn := []
 	for view in actors:
 		drawn.append(view.position)
@@ -382,9 +405,10 @@ func _read_events() -> void:
 		var extra := events[i + 5]
 		match events[i]:
 			HEARD:
-				hud.say("A shambler heard something.")
+				if _seen(who):
+					hud.say("A shambler heard something.")
 			SAW:
-				hud.say("A shambler saw you!")
+				hud.say("A shambler saw you!" if _seen(who) else "Something has seen you.")
 			NO_WAY:
 				if who == me:
 					hud.say("There's no way there.")
@@ -470,6 +494,19 @@ func _read_events() -> void:
 			WOKE:
 				if who == me and extra >= 0 and extra < WOKE_BY.size():
 					hud.say(WOKE_BY[extra])
+			LIT:
+				if who == me:
+					hud.say("You lit the %s and held it up." % _item_name(extra))
+			DOUSED:
+				if who == me:
+					hud.say("You put out the %s." % _item_name(extra))
+			BURNT_OUT:
+				if who == me:
+					hud.say("Your %s burnt out." % _item_name(extra))
+			NIGHTFALL:
+				hud.say("The sun is going down. Night is coming.")
+			DAYBREAK:
+				hud.say("The sky is lightening. Dawn is coming.")
 
 
 ## Whether actor `i` stands beside you.
@@ -541,25 +578,28 @@ func _build_stage() -> void:
 	camera.far = 200.0
 	add_child(camera)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55.0, -35.0, 0.0)  # from the south-west: shadows fall up-right
-	sun.light_color = Color(1.0, 0.94, 0.84)
-	sun.light_energy = 1.1
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 90.0
 	add_child(sun)
 
-	var sky := Environment.new()
+	sky = Environment.new()
 	sky.background_mode = Environment.BG_COLOR
-	sky.background_color = Color(0.07, 0.08, 0.1)
 	sky.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	sky.ambient_light_color = Color(0.58, 0.63, 0.72)
-	sky.ambient_light_energy = 0.6
 	sky.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = sky
 	add_child(world_environment)
+	_light_the_sky(100)
+
+	torch = OmniLight3D.new()
+	torch.light_color = Color(1.0, 0.72, 0.42)
+	torch.shadow_enabled = true
+	torch.omni_attenuation = 1.2
+	torch.visible = false
+	add_child(torch)
 
 	var square := PlaneMesh.new()
 	square.size = Vector2.ONE
@@ -570,6 +610,53 @@ func _build_stage() -> void:
 	cursor.material_override = outline
 	cursor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(cursor)
+
+
+## The sun, the sky's light and the background follow the core's daylight (DuskWorld.daylight(),
+## out of 100): a low blue moon at night, warm near dusk and dawn, white by day. Only the look:
+## what you can see is the core's view.
+func _light_the_sky(daylight: int) -> void:
+	var t := clampf(daylight / 100.0, 0.0, 1.0)
+	var warm := clampf(1.0 - absf(t - 0.6) / 0.3, 0.0, 1.0)  # dusk and dawn
+	sun.light_energy = lerpf(0.06, 1.1, t * t)
+	sun.light_color = Color(0.55, 0.62, 0.95).lerp(Color(1.0, 0.94, 0.84), t).lerp(
+		Color(1.0, 0.62, 0.36), warm * 0.55)
+	sky.ambient_light_energy = lerpf(0.16, 0.6, t)
+	sky.ambient_light_color = Color(0.28, 0.33, 0.55).lerp(Color(0.58, 0.63, 0.72), t)
+	sky.background_color = Color(0.01, 0.012, 0.025).lerp(Color(0.07, 0.08, 0.1), t)
+
+
+## The light you hold up (DuskWorld.character_light()): a real light over your head, reaching
+## as far as the core's does, with a little flicker.
+func _hold_up_light() -> void:
+	var held: PackedInt32Array = dusk.character_light()
+	torch.visible = held.size() >= 3 and me >= 0 and not dead
+	if not torch.visible:
+		return
+	torch.omni_range = held[2] + 1.0
+	var now := Time.get_ticks_msec() / 1000.0
+	torch.light_energy = 3.0 * (1.0 + 0.06 * sin(now * 13.0) + 0.04 * sin(now * 31.0))
+	# In the hand on the camera's side, so it lights the body you see, not from inside it.
+	torch.position = actors[me].position + Vector3(0.35, 1.8, 0.35)
+
+
+## L: light the first torch or candle in your pack, or put out the one you hold up.
+func _light_or_douse() -> void:
+	if dusk.character_light().size() > 0:
+		dusk.douse()
+		return
+	var items: PackedInt32Array = dusk.character_items()
+	var kinds: PackedInt32Array = dusk.item_kinds()
+	for i in range(0, items.size() - 2, 3):
+		if items[i] < kinds.size() and kinds[items[i]] == LIGHT_KIND:
+			dusk.light(floori(i / 3.0), items[i])
+			return
+	hud.say("You have nothing to light.")
+
+
+## Whether you see actor `i` now.
+func _seen(i: int) -> bool:
+	return i >= 0 and i < seen.size() and seen[i] == 1
 
 
 ## The controls, as input actions on physical keys (so WASD is WASD on any keyboard layout).
@@ -589,6 +676,7 @@ func _add_input_actions() -> void:
 		"door": [KEY_E],
 		"sleep": [KEY_Z],
 		"drink": [KEY_X],
+		"light": [KEY_L],
 		"low_walls": [KEY_V],
 		"pack": [KEY_TAB],
 		"restart": [KEY_R],
@@ -628,6 +716,8 @@ func _read_args() -> void:
 			shot_after = value.to_float()
 		elif arg == "--news":
 			print_news = true
+		elif arg.begins_with("--hour="):
+			start_hour = value.to_int()
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
@@ -664,6 +754,8 @@ func _run_script() -> void:
 				_sleep_or_wake()
 			"drink":
 				dusk.drink_water()
+			"light":
+				_light_or_douse()
 
 
 ## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).

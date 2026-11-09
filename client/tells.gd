@@ -13,8 +13,9 @@ func _init() -> void:
 	_material.shader = preload("res://shaders/tell.gdshader")
 
 
-## `actions` holds four numbers an actor (kind, wind-up per mille, x, y); `me` is your index.
-func show_actions(actions: PackedInt32Array, me: int) -> void:
+## `actions` holds four numbers an actor (kind, wind-up per mille, x, y); `me` is your index;
+## `seen` says which actors you see (a tell you can't see isn't drawn).
+func show_actions(actions: PackedInt32Array, me: int, seen: PackedByteArray) -> void:
 	var used := 0
 	var actor := -1
 	for i in range(0, actions.size(), 4):
@@ -23,6 +24,8 @@ func show_actions(actions: PackedInt32Array, me: int) -> void:
 		var progress := actions[i + 1]
 		# Swings, shoves and blows on doors still winding up. Nothing else lands on a tile.
 		if kind not in [1, 2, 4] or progress >= 1000:
+			continue
+		if actor >= seen.size() or seen[actor] == 0:
 			continue
 		var mark := _mark(used)
 		used += 1
