@@ -40,8 +40,8 @@ fn at(x: i32, y: i32) -> TilePos {
 fn field(w: i32, h: i32, hour: u32, you: TilePos) -> (World, ActorId) {
     let mut world = World::new(1);
     world.rules.clock.start = hour * 60;
-    world.rules.wander_chance = 0;
     world.defs = Arc::new(defs());
+    world.creature_mut(0).wander = 0;
     for y in 0..h {
         for x in 0..w {
             world.grid.set_tile(at(x, y), Tile::GRASS);
@@ -134,12 +134,12 @@ fn a_roof_keeps_light_out_and_a_torch_brings_it_but_not_through_walls() {
 fn the_dead_see_you_by_light() {
     // By day, a shambler looking your way sees you five tiles off.
     let (mut w, _) = field(1, 7, 12, at(0, 5));
-    let z = w.spawn(ActorKind::Shambler, at(0, 0)).unwrap(); // facing south, at you
+    let z = w.spawn(ActorKind::Creature(0), at(0, 0)).unwrap(); // facing south, at you
     assert!(w.sees(z, at(0, 5)));
 
     // At night it doesn't: only what's beside it.
     let (mut w, me) = field(1, 7, 23, at(0, 5));
-    let z = w.spawn(ActorKind::Shambler, at(0, 0)).unwrap();
+    let z = w.spawn(ActorKind::Creature(0), at(0, 0)).unwrap();
     assert!(!w.sees(z, at(0, 5)) && w.sees(z, at(0, 1)));
     w.step(20);
     assert_eq!(w.actor(z).unwrap().pos, at(0, 0), "it's after nothing");
@@ -257,7 +257,7 @@ fn the_dead_are_faster_at_night() {
     // A shambler goes after a noise six tiles off: by day, then at night.
     let ticks = |hour: u32| {
         let (mut w, _) = field(3, 8, hour, at(2, 0)); // you, off to its side, unseen
-        let z = w.spawn(ActorKind::Shambler, at(0, 0)).unwrap();
+        let z = w.spawn(ActorKind::Creature(0), at(0, 0)).unwrap();
         w.make_sound(at(0, 6), 10, None);
         (1..2000)
             .find(|_| {

@@ -409,9 +409,12 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
         layout.fill(chunk, &mut world.grid);
     }
     world.spawn(ActorKind::Character, layout.start);
-    for chunk in layout.chunks() {
-        for at in layout.dead_in(chunk) {
-            world.spawn(ActorKind::Shambler, at);
+    // The region names its dead; the loader checked the name.
+    if let Some(kind) = data.defs.creature_kind(&region.dead.creature) {
+        for chunk in layout.chunks() {
+            for at in layout.dead_in(chunk) {
+                world.spawn(kind, at);
+            }
         }
     }
     (world, layout)

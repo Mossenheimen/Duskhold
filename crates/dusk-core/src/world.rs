@@ -27,40 +27,21 @@ const STRAIGHT: u32 = 1000;
 const DIAGONAL: u32 = 1414;
 
 /// The tunable rules, in the core's units (thousandths of a tile, ticks, cosines). The game's
-/// come from `data/rules.toml` and the creature files, through `dusk-data`; `Rules::default()`
-/// is a fixed set for tests and tools.
+/// come from `data/rules.toml`, through `dusk-data`; `Rules::default()` is a fixed set for tests
+/// and tools. What a kind of creature does is in its own definition (`creature.rs`), not here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rules {
     /// How far round a character the world runs in full, in chunks. Farther out it sleeps.
     pub active_radius: i32,
     pub character_speed: Speeds,
-    pub shambler_speed: Speeds,
-    /// Creatures think every this many ticks, staggered by id.
-    pub think_every: u64,
-    /// Ticks a shambler keeps after something it heard or saw before giving up on it.
-    pub forget_after: u64,
     /// How far footsteps carry, in tiles: walking, running.
     pub walk_noise: i32,
     pub run_noise: i32,
     pub muffling: Muffling,
-    /// How far a shambler sees in full light, in tiles, and how wide: you can get behind one. In
-    /// less light it sees less far (`light.rs`), but always `shambler_darkvision` tiles.
-    pub shambler_sight: i32,
-    pub shambler_cone: Cone,
-    pub shambler_darkvision: i32,
-    /// At night the dead move this much faster, per mille.
-    pub shambler_night_speed: u32,
-    /// How far the groan of a shambler that catches sight of prey carries, in tiles (0: it makes
-    /// none). The others in earshot come to it, and so to you: how one becomes a crowd.
-    pub shambler_groan: i32,
-    /// Out of 10,000: how often an idle shambler shuffles a step when it thinks.
-    pub wander_chance: u32,
     /// Ticks waiting on a blocked path before planning it again.
     pub repath_after: u32,
-    /// The most tiles one A* search explores, for the character and for the dead (who aren't
-    /// clever: a way they can't find nearby, they don't find).
+    /// The most tiles one A* search explores for a character. (A creature's own is its kind's.)
     pub path_budget: usize,
-    pub dead_path_budget: usize,
     pub combat: Combat,
     pub endurance: Endurance,
     pub clock: Clock,
@@ -104,18 +85,10 @@ pub struct Combat {
     pub shove: Swing,
     /// Out of 10,000: the chance a shove knocks down what it pushes.
     pub knock_down: u32,
-    /// Ticks a knocked-down creature stays down. A blow on one that's down always lands, for
-    /// double harm: Zomboid's stomp.
-    pub prone: u32,
     /// Opening or shutting a door: ticks, and how far it's heard.
     pub door_ticks: u32,
     pub door_noise: i32,
-    pub shambler_health: i32,
-    /// A shambler's swing: it wounds rather than doing `damage`.
-    pub shambler_attack: Swing,
-    /// Out of 10,000, by `WoundKind::ALL`: what a shambler's hit leaves.
-    pub shambler_wounds: [u32; 3],
-    /// By `WoundKind::ALL`.
+    /// What each kind of wound costs, by `WoundKind::ALL`.
     pub wounds: [WoundRule; 3],
     /// Each bleeding wound costs `bleed_damage` health every `bleed_every` ticks.
     pub bleed_every: u32,
@@ -134,10 +107,9 @@ pub struct Combat {
     /// holder.
     pub struggle: Swing,
     pub struggle_per_extra: u32,
-    /// A door's strength (out of `body::FULL`), what a shambler's blow does to it, and how far
-    /// a blow on a door is heard. Beaten past its strength, a door gives way.
+    /// A door's strength (out of `body::FULL`), and how far a blow on a door is heard. Beaten
+    /// past its strength, a door gives way.
     pub door_strength: i32,
-    pub shambler_thump: (i32, i32),
     pub thump_noise: i32,
 }
 
@@ -159,13 +131,6 @@ impl Default for Rules {
                 walk: 1500,
                 run: 3000,
             },
-            // Shamblers shuffle when they wander and lurch when they're after something.
-            shambler_speed: Speeds {
-                walk: 500,
-                run: 800,
-            },
-            think_every: 5,
-            forget_after: 300,
             walk_noise: 3,
             run_noise: 8,
             muffling: Muffling {
@@ -173,17 +138,8 @@ impl Default for Rules {
                 shut_door: 2,
                 shut_window: 1,
             },
-            shambler_sight: 8,
-            // 60° either side of its facing: a 120° cone.
-            shambler_cone: Cone { cos: 5000 },
-            shambler_darkvision: 1,
-            shambler_night_speed: 1250,
-            // Silent in the fixed test set; the game's dead groan (creatures/hushlands.toml).
-            shambler_groan: 0,
-            wander_chance: 1000,
             repath_after: 20,
             path_budget: 4096,
-            dead_path_budget: 400,
             combat: Combat {
                 character_health: 1000,
                 attack: Swing {
@@ -203,19 +159,8 @@ impl Default for Rules {
                     noise: 2,
                 },
                 knock_down: 4000,
-                prone: 40,
                 door_ticks: 5,
                 door_noise: 3,
-                shambler_health: 300,
-                shambler_attack: Swing {
-                    wind_up: 8,
-                    recovery: 8,
-                    endurance: 0,
-                    hit: 5000,
-                    damage: (0, 0),
-                    noise: 3,
-                },
-                shambler_wounds: [7000, 2500, 500],
                 wounds: [
                     WoundRule {
                         damage: 80,
@@ -248,7 +193,6 @@ impl Default for Rules {
                 },
                 struggle_per_extra: 2000,
                 door_strength: 600,
-                shambler_thump: (20, 40),
                 thump_noise: 8,
             },
             endurance: Endurance {
@@ -310,16 +254,6 @@ impl Default for Rules {
             },
             skills: SkillRules::default(),
             barricade: Barricade::default(),
-        }
-    }
-}
-
-impl Rules {
-    /// How fast a kind of actor moves.
-    pub fn speeds(&self, kind: ActorKind) -> Speeds {
-        match kind {
-            ActorKind::Character => self.character_speed,
-            ActorKind::Shambler => self.shambler_speed,
         }
     }
 }
@@ -586,8 +520,8 @@ impl World {
     }
 
     /// A world drawn as a text grid (see [`text`]), its north-west cell at (0, 0) on the ground
-    /// floor. `@` puts the character there, `z` a shambler. Returns the world and the actors
-    /// placed, in reading order.
+    /// floor. `@` puts the character there, `z` the first creature in the definitions (the
+    /// shambler). Returns the world and the actors placed, in reading order.
     pub fn from_text(seed: u64, map: &str) -> Result<(World, Vec<ActorId>), TextError> {
         let parsed = TextGrid::parse(map, default_legend)?;
         let mut world = World::new(seed);
@@ -596,7 +530,7 @@ impl World {
         for (marker, x, y) in parsed.markers() {
             let kind = match marker {
                 '@' => ActorKind::Character,
-                'z' | 'Z' => ActorKind::Shambler,
+                'z' | 'Z' => ActorKind::Creature(0),
                 _ => continue,
             };
             placed.extend(world.spawn(kind, TilePos::new(x, y, 0)));
@@ -604,16 +538,18 @@ impl World {
         Ok((world, placed))
     }
 
-    /// Puts an actor on a free, walkable tile.
+    /// Puts an actor on a free, walkable tile. None if the tile isn't, or the definitions have
+    /// no such creature.
     pub fn spawn(&mut self, kind: ActorKind, pos: TilePos) -> Option<ActorId> {
         if !self.grid.tile(pos).walkable() || self.occupied.contains_key(&pos) {
             return None;
         }
-        let mut actor = Actor::new(kind, pos);
-        actor.body = Body::new(match kind {
+        let health = match kind {
             ActorKind::Character => self.rules.combat.character_health,
-            ActorKind::Shambler => self.rules.combat.shambler_health,
-        });
+            ActorKind::Creature(_) => self.creature(kind)?.health,
+        };
+        let mut actor = Actor::new(kind, pos);
+        actor.body = Body::new(health);
         // A character starts with the kit: something in hand, the rest in its pack.
         if kind == ActorKind::Character {
             actor.hands = self.defs.wield.map(|def| Item::new(def, 1));
@@ -658,10 +594,7 @@ impl World {
     /// How far a kind of creature sees in full light, and how wide: None for the character, whose
     /// field of view is another rule (`view.rs`).
     pub fn sight(&self, kind: ActorKind) -> Option<(i32, Cone)> {
-        match kind {
-            ActorKind::Shambler => Some((self.rules.shambler_sight, self.rules.shambler_cone)),
-            ActorKind::Character => None,
-        }
+        self.creature(kind).map(|c| (c.sight, c.cone))
     }
 
     /// Can a creature see a tile: in range, inside its cone, lit enough for how far off it is
@@ -674,15 +607,15 @@ impl World {
         if a.dead || a.prone_until > 0 {
             return false; // the dead see nothing, and nor does one lying on its back
         }
-        let Some((range, cone)) = self.sight(a.kind) else {
+        let Some(c) = self.creature(a.kind) else {
             return false;
         };
+        let (range, cone) = (c.sight, c.cone);
         let d2 = a.pos.dist2(at);
         a.pos.z == at.z
             && d2 <= i64::from(range).pow(2)
             && cone.contains(a.facing, at.x - a.pos.x, at.y - a.pos.y)
-            && (a.pos.steps_to(at) <= self.rules.shambler_darkvision
-                || bright_enough(d2, self.light_at(at), range))
+            && (a.pos.steps_to(at) <= c.darkvision || bright_enough(d2, self.light_at(at), range))
             && line_of_sight(&self.grid, a.pos, at)
     }
 
@@ -729,7 +662,7 @@ impl World {
         h.finish()
     }
 
-    /// Draws `w × h` tiles from `origin` as a text grid: `@` the character, `z` a shambler that
+    /// Draws `w × h` tiles from `origin` as a text grid: `@` the character, `z` a creature that
     /// isn't after anything, `Z` one that is.
     pub fn render(&self, origin: TilePos, w: i32, h: i32) -> String {
         let mut marks: FastMap<TilePos, char> = FastMap::default();
@@ -738,12 +671,12 @@ impl World {
                 _ if a.dead => 'x',
                 (ActorKind::Character, _) => '@',
                 (
-                    ActorKind::Shambler,
-                    Mind::Shambler {
+                    ActorKind::Creature(_),
+                    Mind::Hunt {
                         target: Some(_), ..
                     },
                 ) => 'Z',
-                (ActorKind::Shambler, _) => 'z',
+                (ActorKind::Creature(_), _) => 'z',
             };
             marks.insert(a.pos, mark);
         }
@@ -822,6 +755,10 @@ impl World {
     /// taken as the step starts, so two actors never share a tile. At night the dead are faster.
     fn move_actor(&mut self, id: ActorId, night: bool) -> Option<bool> {
         let rules = self.rules;
+        // Its kind's pace and wits: a creature's own, or the character's.
+        let creature = self.creature(self.actors.get(id)?.kind);
+        let speeds = creature.map_or(rules.character_speed, |c| c.speed);
+        let path_budget = creature.map_or(rules.path_budget, |c| c.path_budget);
         // Held, a character can't step; and as it steps out of reach of the dead on it, each
         // may grab it as it goes (`grab.rs`). Only characters are held, which keeps this cheap.
         let starting = self
@@ -855,7 +792,7 @@ impl World {
                 a.carry = 0;
                 return None;
             }
-            let (dir, run) = match next_heading(a, &self.grid, &rules) {
+            let (dir, run) = match next_heading(a, &self.grid, rules.repath_after, path_budget) {
                 // Out of breath or weighed down, nobody runs.
                 Heading::Go(dir, run) => (dir, run && !a.body.exhausted && !heavy),
                 Heading::Stand => {
@@ -907,14 +844,13 @@ impl World {
             self.occupied.insert(to, id);
         }
         let mut step = a.step?;
-        let speeds = rules.speeds(a.kind);
         let mut speed = if step.run {
             rules.skills.run_speed(speeds.run, athletics)
         } else {
             speeds.walk
         };
-        if night && a.kind == ActorKind::Shambler {
-            speed = speed * rules.shambler_night_speed / 1000;
+        if let (true, Some(c)) = (night, creature) {
+            speed = speed * c.night_speed / 1000;
         }
         step.progress += speed / TICKS_PER_SECOND;
         if step.progress < step.length {
@@ -965,7 +901,7 @@ impl World {
                 }
                 continue;
             }
-            let Mind::Shambler {
+            let Mind::Hunt {
                 target,
                 touching,
                 sees,
@@ -989,7 +925,7 @@ impl World {
                 self.events.push(Event::Heard { who: id, at });
             }
             if let Some(a) = self.actors.get_mut(id) {
-                a.mind = Mind::Shambler {
+                a.mind = Mind::Hunt {
                     target: Some(at),
                     since: tick,
                     touching,
@@ -999,13 +935,16 @@ impl World {
         }
     }
 
-    /// A shambler's turn to think: look for prey, give up on old leads, decide where to go.
+    /// A creature's turn to think: look for prey, give up on old leads, decide where to go.
     fn think(&mut self, id: ActorId) {
-        let (rules, tick, seed) = (self.rules, self.tick, self.seed);
-        if !(tick + id.index() as u64).is_multiple_of(rules.think_every.max(1)) {
+        let (tick, seed) = (self.tick, self.seed);
+        let Some(a) = self.actors.get(id) else { return };
+        let Some(kind) = self.creature(a.kind) else {
+            return; // a character's thoughts are its controller's
+        };
+        if !(tick + id.index() as u64).is_multiple_of(kind.think_every.max(1)) {
             return;
         }
-        let Some(a) = self.actors.get(id) else { return };
         if a.prone_until > 0 || a.dead {
             return;
         }
@@ -1018,7 +957,7 @@ impl World {
             }
             return;
         }
-        let Mind::Shambler {
+        let Mind::Hunt {
             mut target,
             mut since,
             touching,
@@ -1038,9 +977,9 @@ impl World {
                 });
                 // Catching sight of prey, it groans, and the others in earshot come to it. Only
                 // one that was after nothing groans, so a crowd doesn't call itself for ever.
-                if rules.shambler_groan > 0 {
+                if kind.groan > 0 {
                     // (`emit`, written out: the actor is still borrowed here.)
-                    let (at, loudness, by) = (pos, rules.shambler_groan, Some(id));
+                    let (at, loudness, by) = (pos, kind.groan, Some(id));
                     self.sounds.push(Sound { at, loudness, by });
                     self.events.push(Event::Sound { at, loudness, by });
                 }
@@ -1048,7 +987,7 @@ impl World {
             target = Some(at);
             since = tick;
         }
-        if tick.saturating_sub(since) > rules.forget_after {
+        if tick.saturating_sub(since) > kind.forget_after {
             target = None;
         }
         let next_to = seen
@@ -1076,7 +1015,7 @@ impl World {
             (None, Some(goal)) => self.chase(a, goal),
             (None, None) => {
                 let who = id.index() as u64;
-                if below(roll(seed, tick, who, Purpose::Wander), 10_000) < rules.wander_chance {
+                if below(roll(seed, tick, who, Purpose::Wander), 10_000) < kind.wander {
                     let dir =
                         Dir8::ALL[below(roll(seed, tick, who, Purpose::WanderDir), 8) as usize];
                     Intent::Move { dir, run: false }
@@ -1086,7 +1025,7 @@ impl World {
             }
         };
         if let Some(a) = self.actors.get_mut(id) {
-            a.mind = Mind::Shambler {
+            a.mind = Mind::Hunt {
                 target,
                 since,
                 touching: next_to.is_some(),
@@ -1211,7 +1150,7 @@ enum Heading {
 
 /// The heading an actor's intent asks for now. Plans (and re-plans) the path of a `WalkTo`: when
 /// the goal changed, when the next tile isn't next to it any more, or after waiting too long.
-fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
+fn next_heading(a: &mut Actor, grid: &Grid, repath_after: u32, budget: usize) -> Heading {
     match a.intent {
         Intent::Move { dir, run } => Heading::Go(dir, run),
         Intent::WalkTo { to, run } => {
@@ -1223,12 +1162,8 @@ fn next_heading(a: &mut Actor, grid: &Grid, rules: &Rules) -> Heading {
             }
             let stale = a.path_goal != Some(to)
                 || a.path.last().is_none_or(|&next| a.pos.steps_to(next) != 1);
-            if stale || a.blocked >= rules.repath_after {
+            if stale || a.blocked >= repath_after {
                 a.blocked = 0;
-                let budget = match a.kind {
-                    ActorKind::Shambler => rules.dead_path_budget,
-                    ActorKind::Character => rules.path_budget,
-                };
                 match find_path(grid, a.pos, to, budget) {
                     Some(mut path) => {
                         path.reverse();

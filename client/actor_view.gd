@@ -29,7 +29,7 @@ func setup(kind: int) -> void:
 	var tall := 1.55 if kind == 0 else 1.45
 	_colour = colour
 	_body = Node3D.new()
-	_stoop = -14.0 if kind == 1 else 0.0  # the dead stoop
+	_stoop = -14.0 if kind >= 1 else 0.0  # the dead stoop (kind 1 + n is creature n)
 	_body.rotation_degrees.x = _stoop
 	_pitch = _stoop
 	add_child(_body)

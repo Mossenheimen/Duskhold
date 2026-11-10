@@ -21,7 +21,7 @@ use dusk_core::actor::Speeds;
 use dusk_core::senses::Muffling;
 use dusk_core::text::TextGrid;
 use dusk_core::world::{Combat, Endurance, Rules, Swing, TICKS_PER_SECOND, WoundRule};
-use dusk_core::{Edge, Ground, Tile};
+use dusk_core::{Creature, CreatureDef, Edge, Ground, Tile};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
@@ -187,6 +187,8 @@ pub struct Hamlet {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Dead {
+    /// Which creature they are (`creatures/*.toml`).
+    pub creature: String,
     pub per_chunk: f32,
     pub per_house: (u32, u32),
     pub clear_start: i32,
@@ -222,7 +224,8 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         let parsed: CreaturesFile = read(&file)?;
         creatures.extend(parsed.creature.into_iter().map(|c| (file.clone(), c)));
     }
-    let rules = to_rules(&rules_file, &raw, &creatures)?;
+    let rules = to_rules(&rules_file, &raw)?;
+    let creatures = to_creatures(&dir.join("creatures"), &creatures)?;
 
     let fixtures_file = dir.join("fixtures.toml");
     let fixtures = read::<FixturesFile>(&fixtures_file)?.fixture;
@@ -239,6 +242,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     if let Some(b) = &raw.barricade {
         defs.boarding = Some(barricade::to_boarding(&rules_file, b, &defs.items)?);
     }
+    defs.creatures = creatures;
     let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
@@ -257,7 +261,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     let mut regions = Vec::new();
     for file in files_in(&dir.join("regions"))? {
         let region: Region = read(&file)?;
-        check_region(&file, &region, &prefabs)?;
+        check_region(&file, &region, &prefabs, &defs.creatures)?;
         regions.push(region);
     }
     check_unique(
@@ -460,6 +464,9 @@ struct CreaturesFile {
 #[serde(deny_unknown_fields)]
 struct CreatureFile {
     id: String,
+    /// What the game calls it, if not by its id.
+    #[serde(default)]
+    name: Option<String>,
     walk: f64,
     run: f64,
     sight: i32,
@@ -570,11 +577,82 @@ fn ticks(file: &Path, what: &str, seconds: f64) -> Result<u64, DataError> {
     Ok((seconds * f64::from(TICKS_PER_SECOND)).round() as u64)
 }
 
-fn to_rules(
-    file: &Path,
-    r: &RulesFile,
+/// Every creature in `data/creatures/`, as the core's definitions: in file order, then the order
+/// they're listed in. A creature's number is its place here.
+fn to_creatures(
+    dir: &Path,
     creatures: &[(PathBuf, CreatureFile)],
-) -> Result<Rules, DataError> {
+) -> Result<Vec<CreatureDef>, DataError> {
+    if creatures.is_empty() || creatures.len() >= usize::from(u16::MAX) {
+        return Err(fail(
+            dir,
+            "the data needs at least one creature (and sensibly many)",
+        ));
+    }
+    check_unique(dir, "creature", creatures.iter().map(|(_, c)| &c.id))?;
+    let mut defs = Vec::new();
+    for (cfile, c) in creatures {
+        let bad = |message: &str| fail(cfile, format!("creature {:?}: {message}", c.id));
+        if !(c.cone > 0.0 && c.cone <= 360.0) {
+            return Err(bad("cone must be above 0 and at most 360 degrees"));
+        }
+        if c.sight < 0
+            || c.think_every == 0
+            || c.path_budget == 0
+            || !(0.0..=1.0).contains(&c.wander)
+        {
+            return Err(bad(
+                "sight can't be negative, think_every and path_budget must be above 0, and \
+                 wander is a chance from 0 to 1",
+            ));
+        }
+        if c.darkvision < 0 || c.groan < 0 || !(0.5..=3.0).contains(&c.night_speed) {
+            return Err(bad(
+                "darkvision and groan can't be negative, and night_speed is a pace from 0.5 to 3",
+            ));
+        }
+        if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
+            return Err(bad("health must be above 0, and thump is [least, most]"));
+        }
+        let odds = &c.wounds;
+        let wounds = [
+            chance(cfile, "wounds.scratch", odds.scratch)?,
+            chance(cfile, "wounds.laceration", odds.laceration)?,
+            chance(cfile, "wounds.bite", odds.bite)?,
+        ];
+        if wounds.iter().sum::<u32>() != 10_000 {
+            return Err(bad("wounds: the three chances must add up to 1"));
+        }
+        defs.push(CreatureDef {
+            id: c.id.clone(),
+            name: c.name.clone().unwrap_or_else(|| c.id.clone()),
+            stats: Creature {
+                speed: Speeds {
+                    walk: speed(cfile, "walk", c.walk)?,
+                    run: speed(cfile, "run", c.run)?,
+                },
+                night_speed: (c.night_speed * 1000.0).round() as u32,
+                sight: c.sight,
+                // The cone's half-angle as a cosine, in ten-thousandths: worked out once, here.
+                cone: light::cone(c.cone),
+                darkvision: c.darkvision,
+                groan: c.groan,
+                think_every: c.think_every,
+                forget_after: ticks(cfile, "forget_after", c.forget_after)?,
+                wander: (c.wander * 10_000.0).round() as u32,
+                path_budget: c.path_budget,
+                health: points(c.health),
+                down: ticks(cfile, "down", c.down)? as u32,
+                attack: c.attack.to_swing(cfile, "attack")?,
+                wounds,
+                thump: (points(c.thump.0), points(c.thump.1)),
+            },
+        });
+    }
+    Ok(defs)
+}
+
+fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     let mut rules = Rules {
         active_radius: r.world.active_radius,
         character_speed: Speeds {
@@ -613,54 +691,6 @@ fn to_rules(
         ));
     }
 
-    // The core knows one creature so far: the shambler.
-    let mut shambler = None;
-    for (file, c) in creatures {
-        match c.id.as_str() {
-            "shambler" if shambler.is_none() => shambler = Some((file, c)),
-            "shambler" => return Err(fail(file, "a second creature called \"shambler\"")),
-            other => {
-                return Err(fail(
-                    file,
-                    format!("the core doesn't know a creature called {other:?} yet"),
-                ));
-            }
-        }
-    }
-    let Some((cfile, c)) = shambler else {
-        return Err(fail(file, "no creature file has the shambler"));
-    };
-    if !(c.cone > 0.0 && c.cone <= 360.0) {
-        return Err(fail(cfile, "cone must be above 0 and at most 360 degrees"));
-    }
-    if c.sight < 0 || c.think_every == 0 || c.path_budget == 0 || !(0.0..=1.0).contains(&c.wander) {
-        return Err(fail(
-            cfile,
-            "sight can't be negative, think_every and path_budget must be above 0, and wander is \
-             a chance from 0 to 1",
-        ));
-    }
-    rules.shambler_speed = Speeds {
-        walk: speed(cfile, "walk", c.walk)?,
-        run: speed(cfile, "run", c.run)?,
-    };
-    rules.shambler_sight = c.sight;
-    // The cone's half-angle as a cosine, in ten-thousandths: worked out once, here.
-    rules.shambler_cone = light::cone(c.cone);
-    if c.darkvision < 0 || c.groan < 0 || !(0.5..=3.0).contains(&c.night_speed) {
-        return Err(fail(
-            cfile,
-            "darkvision and groan can't be negative, and night_speed is a pace from 0.5 to 3",
-        ));
-    }
-    rules.shambler_groan = c.groan;
-    rules.shambler_darkvision = c.darkvision;
-    rules.shambler_night_speed = (c.night_speed * 1000.0).round() as u32;
-    rules.think_every = c.think_every;
-    rules.forget_after = ticks(cfile, "forget_after", c.forget_after)?;
-    rules.wander_chance = (c.wander * 10_000.0).round() as u32;
-    rules.dead_path_budget = c.path_budget;
-
     // The fight, and what it costs.
     let tick_rate = f64::from(TICKS_PER_SECOND);
     let per_tick = |p: f64| (p * 10.0 / tick_rate).round() as i32;
@@ -690,32 +720,18 @@ fn to_rules(
         })
     };
     let w = &r.wounds;
-    let odds = &c.wounds;
-    let shambler_wounds = [
-        chance(cfile, "wounds.scratch", odds.scratch)?,
-        chance(cfile, "wounds.laceration", odds.laceration)?,
-        chance(cfile, "wounds.bite", odds.bite)?,
-    ];
-    if shambler_wounds.iter().sum::<u32>() != 10_000 {
-        return Err(fail(cfile, "wounds: the three chances must add up to 1"));
-    }
-    if r.character.health <= 0.0 || c.health <= 0.0 || w.bleeding < 0.0 || r.door.noise < 0 {
+    if r.character.health <= 0.0 || w.bleeding < 0.0 || r.door.noise < 0 {
         return Err(fail(
             file,
             "health must be above 0; bleeding and the door's noise can't be negative",
         ));
     }
     let (g, d) = (&r.grab, &r.door);
-    if g.drag_down == 0
-        || d.strength <= 0.0
-        || d.thump_noise < 0
-        || c.thump.0 < 0.0
-        || c.thump.0 > c.thump.1
-    {
+    if g.drag_down == 0 || d.strength <= 0.0 || d.thump_noise < 0 {
         return Err(fail(
             file,
-            "grab.drag_down and door.strength must be above 0, door.thump_noise can't be \
-             negative, and a creature's thump is [least, most]",
+            "grab.drag_down and door.strength must be above 0, and door.thump_noise can't be \
+             negative",
         ));
     }
     // Bleeding is paid once a second.
@@ -729,18 +745,13 @@ fn to_rules(
         struggle: g.struggle.to_swing(file, "grab.struggle")?,
         struggle_per_extra: chance(file, "grab.struggle_per_extra", g.struggle_per_extra)?,
         door_strength: points(d.strength),
-        shambler_thump: (points(c.thump.0), points(c.thump.1)),
         thump_noise: d.thump_noise,
         character_health: points(r.character.health),
         attack: r.attack.to_swing(file, "attack")?,
         shove: r.shove.to_swing(file, "shove")?,
         knock_down: chance(file, "shove.knock_down", r.shove.knock_down)?,
-        prone: ticks(cfile, "down", c.down)? as u32,
         door_ticks: (ticks(file, "door.time", r.door.time)? as u32).max(1),
         door_noise: r.door.noise,
-        shambler_health: points(c.health),
-        shambler_attack: c.attack.to_swing(cfile, "attack")?,
-        shambler_wounds,
         wounds: [
             wound(&w.scratch, "scratch")?,
             wound(&w.laceration, "laceration")?,
@@ -870,7 +881,12 @@ fn blocked_door(grid: &TextGrid<PrefabCell>) -> Option<(i32, i32)> {
     None
 }
 
-fn check_region(file: &Path, r: &Region, prefabs: &[Prefab]) -> Result<(), DataError> {
+fn check_region(
+    file: &Path,
+    r: &Region,
+    prefabs: &[Prefab],
+    creatures: &[CreatureDef],
+) -> Result<(), DataError> {
     let t = &r.terrain;
     let unit = |x: f32| (0.0..=1.0).contains(&x);
     let problem = if r.patch.chunks.0 < 1 || r.patch.chunks.1 < 1 {
@@ -894,6 +910,11 @@ fn check_region(file: &Path, r: &Region, prefabs: &[Prefab]) -> Result<(), DataE
         Some("hamlet: gap, setback and yard can't be negative".to_string())
     } else if r.dead.per_chunk < 0.0 || r.dead.per_house.0 > r.dead.per_house.1 {
         Some("dead: per_chunk can't be negative, and per_house is [fewest, most]".to_string())
+    } else if !creatures.iter().any(|c| c.id == r.dead.creature) {
+        Some(format!(
+            "dead.creature: no creature called {:?} in creatures/",
+            r.dead.creature
+        ))
     } else {
         r.hamlet
             .lots

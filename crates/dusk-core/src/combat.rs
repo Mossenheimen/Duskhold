@@ -13,11 +13,6 @@ use crate::hash::{Purpose, below, roll};
 use crate::skills::Skill;
 use crate::world::{Event, Sound, World};
 
-/// The living fight the dead, and the dead go for the living.
-fn enemies(a: ActorKind, b: ActorKind) -> bool {
-    a != b
-}
-
 impl World {
     /// An actor's turn at its timed action, this tick: start one if its intent asks and it's
     /// between steps, carry on with the one under way, or lie there if it's down. True while
@@ -270,7 +265,7 @@ impl World {
         let a = self.actors.get(id)?;
         let &other = self.occupied.get(&at)?;
         let o = self.actors.get(other)?;
-        (other != id && !o.dead && enemies(a.kind, o.kind) && self.can_reach(a.pos, at))
+        (other != id && !o.dead && a.kind.hostile_to(o.kind) && self.can_reach(a.pos, at))
             .then_some(other)
     }
 
@@ -302,6 +297,7 @@ impl World {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
+        let creature = self.creature(kind);
         let swing = self.swing_of(id);
         // Read now: the blow may break the weapon.
         let skill = self.weapon_skill(id);
@@ -343,14 +339,15 @@ impl World {
                 }
                 (damage, None)
             }
-            ActorKind::Shambler => {
+            ActorKind::Creature(_) => {
+                let odds = creature.map_or([10_000, 0, 0], |c| c.wounds);
                 let mut left = below(roll(seed, tick, who, Purpose::Wound), 10_000);
                 let mut kind = WoundKind::Scratch;
                 if holds && left < c.held_bite {
                     // Held, the mouth gets close.
                     kind = WoundKind::Bite;
                 } else {
-                    for (k, &odds) in WoundKind::ALL.iter().zip(&c.shambler_wounds) {
+                    for (k, &odds) in WoundKind::ALL.iter().zip(&odds) {
                         if left < odds {
                             kind = *k;
                             break;
@@ -412,7 +409,7 @@ impl World {
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
         let (lo, hi) = match kind {
             ActorKind::Character => self.swing_of(id).damage,
-            ActorKind::Shambler => c.shambler_thump,
+            ActorKind::Creature(_) => self.creature(kind).map_or((0, 0), |c| c.thump),
         };
         let span = (hi - lo).max(0) as u32 + 1;
         let mut harm = lo + below(roll(seed, tick, id.index() as u64, Purpose::Thump), span) as i32;
@@ -464,6 +461,12 @@ impl World {
         ) < c.knock_down;
         // A shove breaks a hold.
         self.release(target);
+        // How long one of its kind stays down.
+        let stays_down = self
+            .actors
+            .get(target)
+            .and_then(|t| self.creature(t.kind))
+            .map_or(0, |c| c.down);
         let Some(t) = self.actors.get_mut(target) else {
             return;
         };
@@ -476,7 +479,7 @@ impl World {
             t.pos = back;
         }
         if down {
-            t.prone_until = tick + u64::from(c.prone);
+            t.prone_until = tick + u64::from(stays_down);
         }
         if room {
             for tile in freed {

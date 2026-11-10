@@ -206,7 +206,10 @@ impl World {
         };
         let r2 = i64::from(range).pow(2);
         self.actors.iter().any(|(_, o)| {
-            !o.dead && o.kind != a.kind && o.alert() != Alert::Unaware && o.pos.dist2(a.pos) <= r2
+            !o.dead
+                && o.kind.hostile_to(a.kind)
+                && o.alert() != Alert::Unaware
+                && o.pos.dist2(a.pos) <= r2
         })
     }
 

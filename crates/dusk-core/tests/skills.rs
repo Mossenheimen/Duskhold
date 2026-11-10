@@ -68,8 +68,8 @@ fn row() -> (World, ActorId, ActorId, ActorId) {
     )
     .unwrap();
     w.defs = Arc::new(defs());
-    w.rules.combat.shambler_attack.hit = 0;
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).attack.hit = 0;
+    w.creature_mut(0).wander = 0;
     // Spawned once the items are there, so it gets its kit.
     let me = w
         .spawn(ActorKind::Character, TilePos::new(2, 0, 0))
@@ -241,12 +241,12 @@ fn skill_lands_harder_and_wears_the_weapon_less() {
 /// Open grass, `w` tiles wide, and you on its west side with the anvil if `loaded`.
 fn field(w: i32, loaded: bool) -> (World, ActorId) {
     let mut world = World::new(9);
-    world.rules.wander_chance = 0;
     let mut d = defs();
     if loaded {
         d.kit.push(Item::new(ANVIL, 1));
     }
     world.defs = Arc::new(d);
+    world.creature_mut(0).wander = 0;
     for y in 0..5 {
         for x in 0..w {
             world.grid.set_tile(TilePos::new(x, y, 0), Tile::GRASS);
@@ -279,7 +279,8 @@ fn running_teaches_only_under_risk() {
 
     // One of the dead within earshot hears you run, and comes: now it's after you.
     let (mut w, me) = field(40, false);
-    w.spawn(ActorKind::Shambler, TilePos::new(1, 4, 0)).unwrap();
+    w.spawn(ActorKind::Creature(0), TilePos::new(1, 4, 0))
+        .unwrap();
     run(&mut w, me, Dir8::E, 60);
     assert!(
         xp(&w, me, Skill::Athletics) > 0,

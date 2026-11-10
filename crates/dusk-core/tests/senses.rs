@@ -35,7 +35,7 @@ fn walls_muffle_footsteps() {
 fn a_shambler_behind_a_wall_hears_you_run_but_not_walk() {
     for (run, heard) in [(false, false), (true, true)] {
         let (mut w, _) = World::from_text(1, CORRIDORS).unwrap();
-        w.rules.wander_chance = 0;
+        w.creature_mut(0).wander = 0;
         let me = w.character().unwrap();
         w.intent(me, Intent::Move { dir: Dir8::E, run });
         w.step(40);
@@ -99,7 +99,7 @@ fn a_shambler_doesnt_see_you_behind_it_until_it_hears_you() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let me = w.character().unwrap();
     let z = w.actors().map(|(id, _)| id).find(|&id| id != me).unwrap();
     let alert = |w: &World| w.actor(z).unwrap().alert();
@@ -151,8 +151,8 @@ const BEHIND_A_WALL: &str = "\
 fn a_shambler_that_sees_you_groans_and_the_others_come() {
     let heard_by_the_other = |groan: i32| {
         let (mut w, placed) = World::from_text(1, BEHIND_A_WALL).unwrap();
-        w.rules.wander_chance = 0;
-        w.rules.shambler_groan = groan;
+        w.creature_mut(0).wander = 0;
+        w.creature_mut(0).groan = groan;
         let (behind, sees_you) = (placed[0], placed[1]);
         let mut heard = None;
         for _ in 0..20 {

@@ -29,7 +29,7 @@ impl World {
                 *other != id
                     && !o.dead
                     && o.prone_until == 0
-                    && o.kind != me.kind
+                    && o.kind.hostile_to(me.kind)
                     && o.alert() == Alert::Hunting
                     && reaches(&self.grid, o.pos, me.pos)
             })

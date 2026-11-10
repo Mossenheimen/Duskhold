@@ -338,7 +338,7 @@ func _foe_beside(tile: Vector2i) -> Vector2i:
 	if aim == Vector2i.ZERO or absi(aim.x) > 1 or absi(aim.y) > 1:
 		return Vector2i.ZERO
 	for i in kinds.size():
-		if kinds[i] == 1 and states[i] != 2 and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
+		if kinds[i] >= 1 and states[i] != 2 and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
 			return aim
 	return Vector2i.ZERO
 

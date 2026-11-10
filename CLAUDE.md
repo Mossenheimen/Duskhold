@@ -4,7 +4,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 
 - `CONCEPT.md`: what the game is. Decisions go in its "Decided" section.
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
-- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles; `light.rs` day and night, each tile's light, and the torches and candles held up; `view.rs` the character's field of view and the fog of war; `skills.rs` skills that grow by real use under risk, repeats that pay less, the free cap and masteries, and what a level does; `barricade.rs` boarding up doors and windows, prying boards off, and the boards the dead beat through before the door.
+- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `creature.rs` holds what a kind of creature is (a row of numbers in `Defs::creatures`; an actor of it is `ActorKind::Creature(n)`); `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles; `light.rs` day and night, each tile's light, and the torches and candles held up; `view.rs` the character's field of view and the fog of war; `skills.rs` skills that grow by real use under risk, repeats that pay less, the free cap and masteries, and what a level does; `barricade.rs` boarding up doors and windows, prying boards off, and the boards the dead beat through before the door.
 - `crates/dusk-data/`: loads and checks `data/` (serde + toml), turning a designer's units into the core's.
 - `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, hamlet lots), then every tile as a pure function, then the dead.
 - `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
@@ -27,7 +27,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 .\play.cmd                                 # build the extension and play (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
 .\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION, --news, --hour=H, --shot=PNG --shot-after=S
-cargo test --workspace                     # 93 tests, a few seconds
+cargo test --workspace                     # 95 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, and a map (--text X,Y,W,H, --ticks N)
@@ -47,7 +47,8 @@ Godot 4.7.2 is in `%LOCALAPPDATA%\Programs\Godot`. `Godot_v4.7.2-stable_win64.ex
   - no `HashMap` iteration in game logic (`hash::FastMap` is for lookups only);
   - gameplay randomness only through `hash::roll(seed, tick, who, why)`;
   - actors in id order, and one world per thread.
-- **Test maps are text grids** (`text.rs`), the same format as prefabs and `World::render`.
+- **Test maps are text grids** (`text.rs`), the same format as prefabs and `World::render`. Their `z` is creature 0, the test shambler (`Creature::default`).
+- **A creature is data, never a rule.** A new kind is a `[[creature]]` in `data/creatures/`; if it needs a number no creature has, add the field to `Creature` (with its conversion and check in `dusk-data`), not to `Rules`. In a test, change a kind with `w.creature_mut(n)`, after any `w.defs = ...`: the numbers live in the definitions.
 - **The game's numbers live in `data/`,** in a designer's units (tiles a second, seconds, degrees). `dusk-data` converts them into the core's units and checks every reference: a new field needs its conversion and its check there. `Rules::default()` is a fixed set for tests and tools, not the game's tuning.
 - **Generation stays order-free:** every tile and edge of a patch is a pure function of the seed, the layout and its place (`Layout::tile`, `north_edge`, `west_edge`), never of other chunks. `dusk-gen`'s tests check it.
 - **Leave `11_PPO-Zombie` alone.** Don't edit it from here. Copy what's reused (`ppo.py`, telemetry, the dashboard) and note where it came from.

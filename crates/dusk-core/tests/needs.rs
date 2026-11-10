@@ -220,7 +220,7 @@ fn no_sleep_with_the_dead_about() {
     )
     .unwrap();
     let me = w.character().unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     w.step(12 * HOUR); // tired, and it heard nothing and saw nothing: it isn't after you
     let seen = act(&mut w, me, Intent::Sleep);
     assert!(

@@ -203,6 +203,7 @@ gap = 2
 setback = 2
 yard = 1
 [dead]
+creature = "shambler"
 per_chunk = 1.0
 per_house = [0, 1]
 clear_start = 8
@@ -233,6 +234,22 @@ fn test_files(prefabs: &str) -> Vec<(&'static str, &str)> {
 #[test]
 fn the_games_data_loads() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    // The shambler is the first creature, and the Hushlands' dead are shamblers.
+    let shambler = &data.defs.creatures[0];
+    let s = shambler.stats;
+    assert_eq!(shambler.id, "shambler");
+    assert_eq!((s.speed.walk, s.speed.run, s.night_speed), (500, 800, 1250));
+    assert_eq!((s.sight, s.darkvision, s.groan), (8, 1, 10));
+    assert_eq!(
+        (s.think_every, s.forget_after, s.path_budget),
+        (5, 300, 400)
+    );
+    assert_eq!((s.health, s.down, s.attack.wind_up), (300, 40, 12));
+    assert_eq!(
+        data.defs
+            .creature_kind(&data.region("hushlands").unwrap().dead.creature),
+        Some(dusk_core::ActorKind::Creature(0))
+    );
     let region = data.region("hushlands").expect("the Hushlands");
     assert!(!data.prefabs.is_empty() && !data.fixtures.is_empty());
     for tag in &region.hamlet.lots {
@@ -255,11 +272,17 @@ fn a_designers_units_become_the_cores() {
         (r.character_speed.walk, r.character_speed.run),
         (1500, 3250)
     );
-    assert_eq!((r.shambler_speed.walk, r.shambler_speed.run), (500, 800));
-    assert_eq!(r.shambler_cone.cos, 7071, "90° across is 45° either side");
-    assert_eq!(r.forget_after, 300, "30 seconds in ticks");
+    let shambler = &data.defs.creatures[0];
+    assert_eq!(
+        (shambler.id.as_str(), data.defs.creatures.len()),
+        ("shambler", 1)
+    );
+    let s = shambler.stats;
+    assert_eq!((s.speed.walk, s.speed.run), (500, 800));
+    assert_eq!(s.cone.cos, 7071, "90° across is 45° either side");
+    assert_eq!(s.forget_after, 300, "30 seconds in ticks");
     assert_eq!(r.repath_after, 15);
-    assert_eq!(r.wander_chance, 1000, "a tenth, out of 10,000");
+    assert_eq!(s.wander, 1000, "a tenth, out of 10,000");
     let hut = data.prefab("hut").unwrap();
     assert_eq!(hut.front, Side::South);
     let bed = hut.grid.cell(0, 0).0.expect("a tile");
@@ -298,11 +321,9 @@ fn the_fights_numbers_become_the_cores() {
     );
     assert_eq!((c.attack.damage, c.attack.hit), ((80, 120), 8500));
     assert_eq!(c.knock_down, 4000);
-    assert_eq!(
-        (c.shambler_health, c.prone, c.shambler_attack.wind_up),
-        (300, 40, 8)
-    );
-    assert_eq!(c.shambler_wounds, [7000, 2500, 500]);
+    let s = data.defs.creatures[0].stats;
+    assert_eq!((s.health, s.down, s.attack.wind_up), (300, 40, 8));
+    assert_eq!(s.wounds, [7000, 2500, 500]);
     assert_eq!((c.wounds[1].damage, c.wounds[1].bleed), (150, 200));
     assert_eq!(
         (c.bleed_every, c.bleed_damage),
@@ -329,10 +350,8 @@ fn grabs_and_doors_become_the_cores() {
         (5, 120, 7000)
     );
     assert_eq!(c.struggle_per_extra, 2000);
-    assert_eq!(
-        (c.door_strength, c.shambler_thump, c.thump_noise),
-        (600, (20, 40), 8)
-    );
+    let thump = data.defs.creatures[0].stats.thump;
+    assert_eq!((c.door_strength, thump, c.thump_noise), (600, (20, 40), 8));
 }
 
 #[test]
@@ -388,7 +407,8 @@ fn day_night_and_sight_become_the_cores() {
         (16, 0, 1),
         "180° across is 90° either side"
     );
-    assert_eq!((r.shambler_darkvision, r.shambler_night_speed), (2, 1500));
+    let s = data.defs.creatures[0].stats;
+    assert_eq!((s.darkvision, s.night_speed), (2, 1500));
     assert_eq!((data.defs.light_time, data.defs.douse_time), (15, 5));
 
     let backwards = RULES.replace("sunset = 19.5", "sunset = 6.0");
@@ -591,8 +611,8 @@ fn at_night_a_torch_is_worth_its_risk_in_the_games_data() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let mut rules = data.rules;
     rules.clock.start = 0; // midnight
-    rules.wander_chance = 0;
     let mut w = World::with_defs(1, rules, data.defs.clone());
+    w.creature_mut(0).wander = 0;
     for y in 0..40 {
         for x in 0..5 {
             w.grid.set_tile(TilePos::new(x, y, 0), Tile::GRASS);
@@ -602,7 +622,9 @@ fn at_night_a_torch_is_worth_its_risk_in_the_games_data() {
     let me = w
         .spawn(ActorKind::Character, TilePos::new(2, 10, 0))
         .unwrap();
-    let z = w.spawn(ActorKind::Shambler, TilePos::new(2, 2, 0)).unwrap();
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(2, 2, 0))
+        .unwrap();
     let ahead = |w: &World| {
         let mut view = View::new(5, 40);
         w.look(me, &mut view);

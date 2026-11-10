@@ -10,12 +10,12 @@ fn far_from_the_character_the_world_sleeps() {
             w.grid.set_tile(TilePos::new(x, y, 0), Tile::GRASS);
         }
     }
-    w.rules.wander_chance = 10_000; // every thought, a shuffle
+    w.creature_mut(0).wander = 10_000; // every thought, a shuffle
     w.rules.active_radius = 2;
     let at = |x| TilePos::new(x, 4, 0);
     w.spawn(ActorKind::Character, at(1)).unwrap();
-    let near = w.spawn(ActorKind::Shambler, at(40)).unwrap(); // a chunk away
-    let far = w.spawn(ActorKind::Shambler, at(180)).unwrap(); // five chunks away
+    let near = w.spawn(ActorKind::Creature(0), at(40)).unwrap(); // a chunk away
+    let far = w.spawn(ActorKind::Creature(0), at(180)).unwrap(); // five chunks away
     assert!(w.is_awake(at(40)) && !w.is_awake(at(180)));
     w.step(100);
     assert_ne!(

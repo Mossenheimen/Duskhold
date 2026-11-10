@@ -20,7 +20,7 @@ const CORRIDOR: &str = "\
 
 fn shambler(w: &World) -> ActorId {
     w.actors()
-        .find(|(_, a)| a.kind == ActorKind::Shambler)
+        .find(|(_, a)| !a.kind.is_character())
         .map(|(id, _)| id)
         .expect("the map has a shambler")
 }
@@ -39,10 +39,10 @@ fn until(w: &mut World, ticks: u32, what: &str, mut want: impl FnMut(&Event) -> 
 /// The corridor, its shambler sure to take hold with its first hit, and harmless blows.
 fn held_in_corridor() -> (World, ActorId, ActorId) {
     let (mut w, _) = World::from_text(1, CORRIDOR).unwrap();
+    w.creature_mut(0).wander = 0;
+    w.creature_mut(0).attack.hit = 10_000;
     let c = &mut w.rules.combat;
-    w.rules.wander_chance = 0;
     c.grab = 10_000;
-    c.shambler_attack.hit = 10_000;
     c.parting_grab = 0;
     c.wounds = [WoundRule {
         damage: 0,
@@ -108,9 +108,10 @@ fn a_shove_breaks_a_hold() {
 #[test]
 fn stepping_away_from_one_on_you_risks_a_grab() {
     let (mut w, _) = World::from_text(1, CORRIDOR).unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
+    w.creature_mut(0).attack.hit = 0;
     let c = &mut w.rules.combat;
-    (c.grab, c.shambler_attack.hit, c.parting_grab) = (0, 0, 10_000);
+    (c.grab, c.parting_grab) = (0, 10_000);
     let (me, z) = (w.character().unwrap(), shambler(&w));
     w.step(10); // it looks, and sees you
     assert_eq!(w.engaged(me), vec![z]);
@@ -147,9 +148,10 @@ fn three_holding_you_drag_you_down() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
+    w.creature_mut(0).attack.hit = 10_000;
     let c = &mut w.rules.combat;
-    (c.grab, c.shambler_attack.hit, c.parting_grab) = (10_000, 10_000, 0);
+    (c.grab, c.parting_grab) = (10_000, 0);
     c.wounds = [WoundRule {
         damage: 0,
         bleed: 0,
@@ -180,7 +182,7 @@ fn the_dead_beat_down_a_shut_door() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     w.rules.combat.door_strength = 100;
     let (me, z) = (w.character().unwrap(), shambler(&w));
     w.make_sound(TilePos::new(0, 0, 0), 12, Some(me));
@@ -246,9 +248,10 @@ fn with_both_hands_full_only_a_struggle_gets_you_free() {
     // The corridor, with you put there once the items are, so you get the kit.
     let (mut w, _) = World::from_text(1, &CORRIDOR.replace('@', ".")).unwrap();
     w.defs = std::sync::Arc::new(defs);
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
+    w.creature_mut(0).attack.hit = 10_000;
     let c = &mut w.rules.combat;
-    (c.grab, c.parting_grab, c.shambler_attack.hit) = (10_000, 0, 10_000);
+    (c.grab, c.parting_grab) = (10_000, 0);
     c.wounds = [WoundRule {
         damage: 0,
         bleed: 0,

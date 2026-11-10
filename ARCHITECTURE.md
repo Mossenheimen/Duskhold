@@ -326,7 +326,7 @@ think_every = 5                                          # ticks
 weak_to = ["fire", "blessed"]
 ```
 
-- **The example above is the target, not today's file.** `data/creatures/hushlands.toml` holds one creature, whose fields the core reads as `Rules::shambler_*`. A table of creature definitions comes with the second creature (build step 6, slice 0).
+- **The example above shows the shape, not today's fields.** `data/creatures/hushlands.toml` is the real file. Each `[[creature]]` in it becomes a row of `Defs::creatures` (`creature.rs`; build step 6, slice 0).
 - **Loading:** the data is loaded and checked once: types through `serde`, then cross-references (every loot table, item and spell a file names must exist).
 - **Reloading:** changed data reloads in dev builds without a restart.
 - **Mods:** a mod is a folder of the same files, loaded after the base game's.
@@ -486,7 +486,7 @@ Asked for by the user after step 5, together with the concept's (`CONCEPT.md`, u
 
 **Three debts to pay before more is built on them** (they're step 6's first slices):
 
-1. **The shambler is hard-coded.** `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
+1. **The shambler is hard-coded** (paid the same day: step 6, slice 0). `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
 2. **Nothing is saved.** The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
 3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now.
 
@@ -740,7 +740,16 @@ Game first: every step ends with something to look at or play.
    - doors to open and barricade;
    - day and night, light and the field of view.
 6. **The first playable,** in slices, ordered so that the loop gets a goal and a memory before it gets more content (2026-11-09 review; `CONCEPT.md`, "The core that has to be fun first"):
-   - **Slice 0, creatures as data:** `Defs::creatures` and `ActorKind::Creature(n)` in place of the `shambler_*` rules. No change in play; the golden hashes prove it.
+   - **Slice 0, creatures as data:** done 2026-11-09; 95 tests pass. What it has:
+     - **a kind of creature is a row** (`dusk-core/src/creature.rs`): `Defs::creatures` holds a `CreatureDef` each (its id, its name, and its numbers as a `Creature`), and an actor of that kind is `ActorKind::Creature(n)`. The numbers are everything `Rules` knew about the shambler: speeds and the night's pace, sight, cone and darkvision, the groan, how often it thinks and how long it remembers, wandering, its search budget, health, how long it stays down, its swing, the wounds it leaves and what it does to a door;
+     - **`Rules` has no creature in it** any more: sixteen fields went. A `Creature` is plain numbers and `Copy`, so the tick copies a kind's out while it holds the actor, as it does the rules;
+     - **the loader takes every creature** in `data/creatures/` (it used to refuse any but one called "shambler"), each checked, with ids unique. A region names its dead (`[dead] creature = "shambler"`), and the name is checked;
+     - **`Mind::Shambler` is `Mind::Hunt`:** going after the last thing heard or seen is a way of thinking, not a kind. Who fights whom is `ActorKind::hostile_to` (creatures against characters; the families fighting each other comes with the second family);
+     - **the proof** (`tests/creature.rs`): a second kind, a "runner" three times as fast that sees twice as far, sees you from where a shambler can't and reaches you in a third of the time, with no rule written for it;
+     - **no change in play:** `dusk-cli demo` prints the same 258 lines as before the change, and a test pins the numbers the game's shambler loads with. Gameplay rolls are keyed by actor id, not by kind, so none moved;
+     - **for tests and tools:** `World::creature_mut(n)` changes a kind's numbers in one world (`w.creature_mut(0).wander = 0`). They live in the definitions, so set them after `w.defs` is replaced, not before;
+     - **the client:** actor kind 1 + n is creature n, and `creature_names()` gives their names. The news still says "a shambler" in its own words; that changes when the ghoul arrives;
+     - **measured:** 100 dead 129,000 ticks/s, 500 dead 15,500, the patch 367,000: about 8% under the last figures, for copying a kind's numbers each time an actor moves or thinks. Still six times the budget.
    - **Slice 1, saves:** the seed, the changed chunks, stores, boards, actors and the clock (`postcard`, as planned above), autosaved each game hour and on quitting. A test: save, load, and the state hash is the same.
    - **Slice 2, the stash and bring-it-home XP:** a worth on every item, a container marked as your stash, a bed slept in; character levels from what reaches the stash. The first use of the worth-per-kilo choice.
    - **Slice 3, the ghoul and ghoul fever:** faster than your walk, drawn to blood; the fever's three days, and its cure as an item for now (the abbey sells it later).

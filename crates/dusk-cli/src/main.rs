@@ -97,7 +97,7 @@ fn gen_patch(args: &[String]) {
     let took = start.elapsed();
     let dead = world
         .actors()
-        .filter(|(_, a)| a.kind == ActorKind::Shambler)
+        .filter(|(_, a)| !a.kind.is_character())
         .count();
     println!(
         "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead} dead; you start at ({}, {})",
@@ -213,7 +213,7 @@ fn draw_map(world: &World, width: i32, height: i32, scale: usize, path: &Path) {
     for (_, a) in world.actors() {
         let colour = match a.kind {
             ActorKind::Character => [255, 222, 40],
-            ActorKind::Shambler => [220, 40, 40],
+            ActorKind::Creature(_) => [220, 40, 40],
         };
         let (px, py) = (a.pos.x as usize * scale, a.pos.y as usize * scale);
         for dy in 0..scale {
@@ -276,7 +276,10 @@ fn demo() {
 fn describe(w: &World, e: Event) -> String {
     let name = |id| match w.actor(id).map(|a| (a.kind, a.pos)) {
         Some((ActorKind::Character, _)) => "you".to_string(),
-        Some((ActorKind::Shambler, p)) => format!("the shambler at ({}, {})", p.x, p.y),
+        Some((ActorKind::Creature(n), p)) => {
+            let kind = w.defs.creature(n).map_or("creature", |c| c.name.as_str());
+            format!("the {kind} at ({}, {})", p.x, p.y)
+        }
         None => "something".to_string(),
     };
     match e {
@@ -390,8 +393,8 @@ fn bench(args: &[String]) {
     // 1 matches the Python benchmark, which thinks every tick; the game's default is 5.
     let think: u64 = flag(args, "--think-every").unwrap_or(1);
     let mut w = open_field(96, dead, 1);
-    w.rules.think_every = think;
-    w.rules.shambler_sight = 15;
+    w.creature_mut(0).think_every = think;
+    w.creature_mut(0).sight = 15;
     let me = w.character().expect("placed");
     let start = Instant::now();
     for t in 0..ticks {
@@ -454,7 +457,7 @@ fn open_field(size: i32, dead: usize, seed: u64) -> World {
             below(mix64(r), size as u32) as i32,
             0,
         );
-        if w.spawn(ActorKind::Shambler, pos).is_some() {
+        if w.spawn(ActorKind::Creature(0), pos).is_some() {
             placed += 1;
         }
     }

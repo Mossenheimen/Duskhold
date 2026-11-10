@@ -477,7 +477,18 @@ impl DuskWorld {
         PackedInt32Array::from(&out[..])
     }
 
-    /// Each actor's kind, in the same order as the positions: 0 the character, 1 a shambler.
+    /// The creatures' names, by their number in the data.
+    #[func]
+    fn creature_names(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let names = world.defs.creatures.iter();
+        names.map(|c| GString::from(c.name.as_str())).collect()
+    }
+
+    /// Each actor's kind, in the same order as the positions: 0 the character, and 1 + n for
+    /// creature n of `creature_names`.
     #[func]
     fn actor_kinds(&self) -> PackedInt32Array {
         self.world
@@ -485,7 +496,7 @@ impl DuskWorld {
             .flat_map(|w| w.actors())
             .map(|(_, a)| match a.kind {
                 ActorKind::Character => 0,
-                ActorKind::Shambler => 1,
+                ActorKind::Creature(n) => 1 + i32::from(n),
             })
             .collect()
     }

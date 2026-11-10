@@ -84,6 +84,7 @@ fn defs() -> Defs {
         light_time: 15,
         douse_time: 5,
         boarding: None,
+        ..Defs::default()
     }
 }
 
@@ -239,8 +240,9 @@ fn a_weapon_hits_harder_and_wears_out() {
     let z = me[0];
     w.defs = Arc::new(d);
     let c = &mut w.rules.combat;
-    (c.grab, c.parting_grab, c.shambler_attack.hit) = (0, 0, 0);
-    w.rules.wander_chance = 0;
+    (c.grab, c.parting_grab) = (0, 0);
+    w.creature_mut(0).attack.hit = 0;
+    w.creature_mut(0).wander = 0;
     let me = w
         .spawn(ActorKind::Character, TilePos::new(0, 1, 0))
         .unwrap();

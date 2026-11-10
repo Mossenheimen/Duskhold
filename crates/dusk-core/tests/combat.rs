@@ -4,7 +4,7 @@ use dusk_core::{ActorId, ActorKind, Dir8, Edge, Event, Intent, Tile, TilePos, Wo
 
 fn shambler(w: &World) -> ActorId {
     w.actors()
-        .find(|(_, a)| a.kind == ActorKind::Shambler)
+        .find(|(_, a)| !a.kind.is_character())
         .map(|(id, _)| id)
         .expect("the map has a shambler")
 }
@@ -30,7 +30,7 @@ fn you_can_kill_a_shambler_and_it_stays_as_a_corpse() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     // No grabs: held, you can't swing (grab.rs has those tests).
     (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
     let (me, z) = (w.character().unwrap(), shambler(&w));
@@ -74,9 +74,9 @@ fn a_shamblers_blow_comes_a_wind_up_after_its_tell() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let z = shambler(&w);
-    let wind_up = w.rules.combat.shambler_attack.wind_up;
+    let wind_up = w.creature_mut(0).attack.wind_up;
     let mut tell_from = None;
     for _ in 0..100 {
         w.step(1);
@@ -115,7 +115,7 @@ fn a_shove_breaks_off_a_wind_up_and_pushes_back() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let (me, z) = (w.character().unwrap(), shambler(&w));
     for _ in 0..50 {
         w.step(1);
@@ -149,7 +149,7 @@ fn a_shut_door_keeps_the_dead_out() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     // A door that never gives: beating doors down has its own test (grab.rs).
     w.rules.combat.door_strength = i32::MAX;
     let (me, z) = (w.character().unwrap(), shambler(&w));
@@ -218,7 +218,7 @@ fn wounds_bleed_and_enough_of_them_kill() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let me = w.character().unwrap();
     let (mut bled, mut died) = (false, false);
     let mut health = w.actor(me).unwrap().body.health;

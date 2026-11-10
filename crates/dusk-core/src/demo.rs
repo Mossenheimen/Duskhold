@@ -105,7 +105,7 @@ pub fn town(seed: u64) -> World {
         (2, 21),
         (4, 19),
     ] {
-        w.spawn(ActorKind::Shambler, p(x, y));
+        w.spawn(ActorKind::Creature(0), p(x, y));
     }
     w
 }

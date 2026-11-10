@@ -10,7 +10,20 @@ pub type ActorId = crate::arena::Id;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ActorKind {
     Character,
-    Shambler,
+    /// A creature, by its number in `Defs::creatures` (`creature.rs`).
+    Creature(u16),
+}
+
+impl ActorKind {
+    pub fn is_character(self) -> bool {
+        self == ActorKind::Character
+    }
+
+    /// The living fight the creatures, and the creatures go for the living. (The families
+    /// fighting each other comes with the second family.)
+    pub fn hostile_to(self, other: ActorKind) -> bool {
+        self.is_character() != other.is_character()
+    }
 }
 
 /// What a controller (the player, a bot, an NPC's or a creature's AI) asks an actor to do.
@@ -146,7 +159,9 @@ pub enum Mind {
     #[default]
     None,
     /// Zomboid's zombie: goes after the last thing it heard or saw, and gives up after a while.
-    Shambler {
+    /// How far it senses, how fast it goes and how long it remembers are its kind's
+    /// (`creature.rs`).
+    Hunt {
         target: Option<TilePos>,
         /// The tick it last heard or saw something.
         since: u64,
@@ -213,7 +228,7 @@ pub struct Actor {
 impl Actor {
     pub fn new(kind: ActorKind, pos: TilePos) -> Actor {
         let mind = match kind {
-            ActorKind::Shambler => Mind::Shambler {
+            ActorKind::Creature(_) => Mind::Hunt {
                 target: None,
                 since: 0,
                 touching: false,
@@ -266,8 +281,8 @@ impl Actor {
             return Alert::Unaware;
         }
         match self.mind {
-            Mind::Shambler { sees: true, .. } => Alert::Hunting,
-            Mind::Shambler {
+            Mind::Hunt { sees: true, .. } => Alert::Hunting,
+            Mind::Hunt {
                 target: Some(_), ..
             } => Alert::Curious,
             _ => Alert::Unaware,

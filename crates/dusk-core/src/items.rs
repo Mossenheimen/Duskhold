@@ -8,6 +8,7 @@
 
 use crate::actor::{ActorId, ActorKind};
 use crate::barricade::Boarding;
+use crate::creature::CreatureDef;
 use crate::geom::{Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{Purpose, below, mix64, roll};
@@ -88,8 +89,10 @@ pub struct LootTable {
 }
 
 /// The game's definitions that the core needs while it runs, shared read-only by every world.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Defs {
+    /// The kinds of creature (`creature.rs`): `ActorKind::Creature(n)` is `creatures[n]`.
+    pub creatures: Vec<CreatureDef>,
     pub items: Vec<ItemDef>,
     pub loot: Vec<LootTable>,
     /// By fixture number: the loot table of a container (None for a fixture that isn't one).
@@ -113,6 +116,30 @@ pub struct Defs {
     pub douse_time: u32,
     /// What boarding up takes (`barricade.rs`); None: nobody can.
     pub boarding: Option<Boarding>,
+}
+
+impl Default for Defs {
+    /// The fixed test set: one creature, the test shambler (`Creature::default`), and no items.
+    fn default() -> Defs {
+        Defs {
+            creatures: vec![CreatureDef::shambler()],
+            items: Vec::new(),
+            loot: Vec::new(),
+            containers: Vec::new(),
+            beds: Vec::new(),
+            wield: None,
+            kit: Vec::new(),
+            carry: 0,
+            take: 0,
+            take_per_kg: 0,
+            drop: 0,
+            wield_time: 0,
+            unwield_time: 0,
+            light_time: 0,
+            douse_time: 0,
+            boarding: None,
+        }
+    }
 }
 
 impl Defs {
@@ -320,8 +347,8 @@ impl World {
         let Some(a) = self.actors.get(id) else {
             return c.attack;
         };
-        if a.kind != ActorKind::Character {
-            return c.shambler_attack;
+        if let Some(creature) = self.creature(a.kind) {
+            return creature.attack;
         }
         match a.hands.and_then(|h| self.defs.item(h.def)).map(|d| &d.kind) {
             Some(ItemKind::Weapon { swing, skill, .. }) => {

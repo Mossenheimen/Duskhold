@@ -84,8 +84,8 @@ fn room(d: Defs) -> (World, ActorId, ActorId) {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
     w.defs = Arc::new(d);
+    w.creature_mut(0).wander = 0;
     let me = w.spawn(ActorKind::Character, at(2, 0)).unwrap();
     (w, me, placed[0])
 }

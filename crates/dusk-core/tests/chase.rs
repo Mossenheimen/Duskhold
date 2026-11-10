@@ -1,11 +1,11 @@
 //! How a shambler gets to what it noticed: through doors, never across a door frame, and
 //! pressing against the wall when there's no way at all.
 
-use dusk_core::{ActorId, ActorKind, Event, TilePos, World};
+use dusk_core::{ActorId, Event, TilePos, World};
 
 fn shambler(w: &World) -> ActorId {
     w.actors()
-        .find(|(_, a)| a.kind == ActorKind::Shambler)
+        .find(|(_, a)| !a.kind.is_character())
         .map(|(id, _)| id)
         .expect("the map has a shambler")
 }
@@ -28,7 +28,7 @@ fn comes_round_through_the_door() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let z = shambler(&w);
     w.make_sound(TilePos::new(0, 1, 0), 10, None);
     let (mut through_the_door, mut reached) = (false, false);
@@ -57,7 +57,7 @@ fn never_reaches_across_a_door_frame() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let z = shambler(&w);
     let mut reached = false;
     for _ in 0..60 {
@@ -86,7 +86,7 @@ fn presses_against_the_wall_where_there_is_no_way() {
 ",
     )
     .unwrap();
-    w.rules.wander_chance = 0;
+    w.creature_mut(0).wander = 0;
     let z = shambler(&w);
     w.make_sound(TilePos::new(2, 0, 0), 10, None);
     let mut no_way = 0;

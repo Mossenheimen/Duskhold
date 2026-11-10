@@ -2,7 +2,7 @@
 //! building reachable on foot, and the dead where they can stand.
 
 use dusk_core::path::find_path;
-use dusk_core::{ActorKind, Grid, World};
+use dusk_core::{Grid, World};
 use dusk_data::{Data, default_dir, load};
 use dusk_gen::{Layout, patch};
 
@@ -62,7 +62,7 @@ fn the_dead_stand_where_they_can_and_not_by_the_start() {
     let mut dead = 0;
     for (_, a) in world.actors() {
         assert!(world.grid.tile(a.pos).walkable());
-        if a.kind == ActorKind::Shambler {
+        if !a.kind.is_character() {
             dead += 1;
             assert!(
                 a.pos.dist2(layout.start) > clear,

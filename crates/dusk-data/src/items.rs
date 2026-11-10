@@ -361,6 +361,8 @@ pub(crate) fn load_defs(
         }
     };
     let mut defs = Defs {
+        // Filled in by the loader, from creatures/.
+        creatures: Vec::new(),
         items: Vec::new(),
         loot,
         containers,
