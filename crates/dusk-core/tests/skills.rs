@@ -23,6 +23,7 @@ fn defs() -> Defs {
         weight,
         stack,
         kind,
+        worth: 0,
     };
     let club = Swing {
         wind_up: 3,

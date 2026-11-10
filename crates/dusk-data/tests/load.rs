@@ -132,6 +132,11 @@ run_endurance = 0.05
 bandage = 0.08
 board_time = 0.04
 board_strength = 0.2
+[deeds]
+levels = [20, 50, 100, 200, 350, 550, 800, 1100, 1500]
+health = 4
+stash = 2.0
+home = 6
 "#;
 
 const SHAMBLER: &str = r#"

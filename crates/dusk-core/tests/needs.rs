@@ -20,6 +20,7 @@ fn defs() -> Defs {
         weight: 500,
         stack: 4,
         kind,
+        worth: 0,
     };
     Defs {
         items: vec![

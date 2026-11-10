@@ -195,7 +195,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
   - places found, people helped, quests, rare monsters and bosses, days survived;
   - ordinary kills, a little.
 - **Each level offers three curated talents** from the class list, plus:
-  - a little health, bounded: level 10 has 2–3× level 1's health, not 10×;
+  - a little health, bounded: *(built 2026-11-10)* 5 points a level, so level 10 has 145 against 100. The 2–3× first written here was D&D's; wounds here are fixed amounts, so 250 health would shrug off a crowd;
   - more spell slots or faith.
 
   There are no trees of one-point wonders (Diablo II's lesson), and a holdout trainer re-picks your talents for a price, so a bad pick is never a trap. Levels run 1–10 in the open world; dungeons take it further.

@@ -47,6 +47,8 @@ var _health: ProgressBar
 var _endurance: ProgressBar
 var _breath: Label
 var _wounds: Label
+var _level: Label
+var _gold_left := 0.0  # the level-up glow
 var _death: Label
 var _held: Label
 var _doing: Label
@@ -103,12 +105,16 @@ func _process(delta: float) -> void:
 			_ages.remove_at(i)
 	_news.text = "\n".join(_lines)
 	_flash_left = maxf(0.0, _flash_left - delta)
-	_flash.color.a = 0.35 * _flash_left / FLASH_LIFE
+	_gold_left = maxf(0.0, _gold_left - delta)
+	if _gold_left > 0.0:
+		_flash.color = Color(1.0, 0.8, 0.3, 0.25 * _gold_left / FLASH_LIFE)
+	else:
+		_flash.color = Color(0.7, 0.0, 0.0, 0.35 * _flash_left / FLASH_LIFE)
 
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 6: saves\n%s  ·  Seed %d  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 6: bring it home\n%s  ·  Seed %d  ·  %d×" % [
 		time_of_day(clock), world_seed, speed]
 	_paused.visible = paused
 
@@ -133,6 +139,24 @@ func say(line: String) -> void:
 
 func flash() -> void:
 	_flash_left = FLASH_LIFE
+	_gold_left = 0.0
+
+
+## A warm glow, for something good: a level gained.
+func flash_good() -> void:
+	_gold_left = FLASH_LIFE * 2.0
+
+
+## Your level and its XP, and the most health you can have (DuskWorld.character_deeds()).
+func show_deeds(deeds: PackedInt32Array) -> void:
+	if deeds.size() < 5:
+		return
+	_health.max_value = deeds[4] / 10.0
+	var home := "" if deeds[5] >= 0 else "  ·  no home yet"
+	if deeds[3] < 0:
+		_level.text = "Level %d  ·  %d XP%s" % [deeds[0], deeds[1], home]
+	else:
+		_level.text = "Level %d  ·  %d / %d XP%s" % [deeds[0], deeds[1], deeds[3], home]
 
 
 func reset() -> void:
@@ -261,6 +285,12 @@ func _build_body_panel() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.position = Vector2(16, 76)
 	add_child(panel)
+	_level = Label.new()
+	_level.add_theme_font_size_override("font_size", 15)
+	_level.add_theme_color_override("font_color", Color(1.0, 0.85, 0.55))
+	_level.add_theme_constant_override("outline_size", 6)
+	_level.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	panel.add_child(_level)
 	_health = _bar(panel, "Health", Color(0.75, 0.16, 0.14))
 	_endurance = _bar(panel, "Endurance", Color(0.85, 0.68, 0.22))
 	_breath = Label.new()

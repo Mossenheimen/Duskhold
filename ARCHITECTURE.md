@@ -769,7 +769,24 @@ Game first: every step ends with something to look at or play.
      - **checked in the game:** two headless runs, the second carrying on from the first's save at the right minute;
      - **not yet:** migrations between versions (a save of another version is refused with a message), more than one save, and saving the camera or the speed dial;
      - **measured:** no change (131,000 ticks/s with 100 dead, the patch 367,000).
-   - **Slice 2, the stash and bring-it-home XP:** a worth on every item, a container marked as your stash, a bed slept in; character levels from what reaches the stash. The first use of the worth-per-kilo choice.
+   - **Slice 2, the stash and bring-it-home XP:** done 2026-11-10; 105 tests pass. What it has:
+     - **home is where you slept the night through** (`dusk-core/src/home.rs`): waking rested makes the tile you slept on home. Sleep needs tiredness and none of the dead about, so home moves at most once a game day, and only after a safe night;
+     - **why that rule** (Default, from `CONCEPT.md`'s review): with a stash allowed anywhere, you'd mark each house's cupboard as you looted it and never carry anything anywhere. The trip home is the risk the XP pays for;
+     - **your stash:** one container under a roof within 8 tiles of home (`World::can_stash`; the reasons why not are `NoStash`). Marking another moves it; the things stay where they are;
+     - **finds:** an item that came out of a container's loot is a find (`Item::found`). Put into your stash (`Intent::Put`, the new verb for putting anything into any container within reach), a find pays its worth in XP and becomes an ordinary item, wherever it goes after. What you start with, and what's been home once, pays nothing: there's no selling and buying back, and nothing to farm by taking out and putting in. Finds and ordinary items don't stack together;
+     - **worth** is a field on every item (`items/*.toml`, `worth`), chosen for the worth-per-kilo choice: coins 100 XP a kilo, a bandage 30, a wood axe 3, a plank 0.5 (better nailed up than banked);
+     - **levels 1 to 10** from deed XP (30, 80, 160, 300, 500, 800, 1,200, 1,800, 2,600). Each brings 5 health, given at once, so level 10 has 145 against 100 (`World::max_health`). That's under `CONCEPT.md`'s 2–3×, on purpose: wounds here are fixed amounts, so 250 health would shrug off a crowd, and pillar 3 is "fragile, not weak";
+     - **measured with `dusk-cli gen`,** which now says what a patch holds: seeds 1 to 3 have 240 to 370 XP of finds in 50 to 61 containers, 70 to 90 kg of them. That's five or six full trips, and level 4 or 5 for emptying a patch;
+     - **numbers:** `rules.toml` `[deeds]` (levels, health a level, the stash's time, how far from home); each item's `worth`;
+     - **the save format** is version 2 (items carry whether they're finds; actors their home, stash and deeds);
+     - **the client:**
+       - the body panel says your level and XP, and "no home yet" until you have one; the health bar grows with your level;
+       - each container within reach has "Make it your stash" (saying why not when it can't be); your stash says so, with "Stash all finds";
+       - with your stash within reach, every line of the pack has a Stash button; finds say what they'd bring home ("a find: 8 XP home");
+       - the news says when you've made a home, marked a stash, brought something home (and for how much) and reached a level, with a warm glow;
+       - **checked on screen:** the level line, at the start of a trial run. The stash's panels weren't caught in a picture (the walk there met the shambler by the road); the core's tests cover them;
+     - **not yet:** XP for places found, days survived and bounties (`CONCEPT.md`'s other deeds), and selling at a holdout (slice 5);
+     - **measured:** 100 dead 133,000 ticks/s, the patch 386,000 (no change).
    - **Slice 3, the ghoul and ghoul fever:** faster than your walk, drawn to blood; the fever's three days, and its cure as an item for now (the abbey sells it later).
    - **Slice 4, the dead get up:** corpses rise after a while unless burned (oil, a pyre); the region's pressure number, raised by the unburned and lowered by burning.
    - **Slice 5, the abbey holdout:** a safe place with a trader (coin, the cure, repairs) and a bunk; where the next character starts.

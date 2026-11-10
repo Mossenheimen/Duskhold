@@ -219,6 +219,7 @@ fn with_both_hands_full_only_a_struggle_gets_you_free() {
         weight: 500,
         stack: 1,
         kind,
+        worth: 0,
     };
     let swing = Swing {
         wind_up: 4,

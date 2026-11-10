@@ -43,6 +43,9 @@ struct ItemFile {
     drink: Option<DrinkFile>,
     #[serde(default)]
     light: Option<LightFile>,
+    /// XP one brings home the first time (`rules.toml`, [deeds]); 0 if left out.
+    #[serde(default)]
+    worth: f64,
 }
 
 /// A weapon's swing (as rules.toml's [attack]), the condition, out of 100, a blow costs it, and
@@ -248,11 +251,15 @@ pub(crate) fn load_defs(
                     ),
                 ));
             }
-            if !(i.weight > 0.0 && i.weight < 1000.0) || i.stack == 0 {
+            if !(i.weight > 0.0 && i.weight < 1000.0)
+                || i.stack == 0
+                || !(0.0..1e6).contains(&i.worth)
+            {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?}: its weight must be above 0 kg, its stack at least 1",
+                        "item {:?}: its weight must be above 0 kg, its stack at least 1, its \
+                         worth 0 or more",
                         i.id
                     ),
                 ));
@@ -280,6 +287,7 @@ pub(crate) fn load_defs(
                 id: i.id,
                 name: i.name,
                 stack: i.stack,
+                worth: (i.worth * 1000.0).round() as u32,
                 kind,
             });
         }

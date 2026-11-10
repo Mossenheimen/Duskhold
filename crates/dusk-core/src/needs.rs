@@ -126,7 +126,7 @@ impl World {
             return Vec::new();
         };
         let (n, b) = (self.rules.needs, &a.body);
-        let full = self.rules.combat.character_health.max(1);
+        let full = self.max_health(id).max(1);
         let hurt = 3 - (b.health * 4 / full).clamp(0, 3) as u8;
         let bleeding = b.wounds.iter().filter(|w| w.bleeding > 0).count().min(3) as u8;
         let holders = if a.kind == ActorKind::Character {
@@ -249,6 +249,10 @@ impl World {
             a.body.asleep = false;
             a.body.in_bed = false;
             self.events.push(Event::WokeUp { who: id, why });
+            // Slept the night through: this is home now.
+            if why == Woke::Rested {
+                self.make_home(id);
+            }
         }
     }
 
@@ -276,9 +280,9 @@ impl World {
             return;
         }
         let on_the_hour = self.clock_minutes().is_multiple_of(60);
-        let full = self.rules.combat.character_health;
         for i in 0..self.characters.len() {
             let id = self.characters[i];
+            let full = self.max_health(id);
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };

@@ -3,18 +3,34 @@ extends CanvasLayer
 ## pack: what's in your hand, and what you carry, with its weight against what you can carry
 ## before you can't run. On the left, what's within your reach: each container beside you, and
 ## the floor, and water to drink from. Each line has its buttons: they ask the core for a timed
-## action, which a blow breaks off. "Take all" asks for one take after another.
+## action, which a blow breaks off. "Take all" and "Stash all finds" ask for one after another.
+##
+## Your stash (home.rs): a find (one that came out of the world) put into it pays its worth in
+## XP, once. The pack marks finds with their worth; with your stash within reach, each line has
+## a Stash button.
 
 const WEAPON := 1
 const BANDAGE := 2
 const FOOD := 3
 const DRINK := 4
 const LIGHT := 5
+## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
+const STACK := 4
+const HEADER := 5
+## Why a container can't be your stash, by DuskWorld.stash_check().
+const NO_STASH := {-1: "That's not a container within your reach.",
+	-2: "A stash wants a roof over it.",
+	-3: "You have no home yet: sleep a night through somewhere first.",
+	-4: "That's too far from where you sleep to be your stash."}
+
+## Says a line of news (the HUD's).
+var say: Callable
 
 var _dusk: Node
 var _names := PackedStringArray()
 var _kinds := PackedInt32Array()
 var _weights := PackedInt32Array()
+var _worths := PackedInt32Array()
 var _fixtures := PackedStringArray()
 var _pack: VBoxContainer
 var _reach: VBoxContainer
@@ -23,7 +39,7 @@ var _reach_panel: PanelContainer
 var _shown_pack := []  # what the pack panel shows now, to rebuild only when it changes
 var _shown_reach := PackedInt32Array()
 var _shown_water := false
-var _queue: Array = []  # takes still to ask for: [x, y, def]
+var _queue: Array = []  # actions still to ask for: ["take" or "put", x, y, def]
 
 
 func _ready() -> void:
@@ -41,6 +57,7 @@ func start(dusk: Node) -> void:
 	_names = dusk.item_names()
 	_kinds = dusk.item_kinds()
 	_weights = dusk.item_weights()
+	_worths = dusk.item_worths()
 	_fixtures = dusk.fixture_names()
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
@@ -53,7 +70,7 @@ func toggle() -> void:
 	_pack_panel.visible = not _pack_panel.visible
 
 
-## Each frame: redraw what changed, and ask for the next queued take once you're free.
+## Each frame: redraw what changed, and ask for the next queued action once you're free.
 ## `busy`: you're in the middle of an action; `dead`: nothing more to do.
 func refresh(busy: bool, dead: bool) -> void:
 	if _dusk == null:
@@ -66,22 +83,33 @@ func refresh(busy: bool, dead: bool) -> void:
 	var items: PackedInt32Array = _dusk.character_items()
 	var carried: PackedInt32Array = _dusk.character_load()
 	var light: PackedInt32Array = _dusk.character_light()
-	var pack := [hands, items, carried, light]
+	var reach: PackedInt32Array = _dusk.stores_in_reach()
+	var stash := _stash_in(reach)
+	var pack := [hands, items, carried, light, stash]
 	if pack != _shown_pack:
 		_shown_pack = pack
-		_draw_pack(hands, items, carried, light)
-	var reach: PackedInt32Array = _dusk.stores_in_reach()
+		_draw_pack(hands, items, carried, light, stash)
 	var water: bool = _dusk.water_in_reach()
 	if reach != _shown_reach or water != _shown_water:
 		_shown_reach = reach
 		_shown_water = water
 		_draw_reach(reach, water)
 	if not busy and not _queue.is_empty():
-		_take_next(reach)
+		_next_queued(reach, items)
+
+
+## Where your stash is, if it's within reach; else (-1, -1).
+func _stash_in(reach: PackedInt32Array) -> Vector2i:
+	var i := 0
+	while i + HEADER <= reach.size():
+		if reach[i + 4] == 1:
+			return Vector2i(reach[i], reach[i + 1])
+		i += HEADER + reach[i + 3] * STACK
+	return Vector2i(-1, -1)
 
 
 func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: PackedInt32Array,
-		light: PackedInt32Array) -> void:
+		light: PackedInt32Array, stash: Vector2i) -> void:
 	for child in _pack.get_children():
 		child.queue_free()
 	if carried.size() < 2:
@@ -100,11 +128,11 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		var row := _row(_pack, "Held up: %s, lit (%d%% left)" % [_name(light[0]), roundi(light[1] / 10.0)])
 		_button(row, "Put out", func() -> void: _dusk.douse())
 	var slot := -1
-	for i in range(0, items.size(), 3):
+	for i in range(0, items.size(), STACK):
 		slot += 1
 		var def := items[i]
 		var count := items[i + 1]
-		var label := _describe(def, count)
+		var label := _describe(def, count, items[i + 3] == 1)
 		if _kind(def) == LIGHT and items[i + 2] < 1000:
 			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
 		var row := _row(_pack, label)
@@ -119,6 +147,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
 			LIGHT:
 				_button(row, "Light", func() -> void: _dusk.light(slot, def))
+		if stash.x >= 0:
+			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
 
 
@@ -130,51 +160,91 @@ func _draw_reach(reach: PackedInt32Array, water: bool) -> void:
 		var row := _row(_reach, "Water")
 		_button(row, "Drink", func() -> void: _dusk.drink_water())
 	var i := 0
-	while i + 4 <= reach.size():
+	while i + HEADER <= reach.size():
 		var x := reach[i]
 		var y := reach[i + 1]
 		var fixture := reach[i + 2]
 		var n := reach[i + 3]
-		i += 4
+		var mine := reach[i + 4] == 1
+		i += HEADER
 		var place := "On the ground" if fixture == 0 else _fixture_name(fixture).capitalize()
+		if mine:
+			place += "  ·  your stash"
 		var header := _row(_reach, place + ("  (empty)" if n == 0 else ""))
+		if mine:
+			header.get_child(0).add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
+			_button(header, "Stash all finds", func() -> void: _stash_finds(x, y))
+		elif fixture != 0:
+			_button(header, "Make it your stash", func() -> void: _mark_stash(x, y))
 		if n > 1:
 			var defs := []
 			for k in n:
-				defs.append(reach[i + k * 3])
+				defs.append(reach[i + k * STACK])
 			_button(header, "Take all", func() -> void: _take_all(x, y, defs))
 		for slot in n:
-			var def := reach[i + slot * 3]
-			var count := reach[i + slot * 3 + 1]
-			var row := _row(_reach, "   " + _describe(def, count))
+			var def := reach[i + slot * STACK]
+			var count := reach[i + slot * STACK + 1]
+			var found := reach[i + slot * STACK + 3] == 1
+			var row := _row(_reach, "   " + _describe(def, count, found))
 			_button(row, "Take", func() -> void: _dusk.take(x, y, slot, def))
-		i += n * 3
+		i += n * STACK
+
+
+## "Make it your stash": the core says whether it can be, and this says why not.
+func _mark_stash(x: int, y: int) -> void:
+	var why: int = _dusk.stash_check(x, y)
+	if why == 0:
+		_dusk.mark_stash(x, y)
+	elif say.is_valid():
+		say.call(NO_STASH.get(why, "It can't be your stash."))
 
 
 ## "Take all": one take after another, each asked for as the last one finishes.
 func _take_all(x: int, y: int, defs: Array) -> void:
 	for def in defs:
-		_queue.append([x, y, def])
+		_queue.append(["take", x, y, def])
 
 
-## The next queued take: the first stack on that tile that's still the item it was.
-func _take_next(reach: PackedInt32Array) -> void:
+## "Stash all finds": every find in the pack, put into the stash one after another.
+func _stash_finds(x: int, y: int) -> void:
+	var items: PackedInt32Array = _dusk.character_items()
+	for i in range(0, items.size(), STACK):
+		if items[i + 3] == 1:
+			_queue.append(["put", x, y, items[i]])
+	if _queue.is_empty() and say.is_valid():
+		say.call("You're carrying no finds.")
+
+
+## The next queued action: a take of the first stack on that tile that's still the item it was,
+## or a put of the first find of that item in the pack.
+func _next_queued(reach: PackedInt32Array, items: PackedInt32Array) -> void:
 	var want: Array = _queue.pop_front()
+	if want[0] == "put":
+		for i in range(0, items.size(), STACK):
+			if items[i] == want[3] and items[i + 3] == 1:
+				_dusk.put_item(want[1], want[2], floori(i / float(STACK)), want[3])
+				return
+		return
 	var i := 0
-	while i + 4 <= reach.size():
+	while i + HEADER <= reach.size():
 		var n := reach[i + 3]
-		if reach[i] == want[0] and reach[i + 1] == want[1]:
+		if reach[i] == want[1] and reach[i + 1] == want[2]:
 			for slot in n:
-				if reach[i + 4 + slot * 3] == want[2]:
-					_dusk.take(want[0], want[1], slot, want[2])
+				if reach[i + HEADER + slot * STACK] == want[3]:
+					_dusk.take(want[1], want[2], slot, want[3])
 					return
-		i += 4 + n * 3
+		i += HEADER + n * STACK
 
 
-func _describe(def: int, count: int) -> String:
+## "3 apples · 0.5 kg", and for a find, what it brings home.
+func _describe(def: int, count: int, found := false) -> String:
 	var grams := _weights[def] * count if def < _weights.size() else 0
 	var label := _name(def) if count == 1 else "%s ×%d" % [_name(def), count]
-	return "%s  ·  %.1f kg" % [label, grams / 1000.0]
+	label = "%s  ·  %.1f kg" % [label, grams / 1000.0]
+	var worth := _worths[def] * count if def < _worths.size() else 0
+	if found and worth > 0:
+		label += "  ·  a find: %d XP home" % worth
+	return label
 
 
 func _name(def: int) -> String:

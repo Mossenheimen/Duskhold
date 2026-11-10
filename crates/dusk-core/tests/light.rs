@@ -23,6 +23,7 @@ fn defs() -> Defs {
                 radius: 5,
                 wane: 17,
             },
+            worth: 0,
         }],
         kit: vec![Item::new(TORCH, 2)],
         light_time: 15,
@@ -229,6 +230,7 @@ fn a_torch_burns_down_and_out() {
                 def: TORCH,
                 count: 1,
                 condition: 1000 - 10 * 17,
+                found: false,
             }
         ]
     );

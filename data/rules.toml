@@ -178,6 +178,16 @@ bandage = 0.05        # First Aid: bandaging takes less time
 board_time = 0.05     # Carpentry: boarding up takes less time...
 board_strength = 0.1  # ...and the boards take more beating
 
+[deeds]
+# Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where
+# you last slept the night through (woke rested); your stash is one container under a roof near
+# it. A find (anything that came out of the world's containers) put into your stash pays its
+# worth (items/*.toml) once, and is an ordinary item from then on. You start at level 1.
+levels = [30, 80, 160, 300, 500, 800, 1200, 1800, 2600]  # XP to reach levels 2 to 10
+health = 5            # points a level brings: level 10 has 145, not 100. Tougher, never safe.
+stash = 1.0           # seconds to mark a container as your stash
+home = 8              # tiles from where you sleep that your stash may be
+
 [barricade]
 # Board up a shut door or a window: a plank and nails for each board, with a hammer in hand or in
 # the pack. A boarded door can't be opened; a boarded window can't be seen through. The dead's

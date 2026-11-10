@@ -27,14 +27,18 @@ pub struct Item {
     pub count: u16,
     /// Out of `NEW`. Weapons wear with every blow and break at 0.
     pub condition: u16,
+    /// A find: it came out of the world and hasn't been home yet (`home.rs`).
+    pub found: bool,
 }
 
 impl Item {
+    /// An item that isn't a find: what you start with, or what a test or a tool puts down.
     pub fn new(def: u16, count: u16) -> Item {
         Item {
             def,
             count,
             condition: NEW,
+            found: false,
         }
     }
 }
@@ -71,6 +75,8 @@ pub struct ItemDef {
     /// How many make one stack.
     pub stack: u16,
     pub kind: ItemKind,
+    /// The XP one brings home, the first time (thousandths: `home.rs`).
+    pub worth: u32,
 }
 
 /// One line of a loot table: an item, how likely it is against the others, how many.
@@ -181,7 +187,9 @@ impl Defs {
         let mut left = item.count;
         if stack > 1 {
             for held in list.iter_mut() {
-                let same = held.def == item.def && held.condition == item.condition;
+                let same = held.def == item.def
+                    && held.condition == item.condition
+                    && held.found == item.found;
                 if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
                     held.count += room;
@@ -272,7 +280,7 @@ impl World {
             let span = u32::from(chi.saturating_sub(clo)) + 1;
             let count = clo + below(r(k, Purpose::LootCount), span) as u16;
             if count > 0 {
-                self.defs.stow(&mut out, Item::new(entry.item, count));
+                self.defs.stow(&mut out, Item::found(entry.item, count));
             }
         }
         out

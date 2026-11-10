@@ -74,6 +74,10 @@ pub enum Intent {
     Board,
     /// Pry a board off the boarded door or window beside you.
     Unboard,
+    /// Make the container on `at` your stash: within reach, under a roof, near home.
+    Stash { at: TilePos },
+    /// Put the stack at `slot` of your pack into the container on `at`.
+    Put { at: TilePos, slot: u16, def: u16 },
 }
 
 impl Intent {
@@ -122,6 +126,14 @@ pub enum ActionKind {
     /// Boarding up, or prying a board off, the edge on the action's side.
     Board,
     Unboard,
+    Stash {
+        at: TilePos,
+    },
+    Put {
+        at: TilePos,
+        slot: u16,
+        def: u16,
+    },
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -230,6 +242,11 @@ pub struct Actor {
     pub light: Option<Item>,
     /// What it has learnt by doing (`skills.rs`).
     pub skills: Skills,
+    /// Where it last slept the night through, and its stash (`home.rs`).
+    pub home: Option<TilePos>,
+    pub stash: Option<TilePos>,
+    /// XP from deeds, in thousandths: what's brought home. Its level comes from this.
+    pub deeds: u32,
 }
 
 impl Actor {
@@ -264,6 +281,9 @@ impl Actor {
             items: Vec::new(),
             light: None,
             skills: Skills::default(),
+            home: None,
+            stash: None,
+            deeds: 0,
         }
     }
 

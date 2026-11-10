@@ -75,10 +75,16 @@ const MASTERED := 34
 const BOARDED := 35
 const UNBOARDED := 36
 const BOARD_BROKE := 37
+const MADE_HOME := 38
+const STASHED := 39
+const PUT := 40
+const BROUGHT_HOME := 41
+const LEVEL_UP := 42
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
-	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off"}
+	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
+	19: "Making it your stash", 20: "Putting it away"}
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -172,6 +178,7 @@ func _ready() -> void:
 	add_child(threats)
 	bag = Bag.new()
 	add_child(bag)
+	bag.say = hud.say
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -279,6 +286,7 @@ func _process(delta: float) -> void:
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
+	hud.show_deeds(dusk.character_deeds())
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
@@ -648,6 +656,23 @@ func _read_events() -> void:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You pried a board off: %d left." % extra)
+			MADE_HOME:
+				if who == me:
+					hud.say("You slept the night through. This is home now: a container under its roof can be your stash.")
+			STASHED:
+				if who == me:
+					hud.say("That's your stash. Finds put into it pay their worth.")
+			PUT:
+				if who == me:
+					hud.say("You put away %s." % _items(extra))
+			BROUGHT_HOME:
+				# (x, y) carry the item and how many; extra is the XP.
+				if who == me:
+					hud.say("Brought home: %s, %d XP." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
+			LEVEL_UP:
+				if who == me:
+					hud.say("You reached level %d. A little more health." % extra)
+					hud.flash_good()
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
@@ -792,9 +817,9 @@ func _light_or_douse() -> void:
 		return
 	var items: PackedInt32Array = dusk.character_items()
 	var kinds: PackedInt32Array = dusk.item_kinds()
-	for i in range(0, items.size() - 2, 3):
+	for i in range(0, items.size() - 3, 4):
 		if items[i] < kinds.size() and kinds[items[i]] == LIGHT_KIND:
-			dusk.light(floori(i / 3.0), items[i])
+			dusk.light(floori(i / 4.0), items[i])
 			return
 	hud.say("You have nothing to light.")
 

@@ -12,12 +12,14 @@
 id = "cudgel"
 name = "cudgel"
 weight = 1.5          # kg
+worth = 4
 weapon = { wind_up = 0.4, recovery = 0.6, endurance = 9, hit = 0.85, damage = [8, 12], noise = 6, wear = 1.0, skill = "blunt" }
 
 [[item]]
 id = "kitchen_knife"
 name = "kitchen knife"
 weight = 0.3
+worth = 4
 # Quick and quiet, but light work, and it blunts fast.
 weapon = { wind_up = 0.2, recovery = 0.4, endurance = 5, hit = 0.9, damage = [5, 8], noise = 3, wear = 2.5, skill = "blade" }
 
@@ -25,18 +27,21 @@ weapon = { wind_up = 0.2, recovery = 0.4, endurance = 5, hit = 0.9, damage = [5,
 id = "hammer"
 name = "hammer"
 weight = 1.0
+worth = 5
 weapon = { wind_up = 0.35, recovery = 0.5, endurance = 8, hit = 0.85, damage = [7, 11], noise = 6, wear = 0.8, skill = "blunt" }
 
 [[item]]
 id = "hand_axe"
 name = "hand axe"
 weight = 1.8
+worth = 8
 weapon = { wind_up = 0.5, recovery = 0.7, endurance = 12, hit = 0.8, damage = [13, 19], noise = 7, wear = 1.5, skill = "axe" }
 
 [[item]]
 id = "wood_axe"
 name = "wood axe"
 weight = 3.0
+worth = 10
 # Two blows fell a shambler, but every one is slow, tiring and loud.
 weapon = { wind_up = 0.8, recovery = 1.0, endurance = 18, hit = 0.8, damage = [20, 30], noise = 9, wear = 1.0, skill = "axe" }
 
@@ -44,10 +49,12 @@ weapon = { wind_up = 0.8, recovery = 1.0, endurance = 18, hit = 0.8, damage = [2
 id = "shovel"
 name = "shovel"
 weight = 2.2
+worth = 4
 weapon = { wind_up = 0.6, recovery = 0.8, endurance = 14, hit = 0.85, damage = [10, 16], noise = 7, wear = 0.8, skill = "blunt" }
 
 [[item]]
 id = "pitchfork"
 name = "pitchfork"
 weight = 2.0
+worth = 4
 weapon = { wind_up = 0.6, recovery = 0.7, endurance = 12, hit = 0.8, damage = [11, 17], noise = 5, wear = 1.2, skill = "spear" }

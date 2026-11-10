@@ -6,6 +6,7 @@
 //! loading fails with the file and what's wrong.
 
 mod barricade;
+mod home;
 mod items;
 mod light;
 mod needs;
@@ -302,6 +303,7 @@ struct RulesFile {
     day: light::DayFile,
     sight: light::SightFile,
     skills: skills::SkillsFile,
+    deeds: home::DeedsFile,
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,
@@ -763,6 +765,7 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     (rules.clock, rules.needs) = needs::to_needs(file, r)?;
     (rules.day, rules.sight) = light::to_light(file, r)?;
     rules.skills = skills::to_skills(file, r, rules.clock.ticks_per_minute)?;
+    rules.deeds = home::to_deeds(file, &r.deeds)?;
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
     }

@@ -73,6 +73,8 @@ impl World {
                 ActionKind::Douse => self.douse(id),
                 ActionKind::Board => self.nail_board(id, action.dir),
                 ActionKind::Unboard => self.pry_board(id, action.dir),
+                ActionKind::Stash { at } => self.mark_stash(id, at),
+                ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
             }
         }
         true
@@ -149,6 +151,15 @@ impl World {
                 // The hammering starts, and everything in earshot hears it.
                 self.start_hammering(id);
                 (ActionKind::Board, side, ticks, 0, 0)
+            }
+            Intent::Stash { at } => {
+                self.can_stash(id, at).ok()?;
+                let ticks = self.rules.deeds.stash_time.max(1);
+                (ActionKind::Stash { at }, a.facing, ticks, 0, 0)
+            }
+            Intent::Put { at, slot, def } => {
+                let ticks = self.put_ticks(id, at, slot, def)?.max(1);
+                (ActionKind::Put { at, slot, def }, a.facing, ticks, 0, 0)
             }
             Intent::Unboard => {
                 let side = self.can_unboard(id).ok()?;

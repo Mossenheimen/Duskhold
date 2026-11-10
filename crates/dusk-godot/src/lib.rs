@@ -18,8 +18,8 @@
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
-    NoBoard, NoSleep, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
+    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Item,
+    ItemKind, NoBoard, NoSleep, NoStash, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -36,6 +36,16 @@ const MAX_TICKS_PER_FRAME: u32 = 20;
 /// How far round the character the sight cones are worked out for the client, in tiles: about
 /// what the camera shows zoomed out.
 const WATCH_RANGE: i32 = 64;
+
+/// A stack as the client gets it: definition, count, condition, and 1 if it's a find.
+fn stack_row(i: Item) -> [i32; 4] {
+    [
+        i32::from(i.def),
+        i32::from(i.count),
+        i32::from(i.condition),
+        i32::from(i.found),
+    ]
+}
 
 /// The event kinds `take_events` reports.
 const HEARD: i32 = 1;
@@ -75,6 +85,11 @@ const MASTERED: i32 = 34;
 const BOARDED: i32 = 35;
 const UNBOARDED: i32 = 36;
 const BOARD_BROKE: i32 = 37;
+const MADE_HOME: i32 = 38;
+const STASHED: i32 = 39;
+const PUT: i32 = 40;
+const BROUGHT_HOME: i32 = 41;
+const LEVEL_UP: i32 = 42;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -241,6 +256,29 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::BoardBroke { at: p, boards, .. } => {
             (BOARD_BROKE, None, None, (p.x, p.y), i32::from(boards))
         }
+        Event::MadeHome { who, at: p } => (MADE_HOME, Some(who), None, (p.x, p.y), 0),
+        Event::Stashed { who, at: p } => (STASHED, Some(who), None, (p.x, p.y), 0),
+        Event::Put { who, item, count } => (
+            PUT,
+            Some(who),
+            None,
+            at(who),
+            i32::from(item) * 1000 + i32::from(count),
+        ),
+        // In the place of a tile: the item and how many. The extra is the XP, in points.
+        Event::BroughtHome {
+            who,
+            item,
+            count,
+            xp,
+        } => (
+            BROUGHT_HOME,
+            Some(who),
+            None,
+            (i32::from(item), i32::from(count)),
+            (xp / 1000) as i32,
+        ),
+        Event::LevelUp { who, level } => (LEVEL_UP, Some(who), None, at(who), i32::from(level)),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -757,8 +795,8 @@ impl DuskWorld {
         }
     }
 
-    /// Your pack, in order (the slots the item intents name): (definition, count, condition)
-    /// three numbers each.
+    /// Your pack, in order (the slots the item intents name): (definition, count, condition,
+    /// 1 if it's a find not yet brought home) four numbers each.
     #[func]
     fn character_items(&self) -> PackedInt32Array {
         let Some(a) = self
@@ -768,11 +806,7 @@ impl DuskWorld {
         else {
             return PackedInt32Array::new();
         };
-        let out: Vec<i32> = a
-            .items
-            .iter()
-            .flat_map(|i| [i32::from(i.def), i32::from(i.count), i32::from(i.condition)])
-            .collect();
+        let out: Vec<i32> = a.items.iter().flat_map(|&i| stack_row(i)).collect();
         PackedInt32Array::from(&out[..])
     }
 
@@ -789,8 +823,8 @@ impl DuskWorld {
     }
 
     /// The containers and floors within your reach, your own tile first: for each, x, y, its
-    /// fixture number (0 a bare floor), how many stacks, then (definition, count, condition)
-    /// three numbers a stack.
+    /// fixture number (0 a bare floor), how many stacks, 1 if it's your stash, then
+    /// (definition, count, condition, found) four numbers a stack.
     #[func]
     fn stores_in_reach(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -800,10 +834,12 @@ impl DuskWorld {
             return PackedInt32Array::new();
         };
         let mut out = Vec::new();
+        let stash = world.actor(me).and_then(|a| a.stash);
         for (at, fixture, held) in world.stores_in_reach(me) {
-            out.extend([at.x, at.y, i32::from(fixture), held.len() as i32]);
+            let mine = i32::from(stash == Some(at));
+            out.extend([at.x, at.y, i32::from(fixture), held.len() as i32, mine]);
             for i in held {
-                out.extend([i32::from(i.def), i32::from(i.count), i32::from(i.condition)]);
+                out.extend(stack_row(i));
             }
         }
         PackedInt32Array::from(&out[..])
@@ -964,6 +1000,8 @@ impl DuskWorld {
                         ActionKind::DrinkWater => 12,
                         ActionKind::Board => 17,
                         ActionKind::Unboard => 18,
+                        ActionKind::Stash { .. } => 19,
+                        ActionKind::Put { .. } => 20,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1272,6 +1310,84 @@ impl DuskWorld {
             return false;
         };
         world.master(me, skill)
+    }
+
+    /// What each item brings home, by definition number, in XP points (rounded).
+    #[func]
+    fn item_worths(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .defs
+            .items
+            .iter()
+            .map(|i| ((i.worth + 500) / 1000) as i32)
+            .collect()
+    }
+
+    /// Your deeds: [level, XP, the XP this level began at, the next level's (-1 at the top),
+    /// the most health you can have (out of 1000 at level 1), home's x and y (-1 if none)].
+    #[func]
+    fn character_deeds(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some((me, a)) = world
+            .character()
+            .and_then(|id| world.actor(id).map(|a| (id, a)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let level = world.level(me);
+        let (from, to) = world.rules.deeds.span(level);
+        let points = |xp: u32| (xp / 1000) as i32;
+        let home = a.home.map_or((-1, -1), |h| (h.x, h.y));
+        PackedInt32Array::from(&[
+            i32::from(level),
+            points(a.deeds),
+            points(from),
+            to.map_or(-1, points),
+            world.max_health(me),
+            home.0,
+            home.1,
+        ])
+    }
+
+    /// Whether the container on (x, y) can be your stash now: 0 if so, else why not: -1 not a
+    /// container within reach, -2 out under the sky, -3 you haven't slept a night through
+    /// anywhere yet, -4 too far from where you sleep.
+    #[func]
+    fn stash_check(&self, x: i32, y: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_stash(me, TilePos::new(x, y, 0)) {
+            Ok(()) => 0,
+            Err(NoStash::NotHere) => -1,
+            Err(NoStash::Outdoors) => -2,
+            Err(NoStash::NoHome) => -3,
+            Err(NoStash::FarFromHome) => -4,
+        }
+    }
+
+    /// Makes the container on (x, y) your stash (see `stash_check`).
+    #[func]
+    fn mark_stash(&mut self, x: i32, y: i32) {
+        self.act(Intent::Stash {
+            at: TilePos::new(x, y, 0),
+        });
+    }
+
+    /// Puts the stack at `slot` of your pack into the container on (x, y).
+    #[func]
+    fn put_item(&mut self, x: i32, y: i32, slot: i32, def: i32) {
+        self.act(Intent::Put {
+            at: TilePos::new(x, y, 0),
+            slot: slot as u16,
+            def: def as u16,
+        });
     }
 
     /// Walks the character to a tile, finding the way.

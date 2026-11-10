@@ -11,6 +11,7 @@ use crate::body::{Body, Part, WoundKind};
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
+use crate::home::Deeds;
 use crate::items::{Defs, Item};
 use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
@@ -53,6 +54,8 @@ pub struct Rules {
     pub skills: SkillRules,
     /// Boarding up doors and windows (`barricade.rs`).
     pub barricade: Barricade,
+    /// Bringing it home, and character levels (`home.rs`).
+    pub deeds: Deeds,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -254,6 +257,7 @@ impl Default for Rules {
             },
             skills: SkillRules::default(),
             barricade: Barricade::default(),
+            deeds: Deeds::default(),
         }
     }
 }
@@ -454,6 +458,34 @@ pub enum Event {
         at: TilePos,
         side: Dir8,
         boards: u8,
+    },
+    /// `who` slept the night through: where it slept is home now.
+    MadeHome {
+        who: ActorId,
+        at: TilePos,
+    },
+    /// `who` made the container on `at` its stash.
+    Stashed {
+        who: ActorId,
+        at: TilePos,
+    },
+    /// `who` put `count` of an item into a container.
+    Put {
+        who: ActorId,
+        item: u16,
+        count: u16,
+    },
+    /// ...and they were finds, put into its stash: brought home, for `xp` (thousandths).
+    BroughtHome {
+        who: ActorId,
+        item: u16,
+        count: u16,
+        xp: u32,
+    },
+    /// `who` reached a character level.
+    LevelUp {
+        who: ActorId,
+        level: u8,
     },
 }
 

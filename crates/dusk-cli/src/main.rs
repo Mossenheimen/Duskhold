@@ -109,6 +109,26 @@ fn gen_patch(args: &[String]) {
         layout.start.x,
         layout.start.y
     );
+    // What there is to bring home: every container's finds, by their worth and weight.
+    let (mut containers, mut xp, mut grams) = (0, 0u64, 0u64);
+    for y in 0..layout.height {
+        for x in 0..layout.width {
+            let at = TilePos::new(x, y, 0);
+            if world.is_container(at) {
+                containers += 1;
+                for i in world.store(at) {
+                    let def = world.defs.item(i.def);
+                    xp += u64::from(def.map_or(0, |d| d.worth)) * u64::from(i.count);
+                    grams += u64::from(world.defs.weight(&i));
+                }
+            }
+        }
+    }
+    println!(
+        "  {containers} containers hold {} XP of finds, {:.0} kg of them",
+        xp / 1000,
+        grams as f64 / 1000.0
+    );
     for lot in &layout.lots {
         let side = if lot.north { "north" } else { "south" };
         println!(
@@ -381,6 +401,29 @@ fn describe(w: &World, e: Event) -> String {
             at.x,
             at.y
         ),
+        Event::MadeHome { who, at } => {
+            format!("{} made a home at ({}, {})", name(who), at.x, at.y)
+        }
+        Event::Stashed { who, at } => {
+            format!(
+                "{} made the container at ({}, {}) a stash",
+                name(who),
+                at.x,
+                at.y
+            )
+        }
+        Event::Put { who, item, count } => format!("{} put away {count} of item {item}", name(who)),
+        Event::BroughtHome {
+            who,
+            item,
+            count,
+            xp,
+        } => format!(
+            "{} brought home {count} of item {item}: {} XP",
+            name(who),
+            xp / 1000
+        ),
+        Event::LevelUp { who, level } => format!("{} reached level {level}", name(who)),
         Event::BoardBroke { at, boards, .. } => {
             format!("a board by ({}, {}) broke: {boards} left", at.x, at.y)
         }

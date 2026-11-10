@@ -24,6 +24,7 @@ fn defs(planks: u16, nails: u16, hammer: bool) -> Defs {
         weight,
         stack,
         kind,
+        worth: 0,
     };
     let swing = Swing {
         wind_up: 3,

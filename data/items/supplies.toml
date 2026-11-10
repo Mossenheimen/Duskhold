@@ -7,6 +7,7 @@
 id = "bandage"
 name = "bandage"
 weight = 0.1
+worth = 3
 stack = 10
 bandage = { time = 2.0 }
 
@@ -14,6 +15,7 @@ bandage = { time = 2.0 }
 id = "rag"
 name = "rag"
 weight = 0.1
+worth = 1
 stack = 10
 bandage = { time = 3.5 }   # slower to tie than a bandage
 
@@ -21,6 +23,7 @@ bandage = { time = 3.5 }   # slower to tie than a bandage
 id = "bread"
 name = "loaf of bread"
 weight = 0.5
+worth = 2
 stack = 4
 food = { nutrition = 40, time = 4.0 }   # hunger it takes away, seconds to eat
 
@@ -28,6 +31,7 @@ food = { nutrition = 40, time = 4.0 }   # hunger it takes away, seconds to eat
 id = "apple"
 name = "apple"
 weight = 0.15
+worth = 1
 stack = 10
 food = { nutrition = 10, time = 1.5 }
 
@@ -35,6 +39,7 @@ food = { nutrition = 10, time = 1.5 }
 id = "jerky"
 name = "dried meat"
 weight = 0.1
+worth = 2
 stack = 10
 food = { nutrition = 20, time = 2.5 }
 
@@ -42,6 +47,7 @@ food = { nutrition = 20, time = 2.5 }
 id = "water"
 name = "bottle of water"
 weight = 0.6
+worth = 2
 stack = 4
 drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
 
@@ -49,6 +55,7 @@ drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
 id = "torch"
 name = "torch"
 weight = 0.6
+worth = 2
 stack = 5
 light = { radius = 7, burn = 1.0 }   # tiles it lights (you see about 6 by it), game hours it burns
 
@@ -56,6 +63,7 @@ light = { radius = 7, burn = 1.0 }   # tiles it lights (you see about 6 by it), 
 id = "candle"
 name = "candle"
 weight = 0.1
+worth = 1
 stack = 10
 light = { radius = 3, burn = 4.0 }
 
@@ -63,16 +71,19 @@ light = { radius = 3, burn = 4.0 }
 id = "nails"
 name = "nails"
 weight = 0.01         # one nail; a board takes two (rules.toml's [barricade])
+worth = 0.05
 stack = 100
 
 [[item]]
 id = "plank"
 name = "plank"
 weight = 2.0
+worth = 1
 stack = 5
 
 [[item]]
 id = "coins"
 name = "coins"
 weight = 0.01
+worth = 1
 stack = 100
