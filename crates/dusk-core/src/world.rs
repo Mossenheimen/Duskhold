@@ -15,6 +15,7 @@ use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
 use crate::path::find_path;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
+use crate::skills::{Skill, SkillRules};
 use crate::text::{self, TextError, TextGrid, default_legend};
 
 /// Ticks in a second of action time at 1×.
@@ -63,6 +64,8 @@ pub struct Rules {
     pub day: Day,
     /// The character's eyes (`view.rs`).
     pub sight: Sight,
+    /// Learning by doing (`skills.rs`).
+    pub skills: SkillRules,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -297,6 +300,7 @@ impl Default for Rules {
                 cone: Cone { cos: 1736 },
                 beside: 1,
             },
+            skills: SkillRules::default(),
         }
     }
 }
@@ -471,6 +475,23 @@ pub enum Event {
     /// The sun is going down (sunset), or the sky is lightening (dawn).
     Nightfall,
     Daybreak,
+    /// `who`'s skill rose to a level.
+    SkillUp {
+        who: ActorId,
+        skill: Skill,
+        level: u8,
+    },
+    /// `who`'s skill reached the free cap: it learns no more unless it's chosen as a mastery.
+    SkillAtCap {
+        who: ActorId,
+        skill: Skill,
+    },
+    /// `who` chose a skill as a mastery: it's at `level` now, and goes on to 10.
+    Mastered {
+        who: ActorId,
+        skill: Skill,
+        level: u8,
+    },
 }
 
 /// A sound made this tick.
@@ -773,6 +794,11 @@ impl World {
             .is_some_and(|a| a.kind == ActorKind::Character && a.step.is_none());
         let held = starting && self.is_held(id);
         let heavy = starting && self.weighed_down(id);
+        let athletics = self
+            .actors
+            .get(id)
+            .filter(|a| a.kind == ActorKind::Character)
+            .map_or(0, |a| a.skills.level(Skill::Athletics, &rules.skills));
         let on_me: Vec<(ActorId, TilePos)> = if starting && !held {
             self.engaged(id)
                 .into_iter()
@@ -846,7 +872,11 @@ impl World {
         }
         let mut step = a.step?;
         let speeds = rules.speeds(a.kind);
-        let mut speed = if step.run { speeds.run } else { speeds.walk };
+        let mut speed = if step.run {
+            rules.skills.run_speed(speeds.run, athletics)
+        } else {
+            speeds.walk
+        };
         if night && a.kind == ActorKind::Shambler {
             speed = speed * rules.shambler_night_speed / 1000;
         }
@@ -870,6 +900,10 @@ impl World {
                 loudness,
                 by: Some(id),
             });
+            // A character's run, a tile at a time, may teach it something.
+            if step.run {
+                self.train_run(id);
+            }
         }
         Some(step.run)
     }

@@ -107,6 +107,28 @@ indoors = 0.5
 range = 16
 cone = 180
 beside = 1
+[skills]
+levels = [5, 20, 50, 100, 200, 400, 700, 1100, 1600, 2500]
+free_cap = 6
+masteries = 2
+repeat = 0.5
+forget = 2.0
+spot = 6
+chased = 10
+loaded = 0.4
+[skills.xp]
+hit = 1.5
+down = 0.25
+run = 0.1
+bandage = 2.0
+[skills.level]
+hit = 0.02
+damage = 0.1
+endurance = 0.05
+wear = 0.1
+run_speed = 0.03
+run_endurance = 0.05
+bandage = 0.08
 "#;
 
 const SHAMBLER: &str = r#"
@@ -380,10 +402,11 @@ fn the_games_items_and_loot_load() {
     let id = |name: &str| d.items.iter().position(|i| i.id == name).unwrap() as u16;
     let cudgel = &d.items[usize::from(id("cudgel"))];
     assert_eq!(cudgel.weight, 1500, "1.5 kg in grams");
-    let dusk_core::ItemKind::Weapon { swing, wear } = cudgel.kind else {
+    let dusk_core::ItemKind::Weapon { swing, wear, skill } = cudgel.kind else {
         panic!("a cudgel is a weapon");
     };
     assert_eq!((swing.wind_up, swing.damage, wear), (4, (80, 120), 10));
+    assert_eq!(skill, Some(dusk_core::Skill::Blunt));
     assert_eq!(d.wield, Some(id("cudgel")));
     assert_eq!(
         d.kit,
@@ -421,6 +444,55 @@ fn the_games_items_and_loot_load() {
     let table = d.containers[cupboard].expect("a cupboard is a container");
     assert_eq!(d.loot[usize::from(table)].id, "kitchen");
     assert!(d.containers[1].is_none(), "a tree isn't a container");
+}
+
+#[test]
+fn skills_load_in_the_cores_units() {
+    let data = load(&folder("skills", &test_files(PREFABS))).unwrap_or_else(|e| panic!("{e}"));
+    let s = data.rules.skills;
+    assert_eq!(s.levels[0], 5_000, "XP in thousandths");
+    assert_eq!(s.levels[9], 2_500_000);
+    assert_eq!((s.free_cap, s.masteries), (6, 2));
+    assert_eq!(
+        (s.repeat, s.down, s.loaded),
+        (500, 250, 400),
+        "shares per mille"
+    );
+    // The clock runs 12× here: a game minute is 50 ticks, so two game hours are 6,000.
+    assert_eq!(s.forget, 6_000);
+    assert_eq!((s.hit, s.run, s.bandage), (1_500, 100, 2_000));
+    assert_eq!(s.weapon_hit, 200, "+2% a level, out of 10,000");
+    assert_eq!(
+        (s.weapon_damage, s.run_speed, s.bandage_time),
+        (100, 30, 80)
+    );
+}
+
+#[test]
+fn skill_levels_that_dont_rise_are_refused() {
+    let flat = RULES.replace("levels = [5, 20, 50,", "levels = [5, 5, 50,");
+    let mut files = test_files(PREFABS);
+    files[0].1 = &flat;
+    let err = load(&folder("skill-levels", &files)).unwrap_err();
+    assert!(err.message.contains("skills.levels"), "{err}");
+}
+
+#[test]
+fn a_weapon_naming_no_weapon_skill_is_refused() {
+    let items = r#"
+[[item]]
+id = "club"
+name = "club"
+weight = 1.0
+weapon = { wind_up = 0.4, recovery = 0.6, endurance = 9, hit = 0.85, damage = [8, 12], noise = 4, wear = 1.0, skill = "athletics" }
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/clubs.toml", items));
+    let err = load(&folder("weapon-skill", &files)).unwrap_err();
+    assert!(
+        err.file.ends_with("clubs.toml") && err.message.contains("\"athletics\""),
+        "{err}"
+    );
 }
 
 #[test]

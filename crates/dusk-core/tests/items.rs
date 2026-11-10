@@ -40,6 +40,7 @@ fn defs() -> Defs {
                 ItemKind::Weapon {
                     swing: axe,
                     wear: 400,
+                    skill: None,
                 },
             ),
             item("bandage", 100, 10, ItemKind::Bandage { time: 20 }),

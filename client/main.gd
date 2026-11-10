@@ -10,8 +10,8 @@ extends Node3D
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
-## sleep, drink (from water) or light S real seconds in; --news print the news too (for
-## --headless); --hour=H start at that hour of the day.
+## sleep, drink (from water), light or skills (the panel) S real seconds in; --news print the
+## news too (for --headless); --hour=H start at that hour of the day.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -21,6 +21,7 @@ const Tells = preload("res://tells.gd")
 const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
+const Skills = preload("res://skills.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -63,6 +64,9 @@ const DOUSED := 28
 const BURNT_OUT := 29
 const NIGHTFALL := 30
 const DAYBREAK := 31
+const SKILL_UP := 32
+const SKILL_AT_CAP := 33
+const MASTERED := 34
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
@@ -87,7 +91,9 @@ var tells: Tells
 var threats: Threats
 var bag: Bag
 var litter: Litter
+var skills: Skills
 var item_names := PackedStringArray()
+var skill_names := PackedStringArray()
 var hud: Hud
 var camera: Camera3D
 var cursor: MeshInstance3D
@@ -155,6 +161,8 @@ func _ready() -> void:
 	add_child(bag)
 	litter = Litter.new()
 	add_child(litter)
+	skills = Skills.new()
+	add_child(skills)
 	_start()
 
 
@@ -183,6 +191,8 @@ func _start() -> void:
 	wound_names = dusk.wound_names()
 	item_names = dusk.item_names()
 	bag.start(dusk)
+	skill_names = dusk.skill_names()
+	skills.start(dusk)
 	part_names = dusk.part_names()
 	last_hurt = ""
 	last_hurt_at = -100
@@ -232,6 +242,7 @@ func _process(delta: float) -> void:
 	hud.show_body(body, dusk.character_wounds())
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
+	skills.refresh(dead)
 	litter.show_floors(dusk.floor_items())
 	hud.show_action(DOING.get(doing.x, ""), doing.y / 1000.0)
 	played += delta
@@ -292,6 +303,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_speed(2)
 	elif event.is_action_pressed("pack"):
 		bag.toggle()
+	elif event.is_action_pressed("skills"):
+		skills.toggle()
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -507,6 +520,18 @@ func _read_events() -> void:
 				hud.say("The sun is going down. Night is coming.")
 			DAYBREAK:
 				hud.say("The sky is lightening. Dawn is coming.")
+			SKILL_UP:
+				if who == me:
+					hud.say("%s rose to level %d.  (K: skills)" % [_skill_name(extra), extra % 100])
+			SKILL_AT_CAP:
+				if who == me:
+					if dusk.masteries_left() > 0:
+						hud.say("%s will rise no further unless you master it (K)." % _skill_name(extra))
+					else:
+						hud.say("%s will rise no further: your masteries are taken." % _skill_name(extra))
+			MASTERED:
+				if who == me:
+					hud.say("You mastered %s: level %d, and on to 10." % [_skill_name(extra), extra % 100])
 
 
 ## Whether actor `i` stands beside you.
@@ -679,6 +704,7 @@ func _add_input_actions() -> void:
 		"light": [KEY_L],
 		"low_walls": [KEY_V],
 		"pack": [KEY_TAB],
+		"skills": [KEY_K],
 		"restart": [KEY_R],
 		"quit": [KEY_ESCAPE],
 	}
@@ -756,6 +782,8 @@ func _run_script() -> void:
 				dusk.drink_water()
 			"light":
 				_light_or_douse()
+			"skills":
+				skills.toggle()
 
 
 ## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).
@@ -768,6 +796,12 @@ func _my_action() -> Vector2i:
 
 func _item_name(def: int) -> String:
 	return item_names[def] if def >= 0 and def < item_names.size() else "something"
+
+
+## A skill's name, from an event's 100 × skill + level.
+func _skill_name(packed: int) -> String:
+	var skill := floori(packed / 100.0)
+	return skill_names[skill] if skill >= 0 and skill < skill_names.size() else "A skill"
 
 
 ## "3 apples" or "the axe", from an event's 1000 × item + count.

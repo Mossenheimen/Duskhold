@@ -192,14 +192,22 @@ impl World {
         if a.body.fatigue < n.fatigue.levels[0] {
             return Err(NoSleep::NotTired);
         }
-        let r2 = i64::from(n.sleep_clear).pow(2);
-        let dead_about = self.actors.iter().any(|(_, o)| {
-            !o.dead && o.kind != a.kind && o.alert() != Alert::Unaware && o.pos.dist2(a.pos) <= r2
-        });
-        if dead_about {
+        if self.dead_after(id, n.sleep_clear) {
             return Err(NoSleep::DeadAbout);
         }
         Ok(self.bed_beside(a.pos))
+    }
+
+    /// Whether one of the dead is after `id` within `range` tiles: after something it heard or
+    /// saw, that near. No sleep then, and running trains Athletics (`skills.rs`).
+    pub(crate) fn dead_after(&self, id: ActorId, range: i32) -> bool {
+        let Some(a) = self.actors.get(id) else {
+            return false;
+        };
+        let r2 = i64::from(range).pow(2);
+        self.actors.iter().any(|(_, o)| {
+            !o.dead && o.kind != a.kind && o.alert() != Alert::Unaware && o.pos.dist2(a.pos) <= r2
+        })
     }
 
     /// Whether a bed is within reach of a tile.

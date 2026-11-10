@@ -8,6 +8,7 @@
 mod items;
 mod light;
 mod needs;
+mod skills;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -297,6 +298,7 @@ struct RulesFile {
     water: needs::WaterFile,
     day: light::DayFile,
     sight: light::SightFile,
+    skills: skills::SkillsFile,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -743,6 +745,7 @@ fn to_rules(
     };
     (rules.clock, rules.needs) = needs::to_needs(file, r)?;
     (rules.day, rules.sight) = light::to_light(file, r)?;
+    rules.skills = skills::to_skills(file, r, rules.clock.ticks_per_minute)?;
     Ok(rules)
 }
 

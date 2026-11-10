@@ -353,6 +353,15 @@ fn describe(w: &World, e: Event) -> String {
         Event::BurntOut { who, item } => format!("{}'s item {item} burnt out", name(who)),
         Event::Nightfall => "the sun is going down".to_string(),
         Event::Daybreak => "the sky is lightening".to_string(),
+        Event::SkillUp { who, skill, level } => {
+            format!("{}: {} rose to {level}", name(who), skill.name())
+        }
+        Event::SkillAtCap { who, skill } => {
+            format!("{}: {} is at the cap", name(who), skill.name())
+        }
+        Event::Mastered { who, skill, level } => {
+            format!("{} mastered {} (now {level})", name(who), skill.name())
+        }
     }
 }
 

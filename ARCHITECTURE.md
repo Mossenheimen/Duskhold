@@ -659,9 +659,25 @@ Game first: every step ends with something to look at or play.
        - **checked on screen:** at night with the torch lit, and by day after a walk (the seen cone, the remembered strip behind, black beyond). The day shot caught a bug: the shader read "seen" as "remembered" (bytes scaled by 127.5, not 255);
      - **also fixed:** a stack takes only items in the same condition, so a half-burnt candle doesn't join new ones;
      - **measured:** 100 dead 136,000 ticks/s, 500 dead 16,000, the patch 372,000;
+   - **Slice 6, skills:** done 2026-11-09; 82 tests pass. What it has:
+     - **six skills so far** (`dusk-core/src/skills.rs`): Blade, Blunt, Axe and Spear (each weapon names the one it trains and uses), Athletics and First Aid. The rest of `CONCEPT.md`'s list comes with what trains it: Sneak with sneaking, Carpentry with barricades;
+     - **only real use under real risk teaches** (Default, from `CONCEPT.md`):
+       - a blow that lands on a foe: 1 XP to the weapon's skill, half on one that's down. A swing at the air or a door, or with bare fists, teaches nothing;
+       - a tile run with one of the dead after you within 12 tiles (the same "after you" that stops sleep), or carrying more than half of what you can: 0.2 XP of Athletics;
+       - a bandage on a wound that's bleeding: 3 XP of First Aid;
+     - **repeats pay less:** the same act on the same foe, or in the same 8 × 8 spot, pays three-quarters of what it paid the time before, until it's been left alone 6 game hours. A shambler stuck in a fence is worth about 4 XP in all, however long you beat it; running back and forth in one spot pays less than half of running the same distance away (a test checks it). Each character remembers its last 32 such acts, in its state hash;
+     - **levels** 1 to 10 at 10, 30, 70, 150, 300, 550, 900, 1,400, 2,100 and 3,000 XP. A shambler felled in three blows pays about 2.3, so level 1 takes four or five;
+     - **the free cap and three masteries:** every skill rises to 7 freely. There it stops learning and waits; choosing it as a mastery (`World::master`, the panel's button) takes it on to 10. A fourth can't be chosen. It's a choice, not a timed action (Default): like a talent pick, it changes nothing in the world;
+     - **what a level does, a little each** (Default): a weapon skill adds 1% to a blow's chance to land and 5% to its harm, and takes 3% off its breath and 5% off the weapon's wear. The wind-up, the tell, stays the same. Athletics runs 2% faster for 4% less breath a level; First Aid bandages 5% faster;
+     - **numbers:** `rules.toml` `[skills]`, `[skills.xp]` and `[skills.level]`; each weapon's `skill` in `items/weapons.toml`. `dusk-data` checks that levels rise, shares are shares, and a weapon names a weapon skill;
+     - **the client:**
+       - K opens the skills panel (`client/skills.gd`): each skill's level, a bar to the next, and "Master" on one waiting at the cap;
+       - the news says when a skill rises, when it reaches the cap, and when you master it;
+       - the dev flag `--do=S:skills` opens the panel, for pictures;
+       - **checked on screen:** the panel after a fight on seed 1, Blunt's bar at the 2.3 XP of three blows;
+     - **measured:** 100 dead 144,000 ticks/s, 500 dead 16,800, the patch 412,000 (no change: XP is paid only when something teaches);
    - **next slices:**
-     - skill XP;
-     - barricading doors;
+     - barricading doors (and Carpentry);
    - bodies and wounds, moodles, needs;
    - items and the inventory window; containers that fill from the seed the first time they're opened, by loot table (moved here from step 4);
    - the one rule for timed actions;

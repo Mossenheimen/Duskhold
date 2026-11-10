@@ -3,6 +3,7 @@
 use crate::body::Body;
 use crate::geom::{Dir8, TilePos};
 use crate::items::Item;
+use crate::skills::Skills;
 
 pub type ActorId = crate::arena::Id;
 
@@ -181,6 +182,8 @@ pub struct Actor {
     pub items: Vec<Item>,
     /// The light it holds up in its other hand, lit (`light.rs`).
     pub light: Option<Item>,
+    /// What it has learnt by doing (`skills.rs`).
+    pub skills: Skills,
 }
 
 impl Actor {
@@ -214,6 +217,7 @@ impl Actor {
             hands: None,
             items: Vec::new(),
             light: None,
+            skills: Skills::default(),
         }
     }
 

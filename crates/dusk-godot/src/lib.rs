@@ -19,7 +19,7 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
-    NoSleep, Part, TilePos, View, World, WoundKind, demo,
+    NoSleep, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -69,6 +69,9 @@ const DOUSED: i32 = 28;
 const BURNT_OUT: i32 = 29;
 const NIGHTFALL: i32 = 30;
 const DAYBREAK: i32 = 31;
+const SKILL_UP: i32 = 32;
+const SKILL_AT_CAP: i32 = 33;
+const MASTERED: i32 = 34;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -204,6 +207,24 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::BurntOut { who, item } => (BURNT_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Nightfall => (NIGHTFALL, None, None, (-1, -1), 0),
         Event::Daybreak => (DAYBREAK, None, None, (-1, -1), 0),
+        // A skill (by `skill_names`) and a level: 100 × the skill + the level.
+        Event::SkillUp { who, skill, level } => (
+            SKILL_UP,
+            Some(who),
+            None,
+            at(who),
+            skill as i32 * 100 + i32::from(level),
+        ),
+        Event::SkillAtCap { who, skill } => {
+            (SKILL_AT_CAP, Some(who), None, at(who), skill as i32 * 100)
+        }
+        Event::Mastered { who, skill, level } => (
+            MASTERED,
+            Some(who),
+            None,
+            at(who),
+            skill as i32 * 100 + i32::from(level),
+        ),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1045,6 +1066,59 @@ impl DuskWorld {
     #[func]
     fn douse(&mut self) {
         self.act(Intent::Douse);
+    }
+
+    /// The skills' names, in the order `character_skills` and the skill events use.
+    #[func]
+    fn skill_names(&self) -> PackedStringArray {
+        Skill::ALL.iter().map(|s| GString::from(s.name())).collect()
+    }
+
+    /// Your skills, three numbers each (by `skill_names`): the level, how far toward the next
+    /// (out of 1000), and how it stands: 0 learning, 1 at the free cap (it learns no more unless
+    /// mastered), 2 mastered, 3 as high as it goes.
+    #[func]
+    fn character_skills(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        world
+            .skills(me)
+            .into_iter()
+            .flat_map(|(_, s)| {
+                let state = match s.state {
+                    Rise::Rising => 0,
+                    Rise::AtCap => 1,
+                    Rise::Mastered => 2,
+                    Rise::Top => 3,
+                };
+                [i32::from(s.level), s.progress as i32, state]
+            })
+            .collect()
+    }
+
+    /// Masteries you have still to choose.
+    #[func]
+    fn masteries_left(&self) -> i32 {
+        let Some(world) = &self.world else { return 0 };
+        world
+            .character()
+            .map_or(0, |me| i32::from(world.masteries_left(me)))
+    }
+
+    /// Chooses a skill at the free cap (by `skill_names`) as a mastery. False if it can't be.
+    #[func]
+    fn master(&mut self, skill: i32) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let (Some(me), Some(&skill)) = (world.character(), Skill::ALL.get(skill as usize)) else {
+            return false;
+        };
+        world.master(me, skill)
     }
 
     /// Walks the character to a tile, finding the way.

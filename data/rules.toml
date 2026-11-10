@@ -142,3 +142,34 @@ indoors = 0.6         # under a roof, the share of the sky's light that's left
 range = 20            # tiles, in full light
 cone = 160            # degrees across
 beside = 1            # tiles all round that you see in any light
+
+[skills]
+# Skills grow by use, and only by real use under real risk: a blow that lands on one of the dead
+# (with a weapon: fists teach nothing), a run with one of the dead after you or under a heavy
+# load, a bandage on a wound that's bleeding. A swing at the air or a door, or a run with nothing
+# after you, teaches nothing. The same act on the same foe, or in the same spot, pays less each
+# time, so there's nothing to farm.
+levels = [10, 30, 70, 150, 300, 550, 900, 1400, 2100, 3000]  # XP to reach levels 1 to 10
+free_cap = 7          # every skill rises this far...
+masteries = 3         # ...and this many go on to 10, each chosen once it's reached the cap
+repeat = 0.75         # a repeat pays this share of what it paid the time before...
+forget = 6.0          # ...until it's been left alone this many game hours
+spot = 8              # tiles: running round in a square this size is running in the same spot
+chased = 12           # tiles: one of the dead after you this near makes a run count...
+loaded = 0.5          # ...or carrying more than this share of what you can
+
+[skills.xp]
+hit = 1.0             # a blow that lands: about 2.3 for a shambler felled in three
+down = 0.5            # on one that's down, this share of it
+run = 0.2             # a tile run under risk (Athletics)
+bandage = 3.0         # a bandage on a wound that's bleeding (First Aid)
+
+[skills.level]
+# What each level gives, as a share a level (level 5 gives five times this).
+hit = 0.01            # weapon skills: the chance a blow lands, added (85% is 95% at 10)
+damage = 0.05         # more harm a blow
+endurance = 0.03      # less endurance a swing
+wear = 0.05           # less wear on the weapon a blow
+run_speed = 0.02      # Athletics: faster running...
+run_endurance = 0.04  # ...for less endurance
+bandage = 0.05        # First Aid: bandaging takes less time

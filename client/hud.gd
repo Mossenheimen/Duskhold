@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nTab pack  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nTab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -108,7 +108,7 @@ func _process(delta: float) -> void:
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 5: day and night\n%s  ·  Seed %d  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 5: skills\n%s  ·  Seed %d  ·  %d×" % [
 		time_of_day(clock), world_seed, speed]
 	_paused.visible = paused
 

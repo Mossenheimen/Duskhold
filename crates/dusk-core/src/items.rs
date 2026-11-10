@@ -10,6 +10,7 @@ use crate::actor::{ActorId, ActorKind};
 use crate::geom::{Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{Purpose, below, mix64, roll};
+use crate::skills::{On, Skill};
 use crate::world::{Event, Swing, World};
 
 /// A full condition: a new weapon.
@@ -38,8 +39,13 @@ impl Item {
 /// What an item does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ItemKind {
-    /// Swung in hand: its swing, and the condition it loses a blow.
-    Weapon { swing: Swing, wear: u16 },
+    /// Swung in hand: its swing, the condition it loses a blow, and the skill it trains and uses
+    /// (`skills.rs`; None for one that needs no skill).
+    Weapon {
+        swing: Swing,
+        wear: u16,
+        skill: Option<Skill>,
+    },
     /// Put on a bleeding wound, it stops the bleeding: `time` ticks to put on.
     Bandage { time: u32 },
     /// Eaten: hunger falls by `nutrition` (thousandths of a point); `time` ticks to eat.
@@ -304,7 +310,8 @@ impl World {
             && self.load(id) > self.defs.carry
     }
 
-    /// The swing an actor makes: its weapon's, else bare hands (for a creature, its own).
+    /// The swing an actor makes: its weapon's, as its skill with it makes it, else bare hands
+    /// (for a creature, its own).
     pub(crate) fn swing_of(&self, id: ActorId) -> Swing {
         let c = self.rules.combat;
         let Some(a) = self.actors.get(id) else {
@@ -314,14 +321,19 @@ impl World {
             return c.shambler_attack;
         }
         match a.hands.and_then(|h| self.defs.item(h.def)).map(|d| &d.kind) {
-            Some(ItemKind::Weapon { swing, .. }) => *swing,
+            Some(ItemKind::Weapon { swing, skill, .. }) => {
+                let level = skill.map_or(0, |s| self.skill_level(id, s));
+                self.rules.skills.swing(*swing, level)
+            }
             _ => c.attack,
         }
     }
 
-    /// A blow landed: the weapon in hand wears, and breaks at 0.
+    /// A blow landed: the weapon in hand wears (less in skilled hands), and breaks at 0.
     pub(crate) fn wear(&mut self, id: ActorId) {
         let defs = self.defs.clone();
+        let level = self.weapon_skill(id).map_or(0, |s| self.skill_level(id, s));
+        let rules = self.rules.skills;
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -329,7 +341,7 @@ impl World {
         let Some(ItemKind::Weapon { wear, .. }) = defs.item(held.def).map(|d| &d.kind) else {
             return;
         };
-        held.condition = held.condition.saturating_sub(*wear);
+        held.condition = held.condition.saturating_sub(rules.wear(*wear, level));
         if held.condition == 0 {
             a.hands = None;
             self.events.push(Event::WeaponBroke {
@@ -465,7 +477,12 @@ impl World {
         if a.items[slot].count == 0 {
             a.items.remove(slot);
         }
+        let bandaged = matches!(event, Event::Bandaged { .. });
         self.events.push(event);
+        // A wound that was really bleeding: First Aid learns from every one.
+        if bandaged {
+            self.train(id, Skill::FirstAid, self.rules.skills.bandage, On::Once);
+        }
     }
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
@@ -476,7 +493,10 @@ impl World {
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         match (using, &self.defs.item(def)?.kind) {
             (false, ItemKind::Weapon { .. }) => Some(self.defs.wield_time),
-            (true, ItemKind::Bandage { time }) if a.body.bleeding() => Some(*time),
+            (true, ItemKind::Bandage { time }) if a.body.bleeding() => {
+                let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
+                Some(self.rules.skills.bandage(*time, level))
+            }
             (true, ItemKind::Food { time, .. } | ItemKind::Drink { time, .. }) => {
                 Some((*time).max(1))
             }

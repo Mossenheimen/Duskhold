@@ -5,7 +5,7 @@ use std::path::Path;
 
 use dusk_core::items::NEW;
 use dusk_core::world::Swing;
-use dusk_core::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
+use dusk_core::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable, Skill};
 use serde::Deserialize;
 
 use crate::{DataError, Fixture, chance, check_unique, fail, points, read, ticks};
@@ -45,7 +45,8 @@ struct ItemFile {
     light: Option<LightFile>,
 }
 
-/// A weapon's swing (as rules.toml's [attack]) and the condition, out of 100, a blow costs it.
+/// A weapon's swing (as rules.toml's [attack]), the condition, out of 100, a blow costs it, and
+/// the skill it trains and uses.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WeaponFile {
@@ -56,6 +57,7 @@ struct WeaponFile {
     damage: (f64, f64),
     noise: i32,
     wear: f64,
+    skill: String,
 }
 
 #[derive(Deserialize)]
@@ -177,6 +179,21 @@ fn weapon(file: &Path, id: &str, w: &WeaponFile) -> Result<ItemKind, DataError> 
             format!("item {id:?}: wear is out of 100, and endurance can't be negative"),
         ));
     }
+    let Some(skill) = Skill::from_id(&w.skill).filter(|s| s.is_weapon()) else {
+        let skills: Vec<&str> = Skill::ALL
+            .iter()
+            .filter(|s| s.is_weapon())
+            .map(|s| s.id())
+            .collect();
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: weapon.skill {:?} isn't a weapon skill ({})",
+                w.skill,
+                skills.join(", ")
+            ),
+        ));
+    };
     Ok(ItemKind::Weapon {
         swing: Swing {
             wind_up,
@@ -187,6 +204,7 @@ fn weapon(file: &Path, id: &str, w: &WeaponFile) -> Result<ItemKind, DataError> 
             noise: w.noise,
         },
         wear: (w.wear * 10.0).round() as u16,
+        skill: Some(skill),
     })
 }
 

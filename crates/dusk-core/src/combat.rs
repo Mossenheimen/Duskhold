@@ -10,6 +10,7 @@ use crate::body::{Part, Wound, WoundKind};
 use crate::geom::{Dir8, TilePos};
 use crate::grid::{Edge, edge_owner};
 use crate::hash::{Purpose, below, roll};
+use crate::skills::Skill;
 use crate::world::{Event, Sound, World};
 
 /// The living fight the dead, and the dead go for the living.
@@ -268,6 +269,8 @@ impl World {
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
         let swing = self.swing_of(id);
+        // Read now: the blow may break the weapon.
+        let skill = self.weapon_skill(id);
         self.emit(Sound {
             at: pos,
             loudness: swing.noise,
@@ -346,7 +349,8 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
-        // Every blow that lands wears the weapon that struck it.
+        // A blow on a foe teaches the weapon's skill; and every blow that lands wears the weapon.
+        self.train_blow(id, skill, target, down);
         self.wear(id);
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
@@ -534,6 +538,7 @@ impl World {
     /// standing still, bleeding, and death.
     pub(crate) fn bodies(&mut self, strides: &[(ActorId, Option<bool>)]) {
         let (e, c, tick) = (self.rules.endurance, self.rules.combat, self.tick);
+        let s = self.rules.skills;
         for i in 0..self.characters.len() {
             let id = self.characters[i];
             // Held, you strain: no breath comes back. Hungry or thirsty, it comes back slower.
@@ -551,7 +556,10 @@ impl World {
                 .find(|(who, _)| *who == id)
                 .and_then(|&(_, s)| s);
             match (stride, a.action) {
-                (Some(true), _) => a.body.spend(e.run),
+                (Some(true), _) => {
+                    let athletics = a.skills.level(Skill::Athletics, &s);
+                    a.body.spend(s.run_cost(e.run, athletics));
+                }
                 _ if held => {}
                 (Some(false), _) => a.body.endurance += e.walk * recovery / 1000,
                 (None, None) => a.body.endurance += e.rest * recovery / 1000,
