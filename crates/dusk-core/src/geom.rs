@@ -10,6 +10,7 @@ pub const Z_LEVELS: usize = (Z_MAX - Z_MIN + 1) as usize;
 
 /// A tile: x east, y south, z the floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct TilePos {
     pub x: i32,
     pub y: i32,
@@ -66,6 +67,7 @@ impl TilePos {
 
 /// A chunk's place in the world, counted in chunks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChunkPos {
     pub x: i32,
     pub y: i32,
@@ -80,6 +82,7 @@ impl ChunkPos {
 
 /// The eight headings, clockwise from north (north is -y, up the screen).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Dir8 {
     N,
     NE,

@@ -1,11 +1,12 @@
 //! Tiles, the edges between them, and the chunks that hold both.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::geom::{CHUNK_SIZE, ChunkPos, Dir8, TilePos, Z_LEVELS, Z_MAX, Z_MIN};
 
 /// What a tile has to stand on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Ground {
     /// Nothing: outside the world, or a hole. Blocks movement and sight.
     #[default]
@@ -23,6 +24,7 @@ pub enum Ground {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Tile {
     pub ground: Ground,
     /// What stands on it, by its number in the data's fixture list; 0 for nothing.
@@ -71,6 +73,7 @@ impl Tile {
 /// What's on the edge between two tiles: Zomboid's walls, doors and windows. Doors and windows
 /// carry the boards nailed across them (`barricade.rs`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Edge {
     #[default]
     Open,
@@ -141,6 +144,7 @@ const CELLS: usize = (CHUNK_SIZE * CHUNK_SIZE) as usize * Z_LEVELS;
 
 /// 32 × 32 tiles on every floor, each with its north and west edge.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Chunk {
     tiles: Vec<Tile>,
     north: Vec<Edge>,
@@ -182,6 +186,10 @@ pub fn edge_owner(pos: TilePos, dir: Dir8) -> (TilePos, Dir8) {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Grid {
     chunks: BTreeMap<ChunkPos, Chunk>,
+    /// Whether changes are being tracked (from `track_changes` on), and the chunks changed
+    /// since: what a save keeps, the rest coming back from the seed.
+    tracking: bool,
+    changed: BTreeSet<ChunkPos>,
 }
 
 impl Grid {
@@ -199,6 +207,38 @@ impl Grid {
     pub fn set_tile(&mut self, pos: TilePos, tile: Tile) {
         if let Some(i) = index(pos) {
             self.chunks.entry(pos.chunk()).or_default().tiles[i] = tile;
+            self.touch(pos);
+        }
+    }
+
+    /// From now on, the grid notes which chunks change. The generator calls this once the land
+    /// is made, so a save holds only what play changed.
+    pub fn track_changes(&mut self) {
+        self.tracking = true;
+        self.changed.clear();
+    }
+
+    fn touch(&mut self, pos: TilePos) {
+        if self.tracking {
+            self.changed.insert(pos.chunk());
+        }
+    }
+
+    /// The chunks changed since `track_changes`, in order: every chunk, for a grid that never
+    /// began tracking (a hand-made map has no seed to come back from).
+    pub fn changed_chunks(&self) -> Vec<(ChunkPos, Chunk)> {
+        self.chunks
+            .iter()
+            .filter(|(at, _)| !self.tracking || self.changed.contains(at))
+            .map(|(&at, chunk)| (at, chunk.clone()))
+            .collect()
+    }
+
+    /// Puts a whole chunk in place (a saved one, over the one the seed made).
+    pub fn put_chunk(&mut self, at: ChunkPos, chunk: Chunk) {
+        self.chunks.insert(at, chunk);
+        if self.tracking {
+            self.changed.insert(at);
         }
     }
 
@@ -221,12 +261,14 @@ impl Grid {
     pub fn set_north(&mut self, pos: TilePos, edge: Edge) {
         if let Some(i) = index(pos) {
             self.chunks.entry(pos.chunk()).or_default().north[i] = edge;
+            self.touch(pos);
         }
     }
 
     pub fn set_west(&mut self, pos: TilePos, edge: Edge) {
         if let Some(i) = index(pos) {
             self.chunks.entry(pos.chunk()).or_default().west[i] = edge;
+            self.touch(pos);
         }
     }
 

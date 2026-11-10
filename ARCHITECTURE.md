@@ -259,6 +259,7 @@ All the numbers come from the data files. A body has parts with wounds (type, se
 - **Format:** `serde` with `postcard`, a version header and explicit migrations.
 - **Everything else comes back from the seed:** unchanged chunks and unopened containers.
 - **Autosave** every clock hour.
+- **Built** at step 6, slice 1 (`save.rs`), as one file for the one patch; migrations and one file a chunk come when the world outgrows that.
 
 ## World generation: `dusk-gen`
 
@@ -487,7 +488,7 @@ Asked for by the user after step 5, together with the concept's (`CONCEPT.md`, u
 **Three debts to pay before more is built on them** (they're step 6's first slices):
 
 1. **The shambler is hard-coded** (paid the same day: step 6, slice 0). `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
-2. **Nothing is saved.** The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
+2. **Nothing is saved** (paid 2026-11-10: step 6, slice 1). The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
 3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now.
 
 **Smaller things, noted and left:**
@@ -750,7 +751,24 @@ Game first: every step ends with something to look at or play.
      - **for tests and tools:** `World::creature_mut(n)` changes a kind's numbers in one world (`w.creature_mut(0).wander = 0`). They live in the definitions, so set them after `w.defs` is replaced, not before;
      - **the client:** actor kind 1 + n is creature n, and `creature_names()` gives their names. The news still says "a shambler" in its own words; that changes when the ghoul arrives;
      - **measured:** 100 dead 129,000 ticks/s, 500 dead 15,500, the patch 367,000: about 8% under the last figures, for copying a kind's numbers each time an actor moves or thinks. Still six times the budget.
-   - **Slice 1, saves:** the seed, the changed chunks, stores, boards, actors and the clock (`postcard`, as planned above), autosaved each game hour and on quitting. A test: save, load, and the state hash is the same.
+   - **Slice 1, saves:** done 2026-11-10; 99 tests pass. What it has:
+     - **a save is the seed plus what changed** (`dusk-core/src/save.rs`): a header (the format's version, the seed, the tick, and a label: the region) and then the state that came from neither the seed nor the data: every actor, sounds not yet heard, what touched containers and floors hold, the harm doors and boards have taken, and the chunks that changed. After a 16-minute walk it's 5 KB;
+     - **the grid notes what changed:** `Grid::track_changes` is called once the land is made, and from then a changed tile or edge marks its chunk. A save keeps those chunks whole. A new patch has none; shutting one door makes one, of 64. (A hand-made map never starts tracking, so all of it is saved: it has no seed to come back from.);
+     - **loading** (`dusk_gen::load`) reads the header, makes that patch afresh from its seed (23 ms), and restores the save onto it (`World::restore`), which also works out again who stands where;
+     - **what isn't saved, on purpose:** the rules and the definitions. They come from `data/`, so a retuned game loads old saves. Items and creatures are saved by number, though, so the header carries a fingerprint of their ids, and a save made with other data is refused, not loaded wrong;
+     - **the core still touches no file:** it gives and takes bytes. The Godot extension writes them, beside the save first and then moved into place, so a crash half-way leaves the last save whole;
+     - **`serde` and `postcard` are optional** (the core's `save` feature, the user's choice on 2026-11-09 over a hand-written format). `dusk-gen` turns it on; the core alone still builds with no dependencies. Each saved type carries `#[cfg_attr(feature = "save", derive(...))]`;
+     - **the map you remember** is the caller's to keep (`View::remembered`, `recall`): the save holds it as opaque bytes, run-length packed (64 KB of tiles to a few hundred bytes);
+     - **the tests** (`dusk-gen/tests/save.rs`): a played patch saved and loaded has the same state hash, plays on to the same hashes for 1,000 ticks under the same intents, and saves again to the very same bytes; a save holds only the changed chunk; a cut-short file, another seed's world and other data are each refused, leaving the world as it was;
+     - **the game** (Defaults):
+       - with no flags it's saved to `user://world.dusk` and carries on from it ("You carry on. Day 1 · 08:16");
+       - it saves on each game hour, on F5, on Esc and on closing the window;
+       - dying saves once, so there's no going back to before it; a save with you dead in it opens on the death screen;
+       - R, alive, asks twice before leaving the world for a new one, which takes the save's place;
+       - **any flag makes a trial run,** which neither loads nor saves unless `--save=PATH` says where. So pictures and tests never touch the player's world;
+     - **checked in the game:** two headless runs, the second carrying on from the first's save at the right minute;
+     - **not yet:** migrations between versions (a save of another version is refused with a message), more than one save, and saving the camera or the speed dial;
+     - **measured:** no change (131,000 ticks/s with 100 dead, the patch 367,000).
    - **Slice 2, the stash and bring-it-home XP:** a worth on every item, a container marked as your stash, a bed slept in; character levels from what reaches the stash. The first use of the worth-per-kilo choice.
    - **Slice 3, the ghoul and ghoul fever:** faster than your walk, drawn to blood; the fever's three days, and its cure as an item for now (the abbey sells it later).
    - **Slice 4, the dead get up:** corpses rise after a while unless burned (oil, a pyre); the region's pressure number, raised by the unburned and lowered by burning.

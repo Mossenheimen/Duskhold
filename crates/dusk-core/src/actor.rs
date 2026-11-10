@@ -8,6 +8,7 @@ use crate::skills::Skills;
 pub type ActorId = crate::arena::Id;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum ActorKind {
     Character,
     /// A creature, by its number in `Defs::creatures` (`creature.rs`).
@@ -28,6 +29,7 @@ impl ActorKind {
 
 /// What a controller (the player, a bot, an NPC's or a creature's AI) asks an actor to do.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Intent {
     #[default]
     Idle,
@@ -86,6 +88,7 @@ impl Intent {
 
 /// The timed actions (`ARCHITECTURE.md`, one rule for every timed action).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum ActionKind {
     Attack,
     Shove,
@@ -125,6 +128,7 @@ pub enum ActionKind {
 /// then a recovery until `length`. Nobody moves while acting, and a hit during the wind-up
 /// breaks it off.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Action {
     pub kind: ActionKind,
     pub dir: Dir8,
@@ -144,6 +148,7 @@ impl Action {
 /// A step under way from one tile to the next. `progress` and `length` are in thousandths of a
 /// tile: 1000 for a straight step, 1414 for a diagonal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Step {
     pub from: TilePos,
     pub to: TilePos,
@@ -155,6 +160,7 @@ pub struct Step {
 
 /// A creature's thoughts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Mind {
     #[default]
     None,
@@ -191,6 +197,7 @@ pub struct Speeds {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Actor {
     pub kind: ActorKind,
     pub pos: TilePos,

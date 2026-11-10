@@ -3,6 +3,7 @@
 
 /// An id into an [`Arena`]. An id whose value was removed never finds the slot's next value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Id {
     index: u32,
     generation: u32,
@@ -16,12 +17,14 @@ impl Id {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 enum Slot<T> {
     Full { generation: u32, value: T },
     Free { generation: u32 },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Arena<T> {
     slots: Vec<Slot<T>>,
     free: Vec<u32>,

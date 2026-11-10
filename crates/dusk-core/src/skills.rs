@@ -24,6 +24,7 @@ use crate::world::{Event, Swing, World};
 
 /// The skills there is a use for so far. (Sneak and the rest come with what trains them.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Skill {
     Blade,
     Blunt,
@@ -167,6 +168,7 @@ impl Default for SkillRules {
 
 /// What an act was done to, so the same act on the same thing pays less each time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum On {
     /// A foe.
     Foe(ActorId),
@@ -180,6 +182,7 @@ pub(crate) enum On {
 
 /// An act that paid lately: how many times, and when last.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct Repeat {
     skill: Skill,
     on: On,
@@ -192,6 +195,7 @@ const REMEMBERED: usize = 32;
 
 /// An actor's skills.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Skills {
     /// XP in each skill, by `Skill::ALL`, in thousandths.
     pub xp: [u32; SKILLS],

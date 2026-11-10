@@ -459,6 +459,7 @@ pub enum Event {
 
 /// A sound made this tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sound {
     pub at: TilePos,
     /// How many tiles it carries in the open.
@@ -563,6 +564,36 @@ impl World {
             self.characters.push(id);
         }
         Some(id)
+    }
+
+    /// Sounds made since the last hearing pass, to be heard on the next tick.
+    #[cfg(feature = "save")]
+    pub(crate) fn pending_sounds(&self) -> &[Sound] {
+        &self.sounds
+    }
+
+    /// Replaces every actor (a save's), and works out again who stands where.
+    #[cfg(feature = "save")]
+    pub(crate) fn set_actors(
+        &mut self,
+        actors: Arena<Actor>,
+        characters: Vec<ActorId>,
+        sounds: Vec<Sound>,
+    ) {
+        self.actors = actors;
+        self.characters = characters;
+        self.sounds = sounds;
+        self.events.clear();
+        self.occupied.clear();
+        for (id, a) in self.actors.iter() {
+            // The living hold their tile, and the one they're stepping onto.
+            if !a.dead {
+                self.occupied.insert(a.pos, id);
+                if let Some(step) = a.step {
+                    self.occupied.insert(step.to, id);
+                }
+            }
+        }
     }
 
     pub fn actor(&self, id: ActorId) -> Option<&Actor> {

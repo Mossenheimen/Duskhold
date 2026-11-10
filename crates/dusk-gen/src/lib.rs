@@ -7,6 +7,7 @@
 
 pub mod noise;
 
+use dusk_core::save::SaveError;
 use dusk_core::text::TextGrid;
 use dusk_core::{ActorKind, ChunkPos, Edge, Ground, Tile, TilePos, World, geom::CHUNK_SIZE};
 use dusk_data::{Data, PrefabCell, Region, Side, doors_on};
@@ -417,5 +418,35 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
             }
         }
     }
+    // The land is made: from here on, what changes is what a save keeps.
+    world.grid.track_changes();
     (world, layout)
+}
+
+/// A patch as a save (`dusk_core::save`): its seed and its region, and what play has changed.
+/// `memory` is the caller's own bytes to keep with it (the map the character remembers).
+pub fn save(world: &World, region: &Region, memory: &[u8]) -> Vec<u8> {
+    world.save(&region.id, memory)
+}
+
+/// A saved patch, loaded: the world, its layout, and the caller's bytes.
+pub struct Loaded {
+    pub world: World,
+    pub layout: Layout,
+    pub memory: Vec<u8>,
+}
+
+/// Loads a save: makes its patch afresh from the seed (the header names the region), then puts
+/// the saved state onto it.
+pub fn load(data: &Data, bytes: &[u8]) -> Result<Loaded, SaveError> {
+    let header = dusk_core::save::peek(bytes)?;
+    // A region the data no longer has: the save was made with other data.
+    let region = data.region(&header.label).ok_or(SaveError::DataChanged)?;
+    let (mut world, layout) = patch(header.seed, data, region);
+    let memory = world.restore(bytes)?;
+    Ok(Loaded {
+        world,
+        layout,
+        memory,
+    })
 }

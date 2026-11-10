@@ -21,6 +21,8 @@ pub mod items;
 pub mod light;
 pub mod needs;
 pub mod path;
+#[cfg(feature = "save")]
+pub mod save;
 pub mod senses;
 pub mod skills;
 pub mod text;

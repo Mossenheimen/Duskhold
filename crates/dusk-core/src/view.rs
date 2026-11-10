@@ -55,6 +55,36 @@ impl View {
     pub fn sees(&self, at: TilePos) -> bool {
         self.at(at) == SEEN
     }
+
+    /// What's remembered, to keep with a save: the tiles, with those seen now as memories, as
+    /// runs of (value, how many). A map is mostly long runs of never-seen, so it packs small.
+    pub fn remembered(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut tiles = self.tiles.iter().map(|&t| t.min(REMEMBERED)).peekable();
+        while let Some(value) = tiles.next() {
+            let mut run: u16 = 1;
+            while run < u16::MAX && tiles.next_if_eq(&value).is_some() {
+                run += 1;
+            }
+            out.push(value);
+            out.extend(run.to_le_bytes());
+        }
+        out
+    }
+
+    /// Takes back what `remembered` gave (ignored if it isn't for a map of this size).
+    pub fn recall(&mut self, runs: &[u8]) {
+        let (runs, cut_short) = runs.as_chunks::<3>();
+        let mut tiles = Vec::with_capacity(self.tiles.len());
+        for &[value, lo, hi] in runs {
+            let n = usize::from(u16::from_le_bytes([lo, hi]));
+            tiles.resize(tiles.len() + n, value.min(REMEMBERED));
+        }
+        if cut_short.is_empty() && tiles.len() == self.tiles.len() {
+            self.tiles = tiles;
+            self.now.clear();
+        }
+    }
 }
 
 impl World {

@@ -112,6 +112,9 @@ pub struct DuskWorld {
     /// elsewhere). Read the first time a patch is made.
     #[var]
     data_dir: GString,
+    /// The region the world is a patch of: what a save says to make again. Empty for a world
+    /// that isn't saved (the demo town).
+    region: String,
     /// The hour of day the game starts at, for development (`--hour`); -1 for the data's.
     #[var]
     #[init(val = -1)]
@@ -359,6 +362,19 @@ impl DuskWorld {
         }
     }
 
+    /// Loads the game's data, the first time it's needed.
+    fn load_data(&mut self) -> Result<(), String> {
+        if self.data.is_none() {
+            let dir = if self.data_dir.is_empty() {
+                dusk_data::default_dir()
+            } else {
+                std::path::PathBuf::from(self.data_dir.to_string())
+            };
+            self.data = Some(dusk_data::load(&dir).map_err(|e| e.to_string())?);
+        }
+        Ok(())
+    }
+
     fn start(&mut self, mut world: World, size: (i32, i32)) {
         if (0..24).contains(&self.start_hour) {
             world.rules.clock.start = self.start_hour as u32 * 60;
@@ -384,16 +400,8 @@ impl DuskWorld {
     /// all's well, or what's wrong with the data.
     #[func]
     fn load_patch(&mut self, seed: i64) -> GString {
-        if self.data.is_none() {
-            let dir = if self.data_dir.is_empty() {
-                dusk_data::default_dir()
-            } else {
-                std::path::PathBuf::from(self.data_dir.to_string())
-            };
-            match dusk_data::load(&dir) {
-                Ok(data) => self.data = Some(data),
-                Err(e) => return GString::from(&e.to_string()),
-            }
+        if let Err(problem) = self.load_data() {
+            return GString::from(&problem);
         }
         let Some(data) = &self.data else {
             return GString::new();
@@ -402,13 +410,79 @@ impl DuskWorld {
             return GString::from("data/regions has no hushlands.toml");
         };
         let (world, layout) = dusk_gen::patch(seed as u64, data, region);
+        self.region = region.id.clone();
         self.start(world, (layout.width, layout.height));
         GString::new()
+    }
+
+    /// Saves the game to a file (`dusk_core::save`): the seed, and what play has changed, with
+    /// the map you remember. Written beside it first and then moved into place, so a crash
+    /// half-way leaves the last save whole. Returns "" when all's well, or what went wrong.
+    #[func]
+    fn save_game(&self, path: GString) -> GString {
+        let (Some(world), Some(data)) = (&self.world, &self.data) else {
+            return GString::from("there's no world to save");
+        };
+        let Some(region) = data.region(&self.region) else {
+            return GString::from("this world isn't one that saves");
+        };
+        let bytes = dusk_gen::save(world, region, &self.view.remembered());
+        let path = std::path::PathBuf::from(path.to_string());
+        let write = || -> std::io::Result<()> {
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let beside = path.with_extension("tmp");
+            std::fs::write(&beside, &bytes)?;
+            std::fs::rename(&beside, &path)
+        };
+        match write() {
+            Ok(()) => GString::new(),
+            Err(e) => GString::from(&e.to_string()),
+        }
+    }
+
+    /// Loads a saved game: its patch made afresh from its seed, then what the save holds put
+    /// onto it. Returns "" when all's well, or why not (and the world, if any, is as it was).
+    #[func]
+    fn load_game(&mut self, path: GString) -> GString {
+        if let Err(problem) = self.load_data() {
+            return GString::from(&problem);
+        }
+        let bytes = match std::fs::read(path.to_string()) {
+            Ok(bytes) => bytes,
+            Err(e) => return GString::from(&e.to_string()),
+        };
+        let Some(data) = &self.data else {
+            return GString::new();
+        };
+        let loaded = match dusk_gen::load(data, &bytes) {
+            Ok(loaded) => loaded,
+            Err(e) => return GString::from(&e.to_string()),
+        };
+        self.region = loaded.layout.region.id.clone();
+        self.start(loaded.world, (loaded.layout.width, loaded.layout.height));
+        // What you'd seen before, then what you see now.
+        self.view.recall(&loaded.memory);
+        if let Some(world) = &self.world {
+            if let Some(me) = world.character() {
+                world.look(me, &mut self.view);
+            }
+            watch(world, self.size, &self.view, &mut self.watched);
+        }
+        GString::new()
+    }
+
+    /// The world's seed (a loaded game's is its save's).
+    #[func]
+    fn world_seed(&self) -> i64 {
+        self.world.as_ref().map_or(0, |w| w.seed as i64)
     }
 
     /// Loads the little demo town (build step 3's) instead.
     #[func]
     fn load_town(&mut self, seed: i64) {
+        self.region.clear();
         self.start(demo::town(seed as u64), (demo::TOWN_W, demo::TOWN_H));
     }
 

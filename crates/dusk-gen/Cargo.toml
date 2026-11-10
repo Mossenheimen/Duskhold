@@ -6,7 +6,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
-dusk-core = { path = "../dusk-core" }
+dusk-core = { path = "../dusk-core", features = ["save"] }
 dusk-data = { path = "../dusk-data" }
 
 [lints]

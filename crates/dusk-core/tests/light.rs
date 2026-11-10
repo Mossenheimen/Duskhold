@@ -272,3 +272,23 @@ fn the_dead_are_faster_at_night() {
         "a quarter faster: {day} by day, {night} at night"
     );
 }
+
+#[test]
+fn what_you_remember_packs_small_and_comes_back() {
+    let (w, me) = field(30, 30, 12, at(15, 15));
+    let mut view = View::new(30, 30);
+    w.look(me, &mut view);
+    let packed = view.remembered();
+    assert!(packed.len() < 300, "{} bytes for 900 tiles", packed.len());
+    let mut back = View::new(30, 30);
+    back.recall(&packed);
+    // What was seen is remembered; what wasn't, isn't.
+    for (now, then) in view.tiles.iter().zip(&back.tiles) {
+        assert_eq!(*then, (*now).min(REMEMBERED));
+    }
+    assert!(back.tiles.contains(&REMEMBERED) && back.tiles.contains(&UNSEEN));
+    // For a map of another size, it's ignored.
+    let mut other = View::new(10, 10);
+    other.recall(&packed);
+    assert!(other.tiles.iter().all(|&t| t == UNSEEN));
+}

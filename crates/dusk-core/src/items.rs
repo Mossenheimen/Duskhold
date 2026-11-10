@@ -20,6 +20,7 @@ pub const NEW: u16 = 1000;
 
 /// One item, or a stack of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Item {
     /// Its definition's number: its place in `Defs::items`.
     pub def: u16,

@@ -11,7 +11,12 @@ extends Node3D
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
 ## sleep, drink (from water), light, skills (the panel), board or unboard S real seconds in;
-## --news print the news too (for --headless); --hour=H start at that hour of the day.
+## --news print the news too (for --headless); --hour=H start at that hour of the day;
+## --save=PATH carry on from that save if it's there, and save to it.
+##
+## With no flags at all, the game is saved (user://world.dusk) and carries on from its save. Any
+## flag makes it a trial run, which neither loads nor saves unless --save says where: so pictures
+## and tests never touch the player's world.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -134,9 +139,14 @@ var data_dir := ""  # --data: another data folder (a mod, or a test)
 var walk_at := Vector2i(-1, -1)
 var played := 0.0
 var scripted: Array = []  # --do: [real seconds, action], soonest first
+var save_path := ""  # where the game is saved; "" for a trial run, which isn't
+var saved_hour := -1  # the game hour of the last autosave
+var restart_asked := -100.0  # when R last asked "abandon this world?", in seconds played
 
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().is_empty():
+		save_path = ProjectSettings.globalize_path("user://world.dusk")
 	_read_args()
 	_add_input_actions()
 	_build_stage()
@@ -166,13 +176,23 @@ func _ready() -> void:
 	add_child(litter)
 	skills = Skills.new()
 	add_child(skills)
-	_start()
+	_start(true)
 
 
-## Makes the world afresh: a patch of the Hushlands from the seed (or the demo town). The same
-## seed and the same input play the same game.
-func _start() -> void:
-	if use_town:
+## Makes the world: the saved one if `carry_on` and there is one, else afresh, a patch of the
+## Hushlands from the seed (or the demo town). The same seed and the same input play the same
+## game.
+func _start(carry_on := false) -> void:
+	var loaded := false
+	var not_loaded := ""
+	if carry_on and save_path != "" and FileAccess.file_exists(save_path):
+		not_loaded = dusk.load_game(save_path)
+		loaded = not_loaded.is_empty()
+		if loaded:
+			town_seed = dusk.world_seed()
+	if loaded:
+		pass
+	elif use_town:
 		dusk.load_town(town_seed)
 	else:
 		var problem: String = dusk.load_patch(town_seed)
@@ -212,6 +232,19 @@ func _start() -> void:
 	if walk_at.x >= 0:
 		dusk.walk_to(walk_at.x, walk_at.y, false)
 	dusk.speed = start_speed
+	var clock: PackedInt32Array = dusk.clock()
+	saved_hour = clock[1]
+	if loaded:
+		dead = dusk.character_body()[3] == 1
+		if dead:
+			hud.show_death("You died here.", clock[3])
+		else:
+			hud.say("You carry on.  %s" % Hud.time_of_day(clock))
+	elif not not_loaded.is_empty():
+		# The save stays where it is until this new world's first save replaces it.
+		hud.say("The saved game couldn't be loaded: %s. A new world, then." % not_loaded)
+	else:
+		_save("")  # a new world takes the old one's place at once
 
 
 func _process(delta: float) -> void:
@@ -234,6 +267,9 @@ func _process(delta: float) -> void:
 	map_view.update(focus)
 	_move_cursor()
 	var clock: PackedInt32Array = dusk.clock()
+	if not dead and clock[1] != saved_hour:
+		saved_hour = clock[1]
+		_save("")  # on the game hour
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
@@ -255,6 +291,7 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("quit"):
+		_save("")
 		get_tree().quit()
 	if dusk == null:
 		return
@@ -320,9 +357,37 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
+	elif event.is_action_pressed("save"):
+		if save_path == "":
+			hud.say("This is a trial run: it isn't saved.")
+		else:
+			_save("Saved.")
 	elif event.is_action_pressed("restart"):
-		town_seed += 1
-		_start()
+		# Alive in a saved world, R asks twice: the world you leave is gone for good.
+		if save_path != "" and not dead and played - restart_asked > 4.0:
+			restart_asked = played
+			hud.say("Abandon this world for a new one? Press R again.")
+		else:
+			town_seed += 1
+			_start()
+
+
+## Saves the game, if this run is saved, and says `said` if that's not "". The core makes the
+## save; the extension writes the file.
+func _save(said: String) -> void:
+	if save_path == "" or dusk == null:
+		return
+	var problem: String = dusk.save_game(save_path)
+	if not problem.is_empty():
+		hud.say("The game couldn't be saved: " + problem)
+	elif said != "":
+		hud.say(said)
+
+
+## Closing the window saves too.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save("")
 
 
 ## Which way to swing for a click on `tile`: toward it if one of the living dead stands there
@@ -620,6 +685,7 @@ func _die() -> void:
 	elif how.is_empty():
 		how = "You died."
 	hud.show_death(how, dusk.clock()[3])
+	_save("")  # the world keeps your death: there's no going back to before it
 
 
 func _move_camera(delta: float) -> void:
@@ -762,6 +828,7 @@ func _add_input_actions() -> void:
 		"board": [KEY_B],
 		"unboard": [KEY_N],
 		"restart": [KEY_R],
+		"save": [KEY_F5],
 		"quit": [KEY_ESCAPE],
 	}
 	for action: String in keys:
@@ -798,6 +865,8 @@ func _read_args() -> void:
 			shot_after = value.to_float()
 		elif arg == "--news":
 			print_news = true
+		elif arg.begins_with("--save="):
+			save_path = value
 		elif arg.begins_with("--hour="):
 			start_hour = value.to_int()
 
@@ -840,6 +909,8 @@ func _run_script() -> void:
 				_light_or_douse()
 			"skills":
 				skills.toggle()
+			"save":
+				_save("Saved.")
 			"board":
 				_board_up()
 			"unboard":

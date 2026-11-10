@@ -10,6 +10,7 @@ pub const FULL: i32 = 1000;
 
 /// Where a blow lands: Zomboid's health panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Part {
     Head,
     Torso,
@@ -69,6 +70,7 @@ impl Part {
 
 /// What the dead do to you. (Burns, fractures and the rest come with the regions that deal them.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum WoundKind {
     Scratch,
     Laceration,
@@ -88,6 +90,7 @@ impl WoundKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Wound {
     pub part: Part,
     pub kind: WoundKind,
@@ -100,6 +103,7 @@ pub struct Wound {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Body {
     pub health: i32,
     pub endurance: i32,

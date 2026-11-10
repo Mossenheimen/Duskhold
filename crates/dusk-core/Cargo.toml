@@ -5,7 +5,14 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+# Saves (save.rs): the one part of the core with dependencies, so it's optional. The game's
+# crates turn it on; the core alone builds without it.
+save = ["dep:serde", "dep:postcard"]
+
 [dependencies]
+serde = { version = "1.0.229", features = ["derive"], optional = true }
+postcard = { version = "1", default-features = false, features = ["alloc"], optional = true }
 
 [lints]
 workspace = true
