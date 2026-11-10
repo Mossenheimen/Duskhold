@@ -362,6 +362,25 @@ fn describe(w: &World, e: Event) -> String {
         Event::Mastered { who, skill, level } => {
             format!("{} mastered {} (now {level})", name(who), skill.name())
         }
+        Event::Boarded {
+            who, at, boards, ..
+        } => format!(
+            "{} nailed a board by ({}, {}): {boards} on it",
+            name(who),
+            at.x,
+            at.y
+        ),
+        Event::Unboarded {
+            who, at, boards, ..
+        } => format!(
+            "{} pried a board off by ({}, {}): {boards} left",
+            name(who),
+            at.x,
+            at.y
+        ),
+        Event::BoardBroke { at, boards, .. } => {
+            format!("a board by ({}, {}) broke: {boards} left", at.x, at.y)
+        }
     }
 }
 

@@ -6,9 +6,10 @@ use std::sync::Arc;
 
 use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
+use crate::barricade::Barricade;
 use crate::body::{Body, Part, WoundKind};
 use crate::geom::{ChunkPos, Dir8, TilePos};
-use crate::grid::{Edge, Grid};
+use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::items::{Defs, Item};
 use crate::light::{Day, Sight, bright_enough};
@@ -49,6 +50,9 @@ pub struct Rules {
     pub shambler_darkvision: i32,
     /// At night the dead move this much faster, per mille.
     pub shambler_night_speed: u32,
+    /// How far the groan of a shambler that catches sight of prey carries, in tiles (0: it makes
+    /// none). The others in earshot come to it, and so to you: how one becomes a crowd.
+    pub shambler_groan: i32,
     /// Out of 10,000: how often an idle shambler shuffles a step when it thinks.
     pub wander_chance: u32,
     /// Ticks waiting on a blocked path before planning it again.
@@ -66,6 +70,8 @@ pub struct Rules {
     pub sight: Sight,
     /// Learning by doing (`skills.rs`).
     pub skills: SkillRules,
+    /// Boarding up doors and windows (`barricade.rs`).
+    pub barricade: Barricade,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -172,6 +178,8 @@ impl Default for Rules {
             shambler_cone: Cone { cos: 5000 },
             shambler_darkvision: 1,
             shambler_night_speed: 1250,
+            // Silent in the fixed test set; the game's dead groan (creatures/hushlands.toml).
+            shambler_groan: 0,
             wander_chance: 1000,
             repath_after: 20,
             path_budget: 4096,
@@ -301,6 +309,7 @@ impl Default for Rules {
                 beside: 1,
             },
             skills: SkillRules::default(),
+            barricade: Barricade::default(),
         }
     }
 }
@@ -492,6 +501,26 @@ pub enum Event {
         skill: Skill,
         level: u8,
     },
+    /// `who` nailed a board across a door or window (named as doors are), which has `boards` now.
+    Boarded {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+        boards: u8,
+    },
+    /// `who` pried a board off; `boards` are left.
+    Unboarded {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+        boards: u8,
+    },
+    /// A board was beaten through; `boards` are left.
+    BoardBroke {
+        at: TilePos,
+        side: Dir8,
+        boards: u8,
+    },
 }
 
 /// A sound made this tick.
@@ -517,6 +546,9 @@ pub struct World {
     pub(crate) events: Vec<Event>,
     /// The harm each beaten door has taken, by (owner tile, side). Ordered, for the hash.
     pub(crate) door_damage: BTreeMap<(TilePos, Dir8), i32>,
+    /// What each board nailed across a door or window has left, the last nailed last, by
+    /// (owner tile, side) (`barricade.rs`). Ordered, for the hash.
+    pub(crate) board_strength: BTreeMap<(TilePos, Dir8), Vec<i32>>,
     /// The data's definitions (items, loot tables, containers, the start kit), shared
     /// read-only by every world.
     pub defs: Arc<Defs>,
@@ -547,6 +579,7 @@ impl World {
             sounds: Vec::new(),
             events: Vec::new(),
             door_damage: BTreeMap::new(),
+            board_strength: BTreeMap::new(),
             defs,
             stores: BTreeMap::new(),
         }
@@ -687,6 +720,7 @@ impl World {
         self.tick.hash(&mut h);
         self.grid.hash(&mut h);
         self.door_damage.hash(&mut h);
+        self.board_strength.hash(&mut h);
         self.stores.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
@@ -771,6 +805,9 @@ impl World {
             strides.push((id, stride));
         }
         self.hear(&ids);
+        // Heard, this tick's sounds are done with. One made from here on (a groan, as a creature
+        // thinks) is heard on the next tick.
+        self.sounds.clear();
         for &id in &ids {
             self.think(id);
         }
@@ -779,7 +816,6 @@ impl World {
         self.needs();
         self.burn_lights();
         self.drag_downs();
-        self.sounds.clear();
     }
 
     /// Starts a step if the actor's intent asks for one, then moves it along. The tile ahead is
@@ -1000,6 +1036,14 @@ impl World {
                     who: id,
                     target: prey,
                 });
+                // Catching sight of prey, it groans, and the others in earshot come to it. Only
+                // one that was after nothing groans, so a crowd doesn't call itself for ever.
+                if rules.shambler_groan > 0 {
+                    // (`emit`, written out: the actor is still borrowed here.)
+                    let (at, loudness, by) = (pos, rules.shambler_groan, Some(id));
+                    self.sounds.push(Sound { at, loudness, by });
+                    self.events.push(Event::Sound { at, loudness, by });
+                }
             }
             target = Some(at);
             since = tick;
@@ -1120,7 +1164,7 @@ impl World {
         sides
             .into_iter()
             .flatten()
-            .find(|&d| self.grid.edge(from, d) == Edge::Door { open: false })
+            .find(|&d| self.grid.edge(from, d).is_shut_door())
     }
 
     /// The heading a shambler lurches in to reach `goal`: straight at it, or an eighth of a turn

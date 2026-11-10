@@ -30,8 +30,8 @@ id = "shed"           # crates
 rolls = [1, 2]
 items = [
   { item = "hammer", weight = 3 },
-  { item = "nails", weight = 3, count = [1, 2] },
-  { item = "plank", weight = 2, count = [1, 3] },
+  { item = "nails", weight = 3, count = [6, 24] },
+  { item = "plank", weight = 3, count = [1, 4] },
   { item = "shovel", weight = 2 },
   { item = "pitchfork", weight = 1 },
   { item = "hand_axe", weight = 1 },
@@ -56,5 +56,5 @@ items = [
   { item = "torch", weight = 1 },
   { item = "bandage", weight = 2 },
   { item = "jerky", weight = 2, count = [1, 3] },
-  { item = "nails", weight = 1 },
+  { item = "nails", weight = 1, count = [2, 10] },
 ]

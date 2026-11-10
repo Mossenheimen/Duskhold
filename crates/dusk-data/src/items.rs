@@ -377,6 +377,8 @@ pub(crate) fn load_defs(
         unwield_time: (ticks(rules_file, "items.unwield", times.unwield)? as u32).max(1),
         light_time: (ticks(rules_file, "items.light", times.light)? as u32).max(1),
         douse_time: (ticks(rules_file, "items.douse", times.douse)? as u32).max(1),
+        // Filled in by the loader, from rules.toml's [barricade].
+        boarding: None,
     };
     let mut start = Vec::new();
     for name in kit.kit {

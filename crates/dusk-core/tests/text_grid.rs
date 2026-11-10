@@ -27,19 +27,15 @@ fn edges_land_on_the_right_sides() {
     let g = stamped(HOUSE);
     let p = |x, y| TilePos::new(x, y, 0);
     assert_eq!(g.west(p(2, 0)), Edge::Wall, "between the two rooms");
-    assert_eq!(
-        g.north(p(2, 1)),
-        Edge::Door { open: false },
-        "the shut door"
-    );
+    assert_eq!(g.north(p(2, 1)), Edge::door(false), "the shut door");
     assert_eq!(
         g.edge(p(3, 1), Dir8::E),
-        Edge::Door { open: true },
+        Edge::door(true),
         "the open door on the east side"
     );
     assert_eq!(
         g.edge(p(1, 1), Dir8::S),
-        Edge::Window { open: false },
+        Edge::window(false),
         "the window on the south side"
     );
     assert_eq!(g.edge(p(0, 0), Dir8::E), Edge::Open);
@@ -87,5 +83,5 @@ fn four_turns_or_two_mirrors_change_nothing() {
         "render reads back the same text"
     );
     // Mirrored, the open door moves from the east side to the west.
-    assert_eq!(house.mirrored().west(0, 1), Edge::Door { open: true });
+    assert_eq!(house.mirrored().west(0, 1), Edge::door(true));
 }

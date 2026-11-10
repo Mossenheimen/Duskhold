@@ -7,6 +7,7 @@
 //! of a tile holds what's dropped there.
 
 use crate::actor::{ActorId, ActorKind};
+use crate::barricade::Boarding;
 use crate::geom::{Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{Purpose, below, mix64, roll};
@@ -110,6 +111,8 @@ pub struct Defs {
     pub unwield_time: u32,
     pub light_time: u32,
     pub douse_time: u32,
+    /// What boarding up takes (`barricade.rs`); None: nobody can.
+    pub boarding: Option<Boarding>,
 }
 
 impl Defs {

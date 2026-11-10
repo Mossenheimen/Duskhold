@@ -306,10 +306,10 @@ impl TextGrid<Cell> {
 fn edge_from(ch: char, wall: char) -> Option<Edge> {
     Some(match ch {
         ' ' => Edge::Open,
-        'D' => Edge::Door { open: false },
-        'd' => Edge::Door { open: true },
-        'W' => Edge::Window { open: false },
-        'w' => Edge::Window { open: true },
+        'D' => Edge::door(false),
+        'd' => Edge::door(true),
+        'W' => Edge::window(false),
+        'w' => Edge::window(true),
         'f' => Edge::Fence,
         c if c == wall => Edge::Wall,
         _ => return None,
@@ -320,10 +320,11 @@ fn edge_symbol(edge: Edge, wall: char) -> char {
     match edge {
         Edge::Open => ' ',
         Edge::Wall => wall,
-        Edge::Door { open: false } => 'D',
-        Edge::Door { open: true } => 'd',
-        Edge::Window { open: false } => 'W',
-        Edge::Window { open: true } => 'w',
+        // Boards don't show in a text grid.
+        Edge::Door { open: false, .. } => 'D',
+        Edge::Door { open: true, .. } => 'd',
+        Edge::Window { open: false, .. } => 'W',
+        Edge::Window { open: true, .. } => 'w',
         Edge::Fence => 'f',
     }
 }

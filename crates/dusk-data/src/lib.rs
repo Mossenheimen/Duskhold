@@ -5,6 +5,7 @@
 //! exist (fixtures in a legend, prefab tags in a region), and every number must make sense, or
 //! loading fails with the file and what's wrong.
 
+mod barricade;
 mod items;
 mod light;
 mod needs;
@@ -234,13 +235,11 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         wield: raw.character.wield.as_deref(),
         kit: &raw.character.kit,
     };
-    let defs = Arc::new(items::load_defs(
-        dir,
-        &rules_file,
-        kit,
-        &raw.items,
-        &fixtures,
-    )?);
+    let mut defs = items::load_defs(dir, &rules_file, kit, &raw.items, &fixtures)?;
+    if let Some(b) = &raw.barricade {
+        defs.boarding = Some(barricade::to_boarding(&rules_file, b, &defs.items)?);
+    }
+    let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
     for file in files_in(&dir.join("prefabs"))? {
@@ -299,6 +298,9 @@ struct RulesFile {
     day: light::DayFile,
     sight: light::SightFile,
     skills: skills::SkillsFile,
+    /// Optional: a data set with no [barricade] can't board anything up.
+    #[serde(default)]
+    barricade: Option<barricade::BarricadeFile>,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -477,6 +479,9 @@ struct CreatureFile {
     darkvision: i32,
     /// At night it moves this many times as fast.
     night_speed: f64,
+    /// Tiles its groan carries as it catches sight of prey (0, or left out: it makes none).
+    #[serde(default)]
+    groan: i32,
 }
 
 #[derive(Deserialize)]
@@ -642,12 +647,13 @@ fn to_rules(
     rules.shambler_sight = c.sight;
     // The cone's half-angle as a cosine, in ten-thousandths: worked out once, here.
     rules.shambler_cone = light::cone(c.cone);
-    if c.darkvision < 0 || !(0.5..=3.0).contains(&c.night_speed) {
+    if c.darkvision < 0 || c.groan < 0 || !(0.5..=3.0).contains(&c.night_speed) {
         return Err(fail(
             cfile,
-            "darkvision can't be negative, and night_speed is a pace from 0.5 to 3",
+            "darkvision and groan can't be negative, and night_speed is a pace from 0.5 to 3",
         ));
     }
+    rules.shambler_groan = c.groan;
     rules.shambler_darkvision = c.darkvision;
     rules.shambler_night_speed = (c.night_speed * 1000.0).round() as u32;
     rules.think_every = c.think_every;
@@ -746,6 +752,9 @@ fn to_rules(
     (rules.clock, rules.needs) = needs::to_needs(file, r)?;
     (rules.day, rules.sight) = light::to_light(file, r)?;
     rules.skills = skills::to_skills(file, r, rules.clock.ticks_per_minute)?;
+    if let Some(b) = &r.barricade {
+        rules.barricade = barricade::to_barricade(file, b)?;
+    }
     Ok(rules)
 }
 

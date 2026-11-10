@@ -121,6 +121,7 @@ hit = 1.5
 down = 0.25
 run = 0.1
 bandage = 2.0
+board = 1.5
 [skills.level]
 hit = 0.02
 damage = 0.1
@@ -129,6 +130,8 @@ wear = 0.1
 run_speed = 0.03
 run_endurance = 0.05
 bandage = 0.08
+board_time = 0.04
+board_strength = 0.2
 "#;
 
 const SHAMBLER: &str = r#"
@@ -407,6 +410,9 @@ fn the_games_items_and_loot_load() {
     };
     assert_eq!((swing.wind_up, swing.damage, wear), (4, (80, 120), 10));
     assert_eq!(skill, Some(dusk_core::Skill::Blunt));
+    let boarding = d.boarding.as_ref().expect("the game's data can board up");
+    assert_eq!(boarding.hammers, vec![id("hammer")]);
+    assert_eq!((boarding.plank, boarding.nails), (id("plank"), id("nails")));
     assert_eq!(d.wield, Some(id("cudgel")));
     assert_eq!(
         d.kit,
@@ -427,7 +433,7 @@ fn the_games_items_and_loot_load() {
     assert_eq!(
         d.items[usize::from(id("torch"))].kind,
         dusk_core::ItemKind::Light {
-            radius: 5,
+            radius: 7,
             wane: 17
         },
         "an hour's burn: 17 of its 1000 a game minute"
@@ -466,6 +472,63 @@ fn skills_load_in_the_cores_units() {
         (s.weapon_damage, s.run_speed, s.bandage_time),
         (100, 30, 80)
     );
+}
+
+#[test]
+fn barricades_load_with_their_items() {
+    let items = r#"
+[[item]]
+id = "plank"
+name = "plank"
+weight = 2.0
+[[item]]
+id = "nails"
+name = "nails"
+weight = 0.01
+stack = 100
+[[item]]
+id = "hammer"
+name = "hammer"
+weight = 1.0
+weapon = { wind_up = 0.35, recovery = 0.5, endurance = 8, hit = 0.85, damage = [7, 11], noise = 4, wear = 0.8, skill = "blunt" }
+"#;
+    let barricade = "[barricade]
+plank = \"plank\"
+nails = \"nails\"
+nails_each = 2
+                     hammers = [\"hammer\"]
+most = 3
+strength = 45
+time = 2.5
+noise = 10
+                     remove = 1.0
+remove_noise = 5
+";
+    let rules = format!("{RULES}{barricade}");
+    let mut files = test_files(PREFABS);
+    files[0].1 = &rules;
+    files.push(("items/tools.toml", items));
+    let data = load(&folder("barricade", &files)).unwrap_or_else(|e| panic!("{e}"));
+    let b = data.rules.barricade;
+    assert_eq!((b.most, b.strength, b.time, b.noise), (3, 450, 25, 10));
+    assert_eq!(b.remove_time, 10);
+    let boarding = data
+        .defs
+        .boarding
+        .as_ref()
+        .expect("boarding up is possible");
+    assert_eq!(
+        (boarding.plank, boarding.nails, boarding.nails_each),
+        (0, 1, 2)
+    );
+    assert_eq!(boarding.hammers, vec![2]);
+    assert_eq!(data.rules.skills.board_strength, 200);
+
+    // A hammer that isn't an item is refused.
+    let typo = rules.replace("hammers = [\"hammer\"]", "hammers = [\"hamer\"]");
+    files[0].1 = &typo;
+    let err = load(&folder("barricade-typo", &files)).unwrap_err();
+    assert!(err.message.contains("\"hamer\""), "{err}");
 }
 
 #[test]
@@ -518,4 +581,61 @@ food = { nutrition = 40, time = 4.0 }
         err.file.ends_with("kitchen.toml") && err.message.contains("\"breadd\""),
         "{err}"
     );
+}
+
+/// The game's own numbers must keep light a real trade (CONCEPT.md, pillar 4): at night a torch
+/// shows you much more, and shows you to the dead from as far as they see.
+#[test]
+fn at_night_a_torch_is_worth_its_risk_in_the_games_data() {
+    use dusk_core::{ActorKind, Intent, Tile, TilePos, View, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let mut rules = data.rules;
+    rules.clock.start = 0; // midnight
+    rules.wander_chance = 0;
+    let mut w = World::with_defs(1, rules, data.defs.clone());
+    for y in 0..40 {
+        for x in 0..5 {
+            w.grid.set_tile(TilePos::new(x, y, 0), Tile::GRASS);
+        }
+    }
+    // You face south down a strip of grass; a shambler 8 tiles behind you faces your back.
+    let me = w
+        .spawn(ActorKind::Character, TilePos::new(2, 10, 0))
+        .unwrap();
+    let z = w.spawn(ActorKind::Shambler, TilePos::new(2, 2, 0)).unwrap();
+    let ahead = |w: &World| {
+        let mut view = View::new(5, 40);
+        w.look(me, &mut view);
+        (1..30)
+            .take_while(|d| view.sees(TilePos::new(2, 10 + d, 0)))
+            .count()
+    };
+    let you = TilePos::new(2, 10, 0);
+    let dark = ahead(&w);
+    assert!(
+        !w.sees(z, you),
+        "in the dark it doesn't see you 8 tiles off"
+    );
+    let torch = data
+        .defs
+        .items
+        .iter()
+        .position(|i| i.id == "torch")
+        .unwrap() as u16;
+    let slot = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.def == torch)
+        .expect("a torch in the kit") as u16;
+    w.intent(me, Intent::Light { slot, def: torch });
+    w.step(20);
+    let lit = ahead(&w);
+    assert!(dark <= 2, "{dark} tiles in the dark");
+    assert!(
+        lit >= 3 * dark.max(1),
+        "{lit} tiles by torch, {dark} without"
+    );
+    assert!(w.sees(z, you), "and by your torch it does");
 }

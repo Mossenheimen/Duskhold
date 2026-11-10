@@ -49,7 +49,7 @@ recovery = 0.4
 endurance = 5
 hit = 0.85            # the chance it lands (on one that's down, it always does)
 damage = [2, 4]       # health, out of a shambler's 30; double on one that's down
-noise = 2             # tiles
+noise = 3             # tiles: fists are as quiet as a knife, and stay in the room
 
 [shove]
 # No harm: it pushes back a tile, breaks off what they were doing, and sometimes knocks down.
@@ -132,7 +132,8 @@ dawn = 5.0            # hours
 sunrise = 7.0
 sunset = 19.0
 dark = 21.0
-night = 20            # a moon and the stars
+night = 10            # a moon and the stars: you make out 2 tiles, against about 6 by a torch.
+                      # (At 20 a torch showed you 5 tiles for 4 without: all cost, no gain.)
 indoors = 0.6         # under a roof, the share of the sky's light that's left
 
 [sight]
@@ -163,6 +164,7 @@ hit = 1.0             # a blow that lands: about 2.3 for a shambler felled in th
 down = 0.5            # on one that's down, this share of it
 run = 0.2             # a tile run under risk (Athletics)
 bandage = 3.0         # a bandage on a wound that's bleeding (First Aid)
+board = 2.0           # a board nailed across a door or window (Carpentry); the same one pays less
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -173,3 +175,21 @@ wear = 0.05           # less wear on the weapon a blow
 run_speed = 0.02      # Athletics: faster running...
 run_endurance = 0.04  # ...for less endurance
 bandage = 0.05        # First Aid: bandaging takes less time
+board_time = 0.05     # Carpentry: boarding up takes less time...
+board_strength = 0.1  # ...and the boards take more beating
+
+[barricade]
+# Board up a shut door or a window: a plank and nails for each board, with a hammer in hand or in
+# the pack. A boarded door can't be opened; a boarded window can't be seen through. The dead's
+# blows break the boards first, the last nailed first, then the door. Hammering is loud: board up
+# by day. Prying a board off gives you the plank back; the nails are bent.
+plank = "plank"
+nails = "nails"
+nails_each = 2
+hammers = ["hammer"]
+most = 4              # boards on one door or window
+strength = 50         # what a board takes before it breaks (a door takes 60)
+time = 4.0            # seconds to nail one on...
+noise = 12            # ...heard this far, in tiles, as you start and as you finish
+remove = 3.0          # seconds to pry one off
+remove_noise = 6

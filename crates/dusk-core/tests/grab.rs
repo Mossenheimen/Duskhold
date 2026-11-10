@@ -206,3 +206,70 @@ fn the_dead_beat_down_a_shut_door() {
         *e == Event::Reached { who: z, target: me }
     });
 }
+
+#[test]
+fn with_both_hands_full_only_a_struggle_gets_you_free() {
+    use dusk_core::world::Swing;
+    use dusk_core::{Defs, Item, ItemDef, ItemKind};
+    let item = |id: &str, kind| ItemDef {
+        id: id.into(),
+        name: id.into(),
+        weight: 500,
+        stack: 1,
+        kind,
+    };
+    let swing = Swing {
+        wind_up: 4,
+        recovery: 6,
+        endurance: 0,
+        hit: 10_000,
+        damage: (10, 10),
+        noise: 4,
+    };
+    let defs = Defs {
+        items: vec![
+            item(
+                "club",
+                ItemKind::Weapon {
+                    swing,
+                    wear: 0,
+                    skill: None,
+                },
+            ),
+            item("torch", ItemKind::Light { radius: 5, wane: 1 }),
+        ],
+        wield: Some(0),
+        kit: vec![Item::new(1, 1)],
+        light_time: 1,
+        ..Defs::default()
+    };
+    // The corridor, with you put there once the items are, so you get the kit.
+    let (mut w, _) = World::from_text(1, &CORRIDOR.replace('@', ".")).unwrap();
+    w.defs = std::sync::Arc::new(defs);
+    w.rules.wander_chance = 0;
+    let c = &mut w.rules.combat;
+    (c.grab, c.parting_grab, c.shambler_attack.hit) = (10_000, 0, 10_000);
+    c.wounds = [WoundRule {
+        damage: 0,
+        bleed: 0,
+    }; 3];
+    let me = w
+        .spawn(ActorKind::Character, TilePos::new(0, 1, 0))
+        .unwrap();
+    let z = shambler(&w);
+    w.intent(me, Intent::Light { slot: 0, def: 1 });
+    until(&mut w, 100, "grab", |e| {
+        *e == Event::Grabbed { who: z, target: me }
+    });
+    assert!(w.actor(me).unwrap().light.is_some(), "the torch is up");
+    assert!(!w.can_shove(me), "a weapon and a torch: no hand free");
+    w.rules.combat.grab = 0;
+    w.intent(me, Intent::Shove { dir: None });
+    w.step(10);
+    assert_eq!(w.holders(me), vec![z], "the shove never starts");
+    w.rules.combat.struggle.hit = 10_000;
+    w.intent(me, Intent::Struggle);
+    until(&mut w, 20, "struggling free", |e| {
+        *e == Event::Freed { who: me, from: z }
+    });
+}

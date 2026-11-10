@@ -53,9 +53,9 @@ pub fn town(seed: u64) -> World {
             g.set_tile(p(x, y), Tile::GRASS);
         }
     }
-    let open = Edge::Door { open: true };
-    let shut = Edge::Door { open: false };
-    let window = Edge::Window { open: false };
+    let open = Edge::door(true);
+    let shut = Edge::door(false);
+    let window = Edge::window(false);
 
     // The farmhouse, north-west: two rooms, the front door on the street.
     building(g, 2, 2, 9, 6);

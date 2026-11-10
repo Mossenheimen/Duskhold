@@ -156,7 +156,7 @@ fn a_shut_door_keeps_the_dead_out() {
     w.intent(me, Intent::Door);
     w.step(10);
     let door = w.grid.edge(TilePos::new(1, 0, 0), Dir8::E);
-    assert_eq!(door, Edge::Door { open: false }, "you shut it");
+    assert_eq!(door, Edge::door(false), "you shut it");
     w.make_sound(TilePos::new(1, 0, 0), 10, Some(me));
     w.step(300);
     assert!(w.actor(z).unwrap().pos.x >= 2, "it stayed outside");

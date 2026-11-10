@@ -37,6 +37,7 @@ struct XpFile {
     down: f64,
     run: f64,
     bandage: f64,
+    board: f64,
 }
 
 /// What a level does, as a share a level.
@@ -50,6 +51,8 @@ struct LevelFile {
     run_speed: f64,
     run_endurance: f64,
     bandage: f64,
+    board_time: f64,
+    board_strength: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -91,7 +94,7 @@ pub(crate) fn to_skills(
         ));
     }
     let x = &s.xp;
-    if [x.hit, x.run, x.bandage]
+    if [x.hit, x.run, x.bandage, x.board]
         .iter()
         .any(|&p| !(0.0..1e6).contains(&p))
     {
@@ -99,14 +102,26 @@ pub(crate) fn to_skills(
     }
     let l = &s.level;
     // A level can't take away more than all of something by level 10.
-    let less = [l.endurance, l.wear, l.run_endurance, l.bandage, l.hit];
+    let less = [
+        l.endurance,
+        l.wear,
+        l.run_endurance,
+        l.bandage,
+        l.board_time,
+        l.hit,
+    ];
     let tenth = |p: f64| (0.0..=1.0 / f64::from(MAX_LEVEL)).contains(&p);
-    if !less.iter().all(|&p| tenth(p)) || !unit(l.damage) || !unit(l.run_speed) {
+    if !less.iter().all(|&p| tenth(p))
+        || !unit(l.damage)
+        || !unit(l.run_speed)
+        || !unit(l.board_strength)
+    {
         return Err(fail(
             file,
             format!(
-                "skills.level: hit, endurance, wear, run_endurance and bandage are shares from 0 \
-                 to {} (all of it by level {MAX_LEVEL}); damage and run_speed from 0 to 1",
+                "skills.level: hit, endurance, wear, run_endurance, bandage and board_time are \
+                 shares from 0 to {} (all of it by level {MAX_LEVEL}); damage, run_speed and \
+                 board_strength from 0 to 1",
                 1.0 / f64::from(MAX_LEVEL)
             ),
         ));
@@ -128,6 +143,7 @@ pub(crate) fn to_skills(
         down: mille(x.down),
         run: xp(x.run),
         bandage: xp(x.bandage),
+        board: xp(x.board),
         chased: s.chased,
         loaded: mille(s.loaded),
         weapon_hit: (l.hit * 10_000.0).round() as u32,
@@ -137,5 +153,7 @@ pub(crate) fn to_skills(
         run_speed: mille(l.run_speed),
         run_endurance: mille(l.run_endurance),
         bandage_time: mille(l.bandage),
+        board_time: mille(l.board_time),
+        board_strength: mille(l.board_strength),
     })
 }

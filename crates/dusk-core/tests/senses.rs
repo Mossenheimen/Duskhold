@@ -133,3 +133,45 @@ fn a_shambler_doesnt_see_you_behind_it_until_it_hears_you() {
     );
     assert!(reached, "and it got you");
 }
+
+/// One shambler behind a wall, one in the passage that sees you at once.
+const BEHIND_A_WALL: &str = "\
++-+
+|z|
++-+
+|z|
++ +
+|.|
++ +
+|@|
++-+
+";
+
+#[test]
+fn a_shambler_that_sees_you_groans_and_the_others_come() {
+    let heard_by_the_other = |groan: i32| {
+        let (mut w, placed) = World::from_text(1, BEHIND_A_WALL).unwrap();
+        w.rules.wander_chance = 0;
+        w.rules.shambler_groan = groan;
+        let (behind, sees_you) = (placed[0], placed[1]);
+        let mut heard = None;
+        for _ in 0..20 {
+            w.step(1);
+            for e in w.events() {
+                if let Event::Heard { who, at } = e
+                    && who == behind
+                {
+                    heard = Some(at);
+                }
+            }
+        }
+        assert_eq!(w.actor(sees_you).unwrap().alert(), Alert::Hunting);
+        heard
+    };
+    assert_eq!(heard_by_the_other(0), None, "silent, nothing reaches it");
+    assert_eq!(
+        heard_by_the_other(10),
+        Some(TilePos::new(0, 1, 0)),
+        "it goes to the one that groaned"
+    );
+}

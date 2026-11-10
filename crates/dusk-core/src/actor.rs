@@ -54,6 +54,11 @@ pub enum Intent {
     Light { slot: u16, def: u16 },
     /// Put out the light you hold up.
     Douse,
+    /// Nail a board across the door or window beside you (`barricade.rs`): the one you face,
+    /// else the first of north, east, south and west.
+    Board,
+    /// Pry a board off the boarded door or window beside you.
+    Unboard,
 }
 
 impl Intent {
@@ -73,15 +78,34 @@ pub enum ActionKind {
     Shove,
     Door,
     Struggle,
-    Take { at: TilePos, slot: u16, def: u16 },
-    Drop { slot: u16, def: u16 },
-    Use { slot: u16, def: u16 },
-    Wield { slot: u16, def: u16 },
+    Take {
+        at: TilePos,
+        slot: u16,
+        def: u16,
+    },
+    Drop {
+        slot: u16,
+        def: u16,
+    },
+    Use {
+        slot: u16,
+        def: u16,
+    },
+    Wield {
+        slot: u16,
+        def: u16,
+    },
     Unwield,
     Sleep,
     DrinkWater,
-    Light { slot: u16, def: u16 },
+    Light {
+        slot: u16,
+        def: u16,
+    },
     Douse,
+    /// Boarding up, or prying a board off, the edge on the action's side.
+    Board,
+    Unboard,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,

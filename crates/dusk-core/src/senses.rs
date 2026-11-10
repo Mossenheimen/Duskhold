@@ -14,10 +14,13 @@ pub struct Muffling {
 impl Muffling {
     pub fn of(self, edge: Edge) -> i32 {
         match edge {
-            Edge::Open | Edge::Door { open: true } | Edge::Window { open: true } | Edge::Fence => 0,
+            Edge::Open
+            | Edge::Door { open: true, .. }
+            | Edge::Window { open: true, .. }
+            | Edge::Fence => 0,
             Edge::Wall => self.wall,
-            Edge::Door { open: false } => self.shut_door,
-            Edge::Window { open: false } => self.shut_window,
+            Edge::Door { open: false, .. } => self.shut_door,
+            Edge::Window { open: false, .. } => self.shut_window,
         }
     }
 }
@@ -86,7 +89,8 @@ fn side_clear(grid: &Grid, p: TilePos, first: Dir8, second: Dir8) -> bool {
         && !grid.edge(via, second).blocks_sight()
 }
 
-/// Can `from` see `to`? Solid tiles, walls and shut doors block sight; glass doesn't. A diagonal
+/// Can `from` see `to`? Solid tiles, walls, shut doors and boarded windows block sight; glass
+/// doesn't. A diagonal
 /// step on the line gets past a corner if either of its sides is clear. (Light and the vision
 /// cone come at build step 5.)
 pub fn line_of_sight(grid: &Grid, from: TilePos, to: TilePos) -> bool {

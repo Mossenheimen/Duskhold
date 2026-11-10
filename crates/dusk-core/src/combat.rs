@@ -76,6 +76,8 @@ impl World {
                 ActionKind::DrinkWater => self.drink_water(id),
                 ActionKind::Light { slot, def } => self.hold_light(id, slot, def),
                 ActionKind::Douse => self.douse(id),
+                ActionKind::Board => self.nail_board(id, action.dir),
+                ActionKind::Unboard => self.pry_board(id, action.dir),
             }
         }
         true
@@ -142,6 +144,22 @@ impl World {
                     0,
                 )
             }
+            Intent::Board => {
+                let side = self.can_board(id).ok()?;
+                let level = self.skill_level(id, Skill::Carpentry);
+                let ticks = self
+                    .rules
+                    .skills
+                    .board_ticks(self.rules.barricade.time, level);
+                // The hammering starts, and everything in earshot hears it.
+                self.start_hammering(id);
+                (ActionKind::Board, side, ticks, 0, 0)
+            }
+            Intent::Unboard => {
+                let side = self.can_unboard(id).ok()?;
+                let ticks = self.rules.barricade.remove_time.max(1);
+                (ActionKind::Unboard, side, ticks, 0, 0)
+            }
             _ => return self.begin_free(id, intent, held),
         };
         self.start(id, kind, dir, wind_up, recovery, endurance)
@@ -168,6 +186,9 @@ impl World {
                 let dir = self.aim(id, dir);
                 (ActionKind::Attack, dir, s.wind_up, s.recovery, s.endurance)
             }
+            // Held, a shove needs a hand free: a weapon in one and a light in the other leave
+            // only the struggle.
+            Intent::Shove { .. } if held && !self.can_shove(id) => return None,
             Intent::Shove { dir } => {
                 let s = c.shove;
                 let dir = self.aim(id, dir);
@@ -175,11 +196,24 @@ impl World {
             }
             Intent::Door => {
                 let dir = self.door_beside(a.pos, a.facing)?;
+                // A boarded door stays shut until its boards are off.
+                if self.grid.edge(a.pos, dir).boards() > 0 {
+                    return None;
+                }
                 (ActionKind::Door, dir, c.door_ticks, 0, 0)
             }
             _ => return None,
         };
         self.start(id, kind, dir, wind_up, recovery, endurance)
+    }
+
+    /// Whether `id` could shove now. Free, anyone can. Held, it takes a free hand: with a weapon
+    /// in one hand and a light held up in the other, there's only the struggle.
+    pub fn can_shove(&self, id: ActorId) -> bool {
+        let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
+            return false;
+        };
+        !(self.is_held(id) && a.hands.is_some() && a.light.is_some())
     }
 
     /// An action begins: it faces its way and pays its endurance. Out of breath, it takes half
@@ -278,7 +312,7 @@ impl World {
         });
         let at = pos.step(dir);
         let Some(target) = self.target_at(id, at) else {
-            if dir.split().is_none() && self.grid.edge(pos, dir) == (Edge::Door { open: false }) {
+            if dir.split().is_none() && self.grid.edge(pos, dir).is_shut_door() {
                 self.thump(id, dir);
             } else {
                 self.events.push(Event::Missed { who: id, at });
@@ -349,9 +383,13 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
-        // A blow on a foe teaches the weapon's skill; and every blow that lands wears the weapon.
+        // A blow on a foe teaches the weapon's skill, and wears the weapon: but not a blow on one
+        // that's down. Finishing it there spares the weapon (Zomboid's stomp), which is what a
+        // shove buys you.
         self.train_blow(id, skill, target, down);
-        self.wear(id);
+        if !down {
+            self.wear(id);
+        }
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
             return;
@@ -366,7 +404,8 @@ impl World {
         }
     }
 
-    /// A blow on a shut door. Beaten past its strength, the door gives way for good.
+    /// A blow on a shut door. Boards across it take it first (`barricade.rs`); beaten past its
+    /// strength, the door gives way for good.
     fn thump(&mut self, id: ActorId, dir: Dir8) {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
@@ -381,9 +420,6 @@ impl World {
             harm /= 2;
         }
         let (at, side) = edge_owner(pos, dir);
-        let taken = self.door_damage.entry((at, side)).or_insert(0);
-        *taken += harm;
-        let broke = *taken >= c.door_strength;
         self.emit(Sound {
             at: pos,
             loudness: c.thump_noise,
@@ -391,7 +427,12 @@ impl World {
         });
         self.events.push(Event::Thumped { who: id, at, side });
         self.wear(id);
-        if broke {
+        if self.beat_boards(pos, dir, harm) {
+            return;
+        }
+        let taken = self.door_damage.entry((at, side)).or_insert(0);
+        *taken += harm;
+        if *taken >= c.door_strength {
             self.door_damage.remove(&(at, side));
             self.grid.set_edge(pos, dir, Edge::Open);
             self.events.push(Event::DoorBroke { at, side });
@@ -452,13 +493,14 @@ impl World {
         });
     }
 
-    /// Opens or shuts the door on that side. It won't shut on someone stepping through.
+    /// Opens or shuts the door on that side. It won't shut on someone stepping through, and a
+    /// boarded one doesn't open.
     fn toggle_door(&mut self, id: ActorId, dir: Dir8) {
         let c = self.rules.combat;
         let Some(pos) = self.actors.get(id).map(|a| a.pos) else {
             return;
         };
-        let Edge::Door { open } = self.grid.edge(pos, dir) else {
+        let Edge::Door { open, boards: 0 } = self.grid.edge(pos, dir) else {
             return;
         };
         let other = pos.step(dir);
@@ -470,7 +512,7 @@ impl World {
         if open && crossing {
             return;
         }
-        self.grid.set_edge(pos, dir, Edge::Door { open: !open });
+        self.grid.set_edge(pos, dir, Edge::door(!open));
         self.emit(Sound {
             at: pos,
             loudness: c.door_noise,

@@ -19,7 +19,7 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, ItemKind,
-    NoSleep, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
+    NoBoard, NoSleep, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -72,6 +72,9 @@ const DAYBREAK: i32 = 31;
 const SKILL_UP: i32 = 32;
 const SKILL_AT_CAP: i32 = 33;
 const MASTERED: i32 = 34;
+const BOARDED: i32 = 35;
+const UNBOARDED: i32 = 36;
+const BOARD_BROKE: i32 = 37;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -225,6 +228,16 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             at(who),
             skill as i32 * 100 + i32::from(level),
         ),
+        // A door or window, named by its owner tile (as doors are), and the boards left on it.
+        Event::Boarded {
+            who, at: p, boards, ..
+        } => (BOARDED, Some(who), None, (p.x, p.y), i32::from(boards)),
+        Event::Unboarded {
+            who, at: p, boards, ..
+        } => (UNBOARDED, Some(who), None, (p.x, p.y), i32::from(boards)),
+        Event::BoardBroke { at: p, boards, .. } => {
+            (BOARD_BROKE, None, None, (p.x, p.y), i32::from(boards))
+        }
         Event::Sound { .. } => return None,
     };
     Some([
@@ -280,16 +293,18 @@ fn ground_code(ground: Ground) -> i32 {
     }
 }
 
+/// An edge's kind (`chunk_edges`), plus 16 for each board nailed across it.
 fn edge_code(edge: Edge) -> i32 {
-    match edge {
+    let kind = match edge {
         Edge::Open => 0,
         Edge::Wall => 1,
-        Edge::Door { open: false } => 2,
-        Edge::Door { open: true } => 3,
-        Edge::Window { open: false } => 4,
-        Edge::Window { open: true } => 5,
+        Edge::Door { open: false, .. } => 2,
+        Edge::Door { open: true, .. } => 3,
+        Edge::Window { open: false, .. } => 4,
+        Edge::Window { open: true, .. } => 5,
         Edge::Fence => 6,
-    }
+    };
+    kind + 16 * i32::from(edge.boards())
 }
 
 #[godot_api]
@@ -439,7 +454,8 @@ impl DuskWorld {
 
     /// The edges a chunk's tiles own that aren't open, as (x, y, side, kind) quadruples in world
     /// tiles. Side 0 is the tile's north edge and 1 its west edge. Kind 1 is a wall, 2 a shut
-    /// door, 3 an open door, 4 a shut window, 5 an open window, 6 a fence.
+    /// door, 3 an open door, 4 a shut window, 5 an open window, 6 a fence; plus 16 for each board
+    /// nailed across it (kind & 15 is the kind, kind >> 4 the boards).
     #[func]
     fn chunk_edges(&self, cx: i32, cy: i32) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -767,6 +783,16 @@ impl DuskWorld {
         self.act(Intent::Struggle);
     }
 
+    /// Whether you could shove now. Held, it takes a free hand: with a weapon in one and a light
+    /// held up in the other, there's only the struggle.
+    #[func]
+    fn can_shove(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world.character().is_some_and(|me| world.can_shove(me))
+    }
+
     /// The dead on you, two numbers each: the actor's index, and 1 if it has hold of you. The
     /// client draws a line from each (`CONCEPT.md`: engagement you can see).
     #[func]
@@ -810,9 +836,10 @@ impl DuskWorld {
     /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
     /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging,
     /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
-    /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out), how far
-    /// through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's aimed
-    /// at. The client draws the wind-up of a swing or a shove as its tell.
+    /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
+    /// up, 18 prying a board off), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
+    /// as its tell.
     #[func]
     fn actor_actions(&self) -> PackedInt32Array {
         let mut out = Vec::new();
@@ -827,8 +854,7 @@ impl DuskWorld {
                     match act.kind {
                         ActionKind::Attack
                             if act.dir.split().is_none()
-                                && world.grid.edge(a.pos, act.dir)
-                                    == (Edge::Door { open: false }) =>
+                                && world.grid.edge(a.pos, act.dir).is_shut_door() =>
                         {
                             4
                         }
@@ -851,6 +877,8 @@ impl DuskWorld {
                         ActionKind::Douse => 16,
                         ActionKind::Sleep => 11,
                         ActionKind::DrinkWater => 12,
+                        ActionKind::Board => 17,
+                        ActionKind::Unboard => 18,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1066,6 +1094,46 @@ impl DuskWorld {
     #[func]
     fn douse(&mut self) {
         self.act(Intent::Douse);
+    }
+
+    /// Whether you can nail a board on (or, `prying`, pry one off) now: the boards on that door
+    /// or window if so, else why not: -1 no door or window beside you (to pry: none boarded),
+    /// -2 the door is open, -3 it has all the boards it takes, -4 no hammer, -5 no plank,
+    /// -6 not enough nails.
+    #[func]
+    fn board_check(&self, prying: bool) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        let check = if prying {
+            world.can_unboard(me)
+        } else {
+            world.can_board(me)
+        };
+        match check {
+            Ok(side) => world
+                .actor(me)
+                .map_or(0, |a| i32::from(world.grid.edge(a.pos, side).boards())),
+            Err(NoBoard::Nothing) => -1,
+            Err(NoBoard::Open) => -2,
+            Err(NoBoard::Full) => -3,
+            Err(NoBoard::NoHammer) => -4,
+            Err(NoBoard::NoPlank) => -5,
+            Err(NoBoard::NoNails) => -6,
+        }
+    }
+
+    /// Nails a board across the door or window beside you (see `board_check`).
+    #[func]
+    fn board(&mut self) {
+        self.act(Intent::Board);
+    }
+
+    /// Pries a board off the boarded door or window beside you.
+    #[func]
+    fn unboard(&mut self) {
+        self.act(Intent::Unboard);
     }
 
     /// The skills' names, in the order `character_skills` and the skill events use.

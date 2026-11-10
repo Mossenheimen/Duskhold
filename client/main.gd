@@ -10,8 +10,8 @@ extends Node3D
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
-## sleep, drink (from water), light or skills (the panel) S real seconds in; --news print the
-## news too (for --headless); --hour=H start at that hour of the day.
+## sleep, drink (from water), light, skills (the panel), board or unboard S real seconds in;
+## --news print the news too (for --headless); --hour=H start at that hour of the day.
 
 const MapView = preload("res://map_view.gd")
 const ActorView = preload("res://actor_view.gd")
@@ -67,10 +67,13 @@ const DAYBREAK := 31
 const SKILL_UP := 32
 const SKILL_AT_CAP := 33
 const MASTERED := 34
+const BOARDED := 35
+const UNBOARDED := 36
+const BOARD_BROKE := 37
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
-	15: "Lighting it", 16: "Putting it out"}
+	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off"}
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -239,7 +242,7 @@ func _process(delta: float) -> void:
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
-	hud.show_body(body, dusk.character_wounds())
+	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
@@ -281,9 +284,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			dusk.attack(0, 0)
 	elif event.is_action_pressed("shove") and not dead:
+		if not dusk.can_shove():
+			hud.say("No hand free to shove with: struggle (F).")
 		dusk.shove(0, 0)
 	elif event.is_action_pressed("door") and not dead:
+		var pry: int = dusk.board_check(true)
+		if pry > 0 or pry == -4:
+			hud.say("It's boarded up. N pries a board off (with a hammer).")
 		dusk.use_door()
+	elif event.is_action_pressed("board") and not dead:
+		_board_up()
+	elif event.is_action_pressed("unboard") and not dead:
+		_pry_board()
 	elif event.is_action_pressed("sleep") and not dead:
 		_sleep_or_wake()
 	elif event.is_action_pressed("drink") and not dead:
@@ -363,6 +375,37 @@ func _sleep_or_wake() -> void:
 			hud.say("Not with it holding you!")
 		_:
 			dusk.sleep()
+
+
+## B: nail a board across the door or window beside you. The core says whether you can; this
+## says why not.
+func _board_up() -> void:
+	match dusk.board_check(false):
+		-1:
+			hud.say("There's no door or window beside you to board up.")
+		-2:
+			hud.say("Shut the door first.")
+		-3:
+			hud.say("It won't take another board.")
+		-4:
+			hud.say("You need a hammer.")
+		-5:
+			hud.say("You need a plank.")
+		-6:
+			hud.say("You need nails: two a board.")
+		_:
+			dusk.board()
+
+
+## N: pry a board off the boarded door or window beside you.
+func _pry_board() -> void:
+	match dusk.board_check(true):
+		-1:
+			hud.say("There's nothing boarded up beside you.")
+		-4:
+			hud.say("You need a hammer to pry it off.")
+		_:
+			dusk.unboard()
 
 
 ## Asleep, time runs at SLEEP_SPEED; awake again, at the speed it was.
@@ -532,6 +575,17 @@ func _read_events() -> void:
 			MASTERED:
 				if who == me:
 					hud.say("You mastered %s: level %d, and on to 10." % [_skill_name(extra), extra % 100])
+			BOARDED:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				if who == me:
+					hud.say("You nailed a board across it: %d on it now." % extra)
+			UNBOARDED:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				if who == me:
+					hud.say("You pried a board off: %d left." % extra)
+			BOARD_BROKE:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
 
 
 ## Whether actor `i` stands beside you.
@@ -705,6 +759,8 @@ func _add_input_actions() -> void:
 		"low_walls": [KEY_V],
 		"pack": [KEY_TAB],
 		"skills": [KEY_K],
+		"board": [KEY_B],
+		"unboard": [KEY_N],
 		"restart": [KEY_R],
 		"quit": [KEY_ESCAPE],
 	}
@@ -784,6 +840,10 @@ func _run_script() -> void:
 				_light_or_douse()
 			"skills":
 				skills.toggle()
+			"board":
+				_board_up()
+			"unboard":
+				_pry_board()
 
 
 ## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).

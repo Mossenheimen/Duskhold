@@ -50,20 +50,20 @@ id = "torch"
 name = "torch"
 weight = 0.6
 stack = 5
-light = { radius = 5, burn = 1.0 }   # tiles it lights, game hours it burns (held up, lit)
+light = { radius = 7, burn = 1.0 }   # tiles it lights (you see about 6 by it), game hours it burns
 
 [[item]]
 id = "candle"
 name = "candle"
 weight = 0.1
 stack = 10
-light = { radius = 2, burn = 4.0 }
+light = { radius = 3, burn = 4.0 }
 
 [[item]]
 id = "nails"
-name = "box of nails"
-weight = 0.3
-stack = 5
+name = "nails"
+weight = 0.01         # one nail; a board takes two (rules.toml's [barricade])
+stack = 100
 
 [[item]]
 id = "plank"

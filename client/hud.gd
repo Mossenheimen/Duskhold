@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nTab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  Tab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  R new seed  ·  Esc quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -108,7 +108,7 @@ func _process(delta: float) -> void:
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 5: skills\n%s  ·  Seed %d  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 5: barricades\n%s  ·  Seed %d  ·  %d×" % [
 		time_of_day(clock), world_seed, speed]
 	_paused.visible = paused
 
@@ -169,8 +169,9 @@ func _label(size: int, preset: Control.LayoutPreset) -> Label:
 	return label
 
 
-## Your body, from DuskWorld.character_body() and character_wounds().
-func show_body(body: PackedInt32Array, wounds: PackedStringArray) -> void:
+## Your body, from DuskWorld.character_body() and character_wounds(). `can_shove` is the core's
+## answer (DuskWorld.can_shove()): held with both hands full, there's only the struggle.
+func show_body(body: PackedInt32Array, wounds: PackedStringArray, can_shove := true) -> void:
 	if body.size() < 5:
 		return
 	_health.value = body[0] / 10.0
@@ -178,13 +179,16 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray) -> void:
 	_breath.text = "Out of breath" if body[2] == 1 else ""
 	_wounds.text = "\n".join(wounds)
 	var holding := body[5] if body.size() > 5 and body[3] == 0 else 0
+	var shove := "Q shove it off" if holding == 1 else "Q shove one off"
+	if not can_shove:
+		shove = "no hand free to shove (weapon and light)"
 	match holding:
 		0:
 			_held.text = ""
 		1:
-			_held.text = "IT HAS HOLD OF YOU\nF struggle  ·  Q shove it off"
+			_held.text = "IT HAS HOLD OF YOU\nF struggle  ·  %s" % shove
 		_:
-			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  Q shove one off  ·  three drag you down" % holding
+			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  %s  ·  three drag you down" % [holding, shove]
 
 
 ## The moodle column, from DuskWorld.character_moodles(): rebuilt only when it changes.

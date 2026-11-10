@@ -21,6 +21,10 @@ const GROUND := [
 ]
 const WALL := Color(0.66, 0.63, 0.57)
 const DOOR := Color(0.38, 0.25, 0.15)
+const BOARD := Color(0.62, 0.48, 0.3)
+## Room across an opening for this many boards; each one tilts a little, nailed by hand.
+const BOARD_SLOTS := 4
+const BOARD_TILT := 9.0
 const FENCE := Color(0.45, 0.38, 0.3)
 const TRUNK := Color(0.3, 0.23, 0.17)
 const LEAVES := Color(0.24, 0.33, 0.21)
@@ -91,13 +95,17 @@ func build_walls(low_walls: bool) -> void:
 	var solid: Array[Transform3D] = []
 	var colours := PackedColorArray()
 	var glass: Array[Transform3D] = []
+	var planks: Array[Transform3D] = []
+	var plank_colours := PackedColorArray()
 	for i in range(0, _edges.size(), 4):
 		var x := _edges[i]
 		var y := _edges[i + 1]
 		var west := _edges[i + 2] == SIDE_WEST
+		var kind := _edges[i + 3] & 15
+		var boards := _edges[i + 3] >> 4
 		# Each piece of the edge: from, to (heights), and what it is.
 		var pieces := []
-		match _edges[i + 3]:
+		match kind:
 			EDGE_WALL:
 				pieces = [[0.0, WALL_HEIGHT, "wall"]]
 			EDGE_DOOR_SHUT:
@@ -128,7 +136,24 @@ func build_walls(low_walls: bool) -> void:
 			else:
 				solid.append(place)
 				colours.append({"wall": WALL, "door": DOOR, "fence": FENCE}[what].srgb_to_linear())
+		# Boards nailed across a door or window, sticking out a little on both sides.
+		var opening := Vector2(0.2, DOOR_TOP - 0.15) if kind in [EDGE_DOOR_SHUT, EDGE_DOOR_OPEN] \
+			else Vector2(SILL, WINDOW_TOP)
+		for b in boards:
+			var mid := opening.x + (b + 0.5) * (opening.y - opening.x) / BOARD_SLOTS
+			if mid > height:
+				continue
+			var size := Vector3(WALL_THICKNESS * 1.8, 0.15, 1.08) if west else Vector3(1.08, 0.15, WALL_THICKNESS * 1.8)
+			var tilt := deg_to_rad(BOARD_TILT if b % 2 == 0 else -BOARD_TILT)
+			var turn := Basis(Vector3.RIGHT, tilt) if west else Basis(Vector3.BACK, tilt)
+			var centre := Vector3(x, mid, y + 0.5) if west else Vector3(x + 0.5, mid, y)
+			planks.append(Transform3D(turn * Basis.from_scale(size), centre))
+			plank_colours.append(BOARD.darkened(_shade(x + b, y)).srgb_to_linear())
 	_add_cut_away(_walls, BoxMesh.new(), solid, colours)
+	# Boards aren't cut away, as glass isn't: the ones you've just nailed are right beside you,
+	# where the cut-away is, and you want to see them.
+	if not planks.is_empty():
+		_walls.add_child(_instances(BoxMesh.new(), planks, plank_colours, _materials["plain"]))
 	var white := PackedColorArray()
 	white.resize(glass.size())
 	white.fill(Color.WHITE)

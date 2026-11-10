@@ -4,7 +4,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 
 - `CONCEPT.md`: what the game is. Decisions go in its "Decided" section.
 - `ARCHITECTURE.md`: how it's built, the build order, and where the setup stands. Open questions are at the end; answered ones move into the text.
-- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles; `light.rs` day and night, each tile's light, and the torches and candles held up; `view.rs` the character's field of view and the fog of war; `skills.rs` skills that grow by real use under risk, repeats that pay less, the free cap and masteries, and what a level does.
+- `crates/dusk-core/`: the simulation (no dependencies, no graphics, no files, no threads). `combat.rs` holds the one rule for timed actions and the fight; `grab.rs` engagement, grabs, struggling and the drag-down; `items.rs` items, containers that fill from the seed, and the item actions; `body.rs` health, endurance and wounds; `needs.rs` the clock, hunger, thirst and fatigue, sleep, healing and moodles; `light.rs` day and night, each tile's light, and the torches and candles held up; `view.rs` the character's field of view and the fog of war; `skills.rs` skills that grow by real use under risk, repeats that pay less, the free cap and masteries, and what a level does; `barricade.rs` boarding up doors and windows, prying boards off, and the boards the dead beat through before the door.
 - `crates/dusk-data/`: loads and checks `data/` (serde + toml), turning a designer's units into the core's.
 - `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, hamlet lots), then every tile as a pure function, then the dead.
 - `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
@@ -27,7 +27,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 .\play.cmd                                 # build the extension and play (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
 .\play.cmd -- --seed=7 --walk=4,5          # game flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION, --news, --hour=H, --shot=PNG --shot-after=S
-cargo test --workspace                     # 82 tests, a few seconds
+cargo test --workspace                     # 93 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, and a map (--text X,Y,W,H, --ticks N)

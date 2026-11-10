@@ -83,6 +83,7 @@ fn defs() -> Defs {
         unwield_time: 3,
         light_time: 15,
         douse_time: 5,
+        boarding: None,
     }
 }
 

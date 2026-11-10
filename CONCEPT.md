@@ -1,6 +1,6 @@
 # Duskhold — concept
 
-*Draft 3, 2026-11-06: the design research (`research/game_design.md`) is folded in. Nothing is playable yet; the simulation core has begun. How it's built: `ARCHITECTURE.md`.*
+*Draft 4, 2026-11-09: a design review against what's built (see "The 2026-11-09 review" under Decided). The survival rules are playable in a patch of the Hushlands (`ARCHITECTURE.md`, build step 5); the first playable is next.*
 
 > The realm has fallen. Night is coming. Hold until dawn.
 > This is how you died.
@@ -22,7 +22,16 @@
   - no class bias in the world's containers;
   - sieges on a calendar, as well as the Director's events.
 
-**Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited.
+- **The 2026-11-09 review** (the user: "make any changes you see fit to ensure it's fun and mechanics/systems mesh well"). It checked each pillar against the numbers in `data/`, and found five places where a mechanic this concept leans on did nothing in play. All five are changed, with tests:
+  - **light wasn't a trade.** At night you saw 4 tiles without a torch and 5 with one, while the torch showed you to the dead from 8. Now the night shows you 2 tiles and a torch about 6;
+  - **weapon noise did nothing.** Every weapon's noise (2 to 6 tiles) was shorter than the dead's sight (8) and no louder than a wall muffles (4), so a quiet knife and a loud axe drew the same crowd: none. Now a knife stays in the room, a cudgel is heard next door and a wood axe two rooms off;
+  - **the dead's tell couldn't be answered by moving.** A step takes 0.7 s and the tell was 0.8 s. It's 1.2 s now: shove, strike first, or step back;
+  - **struggling was pointless,** because a shove always broke a hold, for half the endurance. A shove from a hold now needs a free hand, as "Combat and magic" already said: with a weapon and a torch, you struggle. It's one more cost of carrying light;
+  - **one shambler never became a crowd,** though numbers are the Hushlands' whole rule. One that catches sight of you now groans, and the others in earshot come to it.
+
+  It also made finishing a downed enemy spare the weapon (this concept said so; the game didn't), and settled four things that the first playable needs and that were vague: what "home" is, the Hushlands family's roles, how the Long Dusk's pressure rises and falls, and saves. Each is in its section below, marked *(review)*. What it checked and left alone: needs, healing, carry weight, endurance, and the skill curve.
+
+**Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited. The review's choices are Defaults too, and not yet confirmed by the user.
 
 ## The pitch
 
@@ -74,6 +83,7 @@ Why build it:
    - Most XP comes from what you bring back to your base or a holdout (old-school D&D's 1 gold = 1 XP), and each find counts once.
    - Places found, people helped, quests, rare monsters, bosses and days survived pay too.
    - Ordinary kills pay little, so monsters are obstacles, not piñatas.
+   - *(review)* **Home is your stash.** A base is a building where you've slept a night through, with one container you've marked as your stash. A find pays when it goes into the stash, or is sold at a holdout, by its worth. You carry 15 kg, so worth per kilo is the choice on every trip: that's the loop's main decision, and it needs no new system, only containers, sleep and weight.
 6. **Loot tells the story.** Items lie where they would be: smithies hold tools and blades, chapels holy water, kitchens food, goblin warrens whatever goblins took (yours too). Wear, blood and curses say what happened.
 7. **The world goes on without you.** Corpses stay, doors stay open, creatures wander toward what they sense, holdouts grow or fall, the Long Dusk deepens, and your dead get up.
 8. **One set of rules for everyone.** The simulation is the game; the graphics are a view of it. The player, NPCs and creatures all act through the same commands and perceive only what they could. Later, a trained bot can drive any of them.
@@ -87,6 +97,10 @@ Why build it:
 - **Day and night** are Zomboid's: a game day is an hour of real time at normal speed, with the speed dial to skip the safe hours.
 - **Weather and seasons** matter: rain puts torches out, masks sound and washes scent away; fog shortens sight (and the moor's ghosts come out in it); wind carries scent and sound; snow keeps footprints, yours and theirs; summer heat and winter cold.
 - **The Long Dusk deepens:** over weeks, regions spread, roads close and holdouts fall, unless you push back. Each region's deepest dungeon holds its wardstone; relight it and the region weakens. That's the end-game.
+  - *(review)* **It's one number per region, the pressure, and you can move it before any dungeon exists.** Otherwise the realm only ever gets worse until the end-game is built, which is a slow death, not tension.
+    - It rises with time, to a ceiling (Zomboid's population peaks and stops), and with the region's own rule. In the Hushlands that's the unburned dead: every body left lying gets up.
+    - It falls with deeds: bodies burned, bounties taken, a holdout supplied. A wardstone relit drops the ceiling for good.
+    - It sets how many creatures a waking chunk holds, and how often the Director reaches for the region's event. Nothing else: no creature gets tougher (no level scaling).
 - **No required ending,** as in Zomboid. The arc for those who want it: relight the wardstones.
 
 ## Regions (Default: six to plan for, one to build first)
@@ -112,6 +126,17 @@ Why build it:
 On the bench: the Fey Wood (glamours: nothing is what it looks like, fey gold turns to leaves at dawn, cold iron), the Drowned Mire (water everywhere: sinking under weight, wet and cold, disease), the Troll Fells (trolls regrow unless burned, and sunlight turns them to stone: lure them into the dawn).
 
 Within a region the variety comes from the family's kinds, rare monsters with affixes, wanderers from next door, and the region's own events.
+
+*(review)* **Each kind in a family stresses a different system,** or it's only a bigger number. The Hushlands' four:
+
+| Kind | What it's for | The system it stresses |
+|---|---|---|
+| Shambler | the wall: slow, many, drawn by sound, and its groan calls more | noise, doorways, endurance over a long fight |
+| Ghoul | the reason to run: faster than your walk, slower than your run; goes for blood and the wounded; its bite carries ghoul fever | endurance shared between fighting and fleeing; wounds; the cure |
+| Skeleton | the wrong-weapon check: edges and points do little, blunt breaks it; it doesn't groan | what you carry (weight), weapon kinds |
+| Wight | the night's own: only after dark, puts out lights near it, dread | light, dread, being home by dusk |
+
+You out-walk every shambler (1.5 tiles a second against 0.8, or 1.0 at night), so against shamblers alone, running and the endurance it costs never matter. The ghoul is what makes that bar a decision, so it comes first in the first playable. A shambler's bite is only a bad wound; the fever is the ghoul's.
 
 ## The loop
 
@@ -163,7 +188,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
   - **Books and trainers:** books are loot that multiply a skill's XP (Zomboid's way), and holdout trainers sell lessons up to a set level.
   - **Three mastery slots** (decided):
     - every skill rises to 7 freely;
-    - three can go on to 10, chosen as each first reaches 8;
+    - three can go on to 10. A skill that has earned level 8 waits at 7 until you choose it as a mastery;
     - characters stay distinct (Ultima Online's 700-point cap did that with bookkeeping), and the next one after a death plays differently.
 - **Character level** (D&D) comes from deeds:
   - what you bring home, which is most of it. Each find counts once: an item is marked as found in the world and pays the first time it reaches a holdout or your base, so selling and buying back earns nothing;
@@ -216,7 +241,8 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 - **Sight:** the character sees in a cone (Zomboid's), and only what's lit or within darkvision. Outside it you see what you remember (fog of war), never a live monster.
 - **Light:** every tile has a light level, from day, night, weather and being indoors. Dungeons range from lit to unnaturally dark (see Dungeons).
 - **Light sources:**
-  - a torch: burns about an hour, held in a hand (so no shield), put out by rain and water, can be dropped or thrown to light a room;
+  - a torch: burns about an hour, held in a hand (so no shield, and no hand free to shove off a hold), put out by rain and water, can be dropped or thrown to light a room;
+  - *(review)* the trade has to be real in the numbers: by night you make out 2 tiles without a light and about 6 by a torch, and the dead see a lit you from 8 tiles instead of 1. A test holds the game's data to it. Still to do: a light's brightness as well as its reach, so a candle shows you less than a torch does (today any light shows you fully);
   - a lantern: burns oil, hangs from the belt, dimmer, survives a splash;
   - candles, braziers, a fire, and spells (a light cantrip; a fireball's flash).
 - **Noise:** every action has a radius (walking in plate, a door, a fight, a shout, a Knock spell), like Zomboid's world sounds.
@@ -278,7 +304,7 @@ One table of how things act on each other, written before the content, so the ga
   - attack;
   - heavy attack: a longer wind-up, and it knocks down;
   - shove: cheap; knocks back, and down with enough Strength;
-  - finish: on someone on the ground; cheap, quiet, no wear on the weapon (Zomboid's stomp);
+  - finish: a blow on someone on the ground always lands, does double harm and doesn't wear the weapon (Zomboid's stomp). That's what a shove buys: 6 endurance now for a weapon that lasts;
   - brace, with a shield;
   - step back.
 - **Weapons differ in kind, not just in numbers:**
@@ -293,6 +319,8 @@ One table of how things act on each other, written before the content, so the ga
   - wolves crouch before a rush.
 
   No hit lands without one, and two lethal moves never land on the same tick, unless you let a crowd form.
+
+  *(review)* **A tell must leave time for each answer,** or it's decoration. The answers are a shove (0.2 s), a strike that lands first (0.2 to 0.8 s by weapon) and a step out of reach (0.7 s, risking a parting grab). So no family's tell is shorter than about a second unless stepping back is meant to fail against it (a wolf's rush).
 - **Light is a trade** (Darkest Dungeon's lesson). A torch shows threats early and steadies dread, but everything sees you. The dark gives you surprise (sneak attacks, crits), and gives it to them too.
 - **Crowds are the danger.**
   - Hit chances and armour stay in a narrow band (bounded accuracy), so weak enemies stay dangerous in numbers.
@@ -480,7 +508,18 @@ The game comes first (2026-11-05). These rules cost the game little and help it 
 
 ## The core that has to be fun first
 
-Before classes, spells, quests and other regions: is surviving the Hushlands tense and fun? The first playable:
+Before classes, spells, quests and other regions: is surviving the Hushlands tense and fun?
+
+*(review)* **The order matters more than the list.** What's built is a set of rules with no reason to go out and nothing that lasts. So the first playable starts with the two things that turn rules into a game, and leaves the decoration for last (`ARCHITECTURE.md`, build step 6, has the slices):
+
+1. saves: a game day is an hour, and a base means nothing in a world that's gone when you quit;
+2. the stash and bring-it-home XP: the reason to go out;
+3. the ghoul and its fever: the reason to run, and the first clock on a life;
+4. the dead that get up, and burning them: the pressure you can push back;
+5. the abbey, the Tolling, death and the revenant;
+6. last, and only if the loop is already fun without them: magic items and identification, rare affixes, rain.
+
+The first playable:
 
 - the Hushlands as a small open map: a market town, farms, a stretch of forest, a river, the abbey holdout;
 - Zomboid's day and night, and rain;

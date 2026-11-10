@@ -3,8 +3,9 @@
 //!
 //! - **What pays:** a blow that lands on a foe trains the skill of the weapon that struck it (half
 //!   on one that's down); running with one of the dead after you, or under a heavy load, trains
-//!   Athletics; a bandage on a wound that's bleeding trains First Aid. A swing at the air or at a
-//!   door, or a run with nothing after you, teaches nothing. Bare fists train no skill.
+//!   Athletics; a bandage on a wound that's bleeding trains First Aid; a board nailed across a
+//!   door or window trains Carpentry. A swing at the air or at a door, or a run with nothing after
+//!   you, teaches nothing. Bare fists train no skill.
 //! - **Repeats pay less:** the same act on the same foe, or in the same spot, pays `repeat` of
 //!   what it paid the time before, until it's been left alone for `forget` ticks. One of the dead
 //!   stuck in a fence is worth a few blows, not a level; running round in circles, a few laps.
@@ -14,14 +15,14 @@
 //!   the cap stops learning, so characters stay distinct (Ultima Online's skill cap).
 //! - **What a level does,** a little each: a weapon skill's blows land more often and harder, for
 //!   less breath and less wear on the weapon; Athletics runs faster for less breath; First Aid
-//!   bandages faster.
+//!   bandages faster; Carpentry boards up faster, with stronger boards.
 
 use crate::actor::{ActorId, ActorKind};
+use crate::geom::{Dir8, TilePos};
 use crate::items::ItemKind;
 use crate::world::{Event, Swing, World};
 
-/// The skills there is a use for so far. (Sneak, Carpentry and the rest come with what trains
-/// them.)
+/// The skills there is a use for so far. (Sneak and the rest come with what trains them.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Skill {
     Blade,
@@ -30,10 +31,11 @@ pub enum Skill {
     Spear,
     Athletics,
     FirstAid,
+    Carpentry,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 6;
+pub const SKILLS: usize = 7;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -43,6 +45,7 @@ impl Skill {
         Skill::Spear,
         Skill::Athletics,
         Skill::FirstAid,
+        Skill::Carpentry,
     ];
 
     pub fn name(self) -> &'static str {
@@ -53,6 +56,7 @@ impl Skill {
             Skill::Spear => "Spear",
             Skill::Athletics => "Athletics",
             Skill::FirstAid => "First Aid",
+            Skill::Carpentry => "Carpentry",
         }
     }
 
@@ -65,6 +69,7 @@ impl Skill {
             Skill::Spear => "spear",
             Skill::Athletics => "athletics",
             Skill::FirstAid => "first_aid",
+            Skill::Carpentry => "carpentry",
         }
     }
 
@@ -99,11 +104,12 @@ pub struct SkillRules {
     /// Running in a square this many tiles across is running in the same spot.
     pub spot: i32,
     /// XP for a blow that lands (on one that's down, `down` per mille of it), a tile run under
-    /// risk, and a bandage on a wound that's bleeding.
+    /// risk, a bandage on a wound that's bleeding, and a board nailed on.
     pub hit: u32,
     pub down: u32,
     pub run: u32,
     pub bandage: u32,
+    pub board: u32,
     /// A run trains Athletics with one of the dead after you within `chased` tiles, or carrying
     /// more than `loaded` per mille of what you can.
     pub chased: i32,
@@ -112,7 +118,8 @@ pub struct SkillRules {
     /// to land (out of 10,000), and `weapon_damage` per mille to its harm, and takes
     /// `weapon_endurance` and `weapon_wear` per mille off its breath and wear. Athletics adds
     /// `run_speed` per mille to running speed and takes `run_endurance` off its breath. First Aid
-    /// takes `bandage_time` per mille off a bandage's time.
+    /// takes `bandage_time` per mille off a bandage's time. Carpentry takes `board_time` off the
+    /// time to nail a board on, and adds `board_strength` to the board.
     pub weapon_hit: u32,
     pub weapon_damage: u32,
     pub weapon_endurance: u32,
@@ -120,6 +127,8 @@ pub struct SkillRules {
     pub run_speed: u32,
     pub run_endurance: u32,
     pub bandage_time: u32,
+    pub board_time: u32,
+    pub board_strength: u32,
 }
 
 impl Default for SkillRules {
@@ -140,6 +149,7 @@ impl Default for SkillRules {
             down: 500,
             run: 200,
             bandage: 3000,
+            board: 2000,
             chased: 12,
             loaded: 500,
             weapon_hit: 100,
@@ -149,6 +159,8 @@ impl Default for SkillRules {
             run_speed: 20,
             run_endurance: 40,
             bandage_time: 50,
+            board_time: 50,
+            board_strength: 100,
         }
     }
 }
@@ -160,6 +172,8 @@ pub(crate) enum On {
     Foe(ActorId),
     /// A spot on the map: a square `SkillRules::spot` tiles across, and its floor.
     Spot(i32, i32, i32),
+    /// A door or window, named by the tile that owns its edge and the side.
+    Edge(TilePos, Dir8),
     /// Nothing that repeats (a wound is never the same wound twice).
     Once,
 }
@@ -482,6 +496,16 @@ impl SkillRules {
     /// The endurance a tick of running costs at a level of Athletics.
     pub fn run_cost(&self, cost: i32, level: u8) -> i32 {
         by_level(i64::from(cost), self.run_endurance, level, false) as i32
+    }
+
+    /// The ticks to nail a board on at a level of Carpentry.
+    pub fn board_ticks(&self, ticks: u32, level: u8) -> u32 {
+        (by_level(i64::from(ticks), self.board_time, level, false) as u32).max(1)
+    }
+
+    /// What a board nailed at a level of Carpentry takes before it breaks.
+    pub fn board_strength(&self, strength: i32, level: u8) -> i32 {
+        by_level(i64::from(strength), self.board_strength, level, true) as i32
     }
 
     /// A bandage's ticks at a level of First Aid.

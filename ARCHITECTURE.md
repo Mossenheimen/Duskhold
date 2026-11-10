@@ -1,6 +1,6 @@
 # Duskhold — engine and architecture
 
-*Draft 2, 2026-11-05. `CONCEPT.md` says what the game is; this says how it's built.*
+*Draft 3, 2026-11-09: reviewed against the code after build step 5 (see "The 2026-11-09 review", before the build order). `CONCEPT.md` says what the game is; this says how it's built.*
 
 ## Decided (2026-11-05)
 
@@ -144,7 +144,7 @@ A player's click names exactly which item; a bot's "pick up food" names the near
 - **Fixtures** sit on tiles: furniture, containers, fires, wards, traps, webs.
 - **Floors:** z runs from −2 (cellars) to +3 (attics), linked by stairs and ladders. Dungeons, later, are separate maps entered through an entrance.
 - **Chunks** are 32 × 32 tiles on every floor. A chunk holds its tiles, edges, fixtures and ground items, plus a flag for whether anything changed.
-- **Actors** (the character, NPCs, creatures) are plain structs in a generational arena (`slotmap`), not a general ECS (Default). There are few kinds of entity and we know them all, and plain structs are easier to read, save and keep deterministic.
+- **Actors** (the character, NPCs, creatures) are plain structs in a generational arena (our own, `arena.rs`: the core has no dependencies), not a general ECS (Default). There are few kinds of entity and we know them all, and plain structs are easier to read, save and keep deterministic.
 - **Items are values** (definition, quality, condition, affixes, identified or not, contents) inside an inventory, a container or a tile's ground list. A town holds thousands of them, so they're kept cheap. Only the few that need it carry an id: uniques, attuned items, a revenant's gear.
 - **Containers fill from the seed.** What's in a cupboard is a function of the seed and the cupboard's position, so an unopened container stores nothing. It's filled the first time someone looks, and saved from then on.
 - **Definitions** (creatures, items, spells, rooms: everything from the data files) are loaded once, read-only, and shared by every world on every thread.
@@ -167,6 +167,8 @@ A player's click names exactly which item; a bot's "pick up food" names the near
   Each system's turn is staggered by actor id, so a hundred creatures don't all think on the same tick.
 
 ### The tick, in a fixed order
+
+The list below is the plan for the whole game. What the core runs today (`World::tick_once`) is its first half: each actor's timed action or else its step, then hearing, then thinking (whose intents act on the next tick), then grips, bodies, needs, lights and drag-downs. A sound made before the hearing pass is heard that tick; one made after it (a groan, as a creature thinks) on the next.
 
 1. **Intents** from controllers (the player's input, bots, NPC and creature AI) start, continue or replace actions.
 2. **Actions** progress, pay out, finish or get interrupted (see below).
@@ -245,7 +247,7 @@ All the numbers come from the data files. A body has parts with wounds (type, se
 - **One thread per world.** Its systems run in a fixed order and its actors in id order. Many worlds run in parallel, one per thread.
 - **No hash-map iteration in game logic.** B-tree maps, `IndexMap` or sorted vectors instead, and hashing with fixed seeds.
 - **Randomness:** world generation draws from ChaCha streams keyed by (seed, layer, chunk). Gameplay rolls are hashed from (seed, tick, actor, purpose), so a new roll in one system doesn't shift the rolls of every other.
-- **Numbers:** tiles are integers. Floats (health, needs) only appear where matching on the same build and machine is enough.
+- **Numbers:** everything in the game's state is an integer: tiles, health and needs in thousandths, chances out of 10,000, cones as cosines. Floats appear only in `dusk-data` (a designer's units, converted once at load) and in what the client draws.
 - **Checks and replays:** tests call `state_hash()` every tick. A replay is the seed, the scenario and the external intents, since everything else follows from them.
 
 ### Saves
@@ -324,6 +326,7 @@ think_every = 5                                          # ticks
 weak_to = ["fire", "blessed"]
 ```
 
+- **The example above is the target, not today's file.** `data/creatures/hushlands.toml` holds one creature, whose fields the core reads as `Rules::shambler_*`. A table of creature definitions comes with the second creature (build step 6, slice 0).
 - **Loading:** the data is loaded and checked once: types through `serde`, then cross-references (every loot table, item and spell a file names must exist).
 - **Reloading:** changed data reloads in dev builds without a restart.
 - **Mods:** a mod is a folder of the same files, loaded after the base game's.
@@ -469,6 +472,39 @@ Measured on 2026-11-06 (`dusk-cli bench`, release build). The map is 96 × 96 wi
 - **Art:** 3D needs models and animations. CC0 kits first, our own art later.
 - **Scope:** the first playable is one small region; everything else is a layer on a working core.
 - **Determinism bugs** (iteration order, floats) are caught by the hash tests from the first week.
+
+## The 2026-11-09 review
+
+Asked for by the user after step 5, together with the concept's (`CONCEPT.md`, under Decided).
+
+**The architecture holds.** The four things it bet on have each paid for themselves in steps 2 to 5:
+
+- the core as a library with no graphics: every rule has a test that runs in milliseconds, and the tests found the bugs (running that never tired you, needs paid in the wrong units, a shambler side-stepping its own tile);
+- one rule for timed actions: fifteen kinds of action now go through `combat.rs`'s `act`, `begin` and `start`, and each new one was a match arm, not a system;
+- rules in the core, drawn by the client: the review's hand rule for shoves reached the screen as one `can_shove()` call;
+- numbers in `data/`: the review's retuning of light, noise and the dead's tell changed four TOML files and no code.
+
+**Three debts to pay before more is built on them** (they're step 6's first slices):
+
+1. **The shambler is hard-coded.** `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
+2. **Nothing is saved.** The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
+3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now.
+
+**Smaller things, noted and left:**
+
+- events cross to GDScript as six bare numbers, with the kinds listed twice (in `dusk-godot` and in `main.gd`). A generated constants file would stop them drifting; it hasn't bitten yet;
+- `Rules` is `Copy` and passed by value each tick. It's a few hundred bytes; when creature definitions move out of it, it shrinks again;
+- the character's view is worked out each frame by a line of sight to every tile in range. Fine for one character; shadowcasting when the bot asks every few ticks (already noted under Senses).
+
+**What the review changed in the game** (93 tests pass):
+
+- **the dead groan** (`Rules::shambler_groan`, the shambler's `groan = 10`): one that catches sight of prey, having been after nothing, makes a sound where it stands, and the others in earshot go to it. One that was already after something doesn't, so a crowd doesn't call itself for ever. For this, the tick now clears its sounds straight after the hearing pass, so a sound made while thinking is heard on the next tick;
+- **finishing spares the weapon:** a blow on one that's down doesn't wear it;
+- **a shove from a hold needs a free hand** (`World::can_shove`): a weapon in one hand and a light held up in the other leave only the struggle. The held banner says so;
+- **numbers** (`data/` only): the night's light 20 → 10; the torch's reach 5 → 7 tiles and the candle's 2 → 3; weapon noise 3 to 9 tiles (was 2 to 6); the shambler's tell 0.8 → 1.2 s (and its recovery 0.8 → 0.6 s, so its pace is about the same);
+- **a test on the game's own data** (`at_night_a_torch_is_worth_its_risk_in_the_games_data`): at midnight a torch at least triples how far you see, and shows you to a shambler 8 tiles off that didn't see you before. Tuning that breaks the trade again fails it.
+
+These were set by arithmetic and tests, not by play: nobody has played a night with them yet. The slice histories under step 5 below keep the numbers each slice shipped with.
 
 ## Build order
 
@@ -676,8 +712,26 @@ Game first: every step ends with something to look at or play.
        - the dev flag `--do=S:skills` opens the panel, for pictures;
        - **checked on screen:** the panel after a fight on seed 1, Blunt's bar at the 2.3 XP of three blows;
      - **measured:** 100 dead 144,000 ticks/s, 500 dead 16,800, the patch 412,000 (no change: XP is paid only when something teaches);
-   - **next slices:**
-     - barricading doors (and Carpentry);
+   - **Slice 7, barricades:** done 2026-11-09; 89 tests pass. What it has:
+     - **boards on the edge** (`dusk-core/src/barricade.rs`): a door or window carries how many boards are across it (`Edge::Door { open, boards }`, `Edge::Window { open, boards }`, as the world model above says), so walking and sight need nothing else. The world keeps what each board has left, in its hash;
+     - **boarding up** (B; Defaults, Zomboid's numbers):
+       - a shut door or any window, from either side. Each board takes a plank and two nails, with a hammer in hand or in the pack; up to four boards;
+       - 4 s a board. The hammering is heard 12 tiles off as it starts and again as the last nail goes in, so the dead come: board up by day. The first picture of it caught a shambler inside the house coming out of its door and round the yard to the window being boarded;
+     - **what boards do:**
+       - a boarded door won't open;
+       - a boarded window can't be seen through, either way. Glass can (pillar 4: a torch inside shows through bare windows);
+       - the dead beat on a boarded door as on any shut door. The boards take it first, the last nailed first, 50 points each, then the door's own 60. Two boards make nearly three times the blows;
+     - **prying a board off** (N): 3 s with the hammer. You get the plank back; the nails are bent;
+     - **Carpentry,** the seventh skill: 2 XP a board, less each time on the same door or window (no farming by nailing and prying). Each level nails 5% faster and makes boards 10% stronger: each board keeps the strength it was nailed with;
+     - **seen while testing:** the dead give up on a door after 30 s with nothing heard (`forget_after`), so boards and silence together keep a lone shambler out. A crowd doesn't keep itself at a door yet: one hears another's blows and goes to them, not to you. That's for the Director and sieges;
+     - **numbers:** `rules.toml` `[barricade]` (its items and numbers; optional, so a data set with no items still loads), `[skills.xp] board` and `[skills.level] board_time`, `board_strength`. Nails are counted singly now (100 to a stack; sheds hold 6 to 24), and sheds hold more planks;
+     - **the client:**
+       - planks drawn across boarded doors and windows, tilted a little each. They aren't cut away, as glass isn't: the first picture lost them in the hole cut round the character, right where you nail them;
+       - B boards up and N pries a board off, each saying why not when it can't (no hammer, no plank, two nails a board, shut the door first, it won't take another). E on a boarded door says so;
+       - the news of each board nailed, pried off or broken;
+       - the dev flag `--do=S:board` (and `unboard`). `--data` pointing at a copy of `data/` with a hammer, planks and nails in the kit made the pictures;
+     - **measured:** 100 dead 140,000 ticks/s, 500 dead 16,100, the patch 405,000 (no change);
+   - **Step 5 is done** with slice 7: everything in the list below is in.
    - bodies and wounds, moodles, needs;
    - items and the inventory window; containers that fill from the seed the first time they're opened, by loot table (moved here from step 4);
    - the one rule for timed actions;
@@ -685,7 +739,16 @@ Game first: every step ends with something to look at or play.
    - skill XP gated by risk, with repeats paying less;
    - doors to open and barricade;
    - day and night, light and the field of view.
-6. **The first playable:** base-building basics, the abbey holdout, death and revenants, ghoul fever, the Tolling.
+6. **The first playable,** in slices, ordered so that the loop gets a goal and a memory before it gets more content (2026-11-09 review; `CONCEPT.md`, "The core that has to be fun first"):
+   - **Slice 0, creatures as data:** `Defs::creatures` and `ActorKind::Creature(n)` in place of the `shambler_*` rules. No change in play; the golden hashes prove it.
+   - **Slice 1, saves:** the seed, the changed chunks, stores, boards, actors and the clock (`postcard`, as planned above), autosaved each game hour and on quitting. A test: save, load, and the state hash is the same.
+   - **Slice 2, the stash and bring-it-home XP:** a worth on every item, a container marked as your stash, a bed slept in; character levels from what reaches the stash. The first use of the worth-per-kilo choice.
+   - **Slice 3, the ghoul and ghoul fever:** faster than your walk, drawn to blood; the fever's three days, and its cure as an item for now (the abbey sells it later).
+   - **Slice 4, the dead get up:** corpses rise after a while unless burned (oil, a pyre); the region's pressure number, raised by the unburned and lowered by burning.
+   - **Slice 5, the abbey holdout:** a safe place with a trader (coin, the cure, repairs) and a bunk; where the next character starts.
+   - **Slice 6, the Tolling:** the first siege on the calendar, with flow fields for its crowd, and the dead keeping at a door.
+   - **Slice 7, death and the revenant:** the recap, the body and its gear where it fell, the next character in the same world.
+   - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

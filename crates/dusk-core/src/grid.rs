@@ -68,31 +68,72 @@ impl Tile {
     }
 }
 
-/// What's on the edge between two tiles: Zomboid's walls, doors and windows.
+/// What's on the edge between two tiles: Zomboid's walls, doors and windows. Doors and windows
+/// carry the boards nailed across them (`barricade.rs`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Edge {
     #[default]
     Open,
     Wall,
+    /// A boarded door can't be opened (only shut doors are boarded).
     Door {
         open: bool,
+        boards: u8,
     },
+    /// Nobody climbs through a window yet. A boarded one can't be seen through.
     Window {
         open: bool,
+        boards: u8,
     },
     /// Stops walking (climbing comes later), but not sight or sound.
     Fence,
 }
 
 impl Edge {
-    /// Can you walk through it?
-    pub fn walkable(self) -> bool {
-        matches!(self, Edge::Open | Edge::Door { open: true })
+    pub const SHUT_DOOR: Edge = Edge::door(false);
+
+    /// A door with no boards on it.
+    pub const fn door(open: bool) -> Edge {
+        Edge::Door { open, boards: 0 }
     }
 
-    /// Does it stop sight? Glass doesn't.
+    /// A window with no boards on it.
+    pub const fn window(open: bool) -> Edge {
+        Edge::Window { open, boards: 0 }
+    }
+
+    /// Can you walk through it?
+    pub fn walkable(self) -> bool {
+        matches!(self, Edge::Open | Edge::Door { open: true, .. })
+    }
+
+    /// Does it stop sight? Walls, shut doors and boards do; glass doesn't.
     pub fn blocks_sight(self) -> bool {
-        matches!(self, Edge::Wall | Edge::Door { open: false })
+        matches!(
+            self,
+            Edge::Wall | Edge::Door { open: false, .. } | Edge::Window { boards: 1.., .. }
+        )
+    }
+
+    pub fn is_shut_door(self) -> bool {
+        matches!(self, Edge::Door { open: false, .. })
+    }
+
+    /// The boards across a door or window (0 for anything else).
+    pub fn boards(self) -> u8 {
+        match self {
+            Edge::Door { boards, .. } | Edge::Window { boards, .. } => boards,
+            _ => 0,
+        }
+    }
+
+    /// The same door or window with `n` boards across it (anything else as it is).
+    pub fn with_boards(self, n: u8) -> Edge {
+        match self {
+            Edge::Door { open, .. } => Edge::Door { open, boards: n },
+            Edge::Window { open, .. } => Edge::Window { open, boards: n },
+            other => other,
+        }
     }
 }
 

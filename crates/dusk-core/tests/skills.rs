@@ -144,6 +144,18 @@ fn the_same_foe_pays_less_each_time_and_a_fresh_one_pays_in_full() {
 }
 
 #[test]
+fn finishing_one_thats_down_spares_the_weapon() {
+    let (mut w, me, _, _) = row();
+    w.rules.combat.knock_down = 10_000;
+    let condition = |w: &World| w.actor(me).unwrap().hands.unwrap().condition;
+    swing(&mut w, me, Dir8::W);
+    assert_eq!(condition(&w), 990, "a blow on one that's standing wears it");
+    act(&mut w, me, Intent::Shove { dir: Some(Dir8::E) });
+    swing(&mut w, me, Dir8::E);
+    assert_eq!(condition(&w), 990, "a blow on one that's down doesn't");
+}
+
+#[test]
 fn a_foe_thats_down_pays_half() {
     let (mut w, me, _, _) = row();
     // The east one has a wall at its back: a shove can't push it, only knock it down.

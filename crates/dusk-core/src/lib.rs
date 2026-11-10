@@ -8,6 +8,7 @@
 
 pub mod actor;
 pub mod arena;
+pub mod barricade;
 pub mod body;
 mod combat;
 pub mod demo;
@@ -26,6 +27,7 @@ pub mod view;
 pub mod world;
 
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind};
+pub use barricade::NoBoard;
 pub use body::{Body, Part, Wound, WoundKind};
 pub use geom::{ChunkPos, Dir8, TilePos};
 pub use grid::{Edge, Grid, Ground, Tile};
