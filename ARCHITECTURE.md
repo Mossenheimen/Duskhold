@@ -949,7 +949,48 @@ Game first: every step ends with something to look at or play.
          - the pack's panel now sits above the controls, as the other does;
          - **checked on screen:** the bounty list at seed 1's counter, a second affix shown ("the Thrice-Risen too"). No rare was caught in a picture: they stand 40 tiles out and more;
        - **measured:** at first this cost 10–15%: `stats` was copying a creature's numbers for every actor on every tick, before thinking even checked its beat. Fixed by checking the beat first and reading the kind in place on the hot paths. 500 dead: 22,400 ticks/s (23,300 before); through the Tolling 16,000 (16,600). The quiet patch is 10% slower (277,000; it was 309,000), the same with no rares in it, so most likely the actor's new field: not worth chasing at 27,700× real time;
-       - **not yet:** rares roaming, the Spectral, family affixes (a Gravecaller raising the dead), better loot than finds (magic items come next on this list).
+       - **not yet:** rares roaming, the Spectral, family affixes (a Gravecaller raising the dead). Their packs now hold magic weapons (below).
+     - **Magic items and identification** (2026-11-11; 164 tests pass):
+       - **an item can be magic** (`dusk-core/src/magic.rs`, `Item::magic`, a small `Copy` block). An Uncommon item has one property and a Rare one two, and some are cursed as well. Two magic items stack only if they're the same in every way;
+       - **properties are data** (`data/properties.toml`, `Property`), each one line. On a weapon, in hand:
+         - Muffled: a third of the noise;
+         - Keen: half as much harm again;
+         - Swift: a quarter less tell and recovery;
+         - Sure: more blows land;
+         - Enduring: a quarter of the wear;
+         - Hallowed: what it puts down stays down, as good as burning;
+         - Blazing: 4 tiles of light round you, which the dead see by.
+         On a light, held up: Bright (3 tiles farther) and Lasting (burns half as fast);
+       - **curses are properties marked as curses:** Clamorous, Brittle and Leaden on weapons, Guttering on lights. A cursed weapon clings: once taken in hand it can't be put away or changed (`World::hand_clings`, refused in `begin`), and its curse shows itself then (`CurseClings`). The abbey lifts it for 20 coin (`Intent::Uncurse`); the rest of its magic stays;
+       - **the effects go through the rules that already exist:**
+         - a weapon's swing (`swing_of` → `magic_swing`) and its wear (`magic_wear`);
+         - the light round you (`carried_lights`) and how fast a light burns down (`burn_lights`);
+         - Hallowed, in `strike`: the body put down is set to stay down;
+       - **unknown until identified:** a magic item found works from the first, but its name says only "(magic, unknown)". You come to know it three ways:
+         - the abbey reads it for 5 coin (`Intent::Identify`, a pack slot or `HANDS`);
+         - 15 blows that land on the dead with it in hand (`learn_by_use`; blows into the air teach nothing, so you learn it in a fight);
+         - a light, as soon as you light it.
+         Its name then reads "Muffled Keen knife" (`Defs::label`), with a line for each property (`Defs::lines`);
+       - **where they come from:**
+         - a loot table's line can give how often its item is magic (`LootEntry::magic`), rolled with the container's seed like the rest of it (`Purpose::Magic`). Weapons in sheds and kitchens are magic one time in ten or so, torches one in twenty;
+         - a rare's weapons always are;
+         - over six seeds: two to six magic items a patch, nought to three of them in containers, about one in five cursed;
+       - **worth:** a magic item is worth its kind's plus 20 XP (Uncommon) or 50 (Rare) (`Defs::worth`). That's what it brings home, what the abbey pays (half), and what mending it costs;
+       - **numbers:** rules.toml's `[magic]` (the share that's Rare, how often cursed, the worth, the blows to learn); `holdouts.toml`'s `identify` and `uncurse`; `magic` on loot lines;
+       - **the save format** is version 8 (items carry their magic);
+       - **the client:**
+         - the pack names things as far as you know them (`character_labels`), in blue for Uncommon and gold for Rare, dimmer while unknown, with each property's line under it once known;
+         - at the counter: "Read · 5" on unknown magic, and "Lift the curse" on a cursed weapon in hand;
+         - a cursed weapon's Put away becomes "It clings", and Wield says why not;
+         - the news tells of learning an item, of a curse clinging, and of a curse lifted;
+         - `dusk-cli gen` lists a patch's magic as if known;
+         - **not checked on screen:** the magic-only parts of the pack (the colours and the lines). The start has no magic and no script can take from a container yet. Headless runs walked the panels with ordinary items without errors;
+       - **not yet:**
+         - attunement (it caps worn items, and there are none yet);
+         - the Lore skill and scrolls of identify;
+         - magic on armour;
+         - Very Rare and Legendary (the dungeons);
+         - a broken magic item that stays, to be mended (today one breaks like any weapon).
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

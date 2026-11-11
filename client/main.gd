@@ -101,13 +101,16 @@ const RISEN := 60
 const CAME := 61
 const LIGHT_EATEN := 62
 const BOUNTY_CLAIMED := 63
+const IDENTIFIED := 64
+const CURSE_CLINGS := 65
+const CURSE_LIFTED := 66
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
-	26: "Claiming the bounty"}
+	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -840,6 +843,18 @@ func _read_events() -> void:
 				if target == me:
 					hud.say("%s puts out your light! It wants you in the dark." % dusk.actor_name(who))
 					hud.flash()
+			IDENTIFIED:
+				if who == me:
+					hud.say("You know what it is now: %s." % _known_as(extra))
+					hud.flash_good()
+			CURSE_CLINGS:
+				if who == me:
+					hud.say("The %s clings to your hand: it's cursed! The abbey can lift a curse." % _item_name(extra))
+					hud.flash()
+			CURSE_LIFTED:
+				if who == me:
+					hud.say("The sisters lift the curse. The %s lets go of your hand." % _item_name(extra))
+					hud.flash_good()
 			BOUNTY_CLAIMED:
 				if who == me:
 					hud.say("The sisters pay the bounty on %s: %d coin, and the dusk falls back." % [dusk.actor_name(target), extra])
@@ -1178,6 +1193,22 @@ func _my_action() -> Vector2i:
 		return Vector2i.ZERO
 	var actions: PackedInt32Array = dusk.actor_actions()
 	return Vector2i(actions[me * 4], actions[me * 4 + 1])
+
+
+## What an item of yours is called now, by its kind: the first of yours that's of it.
+func _known_as(def: int) -> String:
+	var labels: PackedStringArray = dusk.character_labels()
+	var hands: PackedInt32Array = dusk.character_hands()
+	if hands.size() >= 2 and hands[0] == def:
+		return labels[0]
+	var light: PackedInt32Array = dusk.character_light()
+	if light.size() >= 2 and light[0] == def:
+		return labels[1]
+	var items: PackedInt32Array = dusk.character_items()
+	for i in range(0, items.size(), 4):
+		if items[i] == def:
+			return labels[2 + floori(i / 4.0)]
+	return _item_name(def)
 
 
 func _item_name(def: int) -> String:

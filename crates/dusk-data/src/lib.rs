@@ -12,6 +12,7 @@ mod home;
 mod items;
 mod legacy;
 mod light;
+mod magic;
 mod needs;
 mod rare;
 mod remains;
@@ -288,6 +289,10 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     defs.creatures = creatures;
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
+    defs.properties = magic::load(dir)?;
+    if let Some(m) = &raw.magic {
+        defs.magic = magic::to_rules(&rules_file, m)?;
+    }
     let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
@@ -362,6 +367,9 @@ struct RulesFile {
     deeds: home::DeedsFile,
     fever: fever::FeverFile,
     burning: remains::BurningFile,
+    /// Optional: with no [magic], magic items use the core's defaults (and need properties.toml).
+    #[serde(default)]
+    magic: Option<magic::MagicFile>,
     /// Optional: with no [revenant], a character's body stays down.
     #[serde(default)]
     revenant: Option<legacy::RevenantFile>,

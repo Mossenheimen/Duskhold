@@ -1,0 +1,102 @@
+# Magic items' properties and curses (CONCEPT.md, loot): each reads in one line and changes how
+# you play (crates/dusk-core/src/magic.rs). An Uncommon item has one, a Rare two; a fifth or so are
+# cursed as well (rules.toml, [magic]). A weapon's work while it's in your hand, a light's while
+# it's held up. Multipliers are 1.0 for none.
+
+[[property]]
+id = "muffled"
+name = "Muffled"
+line = "your swings make a third of the noise"
+on = "weapon"
+noise = 0.35
+
+[[property]]
+id = "keen"
+name = "Keen"
+line = "its blows do half as much harm again"
+on = "weapon"
+damage = 1.5
+
+[[property]]
+id = "swift"
+name = "Swift"
+line = "your tell is a quarter shorter, and so's the recovery"
+on = "weapon"
+swing = 0.75
+
+[[property]]
+id = "sure"
+name = "Sure"
+line = "your blows land more often"
+on = "weapon"
+hit = 0.15
+
+[[property]]
+id = "enduring"
+name = "Enduring"
+line = "it wears a quarter as fast"
+on = "weapon"
+wear = 0.25
+
+[[property]]
+id = "hallowed"
+name = "Hallowed"
+line = "what it puts down stays down"
+on = "weapon"
+hallowed = true
+
+[[property]]
+id = "blazing"
+name = "Blazing"
+line = "it lights 4 tiles round you, and the dead see you by it"
+on = "weapon"
+glow = 4
+
+[[property]]
+id = "bright"
+name = "Bright"
+line = "it reaches 3 tiles farther"
+on = "light"
+glow = 3
+
+[[property]]
+id = "lasting"
+name = "Lasting"
+line = "it burns down half as fast"
+on = "light"
+wane = 0.5
+
+# Curses. A cursed weapon clings to your hand once you take it: it won't be put away or changed
+# for another until a holdout lifts the curse (holdouts.toml, uncurse).
+
+[[property]]
+id = "clamorous"
+name = "Clamorous"
+line = "your swings carry twice as far"
+on = "weapon"
+curse = true
+noise = 2.0
+
+[[property]]
+id = "brittle"
+name = "Brittle"
+line = "it wears three times as fast"
+on = "weapon"
+curse = true
+wear = 3.0
+
+[[property]]
+id = "leaden"
+name = "Leaden"
+line = "your tell is a third longer"
+on = "weapon"
+curse = true
+swing = 1.33
+
+[[property]]
+id = "guttering"
+name = "Guttering"
+line = "it burns down twice as fast"
+on = "light"
+curse = true
+wane = 2.0

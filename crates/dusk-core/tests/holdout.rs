@@ -61,6 +61,8 @@ fn defs() -> Defs {
         supply: 2500,
         time: 10,
         bounty: dusk_core::Bounty::default(),
+        identify: 0,
+        uncurse: 0,
     };
     Defs {
         items: vec![

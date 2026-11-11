@@ -401,6 +401,11 @@ One table of how things act on each other, written before the content, so the ga
   Every property reads in one line. They're rolled by rarity and by region.
 - **No class bias in the world's containers** (decided). A cupboard holds what it would, whoever opens it. The holdouts make every find worth something instead: trade it, sell it, swap it. A class bias on magic items can be a sandbox option.
 - **Identification:** a magic item is unknown until identified (the Lore skill, a scroll, a holdout's sage) or attuned, which may reveal a curse the hard way.
+  - *(built 2026-11-11)*
+    - **What there is:** magic weapons and lights, Uncommon (one property) or Rare (two), and about one in five cursed. There are seven weapon properties (Muffled, Keen, Swift, Sure, Enduring, Hallowed, Blazing), two for lights (Bright, Lasting), and four curses (Clamorous, Brittle, Leaden, Guttering).
+    - **Unknown until known:** a magic item found works but reads "(magic, unknown)". The abbey reads it for 5 coin; fifteen blows on the dead with it teach you; a light shows itself when lit.
+    - **The hard way:** a cursed weapon shows its curse as you take it in hand, and clings there until the abbey lifts it for 20 coin.
+    - **How many:** two to six a patch, most on the rares.
 - **Attunement:** at most 3 attuned items (D&D), which caps power.
 - **Pity for named items:** each boss kill or deep vault that doesn't drop its unique raises the chance next time, so a long drought can't happen.
 - **Coin has sinks** (Path of Exile's lesson: money needs a use), so gold doesn't pile up with nothing to buy:

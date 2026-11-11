@@ -129,6 +129,7 @@ pub enum Purpose {
     Arrival = 18,
     ArrivalKind = 19,
     Name = 20,
+    Magic = 21,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

@@ -80,6 +80,8 @@ impl World {
                 ActionKind::Sell { at, slot, def } => self.sell(id, at, slot, def),
                 ActionKind::Mend { at } => self.mend(id, at),
                 ActionKind::Claim { at, rare } => self.claim(id, at, rare),
+                ActionKind::Identify { at, slot } => self.read_item(id, at, slot),
+                ActionKind::Uncurse { at } => self.lift_curse(id, at),
             }
         }
         true
@@ -124,6 +126,8 @@ impl World {
                 let ticks = self.rules.needs.drink_water;
                 (ActionKind::DrinkWater, a.facing, ticks, 0, 0)
             }
+            // A cursed weapon clings: nothing else goes in that hand, and it won't be put away.
+            Intent::Wield { .. } | Intent::Unwield if self.hand_clings(id) => return None,
             Intent::Wield { slot, def } => {
                 let ticks = self.item_ticks(id, slot, def, false)?;
                 (ActionKind::Wield { slot, def }, a.facing, ticks, 0, 0)
@@ -179,6 +183,16 @@ impl World {
             Intent::Mend { at } => {
                 self.repair_cost(id, at).ok()?;
                 let kind = ActionKind::Mend { at };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+            }
+            Intent::Identify { at, slot } => {
+                self.can_identify(id, at, slot).ok()?;
+                let kind = ActionKind::Identify { at, slot };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+            }
+            Intent::Uncurse { at } => {
+                self.can_uncurse(id, at).ok()?;
+                let kind = ActionKind::Uncurse { at };
                 (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
             }
             Intent::Claim { at, rare } => {
@@ -432,11 +446,19 @@ impl World {
         // that's down. Finishing it there spares the weapon (Zomboid's stomp), which is what a
         // shove buys you.
         self.train_blow(id, skill, target, down);
+        self.learn_by_use(id);
         if !down {
             self.wear(id);
         }
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
+            // Put down with a Hallowed weapon, it stays down (`magic.rs`).
+            if self.hallowed_hand(id)
+                && let Some(t) = self.actors.get_mut(target)
+                && matches!(t.remains, crate::actor::Remains::GetsUp { .. })
+            {
+                t.remains = crate::actor::Remains::Lying;
+            }
             return;
         }
         // A creature's hit may take hold, the likelier the more of them are on you.

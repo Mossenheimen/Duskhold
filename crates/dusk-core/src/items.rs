@@ -29,6 +29,8 @@ pub struct Item {
     pub condition: u16,
     /// A find: it came out of the world and hasn't been home yet (`home.rs`).
     pub found: bool,
+    /// What makes it magic, if anything (`magic.rs`).
+    pub magic: crate::magic::Magic,
 }
 
 impl Item {
@@ -39,6 +41,7 @@ impl Item {
             count,
             condition: NEW,
             found: false,
+            magic: crate::magic::Magic::MUNDANE,
         }
     }
 }
@@ -89,6 +92,8 @@ pub struct LootEntry {
     pub item: u16,
     pub weight: u32,
     pub count: (u16, u16),
+    /// Out of 10,000: how often what it gives is magic (`magic.rs`).
+    pub magic: u32,
 }
 
 /// What a kind of container holds: so many draws, each an entry picked by weight.
@@ -142,6 +147,9 @@ pub struct Defs {
     /// Rares' affixes and given names (`rare.rs`).
     pub affixes: Vec<crate::rare::Affix>,
     pub rare_names: Vec<String>,
+    /// Magic items' properties and curses, and how magic is rolled and learnt (`magic.rs`).
+    pub properties: Vec<crate::magic::Property>,
+    pub magic: crate::magic::MagicRules,
 }
 
 impl Default for Defs {
@@ -172,6 +180,8 @@ impl Default for Defs {
             revenant: None,
             affixes: Vec::new(),
             rare_names: Vec::new(),
+            properties: Vec::new(),
+            magic: crate::magic::MagicRules::default(),
         }
     }
 }
@@ -216,7 +226,8 @@ impl Defs {
             for held in list.iter_mut() {
                 let same = held.def == item.def
                     && held.condition == item.condition
-                    && held.found == item.found;
+                    && held.found == item.found
+                    && held.magic == item.magic;
                 if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
                     held.count += room;
@@ -307,7 +318,12 @@ impl World {
             let span = u32::from(chi.saturating_sub(clo)) + 1;
             let count = clo + below(r(k, Purpose::LootCount), span) as u16;
             if count > 0 {
-                self.defs.stow(&mut out, Item::found(entry.item, count));
+                let mut item = Item::found(entry.item, count);
+                // Now and then, what's drawn is magic (`magic.rs`).
+                if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
+                    item.magic = self.defs.roll_magic(&item, self.magic_roll(key, k));
+                }
+                self.defs.stow(&mut out, item);
             }
         }
         out
@@ -386,10 +402,14 @@ impl World {
         if let Some(creature) = self.stats(id) {
             return creature.attack;
         }
-        match a.hands.and_then(|h| self.defs.item(h.def)).map(|d| &d.kind) {
+        let Some(held) = a.hands else {
+            return c.attack;
+        };
+        match self.defs.item(held.def).map(|d| &d.kind) {
             Some(ItemKind::Weapon { swing, skill, .. }) => {
                 let level = skill.map_or(0, |s| self.skill_level(id, s));
-                self.rules.skills.swing(*swing, level)
+                // Its magic on top of what skill makes of it.
+                self.magic_swing(&held, self.rules.skills.swing(*swing, level))
             }
             _ => c.attack,
         }
@@ -407,7 +427,12 @@ impl World {
         let Some(ItemKind::Weapon { wear, .. }) = defs.item(held.def).map(|d| &d.kind) else {
             return;
         };
-        held.condition = held.condition.saturating_sub(rules.wear(*wear, level));
+        let worn = rules.wear(*wear, level);
+        let worn = (u64::from(worn) * u64::from(self.magic_wear(&held)) / 1000) as u16;
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
+        held.condition = held.condition.saturating_sub(worn);
         if held.condition == 0 {
             a.hands = None;
             self.events.push(Event::WeaponBroke {
@@ -487,6 +512,8 @@ impl World {
             defs.stow(&mut a.items, was);
         }
         self.events.push(Event::Wielded { who: id, item: def });
+        // A curse shows itself now, and the weapon clings.
+        self.cling(id);
     }
 
     /// Puts what's in hand into the pack.

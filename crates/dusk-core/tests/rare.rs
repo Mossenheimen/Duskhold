@@ -50,6 +50,8 @@ fn defs() -> Defs {
             xp: 30_000,
             pressure: 40,
         },
+        identify: 0,
+        uncurse: 0,
     };
     Defs {
         items: vec![
@@ -64,6 +66,7 @@ fn defs() -> Defs {
                 item: COIN,
                 weight: 1,
                 count: (12, 12),
+                magic: 0,
             }],
         }],
         affixes: vec![

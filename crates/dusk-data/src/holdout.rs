@@ -37,6 +37,11 @@ struct HoldoutFile {
     /// What it pays for each rare put down (left out: it posts no bounties).
     #[serde(default)]
     bounty: Option<BountyFile>,
+    /// Coin to read a magic item, and to lift a curse (left out: it doesn't).
+    #[serde(default)]
+    identify: u32,
+    #[serde(default)]
+    uncurse: u32,
 }
 
 /// A bounty: coin, XP, and how far the pressure falls, in per cent.
@@ -126,6 +131,8 @@ pub(crate) fn load(dir: &Path, defs: &mut Defs, fixtures: &[Fixture]) -> Result<
                 supply: (h.supply * 10_000.0).round() as u32,
                 time: (ticks(&file, "time", h.time)? as u32).max(1),
                 bounty,
+                identify: h.identify,
+                uncurse: h.uncurse,
             });
         }
     }

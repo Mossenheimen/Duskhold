@@ -10,7 +10,7 @@ items = [
   { item = "bread", weight = 4 },
   { item = "apple", weight = 4, count = [1, 4] },
   { item = "water", weight = 3 },
-  { item = "kitchen_knife", weight = 2 },
+  { item = "kitchen_knife", weight = 2, magic = 0.1 },
   { item = "rag", weight = 2, count = [1, 2] },
   { item = "candle", weight = 1, count = [1, 3] },
   { item = "lamp_oil", weight = 2 },
@@ -31,14 +31,14 @@ items = [
 id = "shed"           # crates
 rolls = [1, 2]
 items = [
-  { item = "hammer", weight = 3 },
+  { item = "hammer", weight = 3, magic = 0.05 },
   { item = "nails", weight = 3, count = [6, 24] },
   { item = "plank", weight = 3, count = [1, 4] },
-  { item = "shovel", weight = 2 },
-  { item = "pitchfork", weight = 1 },
-  { item = "hand_axe", weight = 1 },
-  { item = "wood_axe", weight = 1 },
-  { item = "torch", weight = 3, count = [1, 3] },
+  { item = "shovel", weight = 2, magic = 0.1 },
+  { item = "pitchfork", weight = 1, magic = 0.15 },
+  { item = "hand_axe", weight = 1, magic = 0.15 },
+  { item = "wood_axe", weight = 1, magic = 0.15 },
+  { item = "torch", weight = 3, count = [1, 3], magic = 0.05 },
   { item = "lamp_oil", weight = 3, count = [1, 2] },
 ]
 

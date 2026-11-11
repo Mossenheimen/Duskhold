@@ -206,6 +206,15 @@ time = 3.0            # seconds to pour the oil on and set it alight
 burn = 20             # game minutes a body burns, then it's ash
 light = 4             # tiles a burning body lights round it (a torch's 5, a candle's 2)
 
+[magic]
+# Magic items (properties.toml): few, and each an event. Found unknown: it works, but you don't
+# know what it does until a holdout reads it (holdouts.toml, identify), you've struck enough blows
+# with it on the dead, or, for a light, you've lit it.
+rare = 0.3            # of the magic items, the share that's Rare (two properties) not Uncommon (one)
+cursed = 0.2          # the chance one is cursed as well
+worth = [20, 50]      # the XP it adds to its kind's worth: Uncommon, Rare
+learn = 15            # blows on the dead with an unknown weapon before you know what it is
+
 [revenant]
 # Your own death (CONCEPT.md, death and legacy): your body stays where it fell, in your gear, and
 # unburned, the night after it rises as a revenant (creatures/*.toml), with your name and

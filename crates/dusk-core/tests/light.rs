@@ -227,10 +227,8 @@ fn a_torch_burns_down_and_out() {
         vec![
             Item::new(TORCH, 1),
             Item {
-                def: TORCH,
-                count: 1,
                 condition: 1000 - 10 * 17,
-                found: false,
+                ..Item::new(TORCH, 1)
             }
         ]
     );

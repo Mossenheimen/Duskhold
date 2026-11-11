@@ -86,6 +86,10 @@ pub enum Intent {
     Mend { at: TilePos },
     /// Claim the bounty on a rare put down, at the counter on `at`.
     Claim { at: TilePos, rare: ActorId },
+    /// Have the item at `slot` of your pack (or in hand: `holdout::HANDS`) read at the counter.
+    Identify { at: TilePos, slot: u16 },
+    /// Have the curse on the weapon in your hand lifted at the counter on `at`.
+    Uncurse { at: TilePos },
     /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
     /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
     Burn,
@@ -165,6 +169,13 @@ pub enum ActionKind {
     Claim {
         at: TilePos,
         rare: ActorId,
+    },
+    Identify {
+        at: TilePos,
+        slot: u16,
+    },
+    Uncurse {
+        at: TilePos,
     },
 }
 

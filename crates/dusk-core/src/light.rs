@@ -105,15 +105,26 @@ impl World {
         }
     }
 
-    /// The lights held up, lit: where each is, and its radius.
+    /// The lights held up, lit: where each is, and its radius (more for a Bright one). And a
+    /// glowing weapon in hand (Blazing, `magic.rs`) lights round whoever holds it.
     pub fn carried_lights(&self) -> impl Iterator<Item = (TilePos, i32)> + '_ {
-        self.characters.iter().filter_map(|&id| {
+        let held = self.characters.iter().filter_map(|&id| {
             let a = self.actors.get(id).filter(|a| !a.dead)?;
-            match &self.defs.item(a.light?.def)?.kind {
-                ItemKind::Light { radius, .. } => Some((a.pos, *radius)),
+            let lit = a.light?;
+            match &self.defs.item(lit.def)?.kind {
+                ItemKind::Light { radius, .. } => {
+                    let more: i32 = self.defs.properties_of(&lit).map(|p| p.glow).sum();
+                    Some((a.pos, radius + more))
+                }
                 _ => None,
             }
-        })
+        });
+        let glowing = self.characters.iter().filter_map(|&id| {
+            let a = self.actors.get(id).filter(|a| !a.dead)?;
+            let glow: i32 = self.defs.properties_of(&a.hands?).map(|p| p.glow).sum();
+            (glow > 0).then_some((a.pos, glow))
+        });
+        held.chain(glowing)
     }
 
     /// A tile's light, out of 100: the sky's, or that of a carried light or a burning body
@@ -165,6 +176,8 @@ impl World {
             defs.stow(&mut a.items, was);
         }
         self.events.push(Event::Lit { who: id, item: def });
+        // Lit, you see what it is.
+        self.know_light(id);
     }
 
     /// Puts out the light held up, into the pack (burnt down as far as it got).
@@ -206,7 +219,12 @@ impl World {
             let Some(ItemKind::Light { wane, .. }) = defs.item(lit.def).map(|d| &d.kind) else {
                 continue;
             };
-            lit.condition = lit.condition.saturating_sub(*wane);
+            // A Lasting light burns down slower (`magic.rs`).
+            let pace = defs
+                .properties_of(&lit)
+                .fold(1000u32, |w, p| w * p.wane / 1000);
+            let wane = (u32::from(*wane) * pace / 1000).max(1) as u16;
+            lit.condition = lit.condition.saturating_sub(wane);
             if lit.condition == 0 {
                 a.light = None;
                 self.events.push(Event::BurntOut {

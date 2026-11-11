@@ -150,6 +150,32 @@ fn gen_patch(args: &[String]) {
         xp / 1000,
         grams as f64 / 1000.0
     );
+    // The magic in it, told as if known: in containers, and on the rares.
+    let mut magic: Vec<String> = Vec::new();
+    for y in 0..layout.height {
+        for x in 0..layout.width {
+            let at = TilePos::new(x, y, 0);
+            if world.is_container(at) {
+                magic.extend(
+                    world
+                        .store(at)
+                        .iter()
+                        .filter(|i| i.magic.is_magic())
+                        .map(|i| told(&world, i)),
+                );
+            }
+        }
+    }
+    for id in world.rares() {
+        let carried = &world.actor(id).expect("a rare").items;
+        magic.extend(
+            carried
+                .iter()
+                .filter(|i| i.magic.is_magic())
+                .map(|i| format!("{} (a rare's)", told(&world, i))),
+        );
+    }
+    println!("  {} magic item(s): {}", magic.len(), magic.join("; "));
     for id in world.rares().collect::<Vec<_>>() {
         let a = world.actor(id).expect("a rare");
         let worth: u32 = a
@@ -526,6 +552,13 @@ fn describe(w: &World, e: Event) -> String {
             w.name_of(body).unwrap_or_default(),
             name(revenant)
         ),
+        Event::Identified { who, item } => format!("{} learnt what item {item} is", name(who)),
+        Event::CurseClings { who, item } => {
+            format!("item {item} clings to {}'s hand: cursed", name(who))
+        }
+        Event::CurseLifted { who, item } => {
+            format!("the curse on {}'s item {item} was lifted", name(who))
+        }
         Event::LightEaten { by, who } => {
             format!("{} put out {}'s light", name(by), name(who))
         }
@@ -593,6 +626,19 @@ fn bench(args: &[String]) {
         "{dead} dead on a 96 x 96 map, thinking every {think} tick(s){during}: {tps:.0} ticks/s = {:.0}x real time",
         tps / f64::from(TICKS_PER_SECOND)
     );
+}
+
+/// A magic item as it would be told once known: its name, its rarity, and a curse.
+fn told(world: &World, item: &dusk_core::Item) -> String {
+    let mut known = *item;
+    known.magic.known = true;
+    let rarity = if known.magic.rarity >= 2 {
+        "Rare"
+    } else {
+        "Uncommon"
+    };
+    let curse = if known.magic.cursed() { ", cursed" } else { "" };
+    format!("{} ({rarity}{curse})", world.defs.label(&known))
 }
 
 /// The patch's first Tolling: run to it, then two game hours of it.

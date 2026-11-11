@@ -18,9 +18,9 @@
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Item,
-    ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos, View,
-    World, WoundKind, demo,
+    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, HANDS, Intent,
+    Item, ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos,
+    View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -112,6 +112,9 @@ const RISEN: i32 = 60;
 const CAME: i32 = 61;
 const LIGHT_EATEN: i32 = 62;
 const BOUNTY_CLAIMED: i32 = 63;
+const IDENTIFIED: i32 = 64;
+const CURSE_CLINGS: i32 = 65;
+const CURSE_LIFTED: i32 = 66;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -340,6 +343,13 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Risen { body, revenant } => (RISEN, Some(body), Some(revenant), at(revenant), 0),
         Event::Came { who } => (CAME, Some(who), None, at(who), 0),
         Event::LightEaten { by, who } => (LIGHT_EATEN, Some(by), Some(who), at(who), 0),
+        Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),
+        Event::CurseClings { who, item } => {
+            (CURSE_CLINGS, Some(who), None, at(who), i32::from(item))
+        }
+        Event::CurseLifted { who, item } => {
+            (CURSE_LIFTED, Some(who), None, at(who), i32::from(item))
+        }
         Event::BountyClaimed { who, rare, coin } => {
             (BOUNTY_CLAIMED, Some(who), Some(rare), at(who), coin as i32)
         }
@@ -1032,7 +1042,8 @@ impl DuskWorld {
     /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
-    /// 25 having a weapon mended, 26 claiming a bounty), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
+    /// lifted), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -1082,6 +1093,8 @@ impl DuskWorld {
                         ActionKind::Sell { .. } => 24,
                         ActionKind::Mend { .. } => 25,
                         ActionKind::Claim { .. } => 26,
+                        ActionKind::Identify { .. } => 27,
+                        ActionKind::Uncurse { .. } => 28,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1233,6 +1246,140 @@ impl DuskWorld {
             .map(|(id, _)| id);
         id.and_then(|id| world.name_of(id))
             .map_or_else(GString::new, |n| GString::from(n.as_str()))
+    }
+
+    /// What your things are called, as far as you know them (`magic.rs`): what's in hand, the
+    /// light held up, then each stack of the pack ("" for an empty hand or none held up).
+    #[func]
+    fn character_labels(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return PackedStringArray::new();
+        };
+        let label = |i: Option<&Item>| {
+            i.map_or(GString::new(), |i| {
+                GString::from(world.defs.label(i).as_str())
+            })
+        };
+        let mut out = vec![label(a.hands.as_ref()), label(a.light.as_ref())];
+        out.extend(a.items.iter().map(|i| label(Some(i))));
+        out.into_iter().collect()
+    }
+
+    /// Each of your things' magic, in the same order as `character_labels`: 0 mundane, 1
+    /// Uncommon, 2 Rare; and 10 more if it's unknown.
+    #[func]
+    fn character_rarity(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return PackedInt32Array::new();
+        };
+        let code = |i: Option<&Item>| {
+            i.map_or(0, |i| {
+                i32::from(i.magic.rarity) + if i.magic.known { 0 } else { 10 }
+            })
+        };
+        let mut out = vec![code(a.hands.as_ref()), code(a.light.as_ref())];
+        out.extend(a.items.iter().map(|i| code(Some(i))));
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// What one of your things does, as far as you know it, a line each: by its place in
+    /// `character_labels` (0 in hand, 1 held up, 2 on the pack's stacks).
+    #[func]
+    fn character_lines(&self, place: i32) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return PackedStringArray::new();
+        };
+        let item = match place {
+            0 => a.hands,
+            1 => a.light,
+            n => usize::try_from(n - 2)
+                .ok()
+                .and_then(|i| a.items.get(i).copied()),
+        };
+        item.map(|i| world.defs.lines(&i))
+            .unwrap_or_default()
+            .iter()
+            .map(|l| GString::from(l.as_str()))
+            .collect()
+    }
+
+    /// What's on a container's or floor's tile is called, as far as you know it, by slot.
+    #[func]
+    fn store_labels(&self, x: i32, y: i32) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let held = world.store(TilePos::new(x, y, 0));
+        held.iter()
+            .map(|i| GString::from(world.defs.label(i).as_str()))
+            .collect()
+    }
+
+    /// Whether the weapon in your hand clings: cursed, it won't be put away.
+    #[func]
+    fn hand_clings(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world.character().is_some_and(|me| world.hand_clings(me))
+    }
+
+    /// What reading one of your things costs at the counter on (x, y) (`slot` -1: what's in
+    /// hand), or why not: -1 nothing unknown there, -2 not enough coin.
+    #[func]
+    fn identify_check(&self, x: i32, y: i32, slot: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        let slot = if slot < 0 { HANDS } else { slot as u16 };
+        match world.can_identify(me, TilePos::new(x, y, 0), slot) {
+            Ok(price) => price as i32,
+            Err(NoDeal::TooPoor) => -2,
+            Err(_) => -1,
+        }
+    }
+
+    /// Has one of your things read at the counter on (x, y) (`slot` -1: what's in hand).
+    #[func]
+    fn identify(&mut self, x: i32, y: i32, slot: i32) {
+        let slot = if slot < 0 { HANDS } else { slot as u16 };
+        self.act(Intent::Identify {
+            at: TilePos::new(x, y, 0),
+            slot,
+        });
+    }
+
+    /// What lifting the curse in your hand costs at the counter on (x, y), or why not: -1 no
+    /// curse there, -2 not enough coin.
+    #[func]
+    fn uncurse_check(&self, x: i32, y: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_uncurse(me, TilePos::new(x, y, 0)) {
+            Ok(price) => price as i32,
+            Err(NoDeal::TooPoor) => -2,
+            Err(_) => -1,
+        }
+    }
+
+    /// Has the curse on the weapon in your hand lifted at the counter on (x, y).
+    #[func]
+    fn uncurse(&mut self, x: i32, y: i32) {
+        self.act(Intent::Uncurse {
+            at: TilePos::new(x, y, 0),
+        });
     }
 
     /// Whether each actor is a rare (`rare.rs`): 1 for a rare, else 0.

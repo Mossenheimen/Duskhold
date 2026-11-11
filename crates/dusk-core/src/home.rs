@@ -179,7 +179,7 @@ impl World {
         });
         if home && item.found {
             item.found = false;
-            let worth = self.defs.item(def).map_or(0, |d| d.worth);
+            let worth = self.defs.worth(&item);
             let xp = worth.saturating_mul(u32::from(item.count));
             self.events.push(Event::BroughtHome {
                 who: id,

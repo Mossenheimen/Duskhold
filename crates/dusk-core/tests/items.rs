@@ -64,11 +64,13 @@ fn defs() -> Defs {
                     item: BREAD,
                     weight: 3,
                     count: (1, 2),
+                    magic: 0,
                 },
                 LootEntry {
                     item: BANDAGE,
                     weight: 1,
                     count: (1, 1),
+                    magic: 0,
                 },
             ],
         }],

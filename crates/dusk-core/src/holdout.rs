@@ -13,7 +13,9 @@
 //!     too, by how much it was worth (`pressure.rs`). A holdout supplied pushes the dusk back;
 //!   - **repair** the weapon in your hand, for coin by how worn it is;
 //!   - **claim a bounty** on a rare that's been put down (`rare.rs`): coin, XP, and the
-//!     pressure falls. Each is claimed once.
+//!     pressure falls. Each is claimed once;
+//!   - **have a magic item read** (`magic.rs`): its properties, and any curse, known;
+//!   - **have a curse lifted** from the weapon that clings to your hand.
 //!
 //! Coin is an item (`Defs::coin`), carried and weighed like any other. What you pay with is your
 //! ordinary coin first, and finds last, so a find keeps its XP for as long as it can.
@@ -59,7 +61,13 @@ pub struct Holdout {
     pub time: u32,
     /// What it pays for each rare put down.
     pub bounty: Bounty,
+    /// Coin to read a magic item, and to lift a curse (0: it doesn't).
+    pub identify: u32,
+    pub uncurse: u32,
 }
+
+/// A slot that means the weapon in hand, where a deal takes a pack's slot.
+pub const HANDS: u16 = u16::MAX;
 
 /// A rectangle of tiles on one floor, from (x0, y0) up to, not including, (x1, y1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,6 +107,10 @@ pub enum NoDeal {
     StillAbout,
     /// That bounty's been paid.
     Claimed,
+    /// Nothing unknown to read there.
+    NothingToRead,
+    /// No curse in hand to lift.
+    NoCurse,
 }
 
 impl Defs {
@@ -197,7 +209,7 @@ impl World {
 
     /// What a holdout pays for a stack, in coin: a share of its worth.
     fn price_of(&self, h: &Holdout, item: &Item) -> u32 {
-        let worth = self.defs.item(item.def).map_or(0, |d| d.worth);
+        let worth = self.defs.worth(item);
         let all = u64::from(worth) * u64::from(item.count) * u64::from(h.buys);
         (all / 1_000_000) as u32
     }
@@ -217,7 +229,7 @@ impl World {
             return Err(NoDeal::Worthless);
         }
         let price = self.price_of(h, item);
-        let worth = self.defs.item(def).map_or(0, |d| d.worth);
+        let worth = self.defs.worth(item);
         let counts = price > 0 || (worth > 0 && (item.found || h.wants.contains(&def)));
         if !counts {
             return Err(NoDeal::Worthless);
@@ -236,7 +248,8 @@ impl World {
             return Err(NoDeal::NothingToMend);
         }
         let worn = u64::from(NEW - held.condition);
-        let cost = u64::from(def.worth) * u64::from(h.repair) / 1000 * worn / u64::from(NEW);
+        let worth = u64::from(self.defs.worth(&held));
+        let cost = worth * u64::from(h.repair) / 1000 * worn / u64::from(NEW);
         let cost = cost.div_ceil(1000).max(1) as u32;
         if self.coins(id) < cost {
             return Err(NoDeal::TooPoor);
@@ -258,6 +271,78 @@ impl World {
             return Err(NoDeal::StillAbout);
         }
         Ok(bounty)
+    }
+
+    /// The item at a pack's `slot`, or in hand (`HANDS`).
+    fn item_at(&self, id: ActorId, slot: u16) -> Option<Item> {
+        let a = self.actors.get(id)?;
+        if slot == HANDS {
+            a.hands
+        } else {
+            a.items.get(usize::from(slot)).copied()
+        }
+    }
+
+    /// Whether `id` can have the item at `slot` (or `HANDS`) read over the counter on `at`,
+    /// and for how much: a magic item it doesn't know.
+    pub fn can_identify(&self, id: ActorId, at: TilePos, slot: u16) -> Result<u32, NoDeal> {
+        let price = self.reach_counter(id, at)?.identify;
+        let item = self.item_at(id, slot).ok_or(NoDeal::NothingToRead)?;
+        if price == 0 || !item.magic.is_magic() || item.magic.known {
+            return Err(NoDeal::NothingToRead);
+        }
+        if self.coins(id) < price {
+            return Err(NoDeal::TooPoor);
+        }
+        Ok(price)
+    }
+
+    /// Whether `id` can have the curse on the weapon in its hand lifted, and for how much.
+    pub fn can_uncurse(&self, id: ActorId, at: TilePos) -> Result<u32, NoDeal> {
+        let price = self.reach_counter(id, at)?.uncurse;
+        let item = self.item_at(id, HANDS).ok_or(NoDeal::NoCurse)?;
+        if price == 0 || !item.magic.cursed() {
+            return Err(NoDeal::NoCurse);
+        }
+        if self.coins(id) < price {
+            return Err(NoDeal::TooPoor);
+        }
+        Ok(price)
+    }
+
+    /// The deal's end: the item read.
+    pub(crate) fn read_item(&mut self, id: ActorId, at: TilePos, slot: u16) {
+        let Ok(price) = self.can_identify(id, at, slot) else {
+            return;
+        };
+        self.pay(id, price);
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
+        let item = if slot == HANDS {
+            a.hands.as_mut()
+        } else {
+            a.items.get_mut(usize::from(slot))
+        };
+        if let Some(item) = item {
+            item.magic.known = true;
+            item.magic.curse_shown = true;
+            let def = item.def;
+            self.events.push(Event::Identified { who: id, item: def });
+        }
+    }
+
+    /// The deal's end: the curse lifted. The rest of its magic stays.
+    pub(crate) fn lift_curse(&mut self, id: ActorId, at: TilePos) {
+        let Ok(price) = self.can_uncurse(id, at) else {
+            return;
+        };
+        self.pay(id, price);
+        if let Some(held) = self.actors.get_mut(id).and_then(|a| a.hands.as_mut()) {
+            held.magic.curse = crate::magic::NONE;
+            let item = held.def;
+            self.events.push(Event::CurseLifted { who: id, item });
+        }
     }
 
     /// Whether the bounty on a rare has been claimed.
@@ -381,7 +466,7 @@ impl World {
             return;
         };
         let item = a.items.remove(usize::from(slot));
-        let worth = self.defs.item(def).map_or(0, |d| d.worth);
+        let worth = self.defs.worth(&item);
         self.earn(id, price);
         self.events.push(Event::Sold {
             who: id,

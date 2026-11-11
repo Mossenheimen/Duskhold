@@ -576,6 +576,21 @@ pub enum Event {
         by: ActorId,
         who: ActorId,
     },
+    /// `who` learnt what a magic item is (`magic.rs`): by use, by lighting it, or at a holdout.
+    Identified {
+        who: ActorId,
+        item: u16,
+    },
+    /// A cursed weapon `who` took in hand clings: its curse shows itself.
+    CurseClings {
+        who: ActorId,
+        item: u16,
+    },
+    /// A holdout lifted the curse on the weapon in `who`'s hand.
+    CurseLifted {
+        who: ActorId,
+        item: u16,
+    },
     /// `who` claimed the bounty on a rare put down, for `coin` (`holdout.rs`).
     BountyClaimed {
         who: ActorId,

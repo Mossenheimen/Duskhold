@@ -99,7 +99,9 @@ func refresh(busy: bool, dead: bool) -> void:
 	var stash := _stash_in(reach)
 	var counter: PackedInt32Array = _dusk.counter_in_reach()
 	var coins: int = _dusk.coins()
-	var pack := [hands, items, carried, light, stash, counter, coins]
+	var labels: PackedStringArray = _dusk.character_labels()
+	var rarity: PackedInt32Array = _dusk.character_rarity()
+	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -139,13 +141,23 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 	if heavy:
 		title.add_theme_color_override("font_color", Color(1.0, 0.55, 0.4))
 	var trading := counter.size() >= 3
+	var labels: PackedStringArray = _dusk.character_labels()
+	var rarity: PackedInt32Array = _dusk.character_rarity()
 	if hands.size() >= 2:
-		var row := _row(_pack, "In hand: %s (%d%%)" % [_name(hands[0]), roundi(hands[1] / 10.0)])
-		_button(row, "Put away", func() -> void: _dusk.unwield())
+		var row := _row(_pack, "In hand: %s (%d%%)" % [labels[0], roundi(hands[1] / 10.0)])
+		_tint(row, rarity, 0)
+		if _dusk.hand_clings():
+			_button(row, "It clings", func() -> void: _clings())
+		else:
+			_button(row, "Put away", func() -> void: _dusk.unwield())
 		if trading:
 			var cost: int = _dusk.mend_check(counter[0], counter[1])
 			if cost > 0 or cost == -2:
 				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
+			_reading_buttons(row, counter, -1)
+			if _dusk.uncurse_check(counter[0], counter[1]) != -1:
+				_button(row, "Lift the curse", func() -> void: _uncurse(counter[0], counter[1]))
+		_show_lines(0)
 	else:
 		_line(_pack, "In hand: nothing (bare fists)", 15)
 	if light.size() >= 2:
@@ -157,12 +169,15 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		var def := items[i]
 		var count := items[i + 1]
 		var label := _describe(def, count, items[i + 3] == 1)
+		if 2 + slot < labels.size() and labels[2 + slot] != _name(def):
+			label = labels[2 + slot] + label.substr(_name(def).length())  # magic: what you know of it
 		if _kind(def) == LIGHT and items[i + 2] < 1000:
 			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
 		var row := _row(_pack, label)
+		_tint(row, rarity, 2 + slot)
 		match _kind(def):
 			WEAPON:
-				_button(row, "Wield", func() -> void: _dusk.wield(slot, def))
+				_button(row, "Wield", func() -> void: _wield(slot, def))
 			BANDAGE:
 				_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
 			FOOD:
@@ -178,10 +193,66 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		if stash.x >= 0:
 			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
 		if trading:
+			_reading_buttons(row, counter, slot)
 			var price: int = _dusk.sell_price(counter[0], counter[1], slot, def)
 			if price >= 0:
 				_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
+		_show_lines(2 + slot)
+
+
+## Magic in colour: blue for Uncommon, gold for Rare, and dimmer while you don't know it
+## (DuskWorld.character_rarity(): 10 more for unknown).
+func _tint(row: HBoxContainer, rarity: PackedInt32Array, place: int) -> void:
+	if place >= rarity.size() or rarity[place] == 0:
+		return
+	var known := rarity[place] < 10
+	var colour := Color(0.55, 0.75, 1.0) if rarity[place] % 10 == 1 else Color(1.0, 0.8, 0.35)
+	if not known:
+		colour = colour.darkened(0.25)
+	row.get_child(0).add_theme_color_override("font_color", colour)
+
+
+## Under a magic thing you know, its lines: what each property does.
+func _show_lines(place: int) -> void:
+	var lines: PackedStringArray = _dusk.character_lines(place)
+	for k in range(1, lines.size()):
+		var line := _line(_pack, "      " + lines[k], 13)
+		line.add_theme_color_override("font_color", Color(0.75, 0.8, 0.9))
+
+
+## At a counter: "Read" for a magic thing you don't know yet (`slot` -1: what's in hand).
+func _reading_buttons(row: HBoxContainer, counter: PackedInt32Array, slot: int) -> void:
+	var price: int = _dusk.identify_check(counter[0], counter[1], slot)
+	if price == -1:
+		return
+	_button(row, "Read · %d" % maxi(price, 0), func() -> void: _read(counter[0], counter[1], slot))
+
+
+func _read(x: int, y: int, slot: int) -> void:
+	if _dusk.identify_check(x, y, slot) == -2:
+		say.call("You haven't the coin to have it read.")
+	else:
+		_dusk.identify(x, y, slot)
+
+
+func _uncurse(x: int, y: int) -> void:
+	if _dusk.uncurse_check(x, y) == -2:
+		say.call("You haven't the coin to have the curse lifted.")
+	else:
+		_dusk.uncurse(x, y)
+
+
+func _clings() -> void:
+	say.call("It clings to your hand: it's cursed. The abbey can lift a curse, for coin.")
+
+
+## Taking a weapon in hand: not while a cursed one clings there.
+func _wield(slot: int, def: int) -> void:
+	if _dusk.hand_clings():
+		_clings()
+	else:
+		_dusk.wield(slot, def)
 
 
 ## The cure, taken only with a fever to cure: the core won't start it otherwise, so say why.
@@ -228,7 +299,11 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 			var def := reach[i + slot * STACK]
 			var count := reach[i + slot * STACK + 1]
 			var found := reach[i + slot * STACK + 3] == 1
-			var row := _row(_reach, "   " + _describe(def, count, found))
+			var text := _describe(def, count, found)
+			var known: PackedStringArray = _dusk.store_labels(x, y)
+			if slot < known.size() and known[slot] != _name(def):
+				text = known[slot] + text.substr(_name(def).length())  # magic, as far as you know it
+			var row := _row(_reach, "   " + text)
 			_button(row, "Take", func() -> void: _dusk.take(x, y, slot, def))
 		i += n * STACK
 

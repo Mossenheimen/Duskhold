@@ -17,6 +17,8 @@ supply = 0.25         # each point of worth of what it wants lowers the pressure
 # A bounty on each of the region's rares (regions/*.toml, [rares]): put one down, and claim it
 # over the counter, once. The sisters say where it was last heard of.
 bounty = { coin = 25, xp = 30, pressure = 3.0 }
+identify = 5          # coin to read a magic item: what it does, and any curse
+uncurse = 20          # coin to lift the curse from the weapon that clings to your hand
 sells = [
   { item = "tincture", price = 30, stock = 1 },    # the cure for ghoul fever: one a day
   { item = "bandage", price = 6, stock = 3 },

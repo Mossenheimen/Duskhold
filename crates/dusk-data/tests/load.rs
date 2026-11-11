@@ -810,3 +810,31 @@ fn the_games_rares_have_affixes_names_and_a_bounty_on_them() {
         .expect("rares");
     assert!(rares.count > 0);
 }
+
+#[test]
+fn the_games_magic_has_properties_for_weapons_and_lights_and_curses_among_them() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let weapon = |curse: bool| {
+        d.properties
+            .iter()
+            .filter(|p| !p.on_light && p.curse == curse)
+            .count()
+    };
+    let light = |curse: bool| {
+        d.properties
+            .iter()
+            .filter(|p| p.on_light && p.curse == curse)
+            .count()
+    };
+    // A Rare weapon has two properties, so it needs at least two to choose from.
+    assert!(weapon(false) >= 2 && light(false) >= 2);
+    assert!(weapon(true) >= 1 && light(true) >= 1);
+    assert!(d.properties.iter().any(|p| p.hallowed));
+    assert!((1..=50).contains(&d.magic.learn));
+    let abbey = d.holdouts.iter().find(|h| h.id == "abbey").unwrap();
+    assert!(abbey.identify > 0 && abbey.uncurse > abbey.identify);
+    // And the rares carry it: their weapons are magic.
+    let rare = d.loot.iter().find(|t| t.id == "rare").unwrap();
+    assert!(rare.entries.iter().any(|e| e.magic == 10_000));
+}

@@ -145,6 +145,9 @@ struct LootLine {
     weight: u32,
     #[serde(default = "one_each")]
     count: (u16, u16),
+    /// The chance what it gives is magic (`properties.toml`); left out, never.
+    #[serde(default)]
+    magic: f64,
 }
 
 /// rules.toml's [items]: seconds each item action takes.
@@ -336,16 +339,20 @@ pub(crate) fn load_defs(
             }
             let mut entries = Vec::new();
             for line in &t.items {
-                if line.count.0 > line.count.1 {
+                if line.count.0 > line.count.1 || !(0.0..=1.0).contains(&line.magic) {
                     return Err(fail(
                         &file,
-                        format!("loot {:?}: count is [fewest, most]", t.id),
+                        format!(
+                            "loot {:?}: count is [fewest, most], magic a chance from 0 to 1",
+                            t.id
+                        ),
                     ));
                 }
                 entries.push(LootEntry {
                     item: item(&file, &line.item)?,
                     weight: line.weight,
                     count: line.count,
+                    magic: (line.magic * 10_000.0).round() as u32,
                 });
             }
             loot.push(LootTable {
@@ -420,6 +427,9 @@ pub(crate) fn load_defs(
         // Filled in by the loader, from affixes.toml and names.toml.
         affixes: Vec::new(),
         rare_names: Vec::new(),
+        // Filled in by the loader, from properties.toml and rules.toml's [magic].
+        properties: Vec::new(),
+        magic: dusk_core::MagicRules::default(),
     };
     let mut start = Vec::new();
     for name in kit.kit {

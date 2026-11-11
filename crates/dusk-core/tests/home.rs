@@ -36,6 +36,7 @@ fn defs() -> Defs {
                 item: COINS,
                 weight: 1,
                 count: (5, 5),
+                magic: 0,
             }],
         }],
         containers: vec![None, Some(0)],
