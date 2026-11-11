@@ -54,8 +54,18 @@ pub fn find_path(grid: &Grid, from: TilePos, to: TilePos, budget: usize) -> Opti
         if explored > budget {
             return None;
         }
+        // Which ways on are open: a byte from the grid's cache (from the start, which may be a
+        // tile nobody else could stand on, worked out).
+        let ways = if p == from {
+            Dir8::ALL
+                .iter()
+                .filter(|&&d| grid.can_step(p, d))
+                .fold(0, |bits, &d| bits | d.bit())
+        } else {
+            grid.steps_from(p)
+        };
         for dir in Dir8::ALL {
-            if !grid.can_step(p, dir) {
+            if ways & dir.bit() == 0 {
                 continue;
             }
             let next = p.step(dir);

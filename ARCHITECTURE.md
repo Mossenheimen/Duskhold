@@ -466,6 +466,22 @@ Measured on 2026-11-06 (`dusk-cli bench`, release build). The map is 96 × 96 wi
   - a per-chunk cache of which steps are open, rebuilt when a chunk changes.
 - **For gameplay,** 16,500 ticks/s still fast-forwards a night's sleep (12,000 ticks) in under a second.
 
+**Measured again on 2026-11-10, after step 6** (both fixes built). The bench now keeps you alive in the crowd the whole run: a dead character no longer keeps the world awake, and before, the crowd dragged you down part-way, after which it mattered less. So these are harsher than the table above:
+
+| Dead | Thinking every 5 ticks | The Tolling on, none giving up |
+|---|---|---|
+| 100 | 111,000 ticks/s (11,100×) | 79,000 ticks/s |
+| 500 | 23,100 ticks/s (2,310×) | 16,600 ticks/s |
+
+What was done, found by timing each part of a tick (the A* searches were most of a crowded one):
+
+1. **Finding a tile's chunk** was a search of a sorted map on every read of the grid. A dense table over the chunks' box makes it an array read (`Grid`, `Dense`); the sorted index stays, for comparing, hashing and saves. About 20% faster on its own.
+2. **The lookup maps** (`hash::FastMap`: who stands where, A*'s bookkeeping) hash a word at a time (`WordHasher`, rustc's FxHash) instead of a byte at a time (FNV, which stays for the state hash and the data's fingerprint). Another 5%.
+3. **Each tile's open steps are kept** (`Grid::index_steps`, `steps_from`): a byte a tile, bit k for `Dir8::ALL[k]`, built once a patch is made and kept true as tiles and edges change (the 5 × 5 tiles round a change are worked out again; a chunk put in place, the chunk and its border). A search reads one byte a node where it made about 25 lookups, so an A* search on the bench's map went from 151 µs to 48. A grid never indexed (a test's, a hand-made map) works the steps out each time: the same answer, slower. A test holds the kept steps to the map's through hundreds of edits of every kind.
+4. **The same search wasn't made twice.** A creature waiting behind another planned its way again every 15 ticks, but a search doesn't count actors, so from the same tile to the same goal it found the very same way: 99% of all searches were these (56,000 of 56,900 on the bench). It now plans again only when the map itself bars the way (a door shut), and otherwise waits on. Its way is then what's left of the one it planned, which may differ from a fresh search's only where two ways cost the same.
+
+Making a patch takes 45 ms instead of 22 (indexing its steps). The game's own patch runs its Tolling at 190,000 to 210,000 ticks/s (it was 120,000).
+
 ## Risks
 
 - **Rust's learning curve** falls on Claude; the user judges behaviour (the dashboard, replays) more than code. Mitigation: small crates, plain structs, and a comment wherever a rule lives.
@@ -489,7 +505,7 @@ Asked for by the user after step 5, together with the concept's (`CONCEPT.md`, u
 
 1. **The shambler is hard-coded** (paid the same day: step 6, slice 0). `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
 2. **Nothing is saved** (paid 2026-11-10: step 6, slice 1). The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
-3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now. *(Part paid 2026-11-10, step 6, slice 6: the Tolling's crowd shares one field. What's left: the dead chasing prey still plan one A* each, and on a Tolling night they don't give up, so 500 of them all after you run at 5,800 ticks a second. The next fix is the per-chunk cache of open steps: a step of A* or of a field costs about 0.8 µs now, most of it looking up chunks.)*
+3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now. *(Part paid 2026-11-10, step 6, slice 6: the Tolling's crowd shares one field. What's left: the dead chasing prey still plan one A* each, and on a Tolling night they don't give up, so 500 of them all after you run at 5,800 ticks a second. The next fix is the per-chunk cache of open steps: a step of A* or of a field costs about 0.8 µs now, most of it looking up chunks.)* *(Paid the same day, after slice 7: the steps are kept a byte a tile, chunks are found by a table, and a creature waiting behind another no longer plans the same way again. 500 dead after you all night run at 16,600 ticks a second; see the performance budget.)*
 
 **Smaller things, noted and left:**
 

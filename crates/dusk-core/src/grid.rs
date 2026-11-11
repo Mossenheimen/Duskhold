@@ -183,14 +183,67 @@ pub fn edge_owner(pos: TilePos, dir: Dir8) -> (TilePos, Dir8) {
 }
 
 /// The world's tiles, chunk by chunk. A tile in a chunk that doesn't exist is void.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+///
+/// Every rule reads the grid (each step, each line of sight, each sound carried), so finding a
+/// tile's chunk has to be cheap: the chunks sit in a list, and a dense table over the box they
+/// cover says which is where, one array read. The sorted index keeps the grid's order for
+/// comparing, hashing and saving, whatever order the chunks were made in.
+#[derive(Clone, Debug, Default)]
 pub struct Grid {
-    chunks: BTreeMap<ChunkPos, Chunk>,
+    /// The chunks, in the order they were made.
+    store: Vec<Chunk>,
+    /// Each chunk's place in `store`, by position: sorted.
+    order: BTreeMap<ChunkPos, u32>,
+    /// Which chunk is where, over the box the chunks cover.
+    dense: Dense,
+    /// From `index_steps` on: for each chunk (by its place in `store`), each tile's open steps,
+    /// a bit for each of `Dir8::ALL` (`steps_from`). Kept up to date as the grid changes.
+    steps: Option<Vec<Vec<u8>>>,
     /// Whether changes are being tracked (from `track_changes` on), and the chunks changed
     /// since: what a save keeps, the rest coming back from the seed.
     tracking: bool,
     changed: BTreeSet<ChunkPos>,
     edits: Edits,
+}
+
+/// A table over the box of chunk positions from (`x0`, `y0`), `w` × `h`: each holds its chunk's
+/// place in the grid's list, or `NO_CHUNK`. Empty (0 × 0) when the chunks are too scattered for
+/// a table to be worth its memory: then the sorted index is asked instead.
+#[derive(Clone, Debug, Default)]
+struct Dense {
+    x0: i32,
+    y0: i32,
+    w: i32,
+    h: i32,
+    slots: Vec<u32>,
+}
+
+const NO_CHUNK: u32 = u32::MAX;
+/// The most entries the dense table may have (a box of 512 × 512 chunks: 1 MB).
+const DENSE_MOST: i64 = 1 << 18;
+
+impl PartialEq for Grid {
+    /// The same chunks in the same places, tracked the same way: however they came to be made.
+    fn eq(&self, other: &Grid) -> bool {
+        self.tracking == other.tracking
+            && self.changed == other.changed
+            && self.order.len() == other.order.len()
+            && self.chunks().zip(other.chunks()).all(|(a, b)| a == b)
+    }
+}
+
+impl Eq for Grid {}
+
+impl std::hash::Hash for Grid {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        self.order.len().hash(h);
+        for (at, chunk) in self.chunks() {
+            at.hash(h);
+            chunk.hash(h);
+        }
+        self.tracking.hash(h);
+        self.changed.hash(h);
+    }
 }
 
 /// How many times the grid has been changed: for caches built from it (the Tolling's flow
@@ -216,8 +269,87 @@ impl Grid {
         Grid::default()
     }
 
+    /// Every chunk and where it is, in order of position.
+    fn chunks(&self) -> impl Iterator<Item = (&ChunkPos, &Chunk)> {
+        self.order
+            .iter()
+            .map(|(at, &slot)| (at, &self.store[slot as usize]))
+    }
+
+    /// The chunk at a position, if there is one: by the dense table, else the sorted index.
+    #[inline]
+    fn chunk(&self, at: ChunkPos) -> Option<&Chunk> {
+        self.slot(at).map(|slot| &self.store[slot])
+    }
+
+    /// A chunk's place in `store`, if there's a chunk at that position.
+    #[inline]
+    fn slot(&self, at: ChunkPos) -> Option<usize> {
+        let d = &self.dense;
+        if d.w > 0 {
+            // Off the table's box, the difference wraps round to a huge number.
+            let (dx, dy) = (
+                at.x.wrapping_sub(d.x0) as u32,
+                at.y.wrapping_sub(d.y0) as u32,
+            );
+            if dx >= d.w as u32 || dy >= d.h as u32 {
+                return None;
+            }
+            let slot = d.slots[(dy * d.w as u32 + dx) as usize];
+            return (slot != NO_CHUNK).then_some(slot as usize);
+        }
+        self.order.get(&at).map(|&slot| slot as usize)
+    }
+
+    /// The chunk at a position, made (void) if there isn't one yet.
+    fn chunk_mut(&mut self, at: ChunkPos) -> &mut Chunk {
+        let slot = match self.order.get(&at) {
+            Some(&slot) => slot,
+            None => {
+                let slot = self.store.len() as u32;
+                self.store.push(Chunk::default());
+                if let Some(steps) = &mut self.steps {
+                    steps.push(vec![0; CELLS]);
+                }
+                self.order.insert(at, slot);
+                self.redo_table();
+                slot
+            }
+        };
+        &mut self.store[slot as usize]
+    }
+
+    /// Lays the dense table out again over the box the chunks cover (a new chunk was made).
+    fn redo_table(&mut self) {
+        let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+        for at in self.order.keys() {
+            (x0, y0) = (x0.min(at.x), y0.min(at.y));
+            (x1, y1) = (x1.max(at.x), y1.max(at.y));
+        }
+        let (w, h) = (
+            i64::from(x1) - i64::from(x0) + 1,
+            i64::from(y1) - i64::from(y0) + 1,
+        );
+        if self.order.is_empty() || w * h > DENSE_MOST {
+            self.dense = Dense::default();
+            return;
+        }
+        let (w, h) = (w as i32, h as i32);
+        let mut slots = vec![NO_CHUNK; (w * h) as usize];
+        for (at, &slot) in &self.order {
+            slots[((at.y - y0) * w + (at.x - x0)) as usize] = slot;
+        }
+        self.dense = Dense {
+            x0,
+            y0,
+            w,
+            h,
+            slots,
+        };
+    }
+
     pub fn tile(&self, pos: TilePos) -> Tile {
-        match (self.chunks.get(&pos.chunk()), index(pos)) {
+        match (self.chunk(pos.chunk()), index(pos)) {
             (Some(chunk), Some(i)) => chunk.tiles[i],
             _ => Tile::VOID,
         }
@@ -225,7 +357,7 @@ impl Grid {
 
     pub fn set_tile(&mut self, pos: TilePos, tile: Tile) {
         if let Some(i) = index(pos) {
-            self.chunks.entry(pos.chunk()).or_default().tiles[i] = tile;
+            self.chunk_mut(pos.chunk()).tiles[i] = tile;
             self.touch(pos);
         }
     }
@@ -247,13 +379,74 @@ impl Grid {
         if self.tracking {
             self.changed.insert(pos.chunk());
         }
+        if self.steps.is_some() {
+            // A tile or an edge here changes the steps of the tiles round it: two tiles out
+            // covers a diagonal's corners.
+            self.restep(pos.x - 2, pos.y - 2, pos.x + 2, pos.y + 2, pos.z);
+        }
+    }
+
+    /// From now on, the grid keeps each tile's open steps (`steps_from`), so a search reads a
+    /// byte a tile instead of looking up its neighbours and their edges. The generator calls
+    /// this once the land is made; a grid that never does works the steps out each time, the
+    /// same answer, slower.
+    pub fn index_steps(&mut self) {
+        self.steps = Some(vec![vec![0; CELLS]; self.store.len()]);
+        let all: Vec<ChunkPos> = self.order.keys().copied().collect();
+        for at in all {
+            let o = at.origin(0);
+            for z in Z_MIN..=Z_MAX {
+                self.restep(o.x, o.y, o.x + CHUNK_SIZE - 1, o.y + CHUNK_SIZE - 1, z);
+            }
+        }
+    }
+
+    /// Works out again the open steps of the tiles from (x0, y0) to (x1, y1) on floor `z`,
+    /// both corners in. A tile nobody can stand on has none.
+    fn restep(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, z: i8) {
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let p = TilePos::new(x, y, z);
+                let (Some(slot), Some(i)) = (self.slot(p.chunk()), index(p)) else {
+                    continue;
+                };
+                let open = self.work_out_steps(p);
+                if let Some(steps) = &mut self.steps {
+                    steps[slot][i] = open;
+                }
+            }
+        }
+    }
+
+    /// A tile's open steps, worked out from the tiles and edges round it.
+    fn work_out_steps(&self, p: TilePos) -> u8 {
+        if !self.tile(p).walkable() {
+            return 0;
+        }
+        Dir8::ALL
+            .iter()
+            .enumerate()
+            .filter(|&(_, &d)| self.can_step(p, d))
+            .fold(0, |bits, (k, _)| bits | 1 << k)
+    }
+
+    /// Which steps from a tile are open: bit k for `Dir8::ALL[k]`, as `can_step` answers for
+    /// each. Nothing from a tile nobody can stand on.
+    #[inline]
+    pub fn steps_from(&self, p: TilePos) -> u8 {
+        if let Some(steps) = &self.steps {
+            return match (self.slot(p.chunk()), index(p)) {
+                (Some(slot), Some(i)) => steps[slot][i],
+                _ => 0,
+            };
+        }
+        self.work_out_steps(p)
     }
 
     /// The chunks changed since `track_changes`, in order: every chunk, for a grid that never
     /// began tracking (a hand-made map has no seed to come back from).
     pub fn changed_chunks(&self) -> Vec<(ChunkPos, Chunk)> {
-        self.chunks
-            .iter()
+        self.chunks()
             .filter(|(at, _)| !self.tracking || self.changed.contains(at))
             .map(|(&at, chunk)| (at, chunk.clone()))
             .collect()
@@ -261,8 +454,21 @@ impl Grid {
 
     /// Puts a whole chunk in place (a saved one, over the one the seed made).
     pub fn put_chunk(&mut self, at: ChunkPos, chunk: Chunk) {
-        self.chunks.insert(at, chunk);
+        *self.chunk_mut(at) = chunk;
         self.edits.0 += 1;
+        if self.steps.is_some() {
+            // The whole chunk, and the tiles round it that step into it.
+            let o = at.origin(0);
+            for z in Z_MIN..=Z_MAX {
+                self.restep(
+                    o.x - 2,
+                    o.y - 2,
+                    o.x + CHUNK_SIZE + 1,
+                    o.y + CHUNK_SIZE + 1,
+                    z,
+                );
+            }
+        }
         if self.tracking {
             self.changed.insert(at);
         }
@@ -270,7 +476,7 @@ impl Grid {
 
     /// The edge on a tile's north side.
     pub fn north(&self, pos: TilePos) -> Edge {
-        match (self.chunks.get(&pos.chunk()), index(pos)) {
+        match (self.chunk(pos.chunk()), index(pos)) {
             (Some(chunk), Some(i)) => chunk.north[i],
             _ => Edge::Open,
         }
@@ -278,7 +484,7 @@ impl Grid {
 
     /// The edge on a tile's west side.
     pub fn west(&self, pos: TilePos) -> Edge {
-        match (self.chunks.get(&pos.chunk()), index(pos)) {
+        match (self.chunk(pos.chunk()), index(pos)) {
             (Some(chunk), Some(i)) => chunk.west[i],
             _ => Edge::Open,
         }
@@ -286,14 +492,14 @@ impl Grid {
 
     pub fn set_north(&mut self, pos: TilePos, edge: Edge) {
         if let Some(i) = index(pos) {
-            self.chunks.entry(pos.chunk()).or_default().north[i] = edge;
+            self.chunk_mut(pos.chunk()).north[i] = edge;
             self.touch(pos);
         }
     }
 
     pub fn set_west(&mut self, pos: TilePos, edge: Edge) {
         if let Some(i) = index(pos) {
-            self.chunks.entry(pos.chunk()).or_default().west[i] = edge;
+            self.chunk_mut(pos.chunk()).west[i] = edge;
             self.touch(pos);
         }
     }
@@ -342,6 +548,6 @@ impl Grid {
 
     /// How many chunks exist.
     pub fn chunk_count(&self) -> usize {
-        self.chunks.len()
+        self.order.len()
     }
 }

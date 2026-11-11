@@ -1421,6 +1421,16 @@ fn next_heading(a: &mut Actor, grid: &Grid, repath_after: u32, budget: usize) ->
             }
             let stale = a.path_goal != Some(to)
                 || a.path.last().is_none_or(|&next| a.pos.steps_to(next) != 1);
+            // Waited long enough on the way ahead: plan again only if the map itself now bars
+            // it (a door shut). Barred only by someone standing there, a search would find the
+            // very same way (it doesn't count actors), so it waits on.
+            let barred = a.path.last().is_none_or(|&next| {
+                Dir8::toward(next.x - a.pos.x, next.y - a.pos.y)
+                    .is_none_or(|d| !grid.can_step(a.pos, d))
+            });
+            if a.blocked >= repath_after && !barred && !stale {
+                a.blocked = 0;
+            }
             if stale || a.blocked >= repath_after {
                 a.blocked = 0;
                 match find_path(grid, a.pos, to, budget) {

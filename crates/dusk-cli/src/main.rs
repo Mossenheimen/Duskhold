@@ -629,6 +629,8 @@ fn open_field(size: i32, dead: usize, seed: u64) -> World {
     }
     let centre = TilePos::new(size / 2, size / 2, 0);
     w.grid.set_tile(centre, Tile::GRASS);
+    // As a patch is once it's made: each tile's open steps kept for the searches.
+    w.grid.index_steps();
     // You don't die in the benchmark, of wounds or by being dragged down: a dead character no
     // longer keeps the world awake, so the dead would stand still and the figure mean nothing.
     w.rules.combat.character_health = 1_000_000_000;

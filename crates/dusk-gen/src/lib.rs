@@ -520,8 +520,10 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     core.start = Some(layout.start);
     world.set_region(core);
     world.hallowed = layout.hallowed();
-    // The land is made: from here on, what changes is what a save keeps.
+    // The land is made: from here on, what changes is what a save keeps, and each tile's open
+    // steps are kept for the searches (`Grid::index_steps`).
     world.grid.track_changes();
+    world.grid.index_steps();
     (world, layout)
 }
 

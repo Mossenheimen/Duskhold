@@ -106,6 +106,12 @@ impl Dir8 {
         Dir8::NW,
     ];
 
+    /// Its bit in a set of headings (`Grid::steps_from`): bit k for `Dir8::ALL[k]`.
+    #[inline]
+    pub fn bit(self) -> u8 {
+        1 << self as u8
+    }
+
     pub fn delta(self) -> (i32, i32) {
         match self {
             Dir8::N => (0, -1),

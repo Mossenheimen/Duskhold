@@ -27,7 +27,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 .\play.cmd                                 # build and play: carries on from the saved game (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
 .\play.cmd -- --seed=7 --walk=4,5          # a trial run, not saved. Flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION (swing, shove, door, struggle, drop, sleep, drink, light, skills, save, board, unboard, burn, next), --news, --hour=H, --save=FILE, --shot=PNG --shot-after=S
-cargo test --workspace                     # 146 tests, a few seconds
+cargo test --workspace                     # 147 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, its dead by kind, the XP, cures and oil its containers hold, and a map (--text X,Y,W,H, --ticks N: also the pressure after, --tolling: its first Tolling, run)
@@ -44,7 +44,7 @@ Godot 4.7.2 is in `%LOCALAPPDATA%\Programs\Godot`. `Godot_v4.7.2-stable_win64.ex
 
 - **Build output** goes to `%LOCALAPPDATA%\cargo-target` (`CARGO_TARGET_DIR`), never into OneDrive. In the Bash tool, export it, and `PATH=$HOME/.cargo/bin:$PATH`, in each command: its shells don't see `setx` changes.
 - **Determinism:**
-  - no `HashMap` iteration in game logic (`hash::FastMap` is for lookups only);
+  - no `HashMap` iteration in game logic (`hash::FastMap` is for lookups only: its hasher, `WordHasher`, is fast and nothing may depend on what it hashes to; `Fnv64` is for hashes that are kept or compared);
   - gameplay randomness only through `hash::roll(seed, tick, who, why)`;
   - actors in id order, and one world per thread.
 - **Test maps are text grids** (`text.rs`), the same format as prefabs and `World::render`. Their `z` is creature 0, the test shambler (`Creature::default`).
@@ -58,6 +58,9 @@ Godot 4.7.2 is in `%LOCALAPPDATA%\Programs\Godot`. `Godot_v4.7.2-stable_win64.ex
   - **Actors are only ever added,** never removed (bodies stay, as ash), so an actor's index in the bridge's arrays never changes. The client adds a view for each newcomer (`_add_new_actors`).
   - Rules and definitions are never saved: they come from `data/`.
   - **Any flag after `--` makes a trial run,** which neither loads nor saves the player's world (`user://world.dusk`). Test saving with `--save=<scratchpad>/x.dusk`.
+- **Speed:**
+  - a grid built by hand for anything that searches a lot (a tool, a benchmark) calls `Grid::index_steps()` once it's made, as `dusk-gen`'s `patch` does: searches then read a byte a tile. Unindexed, the answers are the same, slower;
+  - before making something faster, time it (a tick's parts, as on 2026-11-10: `ARCHITECTURE.md`, performance budget), and keep the bench's figures honest: its character must stay alive (a dead one no longer keeps the world awake).
 - **Generation stays order-free:** every tile and edge of a patch is a pure function of the seed, the layout and its place (`Layout::tile`, `north_edge`, `west_edge`), never of other chunks. `dusk-gen`'s tests check it.
 - **Leave `11_PPO-Zombie` alone.** Don't edit it from here. Copy what's reused (`ppo.py`, telemetry, the dashboard) and note where it came from.
 - **The client:**

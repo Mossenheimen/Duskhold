@@ -73,7 +73,7 @@ impl Flow {
                     continue;
                 }
                 let back = dir.turned(4);
-                let step = if grid.can_step(from, back) {
+                let step = if grid.steps_from(from) & back.bit() != 0 {
                     if back.is_diagonal() {
                         DIAGONAL
                     } else {
@@ -123,13 +123,14 @@ impl Flow {
             return FlowStep::Stay;
         }
         let mut ways: Vec<(u32, FlowStep)> = Vec::with_capacity(8);
+        let open = grid.steps_from(p);
         for dir in Dir8::ALL {
             let next = p.step(dir);
             let cost = self.cost_at(next);
             if cost >= here {
                 continue;
             }
-            if grid.can_step(p, dir) {
+            if open & dir.bit() != 0 {
                 ways.push((cost, FlowStep::Go(dir)));
             } else if dir.split().is_none() && grid.edge(p, dir).is_shut_door() {
                 ways.push((cost, FlowStep::Door(dir)));
