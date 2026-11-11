@@ -13,6 +13,9 @@ use crate::hash::{Purpose, below, roll};
 use crate::skills::Skill;
 use crate::world::{Event, Sound, World};
 
+/// Ticks to catch your second wind.
+const SECOND_WIND_TICKS: u32 = 15;
+
 impl World {
     /// An actor's turn at its timed action, this tick: start one if its intent asks and it's
     /// between steps, carry on with the one under way, or lie there if it's down. True while
@@ -82,6 +85,7 @@ impl World {
                 ActionKind::Claim { at, rare } => self.claim(id, at, rare),
                 ActionKind::Identify { at, slot } => self.read_item(id, at, slot),
                 ActionKind::Uncurse { at } => self.lift_curse(id, at),
+                ActionKind::SecondWind => self.second_wind(id),
             }
         }
         true
@@ -185,6 +189,12 @@ impl World {
                 let kind = ActionKind::Mend { at };
                 (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
             }
+            Intent::SecondWind => {
+                if !self.can_second_wind(id) {
+                    return None;
+                }
+                (ActionKind::SecondWind, a.facing, SECOND_WIND_TICKS, 0, 0)
+            }
             Intent::Identify { at, slot } => {
                 self.can_identify(id, at, slot).ok()?;
                 let kind = ActionKind::Identify { at, slot };
@@ -277,6 +287,8 @@ impl World {
         endurance: i32,
     ) -> Option<Action> {
         let tired = self.tired_slow(id);
+        // A Fighter's endurance goes further (`class.rs`).
+        let endurance = endurance * self.endurance_rate(id) / 1000;
         let a = self.actors.get_mut(id)?;
         let slow = |t: u32| {
             let t = t * tired / 1000;
@@ -311,6 +323,15 @@ impl World {
             .chain(Dir8::ALL)
             .find(|&d| self.target_at(id, a.pos.step(d)).is_some())
             .unwrap_or(a.facing)
+    }
+
+    /// Another foe beside `id` to cleave into: the way to the first one alive, clockwise from
+    /// north.
+    fn next_foe(&self, id: ActorId) -> Option<Dir8> {
+        let pos = self.actors.get(id)?.pos;
+        Dir8::ALL
+            .into_iter()
+            .find(|&d| self.target_at(id, pos.step(d)).is_some())
     }
 
     /// The enemy a blow from `id` would hit on `at`: alive, and reachable from where `id` stands
@@ -459,6 +480,15 @@ impl World {
             {
                 t.remains = crate::actor::Remains::Lying;
             }
+            // Cleave: a blow that puts one down carries on into another beside you, once a swing.
+            if !self.cleaving
+                && self.cleaves(id)
+                && let Some(next) = self.next_foe(id)
+            {
+                self.cleaving = true;
+                self.strike(id, next);
+                self.cleaving = false;
+            }
             return;
         }
         // A creature's hit may take hold, the likelier the more of them are on you.
@@ -528,7 +558,7 @@ impl World {
         let down = below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,
-        ) < c.knock_down;
+        ) < (c.knock_down as i32 + self.knock_down_bonus(id)).max(0) as u32;
         // A shove breaks a hold.
         self.release(target);
         // How long one of its kind stays down.
@@ -667,6 +697,7 @@ impl World {
             // Held, you strain: no breath comes back. Hungry or thirsty, it comes back slower.
             let held = self.is_held(id);
             let recovery = self.recovery(id) as i32;
+            let rate = self.endurance_rate(id);
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -681,7 +712,7 @@ impl World {
             match (stride, a.action) {
                 (Some(true), _) => {
                     let athletics = a.skills.level(Skill::Athletics, &s);
-                    a.body.spend(s.run_cost(e.run, athletics));
+                    a.body.spend(s.run_cost(e.run, athletics) * rate / 1000);
                 }
                 _ if held => {}
                 (Some(false), _) => a.body.endurance += e.walk * recovery / 1000,

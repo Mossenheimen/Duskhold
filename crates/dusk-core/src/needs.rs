@@ -258,6 +258,10 @@ impl World {
             self.events.push(Event::WokeUp { who: id, why });
             // Slept the night through: this is home now.
             if why == Woke::Rested {
+                // Slept the night through: the second wind comes back (`class.rs`).
+                if let Some(a) = self.actors.get_mut(id) {
+                    a.winded = false;
+                }
                 self.make_home(id);
             }
         }

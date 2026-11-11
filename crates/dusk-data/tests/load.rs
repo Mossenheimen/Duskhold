@@ -857,3 +857,20 @@ fn it_rains_in_the_hushlands_now_and_then_and_harder_rain_does_more() {
     assert!(w.sound[1] < w.sound[0] && w.scent[1] < w.scent[0] && w.sky[1] < w.sky[0]);
     assert!(w.douse[1] > w.douse[0]);
 }
+
+#[test]
+fn the_fighter_has_its_talents_and_learns_its_weapons_faster_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let fighter = d.classes.first().expect("a class");
+    assert_eq!(fighter.id, "fighter");
+    assert!(fighter.learn > 1000 && fighter.endurance < 1000 && fighter.grabbed < 1000);
+    use dusk_core::skills::Skill;
+    for s in [Skill::Blade, Skill::Blunt, Skill::Axe] {
+        assert!(fighter.skills.contains(&s));
+    }
+    // Enough talents to offer three at each of nine levels' picks, less what's taken: ten.
+    assert!(fighter.talents.len() >= 9);
+    let talent = |id: &str| d.talents.iter().any(|t| t.id == id);
+    assert!(talent("cleave") && talent("second_wind"));
+}

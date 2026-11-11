@@ -1,0 +1,13 @@
+# Classes (CONCEPT.md, character). A class is the skills it learns faster, its endurance, its
+# signature, and the talents it picks from (talents.toml). Every character is the first class here
+# until there's a second to choose from.
+
+[[class]]
+id = "fighter"
+name = "Fighter"
+# Holds doorways; engagement and grabs are its part of the system.
+skills = ["blade", "blunt", "axe", "athletics"]
+learn = 1.5           # learns those half as fast again
+endurance = 0.85      # its running, swings and struggles cost this much: more breath than anyone
+grabbed = 0.75        # it shrugs off grabs: the dead get hold of it this often
+talents = ["tough", "tireless", "second_wind", "cleave", "shrug", "bash", "doorwarden", "heavy_hand", "edge", "woodsman"]

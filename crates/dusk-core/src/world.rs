@@ -606,6 +606,15 @@ pub enum Event {
     Came {
         who: ActorId,
     },
+    /// `who` chose a talent (`class.rs`).
+    TalentChosen {
+        who: ActorId,
+        talent: u8,
+    },
+    /// `who` caught its second wind.
+    SecondWind {
+        who: ActorId,
+    },
     /// It began to rain (`weather.rs`), or rain hard.
     RainBegan {
         heavy: bool,
@@ -668,6 +677,9 @@ pub struct World {
     pub(crate) flow: Option<crate::flow::Flow>,
     /// The rares whose bounties have been claimed (`holdout.rs`). Ordered, for the hash.
     pub(crate) claimed: std::collections::BTreeSet<ActorId>,
+    /// A blow carrying on into another foe (Cleave, `class.rs`): only ever true inside a strike,
+    /// so one cleave doesn't start another.
+    pub(crate) cleaving: bool,
 }
 
 impl World {
@@ -702,6 +714,7 @@ impl World {
             sold: BTreeMap::new(),
             flow: None,
             claimed: std::collections::BTreeSet::new(),
+            cleaving: false,
         }
     }
 
@@ -739,6 +752,8 @@ impl World {
         actor.born = self.clock_minutes();
         if kind == ActorKind::Character {
             actor.name = self.roll_name(self.actors.len() as u64);
+            // The first class in the data: the only one, for now (`class.rs`).
+            actor.class = (!self.defs.classes.is_empty()).then_some(0);
         }
         // A character starts with the kit: something in hand, the rest in its pack.
         if kind == ActorKind::Character {

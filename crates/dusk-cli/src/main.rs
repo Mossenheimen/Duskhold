@@ -559,6 +559,15 @@ fn describe(w: &World, e: Event) -> String {
         Event::CurseLifted { who, item } => {
             format!("the curse on {}'s item {item} was lifted", name(who))
         }
+        Event::TalentChosen { who, talent } => format!(
+            "{} chose the talent {}",
+            name(who),
+            w.defs
+                .talents
+                .get(usize::from(talent))
+                .map_or("?", |t| t.name.as_str())
+        ),
+        Event::SecondWind { who } => format!("{} caught a second wind", name(who)),
         Event::RainBegan { heavy } => if heavy {
             "it rains hard"
         } else {

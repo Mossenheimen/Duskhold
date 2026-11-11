@@ -18,6 +18,8 @@ var _panel: PanelContainer
 var _list: VBoxContainer
 var _shown := PackedInt32Array()
 var _shown_left := -1
+var _shown_talents := []  # your class's talents, taken and offered, as last drawn
+var _texts := PackedStringArray()  # every talent's name and line (DuskWorld.talent_texts())
 
 
 func _ready() -> void:
@@ -42,6 +44,8 @@ func start(dusk: Node) -> void:
 	_names = dusk.skill_names()
 	_shown = PackedInt32Array()
 	_shown_left = -1
+	_shown_talents = []
+	_texts = dusk.talent_texts()
 
 
 func toggle() -> void:
@@ -59,11 +63,54 @@ func refresh(dead: bool) -> void:
 		return
 	var skills: PackedInt32Array = _dusk.character_skills()
 	var left: int = _dusk.masteries_left()
-	if skills == _shown and left == _shown_left:
+	var talents := [_dusk.character_talents(), _dusk.talent_offer()]
+	if skills == _shown and left == _shown_left and talents == _shown_talents:
 		return
 	_shown = skills
 	_shown_left = left
+	_shown_talents = talents
 	_draw(skills, left)
+	_draw_talents(talents[0], talents[1])
+
+
+## Your class, the talents you've taken, and, with a pick to make, the three on offer.
+func _draw_talents(taken: PackedInt32Array, offer: PackedInt32Array) -> void:
+	var class_name_: String = _dusk.class_name()
+	if class_name_ == "":
+		return
+	_list.add_child(_label(" ", 8))
+	_list.add_child(_label("%s  ·  talents" % class_name_, 17))
+	for t in taken:
+		_list.add_child(_label("%s: %s" % [_text(t, 0), _text(t, 1)], 13))
+	if offer.size() == 0:
+		if taken.size() == 0:
+			var hint := _label("Each level from 2 offers three to choose from.", 12)
+			hint.modulate = Color(1, 1, 1, 0.7)
+			_list.add_child(hint)
+		return
+	var choose := _label("Choose one:", 14)
+	choose.add_theme_color_override("font_color", GOLD)
+	_list.add_child(choose)
+	for t in offer:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_list.add_child(row)
+		var line := _label("%s: %s" % [_text(t, 0), _text(t, 1)], 13)
+		line.custom_minimum_size = Vector2(330, 0)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(line)
+		var button := Button.new()
+		button.text = "Choose"
+		button.add_theme_font_size_override("font_size", 13)
+		button.focus_mode = Control.FOCUS_NONE  # keys stay with the game
+		button.pressed.connect(func() -> void: _dusk.choose_talent(t))
+		row.add_child(button)
+
+
+## A talent's name (0) or line (1), by number.
+func _text(talent: int, which: int) -> String:
+	var i := talent * 2 + which
+	return _texts[i] if i < _texts.size() else "?"
 
 
 func _draw(skills: PackedInt32Array, left: int) -> void:

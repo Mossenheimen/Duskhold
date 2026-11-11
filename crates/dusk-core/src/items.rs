@@ -150,6 +150,9 @@ pub struct Defs {
     /// Magic items' properties and curses, and how magic is rolled and learnt (`magic.rs`).
     pub properties: Vec<crate::magic::Property>,
     pub magic: crate::magic::MagicRules,
+    /// The classes and their talents (`class.rs`). A character is the first class.
+    pub classes: Vec<crate::class::Class>,
+    pub talents: Vec<crate::class::Talent>,
 }
 
 impl Default for Defs {
@@ -182,6 +185,8 @@ impl Default for Defs {
             rare_names: Vec::new(),
             properties: Vec::new(),
             magic: crate::magic::MagicRules::default(),
+            classes: Vec::new(),
+            talents: Vec::new(),
         }
     }
 }
@@ -392,6 +397,12 @@ impl World {
             && self.load(id) > self.defs.carry
     }
 
+    /// The swing an actor makes now: its weapon's, as its skill, its weapon's magic and its
+    /// talents make it, else bare hands (for a creature, its own).
+    pub fn swing(&self, id: ActorId) -> Swing {
+        self.swing_of(id)
+    }
+
     /// The swing an actor makes: its weapon's, as its skill with it makes it, else bare hands
     /// (for a creature, its own).
     pub(crate) fn swing_of(&self, id: ActorId) -> Swing {
@@ -403,15 +414,16 @@ impl World {
             return creature.attack;
         }
         let Some(held) = a.hands else {
-            return c.attack;
+            return self.talent_swing(id, None, c.attack);
         };
         match self.defs.item(held.def).map(|d| &d.kind) {
             Some(ItemKind::Weapon { swing, skill, .. }) => {
                 let level = skill.map_or(0, |s| self.skill_level(id, s));
-                // Its magic on top of what skill makes of it.
-                self.magic_swing(&held, self.rules.skills.swing(*swing, level))
+                // Its magic and your talents on top of what skill makes of it.
+                let swing = self.magic_swing(&held, self.rules.skills.swing(*swing, level));
+                self.talent_swing(id, *skill, swing)
             }
-            _ => c.attack,
+            _ => self.talent_swing(id, None, c.attack),
         }
     }
 

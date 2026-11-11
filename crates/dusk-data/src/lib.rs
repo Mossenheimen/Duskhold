@@ -6,6 +6,7 @@
 //! loading fails with the file and what's wrong.
 
 mod barricade;
+mod class;
 mod fever;
 mod holdout;
 mod home;
@@ -295,6 +296,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
     defs.properties = magic::load(dir)?;
+    (defs.classes, defs.talents) = class::load(dir)?;
     if let Some(m) = &raw.magic {
         defs.magic = magic::to_rules(&rules_file, m)?;
     }

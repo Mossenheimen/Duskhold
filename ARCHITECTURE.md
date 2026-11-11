@@ -1007,6 +1007,34 @@ Game first: every step ends with something to look at or play.
          - the news tells when it begins and ends, and when it puts your light out;
          - **checked on screen:** a picture in heavy rain, from a copy of `data/` where it always rains;
        - **not yet:** fog, wind, snow and seasons; rain filling barrels; being wet and cold; lanterns, which rain doesn't put out.
+     - **The Fighter** (2026-11-11; 181 tests pass), the last on this list:
+       - **a class is data** (`data/classes.toml`; `dusk-core/src/class.rs`, `Class`). The Fighter has:
+         - **skills it learns half as fast again:** Blade, Blunt, Axe and Athletics (`train`);
+         - **cheaper endurance:** its running, swings and struggles cost 85% (`endurance_rate`, in `start` and `bodies`);
+         - **its signature, shrugging off grabs:** the dead get hold of it three times in four as often (`grabbed_chance`, in `grab_chance`);
+         - **ten talents** to pick from.
+         Every character is the first class in the data (`spawn`); choosing one waits for a second class. A test world with no classes has classless characters, as before;
+       - **talents are data** (`data/talents.toml`, `Talent`), each one line:
+         - Tough: 15 health;
+         - Tireless: a quarter off endurance;
+         - Second Wind: a verb (`Intent::SecondWind`, C). Once between sleeps, full endurance and 10 health back. It comes back on waking rested (`Actor::winded`);
+         - Cleave: a blow that puts one down carries on into the next foe beside you, once a swing (`World::cleaving` keeps one cleave from starting another);
+         - Shrug: struggling free +20%, and one more must hold you to drag you down;
+         - Bash: shoves knock down +35%;
+         - Doorwarden: beside a door, +15% to land and half the grabs;
+         - Heavy Hand, Edge, Woodsman: a quarter more harm with blunt weapons, blades or axes.
+         They work through the rules that already exist: `swing_of` (now `talent_swing` on top of `magic_swing`), `grab_chance`, `struggle`, `drag_downs`, the shove's knock-down, and `max_health`;
+       - **picks** (`World::talent_offer`, `choose_talent`, `picks_left`): each level from 2 offers three of the class's talents not yet taken, chosen by the seed (`Purpose::Talent`), the same offer however often it's asked. You pick one when you like: a choice, not a timed action, like a mastery. Its health comes at once;
+       - **the save format** is version 9 (an actor's class, talents, and whether its second wind is spent);
+       - **the client:**
+         - the skills panel (K, now "skills and talents") shows your class, the talents you've taken with their lines, and, with a pick to make, the three on offer with Choose;
+         - the news says when a level brings a talent to choose, what you chose, and your second wind;
+         - **checked:** a headless run with the panel open. The offer itself wasn't caught on screen: a trial run starts at level 1, with no way yet to give XP from a script;
+       - **not yet:**
+         - choosing a class at the start (with the Cleric, the second);
+         - a class's starting kit (the rules' kit is everyone's);
+         - shields, so Brace and Shield Bash as the design names them (Bash is a harder shove for now);
+         - a holdout trainer re-picking talents for coin.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

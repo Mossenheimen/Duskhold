@@ -84,6 +84,8 @@ pub enum Intent {
     Sell { at: TilePos, slot: u16, def: u16 },
     /// Have the weapon in your hand mended at the counter on `at`.
     Mend { at: TilePos },
+    /// Catch your second wind (a talent, `class.rs`): breath full, and a little health back.
+    SecondWind,
     /// Claim the bounty on a rare put down, at the counter on `at`.
     Claim { at: TilePos, rare: ActorId },
     /// Have the item at `slot` of your pack (or in hand: `holdout::HANDS`) read at the counter.
@@ -177,6 +179,7 @@ pub enum ActionKind {
     Uncurse {
         at: TilePos,
     },
+    SecondWind,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -320,6 +323,11 @@ pub struct Actor {
     pub died: Option<u64>,
     /// A rare's affixes (`rare.rs`), by their numbers in the data: none for the ordinary.
     pub affixes: Vec<u8>,
+    /// A character's class and the talents it has picked (`class.rs`), by their numbers in the
+    /// data; and whether its second wind is spent until it sleeps.
+    pub class: Option<u8>,
+    pub talents: Vec<u8>,
+    pub winded: bool,
 }
 
 impl Actor {
@@ -363,6 +371,9 @@ impl Actor {
             born: 0,
             died: None,
             affixes: Vec::new(),
+            class: None,
+            talents: Vec::new(),
+            winded: false,
         }
     }
 

@@ -131,6 +131,7 @@ pub enum Purpose {
     Name = 20,
     Magic = 21,
     Weather = 22,
+    Talent = 23,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

@@ -96,7 +96,9 @@ impl World {
         match a.kind {
             ActorKind::Character => {
                 let levels = i32::from(self.rules.deeds.level(a.deeds)) - 1;
-                self.rules.combat.character_health + levels * self.rules.deeds.health
+                self.rules.combat.character_health
+                    + levels * self.rules.deeds.health
+                    + self.talent_health(id)
             }
             ActorKind::Creature(_) => self.stats(id).map_or(0, |c| c.health),
         }

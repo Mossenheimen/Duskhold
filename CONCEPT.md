@@ -186,6 +186,17 @@ A class is:
 
 Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oil) work for every class.
 
+*(built 2026-11-11)* **The Fighter**, the first class:
+- **Skills:** it learns Blade, Blunt, Axe and Athletics half as fast again.
+- **Endurance:** its running, swings and struggles cost 85%.
+- **Its signature:** the dead get hold of it a quarter less often.
+- **Talents:** each level from 2 offers three of its ten, and you pick one:
+  - Tough, Tireless, Second Wind and Cleave;
+  - Shrug and Bash (the harder shove standing in for the shield bash until there are shields);
+  - Doorwarden;
+  - a weapon focus for each of blunt weapons, blades and axes.
+- **For now,** every character is a Fighter; choosing comes with the second class.
+
 ### Ancestry and traits (Default)
 
 - **Ancestries are trait bundles:** human (one more trait), dwarf (darkvision 3 tiles, hardy, slow), elf (keen hearing, darkvision 2 tiles), halfling (small: quieter, lucky). Darkvision matters a great deal in a game about night.

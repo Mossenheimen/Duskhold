@@ -1,0 +1,69 @@
+# Talents (CONCEPT.md, levelling): each level from 2 offers three of your class's (classes.toml)
+# that you haven't taken, and you pick one. Each reads in one line and is a thing you'd notice:
+# no one-point picks. Multipliers are 1.0 for none; hit, knock_down and struggle are chances added.
+
+[[talent]]
+id = "tough"
+name = "Tough"
+line = "15 more health"
+health = 15
+
+[[talent]]
+id = "tireless"
+name = "Tireless"
+line = "running, swings and struggles cost a quarter less breath"
+endurance = 0.75
+
+[[talent]]
+id = "second_wind"
+name = "Second Wind"
+line = "once between sleeps, catch your breath: endurance full, and 10 health back (C)"
+second_wind = true
+
+[[talent]]
+id = "cleave"
+name = "Cleave"
+line = "a blow that puts one down carries on into another beside you"
+cleave = true
+
+[[talent]]
+id = "shrug"
+name = "Shrug"
+line = "struggling free works more often, and it takes one more of them to drag you down"
+struggle = 0.2
+hold = 1
+
+[[talent]]
+id = "bash"
+name = "Bash"
+line = "your shoves knock down far more often"
+knock_down = 0.35
+
+[[talent]]
+id = "doorwarden"
+name = "Doorwarden"
+line = "beside a door, your blows land more often and the dead get hold of you less"
+doorway = true
+hit = 0.15
+grabbed = 0.5
+
+[[talent]]
+id = "heavy_hand"
+name = "Heavy Hand"
+line = "a quarter more harm with blunt weapons"
+skill = "blunt"
+damage = 1.25
+
+[[talent]]
+id = "edge"
+name = "Edge"
+line = "a quarter more harm with blades"
+skill = "blade"
+damage = 1.25
+
+[[talent]]
+id = "woodsman"
+name = "Woodsman"
+line = "a quarter more harm with axes"
+skill = "axe"
+damage = 1.25

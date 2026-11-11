@@ -107,6 +107,8 @@ const CURSE_LIFTED := 66
 const RAIN_BEGAN := 67
 const RAIN_ENDED := 68
 const RAINED_OUT := 69
+const TALENT_CHOSEN := 70
+const SECOND_WIND := 71
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -115,7 +117,8 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
-	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted"}
+	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
+	29: "Catching your breath"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -397,6 +400,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_board_up()
 	elif event.is_action_pressed("burn") and not dead:
 		_burn_body()
+	elif event.is_action_pressed("second_wind") and not dead:
+		if dusk.can_second_wind():
+			dusk.second_wind()
+		else:
+			hud.say("No second wind: it takes the talent, and comes back when you've slept.")
 	elif event.is_action_pressed("unboard") and not dead:
 		_pry_board()
 	elif event.is_action_pressed("sleep") and not dead:
@@ -791,7 +799,7 @@ func _read_events() -> void:
 					hud.say("Brought home: %s, %d XP." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
 			LEVEL_UP:
 				if who == me:
-					hud.say("You reached level %d. A little more health." % extra)
+					hud.say("You reached level %d. A little more health, and a talent to choose: K." % extra)
 					hud.flash_good()
 			FEVERED:
 				if who == me:
@@ -850,6 +858,15 @@ func _read_events() -> void:
 				if target == me:
 					hud.say("%s puts out your light! It wants you in the dark." % dusk.actor_name(who))
 					hud.flash()
+			TALENT_CHOSEN:
+				if who == me:
+					var texts: PackedStringArray = dusk.talent_texts()
+					if extra * 2 + 1 < texts.size():
+						hud.say("Talent: %s. %s." % [texts[extra * 2], texts[extra * 2 + 1].left(1).to_upper() + texts[extra * 2 + 1].substr(1)])
+			SECOND_WIND:
+				if who == me:
+					hud.say("You catch your second wind.")
+					hud.flash_good()
 			RAIN_BEGAN:
 				hud.say("It's raining hard. Lights gutter outdoors; sound and blood don't carry far." if extra == 1 else "It starts to rain: lights gutter outdoors, and the dead hear and smell less.")
 			RAIN_ENDED:
@@ -1139,6 +1156,7 @@ func _add_input_actions() -> void:
 		"skills": [KEY_K],
 		"board": [KEY_B],
 		"burn": [KEY_G],
+		"second_wind": [KEY_C],
 		"unboard": [KEY_N],
 		"restart": [KEY_R],
 		"save": [KEY_F5],

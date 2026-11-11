@@ -389,6 +389,10 @@ impl World {
                 pay = (u64::from(pay) * u64::from(r.repeat) / 1000) as u32;
             }
         }
+        // A class learns its own skills faster (`class.rs`).
+        if let Some(c) = self.class_of(id).filter(|c| c.skills.contains(&skill)) {
+            pay = (u64::from(pay) * u64::from(c.learn) / 1000) as u32;
+        }
         self.add_xp(id, skill, pay);
     }
 

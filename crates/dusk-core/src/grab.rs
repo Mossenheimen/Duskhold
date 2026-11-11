@@ -54,11 +54,13 @@ impl World {
     }
 
     /// The chance, out of 10,000, that a creature's hit on `target` takes hold of it.
-    pub(crate) fn grab_chance(&self, target: ActorId) -> u32 {
+    pub fn grab_chance(&self, target: ActorId) -> u32 {
         let c = self.rules.combat;
         let others = self.engaged(target).len().saturating_sub(1) as u32;
         let tired = self.actors.get(target).is_some_and(|t| t.body.exhausted);
-        (c.grab + c.grab_per_extra * others + if tired { c.grab_tired } else { 0 }).min(10_000)
+        let chance = c.grab + c.grab_per_extra * others + if tired { c.grab_tired } else { 0 };
+        // A Fighter shrugs off grabs (`class.rs`).
+        self.grabbed_chance(target, chance).min(10_000)
     }
 
     /// `who` takes hold of `target`, which stops where it stands: a step under way is lost, and
@@ -136,7 +138,8 @@ impl World {
             by: Some(id),
         });
         let others = holders.len() as u32 - 1;
-        let mut chance = c.struggle.hit.saturating_sub(c.struggle_per_extra * others);
+        let base = c.struggle.hit.saturating_sub(c.struggle_per_extra * others);
+        let mut chance = (base as i32 + self.struggle_bonus(id)).clamp(0, 10_000) as u32;
         if tired {
             chance /= 2;
         }
@@ -162,7 +165,8 @@ impl World {
             };
             let holders = self.holders(id).len() as u32;
             let breathless = a.body.endurance == 0;
-            if holders >= c.drag_down.max(1) || (holders >= 1 && breathless) {
+            let enough = c.drag_down.max(1).saturating_add(self.extra_hold(id));
+            if holders >= enough || (holders >= 1 && breathless) {
                 self.events.push(Event::DraggedDown { who: id, holders });
                 self.kill(id);
             }

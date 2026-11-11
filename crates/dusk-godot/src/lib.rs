@@ -118,6 +118,8 @@ const CURSE_LIFTED: i32 = 66;
 const RAIN_BEGAN: i32 = 67;
 const RAIN_ENDED: i32 = 68;
 const RAINED_OUT: i32 = 69;
+const TALENT_CHOSEN: i32 = 70;
+const SECOND_WIND: i32 = 71;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -347,6 +349,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Came { who } => (CAME, Some(who), None, at(who), 0),
         Event::LightEaten { by, who } => (LIGHT_EATEN, Some(by), Some(who), at(who), 0),
         Event::RainBegan { heavy } => (RAIN_BEGAN, None, None, (-1, -1), i32::from(heavy)),
+        Event::TalentChosen { who, talent } => {
+            (TALENT_CHOSEN, Some(who), None, at(who), i32::from(talent))
+        }
+        Event::SecondWind { who } => (SECOND_WIND, Some(who), None, at(who), 0),
         Event::RainEnded => (RAIN_ENDED, None, None, (-1, -1), 0),
         Event::RainedOut { who, item } => (RAINED_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),
@@ -1049,7 +1055,7 @@ impl DuskWorld {
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
     /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
-    /// lifted), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// lifted, 29 catching a second wind), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -1101,6 +1107,7 @@ impl DuskWorld {
                         ActionKind::Claim { .. } => 26,
                         ActionKind::Identify { .. } => 27,
                         ActionKind::Uncurse { .. } => 28,
+                        ActionKind::SecondWind => 29,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1655,6 +1662,89 @@ impl DuskWorld {
             bell.x,
             bell.y,
         ])
+    }
+
+    /// Your class's name (`class.rs`), or "" with none.
+    #[func]
+    fn class_name(&self) -> GString {
+        let Some(world) = &self.world else {
+            return GString::new();
+        };
+        let class = world.character().and_then(|me| world.class_of(me));
+        class.map_or_else(GString::new, |c| GString::from(c.name.as_str()))
+    }
+
+    /// Every talent's name and its line, by number: two strings each.
+    #[func]
+    fn talent_texts(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .talents
+            .iter()
+            .flat_map(|t| {
+                [
+                    GString::from(t.name.as_str()),
+                    GString::from(t.line.as_str()),
+                ]
+            })
+            .collect()
+    }
+
+    /// The talents you've taken, by number, in the order taken.
+    #[func]
+    fn character_talents(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let a = world.character().and_then(|me| world.actor(me));
+        a.map_or_else(PackedInt32Array::new, |a| {
+            a.talents.iter().map(|&t| i32::from(t)).collect()
+        })
+    }
+
+    /// The talents offered for your next pick (none with no pick to make), by number.
+    #[func]
+    fn talent_offer(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let offer = world
+            .character()
+            .map(|me| world.talent_offer(me))
+            .unwrap_or_default();
+        offer.iter().map(|&t| i32::from(t)).collect()
+    }
+
+    /// Picks a talent from the offer: a choice, not a timed action.
+    #[func]
+    fn choose_talent(&mut self, talent: i32) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let (Some(me), Ok(t)) = (world.character(), u8::try_from(talent)) else {
+            return false;
+        };
+        world.choose_talent(me, t)
+    }
+
+    /// Whether you can catch your second wind now.
+    #[func]
+    fn can_second_wind(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world
+            .character()
+            .is_some_and(|me| world.can_second_wind(me))
+    }
+
+    /// Catches your second wind (see `can_second_wind`).
+    #[func]
+    fn second_wind(&mut self) {
+        self.act(Intent::SecondWind);
     }
 
     /// The rain now (`weather.rs`): 0 dry, 1 rain, 2 heavy rain.

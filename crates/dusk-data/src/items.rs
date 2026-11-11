@@ -430,6 +430,9 @@ pub(crate) fn load_defs(
         // Filled in by the loader, from properties.toml and rules.toml's [magic].
         properties: Vec::new(),
         magic: dusk_core::MagicRules::default(),
+        // Filled in by the loader, from classes.toml and talents.toml.
+        classes: Vec::new(),
+        talents: Vec::new(),
     };
     let mut start = Vec::new();
     for name in kit.kit {
