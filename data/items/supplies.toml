@@ -104,3 +104,21 @@ name = "coins"
 weight = 0.01
 worth = 1
 stack = 100
+
+# The tavern's (loot/town.toml).
+
+[[item]]
+id = "ale"
+name = "jug of ale"
+weight = 0.8
+worth = 3
+stack = 4
+drink = { water = 35, time = 3.0 }
+
+[[item]]
+id = "cheese"
+name = "wedge of cheese"
+weight = 0.3
+worth = 3
+stack = 4
+food = { nutrition = 30, time = 3.0 }

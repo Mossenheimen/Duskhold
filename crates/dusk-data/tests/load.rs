@@ -326,6 +326,11 @@ fn a_designers_units_become_the_cores() {
     assert_eq!((p.per_rise, p.per_burn, p.every), (10, 30, 45));
     let hut = data.prefab("hut").unwrap();
     assert_eq!(hut.front, Side::South);
+    assert_eq!(
+        (hut.name.as_str(), hut.dead),
+        ("hut", None),
+        "no name: its id; no dead: the region's per_house"
+    );
     let bed = hut.grid.cell(0, 0).0.expect("a tile");
     assert_eq!(data.fixture(bed.fixture).unwrap().id, "bed");
     assert!(bed.solid && !bed.opaque && bed.roof);
@@ -341,6 +346,14 @@ fn a_mistake_says_where_and_what() {
     let no_door = PREFABS.replace("+-+d+", "+-+-+");
     let err = load(&folder("no-door", &test_files(&no_door))).unwrap_err();
     assert!(err.message.contains("no door on its front"), "{err}");
+
+    let backwards = PREFABS.replace(
+        "front = \"south\"",
+        "front = \"south\"
+dead = [3, 1]",
+    );
+    let err = load(&folder("backwards", &test_files(&backwards))).unwrap_err();
+    assert!(err.message.contains("dead is [fewest, most]"), "{err}");
 }
 
 #[test]
@@ -873,4 +886,55 @@ fn the_fighter_has_its_talents_and_learns_its_weapons_faster_in_the_games_data()
     assert!(fighter.talents.len() >= 9);
     let talent = |id: &str| d.talents.iter().any(|t| t.id == id);
     assert!(talent("cleave") && talent("second_wind"));
+}
+
+#[test]
+fn the_market_towns_shops_have_their_own_wares_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let tavern = data.prefab("tavern").expect("a tavern");
+    assert_eq!(
+        (tavern.name.as_str(), tavern.dead),
+        ("the tavern", Some((2, 5)))
+    );
+    assert_eq!(data.prefab("smithy").unwrap().name, "the smithy");
+    // Each shop's containers fill from a table of its own.
+    for (fixture, table) in [
+        ("rack", "smithy"),
+        ("till", "till"),
+        ("shop_shelf", "store"),
+        ("bar", "bar"),
+        ("cask", "cellar"),
+    ] {
+        let n = data.fixtures.iter().position(|f| f.id == fixture).unwrap() + 1;
+        let t = d.containers[n].unwrap_or_else(|| panic!("a {fixture} is a container"));
+        assert_eq!(d.loot[usize::from(t)].id, table, "{fixture}");
+    }
+    // The smith's work: a weapon for each skill that had only a poor one.
+    let item = |name: &str| d.items.iter().find(|i| i.id == name).unwrap();
+    for (name, skill) in [
+        ("sword", dusk_core::Skill::Blade),
+        ("spear", dusk_core::Skill::Spear),
+        ("mace", dusk_core::Skill::Blunt),
+    ] {
+        let dusk_core::ItemKind::Weapon { skill: s, wear, .. } = item(name).kind else {
+            panic!("a {name} is a weapon");
+        };
+        assert_eq!(s, Some(skill), "{name}");
+        let dusk_core::ItemKind::Weapon { wear: axe, .. } = item("hand_axe").kind else {
+            panic!("a hand axe is a weapon");
+        };
+        assert!(
+            wear < axe,
+            "{name}: forged, it wears slower than a hand axe"
+        );
+    }
+    assert!(matches!(
+        item("ale").kind,
+        dusk_core::ItemKind::Drink { .. }
+    ));
+    assert!(matches!(
+        item("cheese").kind,
+        dusk_core::ItemKind::Food { .. }
+    ));
 }

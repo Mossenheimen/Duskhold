@@ -67,3 +67,43 @@ trade = "abbey"       # a holdout trades over it (holdouts.toml)
 [[fixture]]
 id = "sister"         # the one who keeps the counter (a holdout's people come later)
 solid = true
+
+# The market town's shops (prefabs/town.toml), each with its own loot (loot/town.toml).
+
+[[fixture]]
+id = "forge"          # the smith's forge, gone cold
+solid = true
+
+[[fixture]]
+id = "anvil"
+solid = true
+
+[[fixture]]
+id = "rack"           # a weapon rack: the smith's work
+solid = true
+loot = "smithy"
+
+[[fixture]]
+id = "till"           # a shop's counter, with the till in it
+solid = true
+loot = "till"
+
+[[fixture]]
+id = "shop_shelf"     # a general store's shelves of goods
+solid = true
+opaque = true
+loot = "store"
+
+[[fixture]]
+id = "bar"            # the tavern's bar
+solid = true
+loot = "bar"
+
+[[fixture]]
+id = "cask"
+solid = true
+loot = "cellar"
+
+[[fixture]]
+id = "hearth"         # a stone hearth, cold (lighting a fire comes later)
+solid = true

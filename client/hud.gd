@@ -119,16 +119,18 @@ func _process(delta: float) -> void:
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
 ## the region's pressure (DuskWorld.pressure(): how many of the dead the patch holds, against
 ## how many it began with). Bodies that get up raise it; burning them lowers it. Then the
-## Tolling's countdown (DuskWorld.tolling()), so you can build for it; and the rain
-## (DuskWorld.rain(): 0 dry, 1 rain, 2 heavy).
+## Tolling's countdown (DuskWorld.tolling()), so you can build for it; the rain
+## (DuskWorld.rain(): 0 dry, 1 rain, 2 heavy); and the building you're in (DuskWorld.place(),
+## "" out of doors).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool,
-		pressure: PackedInt32Array, tolling: PackedInt32Array, rain: int) -> void:
+		pressure: PackedInt32Array, tolling: PackedInt32Array, rain: int, place: String) -> void:
 	var dead := ""
 	if pressure.size() >= 3 and pressure[0] > 0:
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
-	_state.text = "DUSKHOLD  ·  build step 6: the Fighter\n%s%s  ·  Seed %d  ·  %d×%s%s" % [
-		time_of_day(clock), weather, world_seed, speed, dead, _countdown(tolling)]
+	var inside := "" if place.is_empty() else "  ·  in %s" % place
+	_state.text = "DUSKHOLD  ·  the first playable: the market town\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
 

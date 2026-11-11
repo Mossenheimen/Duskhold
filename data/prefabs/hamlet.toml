@@ -1,10 +1,12 @@
-# The Hushlands' hamlet buildings, as text grids (crates/dusk-core/src/text.rs).
+# The Hushlands' town houses and outbuildings, and its chapel, as text grids
+# (crates/dusk-core/src/text.rs). Its shops are in town.toml.
 #
 # Edges: - and | walls, D/d a shut/open door, W/w a shut/open window, f a fence, a space open.
 # Cells come from the legend below; a space cell leaves the land as it was.
+# name: what you're told when you're inside it (the id, if it has none).
 # front: the side with the main door. The generator turns each building to face the road.
-# tags: what the region's hamlet asks for (regions/hushlands.toml, [hamlet] lots).
-# Doors are open for now: opening and shutting them comes with build step 5.
+# tags: what the region's town asks for (regions/hushlands.toml, [hamlet] lots).
+# dead (if given): how many of the dead are in it at the start, instead of the region's per_house.
 
 [legend]
 "." = { ground = "floor" }
@@ -24,6 +26,7 @@
 
 [[prefab]]
 id = "cottage"
+name = "a cottage"
 tags = ["house"]
 front = "south"
 grid = """
@@ -40,6 +43,7 @@ grid = """
 
 [[prefab]]
 id = "longhouse"
+name = "a longhouse"
 tags = ["house"]
 front = "south"
 grid = """
@@ -56,6 +60,7 @@ W. . . . . . . . .W
 
 [[prefab]]
 id = "farmhouse"
+name = "a farmhouse"
 tags = ["house"]
 front = "south"
 grid = """
@@ -76,6 +81,7 @@ W. . . .|. . . . . .|
 
 [[prefab]]
 id = "barn"
+name = "a barn"
 tags = ["outbuilding"]
 front = "south"
 grid = """
@@ -96,6 +102,7 @@ W. . . . . . .W
 
 [[prefab]]
 id = "shed"
+name = "a shed"
 tags = ["outbuilding"]
 front = "south"
 grid = """
@@ -110,6 +117,7 @@ grid = """
 
 [[prefab]]
 id = "chapel"
+name = "the chapel"
 tags = ["landmark"]
 front = "south"
 grid = """

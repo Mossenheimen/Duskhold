@@ -243,15 +243,137 @@ fn the_river_has_its_bridge_and_fords_clear_of_the_hamlet_and_the_far_bank_is_re
                 lot.prefab
             );
         }
-        // The far bank: a tile 20 east of the river, reached from the start on foot.
-        let far = TilePos::new((x + 20).min(layout.width - 2), layout.start.y, 0);
-        let far = (0..40)
-            .map(|k| far.offset(0, k - 20))
-            .find(|&p| w.grid.tile(p).walkable())
-            .expect("somewhere to stand over there");
+        // The far bank: the road 20 tiles east of the river, reached from the start on foot.
+        // (The road, because any other tile over there may be a clearing shut in by woods.)
+        let far_x = (x + 20).min(layout.width - 2);
+        let far = (0..layout.height)
+            .map(|y| TilePos::new(far_x, y, 0))
+            .find(|&p| w.grid.tile(p).ground == Ground::Road)
+            .expect("the road goes on over there");
         assert!(
             find_path(&w.grid, layout.start, far, 60_000).is_some(),
             "seed {seed}"
         );
+    }
+}
+
+#[test]
+fn the_market_town_has_its_three_shops_at_its_heart_and_room_for_the_abbey_and_the_river() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    for seed in 1..=8 {
+        let (_, layout) = patch(seed, &data, region);
+        let chapel = layout.lots.iter().find(|l| l.prefab == "chapel").unwrap();
+        for shop in ["smithy", "store", "tavern"] {
+            let found: Vec<_> = layout.lots.iter().filter(|l| l.prefab == shop).collect();
+            assert_eq!(found.len(), 1, "seed {seed}: one {shop}");
+            assert!(
+                (found[0].door.x - chapel.door.x).abs() <= 30,
+                "seed {seed}: the {shop} is by the chapel, on the high street"
+            );
+        }
+        assert!(
+            layout.lots.iter().any(|l| l.holdout),
+            "seed {seed}: the abbey fits west of the town"
+        );
+        assert!(
+            layout.river.is_some(),
+            "seed {seed}: the river fits east of it"
+        );
+    }
+}
+
+/// The items in the containers of one kind of fixture inside a lot's walls, a container at a
+/// time.
+fn stores_in(
+    w: &World,
+    data: &Data,
+    lot: &dusk_gen::Lot,
+    fixture: &str,
+) -> Vec<Vec<dusk_core::Item>> {
+    let inside = lot.inside();
+    let mut out = Vec::new();
+    for y in inside.y0..inside.y1 {
+        for x in inside.x0..inside.x1 {
+            let at = dusk_core::TilePos::new(x, y, 0);
+            let n = w.grid.tile(at).fixture;
+            if data.fixture(n).is_some_and(|f| f.id == fixture) {
+                out.push(w.store(at));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn each_shop_holds_its_own_loot() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let id = |name: &str| data.defs.items.iter().position(|i| i.id == name).unwrap() as u16;
+    let forged = [id("sword"), id("spear"), id("mace")];
+    let (mut weapons, mut smiths_work, mut ale) = (0, 0, 0);
+    for seed in 1..=6 {
+        let (w, layout) = patch(seed, &data, region);
+        let lot = |prefab: &str| layout.lots.iter().find(|l| l.prefab == prefab).unwrap();
+        // The smithy: each rack holds one weapon.
+        let racks = stores_in(&w, &data, lot("smithy"), "rack");
+        assert_eq!(racks.len(), 2, "seed {seed}: two racks");
+        for rack in &racks {
+            assert_eq!(rack.len(), 1, "seed {seed}: a weapon on each rack");
+            let def = data.defs.item(rack[0].def).unwrap();
+            assert!(
+                matches!(def.kind, dusk_core::ItemKind::Weapon { .. }),
+                "seed {seed}: {} on a weapon rack",
+                def.id
+            );
+            weapons += 1;
+            smiths_work += usize::from(forged.contains(&rack[0].def));
+        }
+        // The general store: coin in its till, and its shelves stocked.
+        let till = stores_in(&w, &data, lot("store"), "till");
+        assert_eq!(till.len(), 1, "seed {seed}: one till");
+        assert!(
+            till[0].len() == 1
+                && till[0][0].def == id("coins")
+                && (5..=20).contains(&till[0][0].count),
+            "seed {seed}: 5 to 20 coins in the till"
+        );
+        let goods: usize = stores_in(&w, &data, lot("store"), "shop_shelf")
+            .iter()
+            .map(Vec::len)
+            .sum();
+        assert!(
+            goods >= 4,
+            "seed {seed}: {goods} lots of goods on the shelves"
+        );
+        // The tavern: ale at the bar or in the casks.
+        for fixture in ["bar", "cask"] {
+            for store in stores_in(&w, &data, lot("tavern"), fixture) {
+                ale += store.iter().filter(|i| i.def == id("ale")).count();
+            }
+        }
+    }
+    assert!(
+        smiths_work * 2 > weapons,
+        "{smiths_work} of {weapons} the smith's own work"
+    );
+    assert!(ale >= 6, "{ale} lots of ale in six taverns");
+}
+
+#[test]
+fn the_tavern_was_full_when_the_dusk_came() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    for seed in 1..=6 {
+        let (w, layout) = patch(seed, &data, region);
+        let tavern = layout.lots.iter().find(|l| l.prefab == "tavern").unwrap();
+        assert_eq!(tavern.dead, (2, 5), "the prefab's own, not the region's");
+        let inside = tavern.inside();
+        let dead = w
+            .actors()
+            .filter(|(_, a)| !a.kind.is_character() && inside.contains(a.pos))
+            .count();
+        // A house holds none to two (the region's per_house); the tavern, two to five.
+        assert!((2..=5).contains(&dead), "seed {seed}: {dead} in the tavern");
     }
 }

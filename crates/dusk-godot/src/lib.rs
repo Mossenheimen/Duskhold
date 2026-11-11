@@ -18,9 +18,9 @@
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, HANDS, Intent,
-    Item, ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos,
-    View, World, WoundKind, demo,
+    ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
+    Intent, Item, ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill,
+    TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -160,10 +160,21 @@ pub struct DuskWorld {
     /// The region the world is a patch of: what a save says to make again. Empty for a world
     /// that isn't saved (the demo town).
     region: String,
+    /// The patch's buildings, inside their walls, and what each is called (see `place`).
+    places: Vec<(Area, String)>,
     /// The hour of day the game starts at, for development (`--hour`); -1 for the data's.
     #[var]
     #[init(val = -1)]
     start_hour: i32,
+}
+
+/// A patch's buildings, inside their walls, with their names.
+fn places(layout: &dusk_gen::Layout) -> Vec<(Area, String)> {
+    layout
+        .lots
+        .iter()
+        .map(|l| (l.inside(), l.name.clone()))
+        .collect()
 }
 
 fn positions(world: &World) -> Vec<(f32, f32)> {
@@ -501,7 +512,18 @@ impl DuskWorld {
         Ok(())
     }
 
+    /// `--hour`, on the data's clock: set before a patch is made or loaded, so what's stamped
+    /// on the clock from the first tick (when you were born) reads from the same start.
+    fn apply_start_hour(&mut self) {
+        if let Some(data) = self.data.as_mut()
+            && (0..24).contains(&self.start_hour)
+        {
+            data.rules.clock.start = self.start_hour as u32 * 60;
+        }
+    }
+
     fn start(&mut self, mut world: World, size: (i32, i32)) {
+        // A patch has it from its data already (`apply_start_hour`); the demo town gets it here.
         if (0..24).contains(&self.start_hour) {
             world.rules.clock.start = self.start_hour as u32 * 60;
         }
@@ -529,6 +551,7 @@ impl DuskWorld {
         if let Err(problem) = self.load_data() {
             return GString::from(&problem);
         }
+        self.apply_start_hour();
         let Some(data) = &self.data else {
             return GString::new();
         };
@@ -537,6 +560,7 @@ impl DuskWorld {
         };
         let (world, layout) = dusk_gen::patch(seed as u64, data, region);
         self.region = region.id.clone();
+        self.places = places(&layout);
         self.start(world, (layout.width, layout.height));
         GString::new()
     }
@@ -575,6 +599,7 @@ impl DuskWorld {
         if let Err(problem) = self.load_data() {
             return GString::from(&problem);
         }
+        self.apply_start_hour();
         let bytes = match std::fs::read(path.to_string()) {
             Ok(bytes) => bytes,
             Err(e) => return GString::from(&e.to_string()),
@@ -587,6 +612,7 @@ impl DuskWorld {
             Err(e) => return GString::from(&e.to_string()),
         };
         self.region = loaded.layout.region.id.clone();
+        self.places = places(&loaded.layout);
         self.start(loaded.world, (loaded.layout.width, loaded.layout.height));
         // What you'd seen before, then what you see now.
         self.view.recall(&loaded.memory);
@@ -605,10 +631,30 @@ impl DuskWorld {
         self.world.as_ref().map_or(0, |w| w.seed as i64)
     }
 
+    /// The building the character is in ("the smithy"), or "" out of doors.
+    #[func]
+    fn place(&self) -> GString {
+        let Some(world) = &self.world else {
+            return GString::new();
+        };
+        let Some(at) = world
+            .character()
+            .and_then(|me| world.actor(me))
+            .map(|a| a.pos)
+        else {
+            return GString::new();
+        };
+        self.places
+            .iter()
+            .find(|(inside, _)| inside.contains(at))
+            .map_or_else(GString::new, |(_, name)| GString::from(name))
+    }
+
     /// Loads the little demo town (build step 3's) instead.
     #[func]
     fn load_town(&mut self, seed: i64) {
         self.region.clear();
+        self.places.clear();
         self.start(demo::town(seed as u64), (demo::TOWN_W, demo::TOWN_H));
     }
 

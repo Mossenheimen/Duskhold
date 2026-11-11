@@ -10,20 +10,24 @@ fn data() -> Data {
     load(&default_dir()).unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// Seed 1's longhouse door (`dusk-cli gen --seed 1` lists it), on the north edge of its tile.
-const DOOR: TilePos = TilePos::new(100, 115, 0);
-
-/// A patch that has been played: a walk, a door shut, a board's worth of damage on it, a wound,
-/// something learnt, and a thing left on the ground.
-fn played(data: &Data) -> World {
+/// A patch that has been played: a walk, a door shut (the front door of the town's first
+/// building, the chapel: this returns the tile just inside it too), a wound, something learnt,
+/// and a thing left on the ground.
+fn played(data: &Data) -> (World, TilePos) {
     let region = data.region("hushlands").unwrap();
-    let (mut w, _) = patch(1, data, region);
+    let (mut w, layout) = patch(1, data, region);
     let me = w.character().unwrap();
+    let first = layout
+        .lots
+        .iter()
+        .find(|l| !l.holdout)
+        .expect("a building in the town");
+    let at = first.door;
     let door = (0..4)
         .map(|k| [Dir8::N, Dir8::S, Dir8::W, Dir8::E][k])
-        .find(|&d| matches!(w.grid.edge(DOOR, d), Edge::Door { .. }))
-        .expect("the longhouse's door is by its door tile");
-    w.grid.set_edge(DOOR, door, Edge::door(false));
+        .find(|&d| matches!(w.grid.edge(at, d), Edge::Door { .. }))
+        .expect("a front door is by the tile just inside it");
+    w.grid.set_edge(at, door, Edge::door(false));
     w.put(TilePos::new(60, 130, 0), Item::new(0, 2));
     w.wound(me, WoundKind::Laceration, Part::LeftArm);
     w.give_xp(me, Skill::Athletics, 12_345);
@@ -35,14 +39,14 @@ fn played(data: &Data) -> World {
         },
     );
     w.step(400);
-    w
+    (w, at)
 }
 
 #[test]
 fn a_saved_patch_loads_as_the_same_world_and_goes_on_the_same() {
     let data = data();
     let region = data.region("hushlands").unwrap();
-    let mut a = played(&data);
+    let (mut a, _) = played(&data);
     let bytes = dusk_gen::save(&a, region, b"what I remember");
 
     let header = peek(&bytes).unwrap();
@@ -90,14 +94,14 @@ fn a_save_holds_only_the_chunks_that_changed() {
         fresh.grid.changed_chunks().is_empty(),
         "a new patch has changed nothing: the land comes back from the seed"
     );
-    let w = played(&data);
+    let (w, door) = played(&data);
     let changed: Vec<_> = w
         .grid
         .changed_chunks()
         .into_iter()
         .map(|(at, _)| at)
         .collect();
-    assert_eq!(changed, vec![DOOR.chunk()], "the door's chunk, of 64");
+    assert_eq!(changed, vec![door.chunk()], "the door's chunk, of 64");
     let bytes = dusk_gen::save(&w, region, b"");
     assert!(bytes.len() < 100_000, "{} bytes", bytes.len());
 }
@@ -106,7 +110,7 @@ fn a_save_holds_only_the_chunks_that_changed() {
 fn what_isnt_a_save_of_this_world_is_refused() {
     let data = data();
     let region = data.region("hushlands").unwrap();
-    let w = played(&data);
+    let (w, _) = played(&data);
     let bytes = dusk_gen::save(&w, region, b"");
 
     assert_eq!(peek(b"not a save at all").unwrap_err(), SaveError::NotASave);

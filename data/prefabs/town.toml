@@ -1,0 +1,99 @@
+# The market town's shops, as text grids (crates/dusk-core/src/text.rs; the edges and cells
+# are read as in hamlet.toml). Each has a tag of its own, so the region's town asks for each
+# by name (regions/hushlands.toml, [hamlet] lots), and loot of its own (loot/town.toml).
+# name: what you're told when you're inside. dead: how many of the dead are in it at the
+# start, the fewest and the most, where it isn't the region's per_house.
+
+[legend]
+"." = { ground = "floor" }
+"b" = { ground = "floor", fixture = "bed" }
+"a" = { ground = "floor", fixture = "wardrobe" }
+"c" = { ground = "floor", fixture = "cupboard" }
+"t" = { ground = "floor", fixture = "table" }
+"h" = { ground = "floor", fixture = "chair" }
+"s" = { ground = "floor", fixture = "stove" }
+"k" = { ground = "floor", fixture = "crate" }
+"r" = { ground = "floor", fixture = "barrel" }
+"f" = { ground = "floor", fixture = "forge" }
+"n" = { ground = "floor", fixture = "anvil" }
+"x" = { ground = "floor", fixture = "rack" }
+"u" = { ground = "floor", fixture = "till" }
+"o" = { ground = "floor", fixture = "shop_shelf" }
+"q" = { ground = "floor", fixture = "bar" }
+"v" = { ground = "floor", fixture = "cask" }
+"i" = { ground = "floor", fixture = "hearth" }
+
+# The forge against the back wall, the anvil before it, the racks of the smith's work by the
+# west wall, and the smith's own room behind. Its double doors are hard to hold.
+[[prefab]]
+id = "smithy"
+name = "the smithy"
+tags = ["smithy"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+-+-+
+|k . f f . k|b . a|
++           +     +
+|. . . . . .d. . .|
++           +-+-+-+
+|x . . n . . . . r|
++                 +
+|x . . . . . . . r|
++                 +
+W. . . . . . . . .W
++                 +
+|k . . . . . . . k|
++-+-+-+d+d+-+-+-+-+
+"""
+
+# Aisles of shelves you can't see past, the till by the door, and the storeroom at the back.
+[[prefab]]
+id = "store"
+name = "the general store"
+tags = ["store"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+-+-+
+|r r k . . . k r r|
++-+-+-+-+d+-+-+-+-+
+|o . o . . . o . o|
++                 +
+|o . o . . . o . o|
++                 +
+W. . . . . . . . .W
++                 +
+|u t . . . . . o o|
++                 +
+|. . . . . . . . .|
++-+-+W+-+d+-+W+-+-+
+"""
+
+# The common room, its hearth and tables; the bar with the kitchen behind it; two rooms let to
+# travellers; and the cellar, with a door out the back. It was full when the Dusk came.
+[[prefab]]
+id = "tavern"
+name = "the tavern"
+tags = ["tavern"]
+front = "south"
+dead = [2, 5]
+grid = """
++-+-+-+-+-+-+-+-+d+-+-+
+|b . a|a . b|v v . r k|
++     +     +         +
+|. . .|. . .|v . . . r|
++-+d+-+-+d+-+-+-+d+-+-+
+|. . . . . . . . . s c|
++                     +
+|. . . . q q q q q . .|
++                     +
+|i . t h . . . . . . c|
++                     +
+W. . h . . h t h . . .W
++                     +
+|. t h . . . . . t h .|
++                     +
+|. h . . . . h t . . .|
++                     +
+|. . . . . . . . . . .|
++-+-+W+-+-+d+-+-+W+-+-+
+"""

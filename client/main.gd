@@ -338,7 +338,7 @@ func _process(delta: float) -> void:
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain())
+	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain(), dusk.place())
 	hud.show_moodles(moodles)
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()

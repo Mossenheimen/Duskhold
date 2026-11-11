@@ -1,0 +1,57 @@
+# What the market town's shops hold (prefabs/town.toml; the fixtures name their tables in
+# fixtures.toml). Read as hamlet.toml is. Each shop is worth the walk for one thing: the smithy
+# for a weapon, the general store for supplies, the tavern for food and drink, and a till for coin.
+
+[[loot]]
+id = "smithy"         # weapon racks: always a weapon, mostly the smith's own work
+rolls = [1, 1]
+items = [
+  { item = "sword", weight = 3, magic = 0.2 },
+  { item = "spear", weight = 3, magic = 0.2 },
+  { item = "mace", weight = 3, magic = 0.2 },
+  { item = "hand_axe", weight = 2, magic = 0.15 },
+  { item = "hammer", weight = 1, magic = 0.1 },
+]
+
+[[loot]]
+id = "till"           # a shop's till: coin for the abbey's counter
+rolls = [1, 1]
+items = [
+  { item = "coins", weight = 1, count = [5, 20] },
+]
+
+[[loot]]
+id = "store"          # a general store's shelves: supplies, and plenty of them
+rolls = [0, 2]
+items = [
+  { item = "lamp_oil", weight = 4, count = [1, 3] },
+  { item = "candle", weight = 4, count = [2, 6] },
+  { item = "torch", weight = 2, count = [1, 3] },
+  { item = "bandage", weight = 3, count = [1, 4] },
+  { item = "rag", weight = 2, count = [2, 5] },
+  { item = "jerky", weight = 3, count = [2, 6] },
+  { item = "cheese", weight = 2, count = [1, 2] },
+  { item = "water", weight = 2, count = [1, 3] },
+  { item = "nails", weight = 2, count = [10, 40] },
+]
+
+[[loot]]
+id = "bar"            # the tavern's bar, with its takings under it
+rolls = [1, 2]
+items = [
+  { item = "ale", weight = 5, count = [1, 3] },
+  { item = "water", weight = 2, count = [1, 2] },
+  { item = "bread", weight = 2 },
+  { item = "cheese", weight = 2 },
+  { item = "coins", weight = 2, count = [2, 12] },
+]
+
+[[loot]]
+id = "cellar"         # casks, and what the kitchen kept cool beside them
+rolls = [1, 2]
+items = [
+  { item = "ale", weight = 5, count = [1, 4] },
+  { item = "water", weight = 3, count = [1, 3] },
+  { item = "cheese", weight = 2, count = [1, 3] },
+  { item = "apple", weight = 2, count = [2, 6] },
+]

@@ -1,6 +1,6 @@
 //! Duskhold's world generation: a patch of a region, from a seed.
 //!
-//! First the large-scale layout, once: the road and the hamlet's lots. Then every tile is a
+//! First the large-scale layout, once: the road and the town's lots. Then every tile is a
 //! function of the seed, the layout and its place alone, so a chunk comes out the same whatever
 //! order chunks are made in (`ARCHITECTURE.md`, world generation). Last, the dead: some in the
 //! buildings, by lot, and some in the open, by chunk.
@@ -19,6 +19,10 @@ use noise::{Layer, fractal, hash, unit};
 pub struct Lot {
     /// The prefab's id.
     pub prefab: String,
+    /// What you're told when you're inside it: "the smithy".
+    pub name: String,
+    /// How many of the dead are in it at the start: the fewest and the most.
+    pub dead: (u32, u32),
     /// The prefab's grid, turned and mirrored as placed.
     pub grid: TextGrid<PrefabCell>,
     /// Where the building's north-west cell is.
@@ -138,15 +142,16 @@ impl Layout {
             tree,
             river: None,
         };
-        layout.lots = layout.place_lots(data);
-        // You come along the road from the west, `start` tiles short of the hamlet.
-        let hamlet_west = layout
+        let middle = layout.town_middle(data);
+        layout.lots = layout.place_lots(data, middle);
+        // You come along the road from the west, `start` tiles short of the town.
+        let town_west = layout
             .lots
             .iter()
             .map(|l| l.yard.0)
             .min()
             .unwrap_or(width / 2);
-        let start_x = (hamlet_west - road.start).clamp(1, width - 2);
+        let start_x = (town_west - road.start).clamp(1, width - 2);
         layout.start = TilePos::new(start_x, layout.road_rows(start_x).0 + road.width / 2, 0);
         // The holdout stands north of the road there, its gate on the road; you start inside.
         if let Some(abbey) = layout.place_holdout(data, start_x) {
@@ -157,16 +162,16 @@ impl Layout {
         layout
     }
 
-    /// The region's river: east of the hamlet if there's room there, else between the holdout
-    /// and the hamlet, else none. Clear of every lot by the river's margin, wherever it bends.
+    /// The region's river: east of the town if there's room there, else between the holdout
+    /// and the town, else none. Clear of every lot by the river's margin, wherever it bends.
     /// Its fords are rows by the seed, well away from the bridge and from each other.
     fn place_river(&self) -> Option<River> {
         let r = self.region.river.as_ref()?;
         let half = r.width / 2;
         let reach = r.sway + half + 1;
-        let hamlet = self.lots.iter().filter(|l| !l.holdout);
-        let east = hamlet.clone().map(|l| l.yard.2).max()?;
-        let west = hamlet.map(|l| l.yard.0).min()?;
+        let town = self.lots.iter().filter(|l| !l.holdout);
+        let east = town.clone().map(|l| l.yard.2).max()?;
+        let west = town.map(|l| l.yard.0).min()?;
         let holdout = self
             .lots
             .iter()
@@ -253,6 +258,8 @@ impl Layout {
         }
         Some(Lot {
             prefab: prefab.id.clone(),
+            name: prefab.name.clone(),
+            dead: (0, 0),
             grid,
             origin,
             yard: (x0, y0, x1, y1),
@@ -302,11 +309,39 @@ impl Layout {
         (top..=bottom).contains(&y)
     }
 
-    /// The hamlet: its lots from the middle outward, on alternate sides of the road.
-    fn place_lots(&self, data: &Data) -> Vec<Lot> {
+    /// Where the town's middle lies along the road, by the seed: anywhere that leaves room
+    /// west of it for the start and the holdout, and east of it for the river (as
+    /// `place_river` asks). The town's lots are laid out once about the patch's centre to
+    /// measure it: how far it reaches either side of its middle is the same wherever it lies.
+    fn town_middle(&self, data: &Data) -> i32 {
+        let centre = self.width / 2;
+        let trial = self.place_lots(data, centre);
+        let west = trial.iter().map(|l| l.yard.0).min().unwrap_or(centre);
+        let east = trial.iter().map(|l| l.yard.2).max().unwrap_or(centre);
+        // The holdout's gate is on the road at the start, so it reaches west of the start by
+        // less than its whole size, however it's turned.
+        let holdout = self
+            .region
+            .holdout
+            .as_ref()
+            .and_then(|h| data.prefab(&h.prefab))
+            .map_or(0, |p| p.grid.width.max(p.grid.height));
+        let river = self
+            .region
+            .river
+            .as_ref()
+            .map_or(0, |r| r.margin + 2 * (r.sway + r.width / 2 + 1) + 2);
+        let lo = 1 + self.region.road.start + holdout + (centre - west);
+        let hi = self.width - 1 - river - (east - centre);
+        if lo >= hi {
+            return (lo + hi) / 2; // there isn't room for everything: split the difference
+        }
+        lo + (unit(self.seed, Layer::Hamlet, 0, 0) * (hi - lo) as f32) as i32
+    }
+
+    /// The town: its lots from `middle` outward, on alternate sides of the road.
+    fn place_lots(&self, data: &Data, middle: i32) -> Vec<Lot> {
         let h = &self.region.hamlet;
-        let middle = self.width / 2
-            + ((unit(self.seed, Layer::Hamlet, 0, 0) - 0.5) * self.width as f32 / 4.0) as i32;
         // How far each side of the road is taken, west and east: (west edge, east edge).
         let mut spans: [Option<(i32, i32)>; 2] = [None, None];
         let mut placed: [usize; 2] = [0, 0];
@@ -375,6 +410,8 @@ impl Layout {
             }
             lots.push(Lot {
                 prefab: prefab.id.clone(),
+                name: prefab.name.clone(),
+                dead: prefab.dead.unwrap_or(self.region.dead.per_house),
                 grid,
                 origin,
                 yard: (x0, y0, x1, y1),
@@ -528,7 +565,7 @@ impl Layout {
             if lot.holdout {
                 continue;
             }
-            let (fewest, most) = d.per_house;
+            let (fewest, most) = lot.dead;
             let roll = |what: i64| hash(self.seed, Layer::Dead, -(i as i64) - 1, what);
             let count = fewest + (roll(0) % u64::from(most - fewest + 1)) as u32;
             let mut floors: Vec<TilePos> = (0..lot.grid.height)
@@ -593,7 +630,7 @@ impl Layout {
     }
 }
 
-/// A patch of a region, ready to play: the land, the road, the hamlet, you at the start, and
+/// A patch of a region, ready to play: the land, the road, the town, you at the start, and
 /// the dead.
 pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     let layout = Layout::new(seed, data, region);

@@ -95,7 +95,12 @@ pub struct Fixture {
 #[derive(Clone, Debug)]
 pub struct Prefab {
     pub id: String,
+    /// What you're told when you're inside it: "the smithy". Its id, if the data gives none.
+    pub name: String,
     pub tags: Vec<String>,
+    /// How many of the dead are in it at the start, the fewest and the most, where it isn't
+    /// the region's `per_house`.
+    pub dead: Option<(u32, u32)>,
     pub front: Side,
     pub grid: TextGrid<PrefabCell>,
 }
@@ -611,8 +616,12 @@ struct LegendEntry {
 #[serde(deny_unknown_fields)]
 struct PrefabFile {
     id: String,
+    #[serde(default)]
+    name: Option<String>,
     tags: Vec<String>,
     front: Side,
+    #[serde(default)]
+    dead: Option<(u32, u32)>,
     grid: String,
 }
 
@@ -958,9 +967,17 @@ fn to_prefab(
     if p.tags.is_empty() {
         return Err(fail(file, format!("prefab {:?} has no tags", p.id)));
     }
+    if p.dead.is_some_and(|(fewest, most)| fewest > most) {
+        return Err(fail(
+            file,
+            format!("prefab {:?}: dead is [fewest, most]", p.id),
+        ));
+    }
     Ok(Prefab {
         id: p.id.clone(),
+        name: p.name.clone().unwrap_or_else(|| p.id.clone()),
         tags: p.tags.clone(),
+        dead: p.dead,
         front: p.front,
         grid,
     })

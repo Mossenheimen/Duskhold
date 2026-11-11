@@ -1,4 +1,4 @@
-# The Hushlands: grey-green fields and woods, ponds, a road, and a hamlet where the dead walk.
+# The Hushlands: grey-green fields and woods, ponds, a road, and a market town where the dead walk.
 # The generator (crates/dusk-gen) makes a patch of it from a seed.
 
 id = "hushlands"
@@ -22,9 +22,12 @@ sway = 8              # the most a bend strays north or south of the middle, in 
 start = 40            # you start on the road this many tiles west of the hamlet
 
 [hamlet]
-# The lots, by prefab tag, from the middle of the hamlet outward on alternate sides of the
-# road: north, south, north, ...
-lots = ["landmark", "house", "house", "outbuilding", "house", "house", "house", "outbuilding", "house", "house"]
+# The market town: its lots, by prefab tag, from the middle outward on alternate sides of the
+# road: north, south, north, ... At its heart the chapel (the landmark) and the tavern face each
+# other across the road, with the smithy and the general store beside them (prefabs/town.toml);
+# then houses and outbuildings. It lies wherever along the road leaves room west of it for the
+# abbey and east of it for the river.
+lots = ["landmark", "tavern", "smithy", "store", "house", "house", "house", "outbuilding", "house", "house", "house", "outbuilding", "house"]
 gap = 2               # tiles between neighbouring lots
 setback = 2           # tiles between the road and a lot's fence
 yard = 2              # tiles of yard round a building, inside its fence

@@ -1051,6 +1051,26 @@ Game first: every step ends with something to look at or play.
        - **the client:** shallows drawn as lighter water, a bridge as dark planks. The controls are now three lines (they ran off the screen), with both panels lifted clear of them;
        - **checked:** the patch's map image shows the river, its bridge and its fords (seeds 1 and 2). A picture at the bridge didn't get there: the walk was caught by a shambler in the hamlet;
        - **measured:** no change to a tick (wading is settled once a step).
+     - **The market town** (2026-11-11; 188 tests pass):
+       - **the town:** the hamlet grown into a market town of 13 lots. At its heart the chapel (the Tolling's bell) and the tavern face each other across the road, with the smithy and the general store beside them; houses and outbuildings beyond (`regions/hushlands.toml`, `[hamlet]` lots);
+       - **where it lies** (`Layout::town_middle`): anywhere along the road that leaves room west of it for the start and the abbey, and east of it for the river. The lots are laid out once about the patch's centre to measure the town (how far it reaches either side of its middle doesn't hang on where it lies), then its middle is rolled within the room that's left. Before, a middle rolled far west would have pushed a town this wide's abbey off the patch;
+       - **the shops** (`prefabs/town.toml`), each worth the walk for one thing, in fixtures of their own (`fixtures.toml`) filled from tables of their own (`loot/town.toml`):
+         - **the smithy:** a cold forge, an anvil, the smith's room behind, double doors that are hard to hold, and two weapon racks that always hold a weapon, mostly the smith's own work. That's three new forged weapons, each the best of a skill that had only a poor one: the arming sword (blade), the spear (the quietest weapon with real harm in it) and the mace (blunt; two blows fell a shambler nearly every time). They wear at a third to a half of a hand axe's rate, and a fifth of them are magic;
+         - **the general store:** aisles of shelves you can't see past, stocked with supplies in quantity (oil, candles, torches, bandages, food, nails); a till of 5 to 20 coins; a storeroom at the back;
+         - **the tavern:** the common room with its cold hearth and tables, the bar with its takings, a kitchen corner, two rooms let to travellers, and the cellar's casks, with a door out the back. It brings ale (a drink) and cheese. It was full when the Dusk came: 2 to 5 of the dead are inside;
+       - **a building's own dead:** a prefab's `dead`, over the region's `per_house` (`Lot::dead`);
+       - **a building's name:** a prefab's `name` (its id if it has none; `Lot::name`). The HUD says which you're in, "in the smithy" (`DuskWorld::place`, by the lots' walls);
+       - **the save format** is version 11: the land changed again;
+       - **the client:** the shops' furniture, and the HUD's place and title;
+       - **fixed on the way:**
+         - `--hour` set the clock's start after the world was made, so a character born under it was said to have lived four hours too long. The data's clock now takes the hour first (`DuskWorld::apply_start_hour`);
+         - two tests hung on where seed 1's buildings stood. The save tests now take their door from the layout. The river test's far bank is now on the road, since a tile in thick woods can be a clearing the trees shut in;
+       - **checked:**
+         - by tests: seeds 1 to 8 have one of each shop within 30 tiles of the chapel, with the abbey and the river; every rack holds a weapon, most of them forged; the tavern holds 2 to 5 of the dead (seeds 1 to 6);
+         - on screen: a picture in the smithy at noon on seed 2 shows the HUD's "in the smithy". The furniture didn't make the picture: a ghoul followed the scripted walk in and killed the character, and the death recap covers the room;
+       - **measured:**
+         - the patch runs at about 255k ticks a second (from about 270k: it holds more of the dead);
+         - at the Tolling, 45 to 50 of the 52 to 57 dead in reach gather within 15 tiles of the bell (seeds 1 to 3), as before.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

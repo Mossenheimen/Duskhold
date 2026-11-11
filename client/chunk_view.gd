@@ -48,6 +48,15 @@ const FURNITURE := {
 	"counter": [Vector3(0.95, 1.0, 0.8), Color(0.5, 0.36, 0.22)],
 	# The sister who keeps the counter: a figure in grey, until a holdout's people are actors.
 	"sister": [Vector3(0.42, 1.6, 0.42), Color(0.36, 0.38, 0.46)],
+	# The market town's shops.
+	"forge": [Vector3(0.95, 1.0, 0.9), Color(0.3, 0.27, 0.26)],
+	"anvil": [Vector3(0.6, 0.7, 0.35), Color(0.17, 0.17, 0.19)],
+	"rack": [Vector3(0.9, 1.6, 0.3), Color(0.38, 0.27, 0.17)],
+	"till": [Vector3(0.95, 1.0, 0.8), Color(0.46, 0.33, 0.2)],
+	"shop_shelf": [Vector3(0.9, 1.7, 0.45), Color(0.47, 0.35, 0.22)],
+	"bar": [Vector3(0.95, 1.05, 0.8), Color(0.32, 0.2, 0.12)],
+	"cask": [Vector3(0.75, 0.8, 0.9), Color(0.46, 0.32, 0.17)],
+	"hearth": [Vector3(0.95, 1.2, 0.7), Color(0.42, 0.4, 0.38)],
 }
 
 const SIDE_WEST := 1

@@ -58,3 +58,29 @@ name = "pitchfork"
 weight = 2.0
 worth = 4
 weapon = { wind_up = 0.6, recovery = 0.7, endurance = 12, hit = 0.8, damage = [11, 17], noise = 5, wear = 1.2, skill = "spear" }
+
+# Forged: the smithy's work (loot/town.toml). Each is the best of its skill, and wears slowly.
+
+[[item]]
+id = "sword"
+name = "arming sword"
+weight = 1.4
+worth = 20
+# Quick, sure and quiet enough: the blade that the kitchen knife isn't.
+weapon = { wind_up = 0.4, recovery = 0.55, endurance = 9, hit = 0.9, damage = [11, 16], noise = 5, wear = 0.5, skill = "blade" }
+
+[[item]]
+id = "spear"
+name = "spear"
+weight = 1.8
+worth = 12
+# The quietest weapon with real harm in it.
+weapon = { wind_up = 0.5, recovery = 0.6, endurance = 10, hit = 0.85, damage = [12, 18], noise = 4, wear = 0.7, skill = "spear" }
+
+[[item]]
+id = "mace"
+name = "mace"
+weight = 2.0
+worth = 16
+# Two blows fell a shambler nearly every time (not always, as the wood axe does), and it hardly wears.
+weapon = { wind_up = 0.55, recovery = 0.75, endurance = 13, hit = 0.85, damage = [13, 21], noise = 7, wear = 0.4, skill = "blunt" }
