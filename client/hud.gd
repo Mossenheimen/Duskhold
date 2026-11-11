@@ -21,11 +21,15 @@ const MOODLES := [
 	[["Hurt", "Badly hurt", "Near death"],
 		["fed, watered and not bleeding, you heal", "sleep heals fastest", "sleep heals fastest"], 0],
 	[["Bleeding", "Bleeding badly", "Bleeding heavily"],
-		["bandage it: Tab", "bandage them: Tab", "bandage them: Tab"], 1],
+		["bandage it: Tab  ·  ghouls smell it", "bandage them: Tab  ·  ghouls smell them",
+			"bandage them: Tab  ·  ghouls smell them"], 1],
 	[["Out of breath"], ["no running, weak swings"], 1],
 	[["Heavy load"], ["no running"], 0],
 	[["Held", "Held by two", "Held by three"], ["F struggle  ·  Q shove", "F struggle  ·  Q shove", "F struggle  ·  Q shove"], 2],
 	[["Asleep"], ["Z to get up"], -1],
+	[["Ghoul fever", "Weak with fever", "Dying of fever"],
+		["thirstier, and nothing heals  ·  find a cure", "your breath comes back slowly  ·  find a cure",
+			"the cure, today, or death"], 1],
 ]
 const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
 const RESTFUL := Color(0.6, 0.72, 1.0)
@@ -114,7 +118,7 @@ func _process(delta: float) -> void:
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 6: bring it home\n%s  ·  Seed %d  ·  %d×" % [
+	_state.text = "DUSKHOLD  ·  build step 6: the ghoul\n%s  ·  Seed %d  ·  %d×" % [
 		time_of_day(clock), world_seed, speed]
 	_paused.visible = paused
 

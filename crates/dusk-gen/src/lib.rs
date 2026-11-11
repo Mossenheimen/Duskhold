@@ -394,6 +394,20 @@ impl Layout {
         out
     }
 
+    /// Which of the region's kinds of dead stands at a tile, by their shares: a roll of its own,
+    /// so where the dead stand doesn't hang on what they are.
+    pub fn dead_kind(&self, at: TilePos) -> &str {
+        let kinds = &self.region.dead.kinds;
+        let mut left = unit(self.seed, Layer::DeadKind, i64::from(at.x), i64::from(at.y));
+        for k in kinds {
+            if left < k.share {
+                return &k.creature;
+            }
+            left -= k.share;
+        }
+        kinds.last().map_or("", |k| k.creature.as_str())
+    }
+
     /// The patch's chunks, row by row.
     pub fn chunks(&self) -> impl Iterator<Item = ChunkPos> {
         let (w, h) = self.region.patch.chunks;
@@ -410,10 +424,10 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
         layout.fill(chunk, &mut world.grid);
     }
     world.spawn(ActorKind::Character, layout.start);
-    // The region names its dead; the loader checked the name.
-    if let Some(kind) = data.defs.creature_kind(&region.dead.creature) {
-        for chunk in layout.chunks() {
-            for at in layout.dead_in(chunk) {
+    // The region names its dead; the loader checked the names.
+    for chunk in layout.chunks() {
+        for at in layout.dead_in(chunk) {
+            if let Some(kind) = data.defs.creature_kind(layout.dead_kind(at)) {
                 world.spawn(kind, at);
             }
         }

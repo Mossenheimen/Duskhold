@@ -371,6 +371,11 @@ impl World {
                 (rule.damage, Some((kind, part, rule.bleed)))
             }
         };
+        // A wound from a kind that carries ghoul fever may bring it (`fever.rs`).
+        let fevered = wound.is_some_and(|(k, _, _)| {
+            let odds = creature.map_or(0, |c| c.fever[k as usize]);
+            below(roll(seed, tick, who, Purpose::Fever), 10_000) < odds
+        });
         if let Some(t) = self.actors.get_mut(target) {
             t.body.health -= damage;
             if let Some((kind, part, bleeding)) = wound {
@@ -391,6 +396,9 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
+        if fevered {
+            self.catch_fever(target);
+        }
         // A blow on a foe teaches the weapon's skill, and wears the weapon: but not a blow on one
         // that's down. Finishing it there spares the weapon (Zomboid's stomp), which is what a
         // shove buys you.

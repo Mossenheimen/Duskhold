@@ -137,6 +137,11 @@ levels = [20, 50, 100, 200, 350, 550, 800, 1100, 1500]
 health = 4
 stash = 2.0
 home = 6
+[fever]
+stage = 12.0
+thirst = 2.0
+recovery = 0.25
+harm = 6.0
 "#;
 
 const SHAMBLER: &str = r#"
@@ -208,7 +213,7 @@ gap = 2
 setback = 2
 yard = 1
 [dead]
-creature = "shambler"
+kinds = [{ creature = "shambler", share = 1.0 }]
 per_chunk = 1.0
 per_house = [0, 1]
 clear_start = 8
@@ -250,9 +255,9 @@ fn the_games_data_loads() {
         (5, 300, 400)
     );
     assert_eq!((s.health, s.down, s.attack.wind_up), (300, 40, 12));
+    let kinds = &data.region("hushlands").unwrap().dead.kinds;
     assert_eq!(
-        data.defs
-            .creature_kind(&data.region("hushlands").unwrap().dead.creature),
+        data.defs.creature_kind(&kinds[0].creature),
         Some(dusk_core::ActorKind::Creature(0))
     );
     let region = data.region("hushlands").expect("the Hushlands");
@@ -665,4 +670,32 @@ fn at_night_a_torch_is_worth_its_risk_in_the_games_data() {
         "{lit} tiles by torch, {dark} without"
     );
     assert!(w.sees(z, you), "and by your torch it does");
+}
+
+#[test]
+fn the_ghoul_out_paces_your_walk_and_not_your_run_in_the_games_data() {
+    // The ghoul's whole job (CONCEPT.md, the Hushlands' four): walking won't lose it, running
+    // will, while your breath lasts. By day and by night.
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let you = data.rules.character_speed;
+    let kind = data.defs.creature_kind("ghoul").expect("a ghoul");
+    let dusk_core::ActorKind::Creature(n) = kind else {
+        unreachable!()
+    };
+    let g = data.defs.creature(n).unwrap().stats;
+    let night = g.speed.run * g.night_speed / 1000;
+    assert!(g.speed.run > you.walk, "it catches you walking");
+    assert!(night < you.run, "and you out-run it, even at night");
+    let shambler = data.defs.creature(0).unwrap().stats;
+    assert!(shambler.speed.run * shambler.night_speed / 1000 < you.walk);
+    // It follows blood, and its bite is the fever's; a shambler's isn't.
+    assert!(g.blood > 0 && g.fever[2] > g.fever[0]);
+    assert_eq!((shambler.blood, shambler.fever), (0, [0; 3]));
+    // And there's a cure to be found.
+    assert!(
+        data.defs
+            .items
+            .iter()
+            .any(|i| matches!(i.kind, dusk_core::ItemKind::Cure { .. }))
+    );
 }

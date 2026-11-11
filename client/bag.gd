@@ -14,6 +14,7 @@ const BANDAGE := 2
 const FOOD := 3
 const DRINK := 4
 const LIGHT := 5
+const CURE := 6
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
@@ -147,9 +148,19 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
 			LIGHT:
 				_button(row, "Light", func() -> void: _dusk.light(slot, def))
+			CURE:
+				_button(row, "Take", func() -> void: _take_cure(slot, def))
 		if stash.x >= 0:
 			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
+
+
+## The cure, taken only with a fever to cure: the core won't start it otherwise, so say why.
+func _take_cure(slot: int, def: int) -> void:
+	if _dusk.character_fever()[0] == 0:
+		say.call("You've no fever to cure. Keep it: a ghoul's bite brings one.")
+	else:
+		_dusk.use_item(slot, def)
 
 
 func _draw_reach(reach: PackedInt32Array, water: bool) -> void:

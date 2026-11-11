@@ -8,6 +8,7 @@ use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
 use crate::barricade::Barricade;
 use crate::body::{Body, Part, WoundKind};
+use crate::fever::Fever;
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
@@ -56,6 +57,8 @@ pub struct Rules {
     pub barricade: Barricade,
     /// Bringing it home, and character levels (`home.rs`).
     pub deeds: Deeds,
+    /// Ghoul fever (`fever.rs`).
+    pub fever: Fever,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -258,6 +261,7 @@ impl Default for Rules {
             skills: SkillRules::default(),
             barricade: Barricade::default(),
             deeds: Deeds::default(),
+            fever: Fever::default(),
         }
     }
 }
@@ -486,6 +490,28 @@ pub enum Event {
     LevelUp {
         who: ActorId,
         level: u8,
+    },
+    /// A creature that saw nothing smelled `target`'s blood, and comes for it.
+    Smelled {
+        who: ActorId,
+        target: ActorId,
+    },
+    /// `who` caught ghoul fever from a wound (`fever.rs`).
+    Fevered {
+        who: ActorId,
+    },
+    /// `who`'s fever moved on to `stage`: 2, weakness; 3, dying.
+    FeverWorse {
+        who: ActorId,
+        stage: u8,
+    },
+    /// The fever ran its course: `who` dies of it (a `Died` follows).
+    FeverTook {
+        who: ActorId,
+    },
+    /// `who` took the cure, and the fever's gone.
+    Cured {
+        who: ActorId,
     },
 }
 
@@ -1050,6 +1076,20 @@ impl World {
             target = Some(at);
             since = tick;
         }
+        // Seeing nothing, one with a nose for it follows blood: to where the prey is now, so
+        // it can't be lost while the wound bleeds.
+        if seen.is_none()
+            && let Some((prey, at)) = self.smells(id, kind.blood)
+        {
+            if target.is_none() {
+                self.events.push(Event::Smelled {
+                    who: id,
+                    target: prey,
+                });
+            }
+            target = Some(at);
+            since = tick;
+        }
         if tick.saturating_sub(since) > kind.forget_after {
             target = None;
         }
@@ -1196,6 +1236,38 @@ impl World {
                 continue;
             }
             if self.sees(who, c.pos) {
+                best = Some((d2, id, c.pos));
+            }
+        }
+        best.map(|(_, id, at)| (id, at))
+    }
+
+    /// The nearest character a creature smells the blood of: within `per_wound` tiles for each
+    /// of its wounds that's bleeding, up to three. Walls and the dark don't stop a scent.
+    pub fn smells(&self, who: ActorId, per_wound: i32) -> Option<(ActorId, TilePos)> {
+        let a = self
+            .actors
+            .get(who)
+            .filter(|a| !a.dead && a.prone_until == 0)?;
+        if per_wound <= 0 {
+            return None;
+        }
+        let from = a.pos;
+        let mut best: Option<(i64, ActorId, TilePos)> = None;
+        for &id in &self.characters {
+            let Some(c) = self.actors.get(id).filter(|c| !c.dead && c.pos.z == from.z) else {
+                continue;
+            };
+            let bleeding = c
+                .body
+                .wounds
+                .iter()
+                .filter(|w| w.bleeding > 0)
+                .count()
+                .min(3);
+            let range = i64::from(per_wound) * bleeding as i64;
+            let d2 = from.dist2(c.pos);
+            if d2 <= range * range && best.is_none_or(|(b, ..)| d2 < b) {
                 best = Some((d2, id, c.pos));
             }
         }

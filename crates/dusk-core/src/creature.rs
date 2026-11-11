@@ -45,6 +45,12 @@ pub struct Creature {
     pub wounds: [u32; 3],
     /// What its blow does to a shut door in its way (out of `body::FULL`, a range).
     pub thump: (i32, i32),
+    /// How far it smells blood, in tiles for each wound that's bleeding (up to three): walls
+    /// don't stop it, nor does the dark. 0: it doesn't.
+    pub blood: i32,
+    /// Out of 10,000, by `WoundKind::ALL`: the chance a wound it leaves carries ghoul fever
+    /// (`fever.rs`).
+    pub fever: [u32; 3],
 }
 
 impl Default for Creature {
@@ -78,6 +84,8 @@ impl Default for Creature {
             },
             wounds: [7000, 2500, 500],
             thump: (20, 40),
+            blood: 0,
+            fever: [0; 3],
         }
     }
 }

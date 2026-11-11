@@ -117,6 +117,8 @@ pub struct Body {
     /// Asleep, and whether in a bed (where sleep rests you twice as fast).
     pub asleep: bool,
     pub in_bed: bool,
+    /// Ghoul fever: the game minute it was caught (`fever.rs`).
+    pub fever: Option<u64>,
 }
 
 impl Body {
@@ -131,6 +133,7 @@ impl Body {
             fatigue: 0,
             asleep: false,
             in_bed: false,
+            fever: None,
         }
     }
 

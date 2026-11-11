@@ -138,6 +138,8 @@ Within a region the variety comes from the family's kinds, rare monsters with af
 
 You out-walk every shambler (1.5 tiles a second against 0.8, or 1.0 at night), so against shamblers alone, running and the endurance it costs never matter. The ghoul is what makes that bar a decision, so it comes first in the first playable. A shambler's bite is only a bad wound; the fever is the ghoul's.
 
+*(built 2026-11-10)* The ghoul runs 2.0 tiles a second, or 2.5 at night: a full bar of endurance lasts 25 seconds of running at 3.0. It makes no groan, so it comes alone and quietly. It smells a bleeding character through walls, 12 tiles off for each wound that bleeds, so while you bleed it can't be lost: **bandage first, run second.** The fever's first day makes you thirsty and stops healing, its second leaves you short of breath, and its third kills. The cure is a rare tincture, one to four in a patch, until the abbey sells it.
+
 ## The loop
 
 - **A day:** go out by daylight, scavenge, trade at a holdout, build; get home before dark.

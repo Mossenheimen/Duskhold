@@ -83,6 +83,8 @@ pub enum Moodle {
     HeavyLoad,
     Held,
     Asleep,
+    /// Ghoul fever, by its stage (`fever.rs`). Last, so the others keep their numbers.
+    Fever,
 }
 
 /// Why someone woke.
@@ -140,6 +142,7 @@ impl World {
             (Moodle::Tired, level(b.fatigue, n.fatigue.levels)),
             (Moodle::Injured, hurt),
             (Moodle::Bleeding, bleeding),
+            (Moodle::Fever, self.fever_stage(id)),
             (Moodle::OutOfBreath, u8::from(b.exhausted)),
             (Moodle::HeavyLoad, u8::from(self.weighed_down(id))),
             (Moodle::Held, holders),
@@ -162,6 +165,9 @@ impl World {
         }
         if level(a.body.thirst, n.thirst.levels) >= 2 {
             rate = rate * n.thirst.recovery / 1000;
+        }
+        if self.fever_stage(id) >= 2 {
+            rate = rate * self.rules.fever.recovery / 1000;
         }
         rate
     }
@@ -272,17 +278,20 @@ impl World {
 
     /// Each game minute: the characters' needs rise (or fatigue falls, asleep), wounds close,
     /// and the rested wake. On the hour, starving and thirst cost health and the fed and watered
-    /// heal.
+    /// heal. A fever makes you thirstier and stops the healing, and dying of it costs health.
     pub(crate) fn needs(&mut self) {
-        let n = self.rules.needs;
+        let (n, fever) = (self.rules.needs, self.rules.fever);
         let per = u64::from(self.rules.clock.ticks_per_minute.max(1));
         if !self.tick.is_multiple_of(per) {
             return;
         }
+        // A fever that's run its course kills first: the day's end, not its last hour's harm.
+        self.fevers();
         let on_the_hour = self.clock_minutes().is_multiple_of(60);
         for i in 0..self.characters.len() {
             let id = self.characters[i];
             let full = self.max_health(id);
+            let stage = self.fever_stage(id);
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -291,8 +300,10 @@ impl World {
             }
             let b = &mut a.body;
             let pace = if b.asleep { n.asleep as i32 } else { 1000 };
+            let feverish = if stage > 0 { fever.thirst as i32 } else { 1000 };
             b.hunger = (b.hunger + n.hunger.rise * pace / 1000).clamp(0, 100 * 1000);
-            b.thirst = (b.thirst + n.thirst.rise * pace / 1000).clamp(0, 100 * 1000);
+            b.thirst =
+                (b.thirst + n.thirst.rise * pace / 1000 * feverish / 1000).clamp(0, 100 * 1000);
             b.fatigue = if b.asleep {
                 let rest = if b.in_bed {
                     n.fatigue.rest
@@ -312,7 +323,10 @@ impl World {
                 if parched {
                     b.health -= n.thirst.harm;
                 }
-                if !starving && !parched && !b.bleeding() {
+                if stage >= crate::fever::DYING {
+                    b.health -= fever.harm;
+                }
+                if !starving && !parched && !b.bleeding() && stage == 0 {
                     let heal = n.heal * if b.asleep { n.sleep_heal } else { 1 };
                     b.health = (b.health + heal).min(full);
                 }

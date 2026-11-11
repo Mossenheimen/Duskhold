@@ -188,6 +188,15 @@ health = 5            # points a level brings: level 10 has 145, not 100. Toughe
 stash = 1.0           # seconds to mark a container as your stash
 home = 8              # tiles from where you sleep that your stash may be
 
+[fever]
+# Ghoul fever, from a ghoul's wound (creatures/*.toml, fever): a fever on the first day, weakness
+# on the second, and on the third you die of it. The cure (items/supplies.toml) works at any
+# stage.
+stage = 24.0          # game hours each stage lasts
+thirst = 1.5          # feverish: thirst rises this many times as fast, and nothing heals
+recovery = 0.5        # weak: your breath comes back at this pace
+harm = 4.0            # dying: health points it costs a game hour, until the day's end kills you
+
 [barricade]
 # Board up a shut door or a window: a plank and nails for each board, with a hammer in hand or in
 # the pack. A boarded door can't be opened; a boarded window can't be seen through. The dead's

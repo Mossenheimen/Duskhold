@@ -90,6 +90,11 @@ const STASHED: i32 = 39;
 const PUT: i32 = 40;
 const BROUGHT_HOME: i32 = 41;
 const LEVEL_UP: i32 = 42;
+const SMELLED: i32 = 43;
+const FEVERED: i32 = 44;
+const FEVER_WORSE: i32 = 45;
+const FEVER_TOOK: i32 = 46;
+const CURED: i32 = 47;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -279,6 +284,13 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             (xp / 1000) as i32,
         ),
         Event::LevelUp { who, level } => (LEVEL_UP, Some(who), None, at(who), i32::from(level)),
+        Event::Smelled { who, target } => (SMELLED, Some(who), Some(target), at(who), 0),
+        Event::Fevered { who } => (FEVERED, Some(who), None, at(who), 0),
+        Event::FeverWorse { who, stage } => {
+            (FEVER_WORSE, Some(who), None, at(who), i32::from(stage))
+        }
+        Event::FeverTook { who } => (FEVER_TOOK, Some(who), None, at(who), 0),
+        Event::Cured { who } => (CURED, Some(who), None, at(who), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -751,7 +763,7 @@ impl DuskWorld {
     }
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
-    /// 4 drink, 5 a light.
+    /// 4 drink, 5 a light, 6 the cure for ghoul fever.
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -768,6 +780,7 @@ impl DuskWorld {
                 ItemKind::Food { .. } => 3,
                 ItemKind::Drink { .. } => 4,
                 ItemKind::Light { .. } => 5,
+                ItemKind::Cure { .. } => 6,
             })
             .collect()
     }
@@ -958,7 +971,8 @@ impl DuskWorld {
     /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging,
     /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
     /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
-    /// up, 18 prying a board off), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
+    /// 21 taking the cure), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -989,6 +1003,7 @@ impl DuskWorld {
                             match world.defs.item(def).map(|d| &d.kind) {
                                 Some(ItemKind::Food { .. }) => 13,
                                 Some(ItemKind::Drink { .. }) => 14,
+                                Some(ItemKind::Cure { .. }) => 21,
                                 _ => 8,
                             }
                         }
@@ -1092,7 +1107,8 @@ impl DuskWorld {
     }
 
     /// Your moodles, two numbers each: which (0 hungry, 1 thirsty, 2 tired, 3 injured,
-    /// 4 bleeding, 5 out of breath, 6 heavy load, 7 held, 8 asleep) and its level (1 up).
+    /// 4 bleeding, 5 out of breath, 6 heavy load, 7 held, 8 asleep, 9 ghoul fever) and its level
+    /// (1 up).
     #[func]
     fn character_moodles(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -1106,6 +1122,20 @@ impl DuskWorld {
             .into_iter()
             .flat_map(|(m, level)| [m as i32, i32::from(level)])
             .collect()
+    }
+
+    /// Your ghoul fever: [its stage (0 none, 1 a fever, 2 weak, 3 dying), the game minutes until
+    /// it kills (-1 with none)].
+    #[func]
+    fn character_fever(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::from(&[0, -1]);
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::from(&[0, -1]);
+        };
+        let left = world.fever_left(me).map_or(-1, |m| m as i32);
+        PackedInt32Array::from(&[i32::from(world.fever_stage(me)), left])
     }
 
     /// Whether you can lie down to sleep now: 1 beside a bed, 0 on the ground, or why not:

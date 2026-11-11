@@ -24,3 +24,29 @@ attack = { wind_up = 1.2, recovery = 0.6, hit = 0.5, noise = 3 }
 groan = 10
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }   # what a hit leaves
 thump = [2, 4]        # what a blow does to a shut door in its way (rules.toml, [door])
+
+# The reason to run (CONCEPT.md, the Hushlands' four): faster than your walk (1.5), slower than
+# your run (3.0), even at night (2.5). You out-run one, while your breath lasts; you don't
+# out-walk it. It makes no groan (it doesn't share), and it follows blood: with a wound bleeding
+# it can't be lost, so bandage first, run second. Its wounds may carry ghoul fever.
+[[creature]]
+id = "ghoul"
+walk = 0.8            # prowling
+run = 2.0             # after you
+night_speed = 1.25
+sight = 10
+darkvision = 3        # it hunts by night better than a shambler
+cone = 140
+think_every = 3       # quicker than the dead
+forget_after = 45.0
+wander = 0.15
+path_budget = 800     # and cleverer: it finds the way round
+health = 25           # a little frailer than a shambler: worth fighting, if it's alone
+down = 3.0
+# Its tell is shorter than a shambler's, but still a second to answer in.
+attack = { wind_up = 1.0, recovery = 0.5, hit = 0.6, noise = 2 }
+groan = 0
+blood = 12            # tiles it smells blood from, for each wound that's bleeding (up to three)
+wounds = { scratch = 0.5, laceration = 0.35, bite = 0.15 }
+fever = { scratch = 0.05, laceration = 0.25, bite = 0.75 }   # the chance each carries ghoul fever
+thump = [1, 2]        # it claws at a door rather than beating it down

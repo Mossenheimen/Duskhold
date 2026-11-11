@@ -6,6 +6,7 @@
 //! loading fails with the file and what's wrong.
 
 mod barricade;
+mod fever;
 mod home;
 mod items;
 mod light;
@@ -188,11 +189,20 @@ pub struct Hamlet {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Dead {
-    /// Which creature they are (`creatures/*.toml`).
-    pub creature: String,
+    /// Which creatures they are (`creatures/*.toml`), and what share of them each kind is.
+    pub kinds: Vec<DeadKind>,
     pub per_chunk: f32,
     pub per_house: (u32, u32),
     pub clear_start: i32,
+}
+
+/// One kind among a region's dead: a creature's id, and its share of them (the shares add up
+/// to 1).
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeadKind {
+    pub creature: String,
+    pub share: f32,
 }
 
 /// What's wrong, and in which file.
@@ -304,6 +314,7 @@ struct RulesFile {
     sight: light::SightFile,
     skills: skills::SkillsFile,
     deeds: home::DeedsFile,
+    fever: fever::FeverFile,
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,
@@ -491,6 +502,12 @@ struct CreatureFile {
     /// Tiles its groan carries as it catches sight of prey (0, or left out: it makes none).
     #[serde(default)]
     groan: i32,
+    /// Tiles it smells blood from, for each wound that's bleeding (0, or left out: it doesn't).
+    #[serde(default)]
+    blood: i32,
+    /// The chance each kind of wound it leaves carries ghoul fever (left out: none does).
+    #[serde(default)]
+    fever: Option<WoundOddsFile>,
 }
 
 #[derive(Deserialize)]
@@ -608,11 +625,19 @@ fn to_creatures(
                  wander is a chance from 0 to 1",
             ));
         }
-        if c.darkvision < 0 || c.groan < 0 || !(0.5..=3.0).contains(&c.night_speed) {
+        if c.darkvision < 0 || c.groan < 0 || c.blood < 0 || !(0.5..=3.0).contains(&c.night_speed) {
             return Err(bad(
-                "darkvision and groan can't be negative, and night_speed is a pace from 0.5 to 3",
+                "darkvision, groan and blood can't be negative, and night_speed is a pace from                  0.5 to 3",
             ));
         }
+        let fever = match &c.fever {
+            Some(f) => [
+                chance(cfile, "fever.scratch", f.scratch)?,
+                chance(cfile, "fever.laceration", f.laceration)?,
+                chance(cfile, "fever.bite", f.bite)?,
+            ],
+            None => [0; 3],
+        };
         if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
             return Err(bad("health must be above 0, and thump is [least, most]"));
         }
@@ -648,6 +673,8 @@ fn to_creatures(
                 attack: c.attack.to_swing(cfile, "attack")?,
                 wounds,
                 thump: (points(c.thump.0), points(c.thump.1)),
+                blood: c.blood,
+                fever,
             },
         });
     }
@@ -766,6 +793,7 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     (rules.day, rules.sight) = light::to_light(file, r)?;
     rules.skills = skills::to_skills(file, r, rules.clock.ticks_per_minute)?;
     rules.deeds = home::to_deeds(file, &r.deeds)?;
+    rules.fever = fever::to_fever(file, &r.fever)?;
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
     }
@@ -913,11 +941,24 @@ fn check_region(
         Some("hamlet: gap, setback and yard can't be negative".to_string())
     } else if r.dead.per_chunk < 0.0 || r.dead.per_house.0 > r.dead.per_house.1 {
         Some("dead: per_chunk can't be negative, and per_house is [fewest, most]".to_string())
-    } else if !creatures.iter().any(|c| c.id == r.dead.creature) {
+    } else if let Some(k) = r
+        .dead
+        .kinds
+        .iter()
+        .find(|k| !creatures.iter().any(|c| c.id == k.creature))
+    {
         Some(format!(
-            "dead.creature: no creature called {:?} in creatures/",
-            r.dead.creature
+            "dead.kinds: no creature called {:?} in creatures/",
+            k.creature
         ))
+    } else if r
+        .dead
+        .kinds
+        .iter()
+        .any(|k| k.share.is_nan() || k.share <= 0.0)
+        || (r.dead.kinds.iter().map(|k| k.share).sum::<f32>() - 1.0).abs() > 0.001
+    {
+        Some("dead.kinds: each share is above 0, and they add up to 1".to_string())
     } else {
         r.hamlet
             .lots

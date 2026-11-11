@@ -73,3 +73,27 @@ fn the_dead_stand_where_they_can_and_not_by_the_start() {
     }
     assert!(dead > 20, "{dead} dead");
 }
+
+#[test]
+fn the_dead_are_mostly_shamblers_with_some_ghouls_among_them() {
+    let data = data();
+    let ghoul = data
+        .defs
+        .creature_kind("ghoul")
+        .expect("a ghoul in the data");
+    let (mut all, mut ghouls) = (0, 0);
+    for seed in 1..=4 {
+        let (world, _) = make(seed);
+        for (_, a) in world.actors() {
+            if !a.kind.is_character() {
+                all += 1;
+                ghouls += usize::from(a.kind == ghoul);
+            }
+        }
+    }
+    // A tenth of them, give or take what four patches' rolls fall to.
+    assert!(
+        ghouls * 20 > all && ghouls * 6 < all,
+        "{ghouls} ghouls of {all}"
+    );
+}

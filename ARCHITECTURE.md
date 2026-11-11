@@ -787,7 +787,30 @@ Game first: every step ends with something to look at or play.
        - **checked on screen:** the level line, at the start of a trial run. The stash's panels weren't caught in a picture (the walk there met the shambler by the road); the core's tests cover them;
      - **not yet:** XP for places found, days survived and bounties (`CONCEPT.md`'s other deeds), and selling at a holdout (slice 5);
      - **measured:** 100 dead 133,000 ticks/s, the patch 386,000 (no change).
-   - **Slice 3, the ghoul and ghoul fever:** faster than your walk, drawn to blood; the fever's three days, and its cure as an item for now (the abbey sells it later).
+   - **Slice 3, the ghoul and ghoul fever:** done 2026-11-10; 114 tests pass. What it has:
+     - **the ghoul is a row of data** (`creatures/hushlands.toml`), as slice 0 promised. It needed two new numbers on `Creature`, and no rule:
+       - it runs 2.0 tiles a second (2.5 at night) against your walk of 1.5 and your run of 3.0. Walking won't lose one; running will, for the 25 seconds a full bar of endurance lasts;
+       - it makes no groan: it doesn't share its prey, so a ghoul comes alone and quietly;
+       - it thinks every 3 ticks (a shambler every 5), searches 800 tiles for a way (400) and sees 3 tiles in the dark (1). It's frailer (25 health against 30), and its tell is 1.0 s (the shambler's 1.2);
+     - **drawn to blood** (`Creature::blood`, `World::smells`): a creature that sees nothing smells a character within `blood` tiles for each wound that's bleeding, up to three (the ghoul's is 12, so 12, 24 or 36 tiles). Walls and the dark don't stop a scent. It goes to where you are now, not where you were, so a ghoul can't be lost while you bleed. That's what makes the bandage the first move and the run the second;
+     - **ghoul fever** (`dusk-core/src/fever.rs`): a wound from a kind that carries it (`Creature::fever`, a chance for each kind of wound: the ghoul's scratch 5%, laceration 25%, bite 75%) may bring it. A shambler's bite is only a bad wound. It's kept as the game minute it was caught, and the stage is worked out from the clock:
+       1. **the first day, a fever:** thirst rises half as fast again, and nothing heals;
+       2. **the second, weakness:** endurance comes back at half the pace too;
+       3. **the third, dying:** 4 health an hour, and at the day's end it kills you, whatever's left. The day's end is checked before the hour's harm, so it's the fever that's named;
+     - **the cure** is an item (`ItemKind::Cure`; the feverfew tincture, worth 15 XP brought home), taken at any stage. It's in wardrobes and on shelves: one to four in a patch (eight seeds measured), so a patch always has one to find. The abbey sells it from slice 5;
+     - **the region's dead are a mix** (`regions/*.toml`, `[dead] kinds`, each with a share): the Hushlands' are 90% shamblers and 10% ghouls, 7 to 13 a patch. Which kind stands on a tile is a roll of its own, so every place the dead stood before still has one;
+     - **numbers:** `rules.toml` `[fever]` (the stage's length, the thirst, the breath, the harm); a creature's `blood` and `fever`; the tincture in `items/supplies.toml` and `loot/hamlet.toml`;
+     - **the save format** is version 3 (the body carries its fever);
+     - **the client:**
+       - the news names the creature ("A ghoul saw you!", "A ghoul gave you a bite on the left arm.") from `creature_names()`, not "a shambler" any more;
+       - the ghoul is drawn pale, lower and crouched, so a glance tells it from a shambler;
+       - the fever is a moodle with three stages, and the bleeding moodle says ghouls smell it. The news tells of catching it, each stage and the cure, and the death screen says when the fever killed you;
+       - a tincture in the pack has a Take button, which says why not with no fever;
+       - **a save that won't load is moved aside** (`world.dusk.old`), not saved over. This slice's own check found it: a run with no flags met the old version-2 save, refused it, and saved a new world over it on quitting;
+       - **checked on screen:** "A ghoul saw you!" in the news, from a copy of `data/` with only ghouls. The ghoul's look wasn't caught in a picture;
+     - **`dusk-cli gen`** says the dead by kind and the cures a patch holds;
+     - **not yet:** rising as a revenant after the fever (slice 7); ghouls eating the dead (an action that can be interrupted, as this file says); a trail of blood on the ground, rather than a scent from where you stand;
+     - **measured:** 100 dead 122,000 ticks/s, the patch 351,000 (it was 386,000: ghouls think more often and search farther).
    - **Slice 4, the dead get up:** corpses rise after a while unless burned (oil, a pyre); the region's pressure number, raised by the unburned and lowered by burning.
    - **Slice 5, the abbey holdout:** a safe place with a trader (coin, the cure, repairs) and a bunk; where the next character starts.
    - **Slice 6, the Tolling:** the first siege on the calendar, with flow fields for its crowd, and the dead keeping at a door.

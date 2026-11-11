@@ -95,12 +95,28 @@ fn gen_patch(args: &[String]) {
     let start = Instant::now();
     let (world, layout) = dusk_gen::patch(seed, &data, region);
     let took = start.elapsed();
-    let dead = world
-        .actors()
-        .filter(|(_, a)| !a.kind.is_character())
-        .count();
+    // The dead, by kind: "77 dead (69 shambler, 8 ghoul)".
+    let mut kinds = vec![0usize; world.defs.creatures.len()];
+    for (_, a) in world.actors() {
+        if let dusk_core::ActorKind::Creature(n) = a.kind {
+            kinds[usize::from(n)] += 1;
+        }
+    }
+    let by_kind: Vec<String> = world
+        .defs
+        .creatures
+        .iter()
+        .zip(&kinds)
+        .filter(|&(_, &n)| n > 0)
+        .map(|(c, n)| format!("{n} {}", c.name))
+        .collect();
+    let dead = format!(
+        "{} dead ({})",
+        kinds.iter().sum::<usize>(),
+        by_kind.join(", ")
+    );
     println!(
-        "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead} dead; you start at ({}, {})",
+        "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead}; you start at ({}, {})",
         region.name,
         layout.width,
         layout.height,
@@ -110,7 +126,7 @@ fn gen_patch(args: &[String]) {
         layout.start.y
     );
     // What there is to bring home: every container's finds, by their worth and weight.
-    let (mut containers, mut xp, mut grams) = (0, 0u64, 0u64);
+    let (mut containers, mut xp, mut grams, mut cures) = (0, 0u64, 0u64, 0);
     for y in 0..layout.height {
         for x in 0..layout.width {
             let at = TilePos::new(x, y, 0);
@@ -120,12 +136,15 @@ fn gen_patch(args: &[String]) {
                     let def = world.defs.item(i.def);
                     xp += u64::from(def.map_or(0, |d| d.worth)) * u64::from(i.count);
                     grams += u64::from(world.defs.weight(&i));
+                    if def.is_some_and(|d| matches!(d.kind, dusk_core::ItemKind::Cure { .. })) {
+                        cures += i.count;
+                    }
                 }
             }
         }
     }
     println!(
-        "  {containers} containers hold {} XP of finds, {:.0} kg of them",
+        "  {containers} containers hold {} XP of finds, {:.0} kg of them; {cures} cure(s) for the fever",
         xp / 1000,
         grams as f64 / 1000.0
     );
@@ -427,6 +446,20 @@ fn describe(w: &World, e: Event) -> String {
         Event::BoardBroke { at, boards, .. } => {
             format!("a board by ({}, {}) broke: {boards} left", at.x, at.y)
         }
+        Event::Smelled { who, target } => {
+            format!("{} smells {}'s blood", name(who), name(target))
+        }
+        Event::Fevered { who } => format!("{} has caught ghoul fever", name(who)),
+        Event::FeverWorse { who, stage } => {
+            let how = if stage >= 3 {
+                "dying of it"
+            } else {
+                "weak with it"
+            };
+            format!("{}'s fever is worse: {how}", name(who))
+        }
+        Event::FeverTook { who } => format!("the fever takes {}", name(who)),
+        Event::Cured { who } => format!("{} took the cure: the fever's gone", name(who)),
     }
 }
 

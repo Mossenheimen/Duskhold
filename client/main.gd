@@ -80,17 +80,23 @@ const STASHED := 39
 const PUT := 40
 const BROUGHT_HOME := 41
 const LEVEL_UP := 42
+const SMELLED := 43
+const FEVERED := 44
+const FEVER_WORSE := 45
+const FEVER_TOOK := 46
+const CURED := 47
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
-	19: "Making it your stash", 20: "Putting it away"}
+	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure"}
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
 const HUNGRY := 0
 const THIRSTY := 1
 const ASLEEP := 8
+const FEVER := 9
 ## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
 const SLEEP_SPEED := 60.0
 ## Why you woke, by WOKE's extra.
@@ -107,6 +113,9 @@ var bag: Bag
 var litter: Litter
 var skills: Skills
 var item_names := PackedStringArray()
+var creature_names := PackedStringArray()  # by creature number: actor kind 1 + n is creature n
+var kinds := PackedInt32Array()  # each actor's kind (DuskWorld.actor_kinds())
+var fever_took := false  # the fever killed you, for the death screen
 var skill_names := PackedStringArray()
 var hud: Hud
 var camera: Camera3D
@@ -210,7 +219,10 @@ func _start(carry_on := false) -> void:
 	for view in actors:
 		view.queue_free()
 	actors.clear()
-	for kind in dusk.actor_kinds():
+	kinds = dusk.actor_kinds()
+	creature_names = dusk.creature_names()
+	fever_took = false
+	for kind in kinds:
 		var view := ActorView.new()
 		view.setup(kind)
 		add_child(view)
@@ -248,8 +260,14 @@ func _start(carry_on := false) -> void:
 		else:
 			hud.say("You carry on.  %s" % Hud.time_of_day(clock))
 	elif not not_loaded.is_empty():
-		# The save stays where it is until this new world's first save replaces it.
-		hud.say("The saved game couldn't be loaded: %s. A new world, then." % not_loaded)
+		# Moved aside, not saved over: a save from an older build may load again once migrations
+		# come, and a broken one is worth a look.
+		var kept := save_path + ".old"
+		if FileAccess.file_exists(kept):
+			DirAccess.remove_absolute(kept)
+		var moved := DirAccess.rename_absolute(save_path, kept) == OK
+		hud.say("The saved game couldn't be loaded: %s. A new world, then%s." % [not_loaded,
+			" (the old save is kept beside it, as %s)" % kept.get_file() if moved else ""])
 	else:
 		_save("")  # a new world takes the old one's place at once
 
@@ -535,9 +553,15 @@ func _read_events() -> void:
 		match events[i]:
 			HEARD:
 				if _seen(who):
-					hud.say("A shambler heard something.")
+					hud.say("%s heard something." % _a(who))
 			SAW:
-				hud.say("A shambler saw you!" if _seen(who) else "Something has seen you.")
+				hud.say("%s saw you!" % _a(who) if _seen(who) else "Something has seen you.")
+			SMELLED:
+				if target == me:
+					if _seen(who):
+						hud.say("%s has the scent of your blood! Bandage it, or it won't lose you." % _a(who))
+					else:
+						hud.say("Something has the scent of your blood. Bandage it: Tab.")
 			NO_WAY:
 				if who == me:
 					hud.say("There's no way there.")
@@ -545,7 +569,7 @@ func _read_events() -> void:
 				if target == me and extra > 0:
 					var wound := wound_names[floori(extra / 100.0) - 1]
 					var part := part_names[extra % 100]
-					last_hurt = "A shambler gave you a %s on the %s." % [wound, part]
+					last_hurt = "%s gave you a %s on the %s." % [_a(who), wound, part]
 					last_hurt_at = dusk.tick()
 					hud.say(last_hurt)
 					hud.flash()
@@ -555,7 +579,7 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You missed.")
 				elif target == me or _beside(who):
-					hud.say("A shambler reached for you and missed.")
+					hud.say("%s reached for you and missed." % _a(who))
 			SHOVED:
 				if who == me:
 					hud.say("You shoved it down." if extra == 1 else "You shoved it back.")
@@ -673,9 +697,36 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You reached level %d. A little more health." % extra)
 					hud.flash_good()
+			FEVERED:
+				if who == me:
+					hud.say("The wound burns. You've caught ghoul fever: three days to find a cure.")
+					hud.flash()
+			FEVER_WORSE:
+				if who == me:
+					if extra >= 3:
+						hud.say("You're dying of the fever. A day left to find the cure.")
+					else:
+						hud.say("The fever has you weak: your breath comes back slowly.")
+					hud.flash()
+			FEVER_TOOK:
+				if who == me:
+					fever_took = true
+			CURED:
+				if who == me:
+					hud.say("You took the cure. The fever breaks.")
+					hud.flash_good()
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
+
+
+## "A shambler", "A ghoul": what actor `i` is, for the news.
+func _a(i: int) -> String:
+	var n := kinds[i] - 1 if i >= 0 and i < kinds.size() else -1
+	if n < 0 or n >= creature_names.size():
+		return "Something"
+	var name := creature_names[n]
+	return ("An " if "aeiou".contains(name.left(1)) else "A ") + name
 
 
 ## Whether actor `i` stands beside you.
@@ -693,7 +744,9 @@ func _die() -> void:
 	var how := last_hurt
 	var starving := _moodle(HUNGRY) >= 3
 	var parched := _moodle(THIRSTY) >= 3
-	if dragged_by >= 3:
+	if fever_took:
+		how = "The ghoul fever took you."
+	elif dragged_by >= 3:
 		how = "%d of them got hold of you, and dragged you down." % dragged_by
 	elif dragged_by > 0:
 		how = "It had hold of you, and you had no breath left to throw it off."
@@ -701,6 +754,8 @@ func _die() -> void:
 		pass  # the blow itself
 	elif dusk.character_body()[4] > 0:
 		how = "You bled to death."
+	elif _moodle(FEVER) >= 3:
+		how = "The ghoul fever wore you down."
 	elif starving and parched:
 		how = "Hunger and thirst wore you down."
 	elif parched:

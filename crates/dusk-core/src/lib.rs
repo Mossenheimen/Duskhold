@@ -13,6 +13,7 @@ pub mod body;
 mod combat;
 pub mod creature;
 pub mod demo;
+pub mod fever;
 pub mod geom;
 mod grab;
 pub mod grid;

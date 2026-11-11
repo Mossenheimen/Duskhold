@@ -54,6 +54,7 @@ pub enum Purpose {
     Thump = 12,
     Loot = 13,
     LootCount = 14,
+    Fever = 15,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

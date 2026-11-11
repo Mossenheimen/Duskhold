@@ -59,6 +59,8 @@ pub enum ItemKind {
     Food { nutrition: i32, time: u32 },
     /// Drunk: thirst falls by `water`; `time` ticks to drink.
     Drink { water: i32, time: u32 },
+    /// Taken with ghoul fever, it cures it, at any stage (`fever.rs`): `time` ticks to take.
+    Cure { time: u32 },
     /// Held up lit (`light.rs`): it lights `radius` tiles round it, and loses `wane` of its
     /// condition a game minute until it burns out.
     Light { radius: i32, wane: u16 },
@@ -474,7 +476,7 @@ impl World {
     }
 
     /// Uses the item at `slot`: a bandage goes on the worst wound that's bleeding; food is eaten
-    /// and drink drunk. One of the stack is used up.
+    /// and drink drunk; the cure is taken for a fever. One of the stack is used up.
     pub(crate) fn use_item(&mut self, id: ActorId, slot: u16, def: u16) {
         let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
@@ -510,6 +512,12 @@ impl World {
                 a.body.thirst = (a.body.thirst - water).max(0);
                 Event::Drank { who: id, item: def }
             }
+            Some(ItemKind::Cure { .. }) => {
+                if a.body.fever.take().is_none() {
+                    return;
+                }
+                Event::Cured { who: id }
+            }
             _ => return,
         };
         a.items[slot].count -= 1;
@@ -526,7 +534,7 @@ impl World {
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
     /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound bleeding,
-    /// food or drink.
+    /// food or drink, or the cure with a fever.
     pub(crate) fn item_ticks(&self, id: ActorId, slot: u16, def: u16, using: bool) -> Option<u32> {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
@@ -539,6 +547,7 @@ impl World {
             (true, ItemKind::Food { time, .. } | ItemKind::Drink { time, .. }) => {
                 Some((*time).max(1))
             }
+            (true, ItemKind::Cure { time }) if a.body.fever.is_some() => Some((*time).max(1)),
             _ => None,
         }
     }

@@ -1,11 +1,18 @@
 extends Node3D
-## One actor, the character or a shambler. It faces the way the core says, and a mark over its
+## One actor, the character or one of the dead. It faces the way the core says, and a mark over its
 ## head says what it knows of you: "?" it heard something, "!" it sees you. It leans in as it
 ## winds up a swing (the tell), lies down when knocked down or asleep ("z"), and stays down,
 ## darker, when dead.
 
 const CHARACTER := Color(0.75, 0.32, 0.2)
-const SHAMBLER := Color(0.56, 0.6, 0.5)
+## Each kind's look, by DuskWorld.actor_kinds() (0 the character, 1 + n creature n): its colour,
+## its height, and how far it stoops. The shambler is grey-green and stooped; the ghoul pale,
+## lower and crouched, so a glance tells them apart. A kind with no look here borrows the last.
+const LOOKS := [
+	[CHARACTER, 1.55, 0.0],
+	[Color(0.56, 0.6, 0.5), 1.45, -14.0],
+	[Color(0.82, 0.78, 0.7), 1.3, -28.0],
+]
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
 const SLEEPING := Color(0.6, 0.72, 1.0)
@@ -23,13 +30,14 @@ var _alert := 0
 var _pop := 0.0
 
 
-## Kind 0 is the character, 1 a shambler (DuskWorld.actor_kinds()).
+## Kind 0 is the character, 1 + n creature n (DuskWorld.actor_kinds()).
 func setup(kind: int) -> void:
-	var colour := CHARACTER if kind == 0 else SHAMBLER
-	var tall := 1.55 if kind == 0 else 1.45
+	var look: Array = LOOKS[clampi(kind, 0, LOOKS.size() - 1)]
+	var colour: Color = look[0]
+	var tall: float = look[1]
 	_colour = colour
 	_body = Node3D.new()
-	_stoop = -14.0 if kind >= 1 else 0.0  # the dead stoop (kind 1 + n is creature n)
+	_stoop = look[2]
 	_body.rotation_degrees.x = _stoop
 	_pitch = _stoop
 	add_child(_body)

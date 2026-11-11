@@ -43,6 +43,8 @@ struct ItemFile {
     drink: Option<DrinkFile>,
     #[serde(default)]
     light: Option<LightFile>,
+    #[serde(default)]
+    cure: Option<CureFile>,
     /// XP one brings home the first time (`rules.toml`, [deeds]); 0 if left out.
     #[serde(default)]
     worth: f64,
@@ -66,6 +68,13 @@ struct WeaponFile {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BandageFile {
+    time: f64,
+}
+
+/// The cure for ghoul fever: seconds to take it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CureFile {
     time: f64,
 }
 
@@ -241,12 +250,13 @@ pub(crate) fn load_defs(
                 i.food.is_some(),
                 i.drink.is_some(),
                 i.light.is_some(),
+                i.cure.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink and light",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light and cure",
                         i.id
                     ),
                 ));
@@ -279,6 +289,11 @@ pub(crate) fn load_defs(
                 ItemKind::Drink { water, time }
             } else if let Some(l) = &i.light {
                 light(&file, &i.id, l)?
+            } else if let Some(c) = &i.cure {
+                let time = ticks(&file, &format!("item {:?}: cure.time", i.id), c.time)?;
+                ItemKind::Cure {
+                    time: (time as u32).max(1),
+                }
             } else {
                 ItemKind::Other
             };

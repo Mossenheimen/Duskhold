@@ -13,6 +13,7 @@ pub enum Layer {
     Road = 4,
     Hamlet = 5,
     Dead = 6,
+    DeadKind = 7,
 }
 
 /// A hash of (seed, layer, a, b): every input bit stirs every output bit.
