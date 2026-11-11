@@ -64,6 +64,8 @@ pub enum ItemKind {
     /// Held up lit (`light.rs`): it lights `radius` tiles round it, and loses `wane` of its
     /// condition a game minute until it burns out.
     Light { radius: i32, wane: u16 },
+    /// Poured on a body and set alight, it burns it (`remains.rs`): one a body.
+    Oil,
     /// Everything else: materials, junk.
     Other,
 }

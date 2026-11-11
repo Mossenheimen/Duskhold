@@ -116,11 +116,11 @@ impl World {
         })
     }
 
-    /// A tile's light, out of 100: the sky's, or that of a carried light that reaches it in a
-    /// straight line, whichever is brighter.
+    /// A tile's light, out of 100: the sky's, or that of a carried light or a burning body
+    /// (`remains.rs`) that reaches it in a straight line, whichever is brighter.
     pub fn light_at(&self, at: TilePos) -> u32 {
         let mut best = self.sky_light(at);
-        for (from, radius) in self.carried_lights() {
+        for (from, radius) in self.carried_lights().chain(self.fires()) {
             if from.z != at.z {
                 continue;
             }

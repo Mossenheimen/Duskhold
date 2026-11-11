@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  Tab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world  ·  Esc save and quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  G burn a body  ·  Tab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world  ·  Esc save and quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -116,10 +116,16 @@ func _process(delta: float) -> void:
 		_flash.color = Color(0.7, 0.0, 0.0, 0.35 * _flash_left / FLASH_LIFE)
 
 
-## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep).
-func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool) -> void:
-	_state.text = "DUSKHOLD  ·  build step 6: the ghoul\n%s  ·  Seed %d  ·  %d×" % [
-		time_of_day(clock), world_seed, speed]
+## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
+## the region's pressure (DuskWorld.pressure(): how many of the dead the patch holds, against
+## how many it began with). Bodies that get up raise it; burning them lowers it.
+func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool,
+		pressure: PackedInt32Array) -> void:
+	var dead := ""
+	if pressure.size() >= 3 and pressure[0] > 0:
+		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
+	_state.text = "DUSKHOLD  ·  build step 6: the dead get up\n%s  ·  Seed %d  ·  %d×%s" % [
+		time_of_day(clock), world_seed, speed, dead]
 	_paused.visible = paused
 
 

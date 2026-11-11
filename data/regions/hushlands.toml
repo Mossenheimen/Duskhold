@@ -35,3 +35,17 @@ kinds = [{ creature = "shambler", share = 0.9 }, { creature = "ghoul", share = 0
 per_chunk = 1.2       # in the open: the dead in an average chunk
 per_house = [0, 2]    # inside each building: the fewest and the most
 clear_start = 16      # none within this many tiles of where you start
+
+[pressure]
+# The Long Dusk, here: how many of the dead the patch holds, in per cent of how many it began
+# with. While it holds fewer, one walks in every so often, into a part of the patch away from you
+# (so what you put down is made up for out of sight). Time raises it to the ceiling; each body
+# that gets up raises it, past the ceiling if need be; each body burned lowers it.
+start = 100
+least = 25
+most = 200
+per_day = 5           # time's rise, a game day
+ceiling = 150         # time raises it no higher (relighting the wardstone will lower this)
+per_rise = 2          # each body that gets up
+per_burn = 2          # each body burned
+every = 30            # game minutes between the dead walking in, while the patch is short of them

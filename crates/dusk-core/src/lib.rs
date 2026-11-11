@@ -23,6 +23,8 @@ pub mod items;
 pub mod light;
 pub mod needs;
 pub mod path;
+pub mod pressure;
+pub mod remains;
 #[cfg(feature = "save")]
 pub mod save;
 pub mod senses;
@@ -31,15 +33,17 @@ pub mod text;
 pub mod view;
 pub mod world;
 
-pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind};
+pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind, Remains};
 pub use barricade::NoBoard;
 pub use body::{Body, Part, Wound, WoundKind};
-pub use creature::{Creature, CreatureDef};
+pub use creature::{Creature, CreatureDef, GetUp};
 pub use geom::{ChunkPos, Dir8, TilePos};
 pub use grid::{Edge, Grid, Ground, Tile};
 pub use home::NoStash;
 pub use items::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
 pub use needs::{Moodle, NoSleep, Woke};
+pub use pressure::{Pressure, Region};
+pub use remains::NoBurn;
 pub use skills::{Rise, Skill, Skills, Standing};
 pub use view::View;
 pub use world::{Event, Rules, World};

@@ -142,6 +142,10 @@ stage = 12.0
 thirst = 2.0
 recovery = 0.25
 harm = 6.0
+[burning]
+time = 2.5
+burn = 15
+light = 3
 "#;
 
 const SHAMBLER: &str = r#"
@@ -160,6 +164,7 @@ down = 4.0
 attack = { wind_up = 0.8, recovery = 0.8, hit = 0.5, noise = 3 }
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }
 thump = [2, 4]
+get_up = { chance = 0.5, after = [6.0, 12.5] }
 darkvision = 2
 night_speed = 1.5
 "#;
@@ -217,6 +222,15 @@ kinds = [{ creature = "shambler", share = 1.0 }]
 per_chunk = 1.0
 per_house = [0, 1]
 clear_start = 8
+[pressure]
+start = 100
+least = 20
+most = 250
+per_day = 2.5
+ceiling = 150
+per_rise = 1
+per_burn = 3
+every = 45
 "#;
 
 /// A data folder in the temp directory, from (path, text) pairs.
@@ -293,6 +307,23 @@ fn a_designers_units_become_the_cores() {
     assert_eq!(s.forget_after, 300, "30 seconds in ticks");
     assert_eq!(r.repath_after, 15);
     assert_eq!(s.wander, 1000, "a tenth, out of 10,000");
+    assert_eq!(
+        (s.get_up.chance, s.get_up.after),
+        (5000, (360, 750)),
+        "a half, out of 10,000; game hours as game minutes"
+    );
+    assert_eq!(
+        (r.burning.time, r.burning.burn, r.burning.light),
+        (25, 15, 3),
+        "seconds as ticks; game minutes and tiles as they are"
+    );
+    let p = data.region("test").unwrap().pressure.to_pressure();
+    assert_eq!(
+        (p.start, p.least, p.most, p.per_day, p.ceiling),
+        (1000, 200, 2500, 25, 1500),
+        "per cent as thousandths"
+    );
+    assert_eq!((p.per_rise, p.per_burn, p.every), (10, 30, 45));
     let hut = data.prefab("hut").unwrap();
     assert_eq!(hut.front, Side::South);
     let bed = hut.grid.cell(0, 0).0.expect("a tile");
@@ -691,6 +722,14 @@ fn the_ghoul_out_paces_your_walk_and_not_your_run_in_the_games_data() {
     // It follows blood, and its bite is the fever's; a shambler's isn't.
     assert!(g.blood > 0 && g.fever[2] > g.fever[0]);
     assert_eq!((shambler.blood, shambler.fever), (0, [0; 3]));
+    // Both get up again, unless they're burned; and there's oil to burn them with.
+    assert!(g.get_up.chance > 0 && shambler.get_up.chance > 0);
+    assert!(
+        data.defs
+            .items
+            .iter()
+            .any(|i| matches!(i.kind, dusk_core::ItemKind::Oil))
+    );
     // And there's a cure to be found.
     assert!(
         data.defs

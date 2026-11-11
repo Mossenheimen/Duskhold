@@ -51,6 +51,18 @@ pub struct Creature {
     /// Out of 10,000, by `WoundKind::ALL`: the chance a wound it leaves carries ghoul fever
     /// (`fever.rs`).
     pub fever: [u32; 3],
+    /// Whether its body gets up again, unless it's burned first (`remains.rs`).
+    pub get_up: GetUp,
+}
+
+/// Whether a kind's body gets up after it's put down, and when: the Hushlands' rule, "the
+/// unburned dead get up" (`CONCEPT.md`). It gets up once; put down a second time, it stays down.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GetUp {
+    /// Out of 10,000: the chance a body of this kind gets up (0: it never does).
+    pub chance: u32,
+    /// Game minutes after it fell: the soonest and the latest.
+    pub after: (u32, u32),
 }
 
 impl Default for Creature {
@@ -86,6 +98,7 @@ impl Default for Creature {
             thump: (20, 40),
             blood: 0,
             fever: [0; 3],
+            get_up: GetUp::default(),
         }
     }
 }

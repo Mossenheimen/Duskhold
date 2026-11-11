@@ -17,6 +17,8 @@ use crate::items::{Defs, Item};
 use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
 use crate::path::find_path;
+use crate::pressure::Region;
+use crate::remains::Burning;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
 use crate::skills::{Skill, SkillRules};
 use crate::text::{self, TextError, TextGrid, default_legend};
@@ -59,6 +61,8 @@ pub struct Rules {
     pub deeds: Deeds,
     /// Ghoul fever (`fever.rs`).
     pub fever: Fever,
+    /// Burning the dead (`remains.rs`).
+    pub burning: Burning,
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -262,6 +266,7 @@ impl Default for Rules {
             barricade: Barricade::default(),
             deeds: Deeds::default(),
             fever: Fever::default(),
+            burning: Burning::default(),
         }
     }
 }
@@ -513,6 +518,23 @@ pub enum Event {
     Cured {
         who: ActorId,
     },
+    /// A body got up again (`remains.rs`): `who` is on its feet, or getting there.
+    GotUp {
+        who: ActorId,
+    },
+    /// `who` poured oil on `body` and set it alight.
+    Kindled {
+        who: ActorId,
+        body: ActorId,
+    },
+    /// `body` caught fire from a body burning beside it.
+    Caught {
+        body: ActorId,
+    },
+    /// `body` burnt down to ash.
+    Burnt {
+        body: ActorId,
+    },
 }
 
 /// A sound made this tick.
@@ -548,6 +570,12 @@ pub struct World {
     /// What containers and floors hold, once something changed it (`items.rs`): an unopened
     /// container isn't here, its contents come from the seed. Ordered, for the hash.
     pub(crate) stores: BTreeMap<TilePos, Vec<Item>>,
+    /// The region this world is a patch of (`pressure.rs`): from the data, not saved.
+    pub region: Region,
+    /// The region's pressure, in thousandths of the dead the patch began with.
+    pub(crate) pressure: u32,
+    /// The bodies burning now (`remains.rs`): worked out from the actors, kept for the light.
+    pub(crate) fires: Vec<ActorId>,
 }
 
 impl World {
@@ -575,6 +603,9 @@ impl World {
             board_strength: BTreeMap::new(),
             defs,
             stores: BTreeMap::new(),
+            region: Region::default(),
+            pressure: 0,
+            fires: Vec::new(),
         }
     }
 
@@ -652,6 +683,7 @@ impl World {
                 }
             }
         }
+        self.find_fires();
     }
 
     pub fn actor(&self, id: ActorId) -> Option<&Actor> {
@@ -744,6 +776,7 @@ impl World {
         self.door_damage.hash(&mut h);
         self.board_strength.hash(&mut h);
         self.stores.hash(&mut h);
+        self.pressure.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -836,6 +869,8 @@ impl World {
         self.grips();
         self.bodies(&strides);
         self.needs();
+        self.remains();
+        self.press();
         self.burn_lights();
         self.drag_downs();
     }

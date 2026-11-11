@@ -75,6 +75,7 @@ impl World {
                 ActionKind::Unboard => self.pry_board(id, action.dir),
                 ActionKind::Stash { at } => self.mark_stash(id, at),
                 ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
+                ActionKind::Burn { body } => self.kindle(id, body),
             }
         }
         true
@@ -160,6 +161,10 @@ impl World {
             Intent::Put { at, slot, def } => {
                 let ticks = self.put_ticks(id, at, slot, def)?.max(1);
                 (ActionKind::Put { at, slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Burn => {
+                let (kind, dir, ticks) = self.burn_action(id)?;
+                (kind, dir, ticks, 0, 0)
             }
             Intent::Unboard => {
                 let side = self.can_unboard(id).ok()?;
@@ -578,6 +583,7 @@ impl World {
             return;
         }
         a.dead = true;
+        a.remains = crate::actor::Remains::Lying;
         a.action = None;
         a.prone_until = 0;
         a.intent = Intent::Idle;
@@ -596,6 +602,7 @@ impl World {
             }
         }
         self.events.push(Event::Died { who: id });
+        self.settle_remains(id);
     }
 
     /// The characters' bodies, each tick: endurance spent running and got back walking or

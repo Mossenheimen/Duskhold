@@ -78,6 +78,9 @@ pub enum Intent {
     Stash { at: TilePos },
     /// Put the stack at `slot` of your pack into the container on `at`.
     Put { at: TilePos, slot: u16, def: u16 },
+    /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
+    /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
+    Burn,
 }
 
 impl Intent {
@@ -133,6 +136,10 @@ pub enum ActionKind {
         at: TilePos,
         slot: u16,
         def: u16,
+    },
+    /// Setting a body alight.
+    Burn {
+        body: ActorId,
     },
 }
 
@@ -201,6 +208,22 @@ pub enum Alert {
     Hunting,
 }
 
+/// What's become of a body (`remains.rs`). The living are `Lying` too: it says nothing until
+/// they fall.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
+pub enum Remains {
+    /// A body that stays down.
+    #[default]
+    Lying,
+    /// A body that gets up on this tick, unless it's burned first.
+    GetsUp { at: u64 },
+    /// Alight until this tick: then it's ash.
+    Burning { until: u64 },
+    /// Burnt: nothing left to get up.
+    Ash,
+}
+
 /// How fast a kind of actor moves, in thousandths of a tile a second (`Rules::speeds`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Speeds {
@@ -233,6 +256,10 @@ pub struct Actor {
     pub prone_until: u64,
     /// A corpse: it stays where it fell and takes no part in the tick.
     pub dead: bool,
+    /// What's become of its body, once it's dead: lying, getting up, burning or ash.
+    pub remains: Remains,
+    /// How many times it has got up again (`remains.rs`).
+    pub risen: u8,
     /// Who it has hold of (`grab.rs`).
     pub holding: Option<ActorId>,
     /// What it has in hand (a weapon), and in its pack. Both count toward what it carries.
@@ -276,6 +303,8 @@ impl Actor {
             body: Body::new(crate::body::FULL),
             prone_until: 0,
             dead: false,
+            remains: Remains::Lying,
+            risen: 0,
             holding: None,
             hands: None,
             items: Vec::new(),

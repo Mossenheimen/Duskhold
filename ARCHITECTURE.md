@@ -811,7 +811,39 @@ Game first: every step ends with something to look at or play.
      - **`dusk-cli gen`** says the dead by kind and the cures a patch holds;
      - **not yet:** rising as a revenant after the fever (slice 7); ghouls eating the dead (an action that can be interrupted, as this file says); a trail of blood on the ground, rather than a scent from where you stand;
      - **measured:** 100 dead 122,000 ticks/s, the patch 351,000 (it was 386,000: ghouls think more often and search farther).
-   - **Slice 4, the dead get up:** corpses rise after a while unless burned (oil, a pyre); the region's pressure number, raised by the unburned and lowered by burning.
+   - **Slice 4, the dead get up:** done 2026-11-10; 124 tests pass. What it has:
+     - **a body's fate is settled when it falls** (`dusk-core/src/remains.rs`, `Actor::remains`): its kind says whether it gets up and when (`Creature::get_up`, a chance and a span of game hours), and the tick it will is kept on the body (`Remains::GetsUp`). Nothing counts down. The Hushlands' shamblers and ghouls all get up, 12 to 36 game hours later;
+     - **getting up:**
+       - it's whole again, and on its back for its kind's knock-down time: a window to finish it, as a stomp on one that's down always lands;
+       - it waits while someone stands on its tile;
+       - it gets up once (`Actor::risen`). Put down again, it stays down, so a second fight is the other answer to the oil. Thrice-Risen, the rare affix, will be the one that gets up twice;
+     - **burning** (`Intent::Burn`, `World::can_burn`, whose reasons why not are `NoBurn`):
+       - it takes a flask of oil from your pack (`ItemKind::Oil`) and the light you hold up as the flame. The body is the one you face, else the one you stand on, else the first round you;
+       - pouring the oil takes 3 s, and the body burns for 20 game minutes, then it's ash (`Remains::Burning`, `Remains::Ash`);
+       - a burning body lights 4 tiles round it as a torch does (`World::fires`, added to `light_at`), so a pyre is also a light in the dark;
+     - **a pyre:** fire goes from a burning body to the bodies on its tile and the tiles round it, a tile a game minute, but not through a wall or a shut door (the same reach as taking things). So the dead you put down at your door, piled up, burn from one flask. Nothing else catches yet: fire as a system (wood, webs, spreading with the wind) comes with the regions that need it;
+     - **the region's pressure** (`dusk-core/src/pressure.rs`, `World::pressure`):
+       - it's one number, in thousandths of the dead the patch began with;
+       - time raises it to a ceiling (Zomboid's population peaks and stops), each body that gets up raises it (past the ceiling, up to the most), and each body burned lowers it (to the least);
+       - **what it does:** while the patch holds fewer of the dead than it says (`dead_about` against `dead_wanted`; bodies that will still get up count), one walks in every so often. It comes onto open ground in a chunk that's asleep, so never where you are;
+       - the kinds come by the region's shares, as at the start;
+     - **the region in the core** (`dusk_core::Region`): the pressure's numbers, the kinds of the dead, the patch's size and how many dead it began with. `dusk-gen`'s `patch` gives it to the world from the data. Like the rules, it isn't saved; the pressure itself is;
+     - **numbers:**
+       - `rules.toml` `[burning]` (the pouring time, the burn, the light);
+       - a creature's `get_up`;
+       - a region's `[pressure]`, in per cent: start 100, least 25, most 200, 5 a day to a ceiling of 150, 2 a rise, 2 a burn, one walks in every 30 game minutes;
+       - the flask of lamp oil in `items/supplies.toml`, in kitchens, sheds and barrels: 6 to 24 a patch over eight seeds;
+     - **the save format** is version 4 (bodies carry their fate and how often they've got up; the world its pressure). The fires are worked out again from the bodies on loading;
+     - **the client:**
+       - G burns the body beside you, saying why not: no body, no oil, no flame. A flask in the pack has a "Burn a body" button;
+       - a burning body glows and throws a flickering light, and ash is a low dark smear (`DuskWorld.actor_remains`);
+       - the dead that walk in get a view as they come (`main.gd`, `_add_new_actors`). The core adds them at the end of its order, so the others keep their places. The bridge's smoothed positions take a newcomer where it is;
+       - the news says when one you see gets up again, when you set a body alight, and when the fire spreads. The first body you see fall says it'll get up unless you burn it;
+       - the clock line shows the pressure ("the dead 104%");
+       - **checked:** headless trial runs with G pressed (it said why not). Fire and ash weren't caught in a picture: making a pile on screen needs a fight a script can't yet stage;
+     - **`dusk-cli gen`** says the oil a patch holds, and `--ticks` the pressure before and after (seed 1, a game day with nobody about: 100% to 105%, four of the dead walked in);
+     - **not yet:** holy water and consecration (the cleric); bounties and a supplied holdout lowering the pressure (slice 5); a relit wardstone lowering the ceiling (the dungeons); ash that's cleared away (bodies stay in the world, so it grows a little with every arrival); fire that harms the living or spreads to the house;
+     - **measured:** 100 dead 125,000 ticks/s, the patch 341,000 (no change worth the name).
    - **Slice 5, the abbey holdout:** a safe place with a trader (coin, the cure, repairs) and a bunk; where the next character starts.
    - **Slice 6, the Tolling:** the first siege on the calendar, with flow fields for its crowd, and the dead keeping at a door.
    - **Slice 7, death and the revenant:** the recap, the body and its gear where it fell, the next character in the same world.

@@ -55,6 +55,10 @@ pub enum Purpose {
     Loot = 13,
     LootCount = 14,
     Fever = 15,
+    GetUp = 16,
+    GetUpWhen = 17,
+    Arrival = 18,
+    ArrivalKind = 19,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

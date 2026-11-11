@@ -133,3 +133,37 @@ fn what_isnt_a_save_of_this_world_is_refused() {
     same.defs = std::sync::Arc::new(defs);
     assert_eq!(same.restore(&bytes).unwrap_err(), SaveError::DataChanged);
 }
+
+#[test]
+fn a_save_keeps_the_pressure_and_what_became_of_each_body() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(1, &data, region);
+    assert_eq!(w.pressure(), 1000, "a patch starts at its region's start");
+    assert_eq!(
+        w.dead_about(),
+        w.dead_wanted(),
+        "with as many dead as it wants"
+    );
+    // Put one of the dead down, and let a day go by: time raises the pressure.
+    let (z, _) = w
+        .actors()
+        .find(|(_, a)| !a.kind.is_character())
+        .expect("the patch has its dead");
+    for _ in 0..20 {
+        w.wound(z, WoundKind::Bite, Part::Torso);
+    }
+    assert!(w.actor(z).unwrap().dead);
+    w.step(36_000 / 2);
+    let pressure = w.pressure();
+    assert!(pressure > 1000, "half a day raised it");
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let loaded = dusk_gen::load(&data, &bytes).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(loaded.world.pressure(), pressure);
+    assert_eq!(
+        loaded.world.actor(z).unwrap().remains,
+        w.actor(z).unwrap().remains,
+        "the body still gets up when it would have"
+    );
+    assert_eq!(loaded.world.state_hash(), w.state_hash());
+}

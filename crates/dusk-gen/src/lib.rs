@@ -425,13 +425,16 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     }
     world.spawn(ActorKind::Character, layout.start);
     // The region names its dead; the loader checked the names.
+    let mut dead = 0;
     for chunk in layout.chunks() {
         for at in layout.dead_in(chunk) {
             if let Some(kind) = data.defs.creature_kind(layout.dead_kind(at)) {
-                world.spawn(kind, at);
+                dead += u32::from(world.spawn(kind, at).is_some());
             }
         }
     }
+    // What the patch began with is what its pressure is measured against.
+    world.set_region(region.to_core(&data.defs, dead));
     // The land is made: from here on, what changes is what a save keeps.
     world.grid.track_changes();
     (world, layout)

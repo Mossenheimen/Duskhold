@@ -24,6 +24,9 @@ attack = { wind_up = 1.2, recovery = 0.6, hit = 0.5, noise = 3 }
 groan = 10
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }   # what a hit leaves
 thump = [2, 4]        # what a blow does to a shut door in its way (rules.toml, [door])
+# Put down, it gets up again half a day to a day and a half later, unless it's burned (rules.toml,
+# [burning]). It gets up once: put down a second time, it stays down.
+get_up = { chance = 1.0, after = [12.0, 36.0] }   # game hours after it fell
 
 # The reason to run (CONCEPT.md, the Hushlands' four): faster than your walk (1.5), slower than
 # your run (3.0), even at night (2.5). You out-run one, while your breath lasts; you don't
@@ -50,3 +53,4 @@ blood = 12            # tiles it smells blood from, for each wound that's bleedi
 wounds = { scratch = 0.5, laceration = 0.35, bite = 0.15 }
 fever = { scratch = 0.05, laceration = 0.25, bite = 0.75 }   # the chance each carries ghoul fever
 thump = [1, 2]        # it claws at a door rather than beating it down
+get_up = { chance = 1.0, after = [12.0, 36.0] }

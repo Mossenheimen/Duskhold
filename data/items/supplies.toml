@@ -29,6 +29,14 @@ stack = 5
 cure = { time = 3.0 }
 
 [[item]]
+id = "lamp_oil"
+name = "flask of lamp oil"
+weight = 0.5
+worth = 2             # better poured on the dead than banked
+stack = 4
+oil = true            # poured on a body and set alight, it burns it, and it won't get up (rules.toml, [burning])
+
+[[item]]
 id = "bread"
 name = "loaf of bread"
 weight = 0.5

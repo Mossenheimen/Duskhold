@@ -11,7 +11,10 @@ mod home;
 mod items;
 mod light;
 mod needs;
+mod remains;
 mod skills;
+
+pub use remains::PressureFile;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -147,6 +150,8 @@ pub struct Region {
     pub road: Road,
     pub hamlet: Hamlet,
     pub dead: Dead,
+    /// Its pressure (`dusk_core::pressure`), in per cent of the dead a patch began with.
+    pub pressure: remains::PressureFile,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -315,6 +320,7 @@ struct RulesFile {
     skills: skills::SkillsFile,
     deeds: home::DeedsFile,
     fever: fever::FeverFile,
+    burning: remains::BurningFile,
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,
@@ -508,6 +514,9 @@ struct CreatureFile {
     /// The chance each kind of wound it leaves carries ghoul fever (left out: none does).
     #[serde(default)]
     fever: Option<WoundOddsFile>,
+    /// Whether its body gets up again, and when (left out: it stays down).
+    #[serde(default)]
+    get_up: Option<remains::GetUpFile>,
 }
 
 #[derive(Deserialize)]
@@ -627,9 +636,13 @@ fn to_creatures(
         }
         if c.darkvision < 0 || c.groan < 0 || c.blood < 0 || !(0.5..=3.0).contains(&c.night_speed) {
             return Err(bad(
-                "darkvision, groan and blood can't be negative, and night_speed is a pace from                  0.5 to 3",
+                "darkvision, groan and blood can't be negative, and night_speed is a pace from 0.5 to 3",
             ));
         }
+        let get_up = match &c.get_up {
+            Some(g) => remains::to_get_up(cfile, g).map_err(|m| bad(&m))?,
+            None => dusk_core::creature::GetUp::default(),
+        };
         let fever = match &c.fever {
             Some(f) => [
                 chance(cfile, "fever.scratch", f.scratch)?,
@@ -675,6 +688,7 @@ fn to_creatures(
                 thump: (points(c.thump.0), points(c.thump.1)),
                 blood: c.blood,
                 fever,
+                get_up,
             },
         });
     }
@@ -794,6 +808,7 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     rules.skills = skills::to_skills(file, r, rules.clock.ticks_per_minute)?;
     rules.deeds = home::to_deeds(file, &r.deeds)?;
     rules.fever = fever::to_fever(file, &r.fever)?;
+    rules.burning = remains::to_burning(file, &r.burning)?;
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
     }
@@ -959,6 +974,8 @@ fn check_region(
         || (r.dead.kinds.iter().map(|k| k.share).sum::<f32>() - 1.0).abs() > 0.001
     {
         Some("dead.kinds: each share is above 0, and they add up to 1".to_string())
+    } else if let Some(problem) = r.pressure.problem() {
+        Some(problem)
     } else {
         r.hamlet
             .lots

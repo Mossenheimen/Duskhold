@@ -45,6 +45,9 @@ struct ItemFile {
     light: Option<LightFile>,
     #[serde(default)]
     cure: Option<CureFile>,
+    /// Oil: poured on a body and set alight, it burns it (`oil = true`).
+    #[serde(default)]
+    oil: bool,
     /// XP one brings home the first time (`rules.toml`, [deeds]); 0 if left out.
     #[serde(default)]
     worth: f64,
@@ -251,12 +254,13 @@ pub(crate) fn load_defs(
                 i.drink.is_some(),
                 i.light.is_some(),
                 i.cure.is_some(),
+                i.oil,
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light and cure",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure and oil",
                         i.id
                     ),
                 ));
@@ -294,6 +298,8 @@ pub(crate) fn load_defs(
                 ItemKind::Cure {
                     time: (time as u32).max(1),
                 }
+            } else if i.oil {
+                ItemKind::Oil
             } else {
                 ItemKind::Other
             };

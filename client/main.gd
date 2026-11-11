@@ -85,11 +85,16 @@ const FEVERED := 44
 const FEVER_WORSE := 45
 const FEVER_TOOK := 46
 const CURED := 47
+const GOT_UP := 48
+const KINDLED := 49
+const CAUGHT := 50
+const BURNT := 51
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
-	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure"}
+	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
+	22: "Setting it alight"}
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -113,6 +118,7 @@ var bag: Bag
 var litter: Litter
 var skills: Skills
 var item_names := PackedStringArray()
+var told_get_up := false  # the first body you see fall says it'll get up
 var creature_names := PackedStringArray()  # by creature number: actor kind 1 + n is creature n
 var kinds := PackedInt32Array()  # each actor's kind (DuskWorld.actor_kinds())
 var fever_took := false  # the fever killed you, for the death screen
@@ -188,6 +194,7 @@ func _ready() -> void:
 	bag = Bag.new()
 	add_child(bag)
 	bag.say = hud.say
+	bag.burn = _burn_body
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -222,6 +229,7 @@ func _start(carry_on := false) -> void:
 	kinds = dusk.actor_kinds()
 	creature_names = dusk.creature_names()
 	fever_took = false
+	told_get_up = false
 	for kind in kinds:
 		var view := ActorView.new()
 		view.setup(kind)
@@ -298,7 +306,7 @@ func _process(delta: float) -> void:
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused)
+	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure())
 	hud.show_moodles(moodles)
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
@@ -357,6 +365,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		dusk.use_door()
 	elif event.is_action_pressed("board") and not dead:
 		_board_up()
+	elif event.is_action_pressed("burn") and not dead:
+		_burn_body()
 	elif event.is_action_pressed("unboard") and not dead:
 		_pry_board()
 	elif event.is_action_pressed("sleep") and not dead:
@@ -488,6 +498,19 @@ func _board_up() -> void:
 			dusk.board()
 
 
+## G: pour oil on the body beside you and set it alight from the light you hold up.
+func _burn_body() -> void:
+	match dusk.burn_check():
+		-1:
+			hud.say("There's no body beside you to burn.")
+		-2:
+			hud.say("You need oil to burn it.")
+		-3:
+			hud.say("You need a flame: hold up a lit torch or candle (L).")
+		_:
+			dusk.burn()
+
+
 ## N: pry a board off the boarded door or window beside you.
 func _pry_board() -> void:
 	match dusk.board_check(true):
@@ -519,11 +542,25 @@ func _moodle(code: int) -> int:
 	return 0
 
 
+## The dead who walked into the patch since the last frame (pressure, in the core): a view each.
+## They come in at the end of the core's order, so the others keep their places.
+func _add_new_actors() -> void:
+	var now: PackedInt32Array = dusk.actor_kinds()
+	for i in range(actors.size(), now.size()):
+		var view := ActorView.new()
+		view.setup(now[i])
+		add_child(view)
+		actors.append(view)
+	kinds = now
+
+
 func _draw_actors(delta: float) -> void:
 	var where: PackedVector2Array = dusk.actor_positions()
 	var facing: PackedInt32Array = dusk.actor_facing()
 	var alert: PackedInt32Array = dusk.actor_alert()
+	_add_new_actors()
 	var states: PackedInt32Array = dusk.actor_states()
+	var remains: PackedInt32Array = dusk.actor_remains()
 	var actions: PackedInt32Array = dusk.actor_actions()
 	seen = dusk.actor_seen()
 	for i in actors.size():
@@ -535,6 +572,7 @@ func _draw_actors(delta: float) -> void:
 		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
 		var swinging := actions[i * 4] == 1 and actions[i * 4 + 1] < 1000
 		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
+		actors[i].show_remains(remains[i], delta)
 	tells.show_actions(actions, me, seen)
 	var drawn := []
 	for view in actors:
@@ -715,6 +753,20 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You took the cure. The fever breaks.")
 					hud.flash_good()
+			DIED:
+				# The first of the dead you see go down: what happens next, and what stops it.
+				if who != me and _seen(who) and not told_get_up:
+					told_get_up = true
+					hud.say("It'll get up again in a day or so, unless you burn it: oil and a flame, G.")
+			GOT_UP:
+				if _seen(who):
+					hud.say("%s gets up again!" % _a(who))
+			KINDLED:
+				if who == me:
+					hud.say("You set it alight. It won't get up again.")
+			CAUGHT:
+				if _seen(who):
+					hud.say("The fire spreads to another body.")
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
@@ -906,6 +958,7 @@ func _add_input_actions() -> void:
 		"pack": [KEY_TAB],
 		"skills": [KEY_K],
 		"board": [KEY_B],
+		"burn": [KEY_G],
 		"unboard": [KEY_N],
 		"restart": [KEY_R],
 		"save": [KEY_F5],
@@ -993,6 +1046,8 @@ func _run_script() -> void:
 				_save("Saved.")
 			"board":
 				_board_up()
+			"burn":
+				_burn_body()
 			"unboard":
 				_pry_board()
 

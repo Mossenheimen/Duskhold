@@ -126,7 +126,7 @@ fn gen_patch(args: &[String]) {
         layout.start.y
     );
     // What there is to bring home: every container's finds, by their worth and weight.
-    let (mut containers, mut xp, mut grams, mut cures) = (0, 0u64, 0u64, 0);
+    let (mut containers, mut xp, mut grams, mut cures, mut oil) = (0, 0u64, 0u64, 0, 0);
     for y in 0..layout.height {
         for x in 0..layout.width {
             let at = TilePos::new(x, y, 0);
@@ -136,15 +136,17 @@ fn gen_patch(args: &[String]) {
                     let def = world.defs.item(i.def);
                     xp += u64::from(def.map_or(0, |d| d.worth)) * u64::from(i.count);
                     grams += u64::from(world.defs.weight(&i));
-                    if def.is_some_and(|d| matches!(d.kind, dusk_core::ItemKind::Cure { .. })) {
-                        cures += i.count;
+                    match def.map(|d| &d.kind) {
+                        Some(dusk_core::ItemKind::Cure { .. }) => cures += i.count,
+                        Some(dusk_core::ItemKind::Oil) => oil += i.count,
+                        _ => {}
                     }
                 }
             }
         }
     }
     println!(
-        "  {containers} containers hold {} XP of finds, {:.0} kg of them; {cures} cure(s) for the fever",
+        "  {containers} containers hold {} XP of finds, {:.0} kg of them; {cures} cure(s) for the fever, {oil} flask(s) of oil for the dead",
         xp / 1000,
         grams as f64 / 1000.0
     );
@@ -165,6 +167,13 @@ fn gen_patch(args: &[String]) {
             "  {ticks} ticks: {tps:.0} ticks/s = {:.0}x real time, {} chunks awake",
             tps / f64::from(TICKS_PER_SECOND),
             running.awake_chunks().len()
+        );
+        println!(
+            "  pressure {}% -> {}%: {} of the dead about, {} wanted",
+            world.pressure() / 10,
+            running.pressure() / 10,
+            running.dead_about(),
+            running.dead_wanted()
         );
     }
     // --text X,Y,W,H prints that part of the patch as a text grid (@ you, z the dead).
@@ -460,6 +469,10 @@ fn describe(w: &World, e: Event) -> String {
         }
         Event::FeverTook { who } => format!("the fever takes {}", name(who)),
         Event::Cured { who } => format!("{} took the cure: the fever's gone", name(who)),
+        Event::GotUp { who } => format!("{} got up again", name(who)),
+        Event::Kindled { who, body } => format!("{} set {} alight", name(who), name(body)),
+        Event::Caught { body } => format!("{} caught fire", name(body)),
+        Event::Burnt { body } => format!("{} burnt to ash", name(body)),
     }
 }
 

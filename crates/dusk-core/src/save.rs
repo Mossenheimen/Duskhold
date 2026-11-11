@@ -4,9 +4,10 @@
 //! the data. The core makes and reads the bytes and never touches a file; whoever calls it does
 //! that.
 //!
-//! - **Saved:** the clock, every actor, sounds not yet heard, what containers and floors hold
-//!   once touched, the harm doors and boards have taken, and the chunks of the map that changed
-//!   since it was made (a door opened, a board nailed on).
+//! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning or ash), sounds
+//!   not yet heard, what containers and floors hold once touched, the harm doors and boards have
+//!   taken, the region's pressure, and the chunks of the map that changed since it was made (a
+//!   door opened, a board nailed on).
 //! - **Not saved:** the land (it comes back from the seed), the rules and the definitions (they
 //!   come from `data/`, so a retuned game loads old saves). Items and creatures are saved by
 //!   number, so a save also carries a fingerprint of their ids, and one made with other data is
@@ -30,7 +31,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -55,6 +56,8 @@ struct State {
     door_damage: BTreeMap<(TilePos, Dir8), i32>,
     board_strength: BTreeMap<(TilePos, Dir8), Vec<i32>>,
     stores: BTreeMap<TilePos, Vec<Item>>,
+    /// The region's pressure.
+    pressure: u32,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     memory: Vec<u8>,
@@ -143,6 +146,7 @@ impl World {
             door_damage: self.door_damage.clone(),
             board_strength: self.board_strength.clone(),
             stores: self.stores.clone(),
+            pressure: self.pressure,
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -170,6 +174,7 @@ impl World {
         self.door_damage = state.door_damage;
         self.board_strength = state.board_strength;
         self.stores = state.stores;
+        self.pressure = state.pressure;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }

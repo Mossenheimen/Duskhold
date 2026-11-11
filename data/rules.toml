@@ -197,6 +197,15 @@ thirst = 1.5          # feverish: thirst rises this many times as fast, and noth
 recovery = 0.5        # weak: your breath comes back at this pace
 harm = 4.0            # dying: health points it costs a game hour, until the day's end kills you
 
+[burning]
+# The Hushlands' dead get up again (creatures/*.toml, get_up), unless they're burned: oil from your
+# pack (items/supplies.toml), poured on, and set alight from the light you hold up. Fire goes from
+# a burning body to the bodies on the tiles round it, a tile a game minute, so a pile at a door
+# burns from one flask. A burning body lights the dark round it.
+time = 3.0            # seconds to pour the oil on and set it alight
+burn = 20             # game minutes a body burns, then it's ash
+light = 4             # tiles a burning body lights round it (a torch's 5, a candle's 2)
+
 [barricade]
 # Board up a shut door or a window: a plank and nails for each board, with a hammer in hand or in
 # the pack. A boarded door can't be opened; a boarded window can't be seen through. The dead's

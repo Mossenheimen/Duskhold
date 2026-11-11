@@ -101,6 +101,7 @@ Why build it:
     - It rises with time, to a ceiling (Zomboid's population peaks and stops), and with the region's own rule. In the Hushlands that's the unburned dead: every body left lying gets up.
     - It falls with deeds: bodies burned, bounties taken, a holdout supplied. A wardstone relit drops the ceiling for good.
     - It sets how many creatures a waking chunk holds, and how often the Director reaches for the region's event. Nothing else: no creature gets tougher (no level scaling).
+    - *(built 2026-11-10)* It's measured against the dead a patch began with: at 100% the patch holds as many as at the start. The Hushlands start at 100%, and time adds 5% a game day up to 150%. Each body that gets up adds 2%, past 150% if it comes to that, up to 200%. Each body burned takes 2% off, down to 25%. While the patch holds fewer of the dead than that, one walks in every half hour, into a chunk away from you, so the dead you put down are made up for out of sight, never in front of you. The Director's event waits for the Tolling (slice 6).
 - **No required ending,** as in Zomboid. The arc for those who want it: relight the wardstones.
 
 ## Regions (Default: six to plan for, one to build first)
@@ -236,6 +237,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 
   Cures are quests: a holdout's chapel (at a price), a strong enough cleric, a rare herb from somewhere unpleasant.
 - **The dead get up** (Hushlands): unburned human dead rise after a while. Burn them (oil) or consecrate them (holy water, a cleric), or leave them and maybe meet them again. Zomboid players burn corpse piles against corpse sickness; here it's the corpses themselves that come back.
+  - *(built 2026-11-10)* Every shambler and ghoul you put down gets up again 12 to 36 game hours later, once: put down a second time, it stays down. So there are two answers, a second fight or the oil. It gets up from its back, so there's a window to finish it. Burning takes a flask of lamp oil and a lit torch or candle held up. The fire goes from body to body, a tile a game minute, but not through walls, so a pile at your door burns from one flask. A burning body lights the dark round it for 20 game minutes, then it's ash. A patch has 6 to 24 flasks (eight seeds measured). Holy water and consecration come with the cleric.
 
 ## Senses: how they find you
 

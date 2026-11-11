@@ -19,7 +19,8 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Item,
-    ItemKind, NoBoard, NoSleep, NoStash, Part, Rise, Skill, TilePos, View, World, WoundKind, demo,
+    ItemKind, NoBoard, NoBurn, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos, View, World,
+    WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -95,6 +96,10 @@ const FEVERED: i32 = 44;
 const FEVER_WORSE: i32 = 45;
 const FEVER_TOOK: i32 = 46;
 const CURED: i32 = 47;
+const GOT_UP: i32 = 48;
+const KINDLED: i32 = 49;
+const CAUGHT: i32 = 50;
+const BURNT: i32 = 51;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -291,6 +296,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         }
         Event::FeverTook { who } => (FEVER_TOOK, Some(who), None, at(who), 0),
         Event::Cured { who } => (CURED, Some(who), None, at(who), 0),
+        Event::GotUp { who } => (GOT_UP, Some(who), None, at(who), 0),
+        Event::Kindled { who, body } => (KINDLED, Some(who), Some(body), at(body), 0),
+        Event::Caught { body } => (CAUGHT, Some(body), None, at(body), 0),
+        Event::Burnt { body } => (BURNT, Some(body), None, at(body), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -653,8 +662,14 @@ impl DuskWorld {
         let t = (self.pending / tick).clamp(0.0, 1.0) as f32;
         self.before
             .iter()
+            .copied()
+            // One that came into the world on the last tick has no "before": it's where it is.
+            .chain(std::iter::repeat((f32::NAN, f32::NAN)))
             .zip(&self.after)
-            .map(|(&(x0, y0), &(x1, y1))| Vector2::new(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t))
+            .map(|((x0, y0), &(x1, y1))| {
+                let (x0, y0) = if x0.is_nan() { (x1, y1) } else { (x0, y0) };
+                Vector2::new(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
+            })
             .collect()
     }
 
@@ -763,7 +778,7 @@ impl DuskWorld {
     }
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
-    /// 4 drink, 5 a light, 6 the cure for ghoul fever.
+    /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead).
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -781,6 +796,7 @@ impl DuskWorld {
                 ItemKind::Drink { .. } => 4,
                 ItemKind::Light { .. } => 5,
                 ItemKind::Cure { .. } => 6,
+                ItemKind::Oil => 7,
             })
             .collect()
     }
@@ -972,7 +988,7 @@ impl DuskWorld {
     /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
     /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
-    /// 21 taking the cure), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// 21 taking the cure, 22 setting a body alight), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -1017,6 +1033,7 @@ impl DuskWorld {
                         ActionKind::Unboard => 18,
                         ActionKind::Stash { .. } => 19,
                         ActionKind::Put { .. } => 20,
+                        ActionKind::Burn { .. } => 22,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1136,6 +1153,59 @@ impl DuskWorld {
         };
         let left = world.fever_left(me).map_or(-1, |m| m as i32);
         PackedInt32Array::from(&[i32::from(world.fever_stage(me)), left])
+    }
+
+    /// What's become of each body: 0 nothing (the living, and a body lying there), 1 burning,
+    /// 2 ash. Whether a body will get up isn't told: you find out.
+    #[func]
+    fn actor_remains(&self) -> PackedInt32Array {
+        self.world
+            .iter()
+            .flat_map(|w| w.actors())
+            .map(|(_, a)| match a.remains {
+                Remains::Lying | Remains::GetsUp { .. } => 0,
+                Remains::Burning { .. } => 1,
+                Remains::Ash => 2,
+            })
+            .collect()
+    }
+
+    /// The region's pressure: [per mille of the dead the patch began with, the dead about
+    /// now, the dead it wants].
+    #[func]
+    fn pressure(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::from(&[0, 0, 0]);
+        };
+        PackedInt32Array::from(&[
+            world.pressure() as i32,
+            world.dead_about() as i32,
+            world.dead_wanted() as i32,
+        ])
+    }
+
+    /// Whether you can burn a body now: the body's index in the actor arrays, or why not: -1 no
+    /// body beside you, -2 no oil, -3 no light held up to set it alight with.
+    #[func]
+    fn burn_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_burn(me) {
+            Ok(body) => index_of(world, body),
+            Err(NoBurn::Nothing) => -1,
+            Err(NoBurn::NoOil) => -2,
+            Err(NoBurn::NoFlame) => -3,
+        }
+    }
+
+    /// Pours oil on the body beside you and sets it alight (see `burn_check`).
+    #[func]
+    fn burn(&mut self) {
+        self.act(Intent::Burn);
     }
 
     /// Whether you can lie down to sleep now: 1 beside a bed, 0 on the ground, or why not:
