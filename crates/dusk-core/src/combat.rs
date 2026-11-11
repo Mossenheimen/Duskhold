@@ -79,6 +79,8 @@ impl World {
                 ActionKind::Stash { at } => self.mark_stash(id, at),
                 ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
                 ActionKind::Burn { body } => self.kindle(id, body),
+                ActionKind::Tend { at, tend } => self.tend(id, at, tend),
+                ActionKind::Smother { at } => self.smother(id, at),
                 ActionKind::Buy { at, line } => self.buy(id, at, line),
                 ActionKind::Sell { at, slot, def } => self.sell(id, at, slot, def),
                 ActionKind::Mend { at } => self.mend(id, at),
@@ -212,6 +214,14 @@ impl World {
             }
             Intent::Burn => {
                 let (kind, dir, ticks) = self.burn_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Tend => {
+                let (kind, dir, ticks) = self.tend_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Smother => {
+                let (kind, dir, ticks) = self.smother_action(id)?;
                 (kind, dir, ticks, 0, 0)
             }
             Intent::Unboard => {

@@ -17,6 +17,13 @@ items = [
 ]
 
 [[loot]]
+id = "logs"           # by a hearth, a stove or a forge: most of a night's fire
+rolls = [1, 1]
+items = [
+  { item = "firewood", weight = 1, count = [2, 4] },
+]
+
+[[loot]]
 id = "bedroom"        # wardrobes
 rolls = [0, 2]
 items = [
@@ -36,6 +43,7 @@ items = [
   { item = "hammer", weight = 3, magic = 0.05 },
   { item = "nails", weight = 3, count = [6, 24] },
   { item = "plank", weight = 3, count = [1, 4] },
+  { item = "firewood", weight = 2, count = [2, 5] },
   { item = "shovel", weight = 2, magic = 0.1 },
   { item = "pitchfork", weight = 1, magic = 0.15 },
   { item = "hand_axe", weight = 1, magic = 0.15 },

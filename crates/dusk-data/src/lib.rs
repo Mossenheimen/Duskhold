@@ -9,6 +9,7 @@ mod barricade;
 mod class;
 mod farm;
 mod fever;
+mod fire;
 mod holdout;
 mod home;
 mod items;
@@ -94,6 +95,10 @@ pub struct Fixture {
     /// Water to drink from, as a pond is: a well.
     #[serde(default)]
     pub water: bool,
+    /// A hearth, a stove or a forge: it takes a fire, which lights this many tiles round it
+    /// (0: it takes none).
+    #[serde(default)]
+    pub fire: i32,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -300,6 +305,15 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     if fixtures.len() >= usize::from(u16::MAX) {
         return Err(fail(&fixtures_file, "too many fixtures"));
     }
+    if let Some(f) = fixtures.iter().find(|f| !(0..=12).contains(&f.fire)) {
+        return Err(fail(
+            &fixtures_file,
+            format!(
+                "fixture {:?}: a fire lights 1 to 12 tiles (0 or left out: it takes none)",
+                f.id
+            ),
+        ));
+    }
     let kit = items::Kit {
         carry: raw.character.carry,
         wield: raw.character.wield.as_deref(),
@@ -404,6 +418,9 @@ struct RulesFile {
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,
+    /// Optional: with no [fire], fires use the core's defaults.
+    #[serde(default)]
+    fire: Option<fire::FireFile>,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -899,6 +916,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
+    }
+    if let Some(f) = &r.fire {
+        rules.fire = fire::to_fire(file, f)?;
     }
     Ok(rules)
 }

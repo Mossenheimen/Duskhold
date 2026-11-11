@@ -457,6 +457,25 @@ fn describe(w: &World, e: Event) -> String {
         Event::Lit { who, item } => format!("{} lit item {item}", name(who)),
         Event::Doused { who, item } => format!("{} put out item {item}", name(who)),
         Event::BurntOut { who, item } => format!("{}'s item {item} burnt out", name(who)),
+        Event::Laid { who, at, item } => format!(
+            "{} put item {item} on the fire at ({}, {})",
+            name(who),
+            at.x,
+            at.y
+        ),
+        Event::FireLit { who, at } => format!("{} lit the fire at ({}, {})", name(who), at.x, at.y),
+        Event::Smothered { who, at } => {
+            format!("{} put out the fire at ({}, {})", name(who), at.x, at.y)
+        }
+        Event::FireOut { at } => format!("the fire at ({}, {}) burnt out", at.x, at.y),
+        Event::SawFire { who, at } => {
+            format!(
+                "{} saw the fire at ({}, {}) and comes",
+                name(who),
+                at.x,
+                at.y
+            )
+        }
         Event::Nightfall => "the sun is going down".to_string(),
         Event::Daybreak => "the sky is lightening".to_string(),
         Event::SkillUp { who, skill, level } => {

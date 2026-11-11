@@ -117,6 +117,11 @@ pub struct Defs {
     pub beds: Vec<bool>,
     /// By fixture number: whether it's water to drink from, as a pond is (a well).
     pub wells: Vec<bool>,
+    /// By fixture number: how far a fire in it lights, in tiles (0: it takes no fire:
+    /// `fire.rs`). And what burns in one, with the game minutes each piece burns, the
+    /// longest-burning first.
+    pub hearths: Vec<i32>,
+    pub fuel: Vec<(u16, u32)>,
     /// What a character starts with: in hand, and carried.
     pub wield: Option<u16>,
     pub kit: Vec<Item>,
@@ -167,6 +172,8 @@ impl Default for Defs {
             containers: Vec::new(),
             beds: Vec::new(),
             wells: Vec::new(),
+            hearths: Vec::new(),
+            fuel: Vec::new(),
             wield: None,
             kit: Vec::new(),
             carry: 0,
@@ -213,6 +220,11 @@ impl Defs {
             .get(usize::from(fixture))
             .copied()
             .unwrap_or(false)
+    }
+
+    /// How far a fire in a fixture lights, in tiles: 0 if it takes no fire (`fire.rs`).
+    pub fn hearth(&self, fixture: u16) -> i32 {
+        self.hearths.get(usize::from(fixture)).copied().unwrap_or(0)
     }
 
     /// Whether a fixture is a container, and its loot table.

@@ -17,6 +17,7 @@
 
 use crate::actor::{ActorId, ActorKind, Speeds};
 use crate::creature::Creature;
+use crate::geom::TilePos;
 use crate::items::Defs;
 use crate::world::{Event, World};
 
@@ -191,6 +192,15 @@ impl World {
         for who in near {
             self.douse(who);
             self.events.push(Event::LightEaten { by: id, who });
+        }
+        // And the fires it passes (`fire.rs`), walls or none.
+        let fires: Vec<TilePos> = self
+            .hearth_fires()
+            .map(|(at, _)| at)
+            .filter(|at| at.z == pos.z && at.dist2(pos) <= r2)
+            .collect();
+        for at in fires {
+            self.put_out(at, id);
         }
     }
 }

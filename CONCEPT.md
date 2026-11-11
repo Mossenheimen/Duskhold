@@ -565,6 +565,7 @@ The first playable:
   - *(built 2026-11-11)* **farms:** three farmsteads out in the fields, each 16 to 48 tiles off the road down a track of its own: a farmhouse and a barn about a farmyard with a well, and a field of tall wheat that you walk through but nobody sees through, where a farm's dead may stand. The barn has sacks of the harvest and a rack of tools to fight with, a scythe among them. With few of the dead about and water at the well, a farm is a place to make a home;
 - Zomboid's day and night, and rain;
 - base-building basics: board the windows, barricade the doors, a bed, storage, a fire;
+  - *(built 2026-11-11)* **a fire:** a hearth, a stove or a forge takes one, with a few split logs kept by it. Lay the logs on, then light them from the torch or candle you hold up. A fire burns down through the night and lights the room, so your hands are free. But light is bait: at night the dead that see a fire through a window come to it, so board the windows up first. A plank burns too, for half as long, which makes it a choice against nailing it across a window. Put out, a fire keeps what's left of its wood;
 - the dead: shamblers and ghouls, the Tolling (the first siege on the calendar), a handful of rare affixes, revenants;
 - one class (Fighter), perhaps two (+ Cleric);
 - combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;

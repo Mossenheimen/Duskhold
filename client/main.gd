@@ -10,7 +10,8 @@ extends Node3D
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
-## sleep, drink (from water), light, skills (the panel), board or unboard S real seconds in;
+## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
+## water), light, skills (the panel), board or unboard S real seconds in;
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -27,6 +28,7 @@ const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
 const Skills = preload("res://skills.gd")
+const ChunkView = preload("res://chunk_view.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -109,6 +111,11 @@ const RAIN_ENDED := 68
 const RAINED_OUT := 69
 const TALENT_CHOSEN := 70
 const SECOND_WIND := 71
+const LAID := 72
+const FIRE_LIT := 73
+const SMOTHERED := 74
+const FIRE_OUT := 75
+const SAW_FIRE := 76
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -118,7 +125,8 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
 	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
-	29: "Catching your breath"}
+	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
+	32: "Putting the fire out"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -157,6 +165,9 @@ var cursor: MeshInstance3D
 var sun: DirectionalLight3D
 var sky: Environment
 var torch: OmniLight3D  # the light you hold up, drawn as a real light with shadows
+var fires := {}  # the fires alight in hearths, stoves and forges: Vector2i -> OmniLight3D
+var fixture_names := PackedStringArray()  # by fixture number (DuskWorld.fixture_names())
+var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire, in seconds played
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
@@ -257,6 +268,7 @@ func _start(carry_on := false) -> void:
 	actors.clear()
 	kinds = dusk.actor_kinds()
 	creature_names = dusk.creature_names()
+	fixture_names = dusk.fixture_names()
 	fever_took = false
 	told_get_up = false
 	hallowed = false  # so the first frame says where you are
@@ -327,6 +339,7 @@ func _process(delta: float) -> void:
 		map_view.show_view(dusk.view_tiles())
 	_light_the_sky(dusk.daylight())
 	_hold_up_light()
+	_light_the_fires()
 	_let_it_rain()
 	_move_camera(delta)
 	map_view.update(focus)
@@ -407,6 +420,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.say("No second wind: it takes the talent, and comes back when you've slept.")
 	elif event.is_action_pressed("unboard") and not dead:
 		_pry_board()
+	elif event.is_action_pressed("tend_fire") and not dead:
+		_tend_fire()
+	elif event.is_action_pressed("smother_fire") and not dead:
+		_smother_fire()
 	elif event.is_action_pressed("sleep") and not dead:
 		_sleep_or_wake()
 	elif event.is_action_pressed("drink") and not dead:
@@ -565,6 +582,54 @@ func _burn_body() -> void:
 			hud.say("You need a flame: hold up a lit torch or candle (L).")
 		_:
 			dusk.burn()
+
+
+## H: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
+## light it from the light you hold up. The core says which, or why not.
+func _tend_fire() -> void:
+	match dusk.fire_check():
+		-1:
+			hud.say("There's no hearth, stove or forge beside you.")
+		-2:
+			hud.say("It won't take more just now: let it burn down a while.")
+		-3:
+			hud.say("You have nothing that burns: split logs (a hearth or stove keeps a few by it) or planks.")
+		-4:
+			hud.say("The fire's laid. Hold up a lit torch or candle (L) to light it.")
+		_:
+			dusk.tend_fire()
+
+
+## J: put out the fire beside you. What's left of the wood stays in it for the next time.
+func _smother_fire() -> void:
+	var f: PackedInt32Array = dusk.fire_beside()
+	if f.size() >= 4 and f[3] == 1:
+		dusk.smother_fire()
+	else:
+		hud.say("There's no fire alight beside you.")
+
+
+## --do's "logs": takes what's kept by the hearth, stove or forge beside you (its first stack).
+func _take_logs() -> void:
+	var f: PackedInt32Array = dusk.fire_beside()
+	if f.size() < 2:
+		return
+	var reach: PackedInt32Array = dusk.stores_in_reach()
+	var i := 0
+	while i + 4 < reach.size():
+		var count := reach[i + 3]
+		if reach[i] == f[0] and reach[i + 1] == f[1] and count > 0:
+			dusk.take(f[0], f[1], 0, reach[i + 5])
+			return
+		i += 5 + count * 4
+
+
+## Whether the tile (x, y) is within `tiles` of you.
+func _near(x: int, y: int, tiles: float) -> bool:
+	if me < 0:
+		return false
+	var where: PackedVector2Array = dusk.actor_positions()
+	return me < where.size() and (Vector2(x, y) - where[me]).length() <= tiles
 
 
 ## N: pry a board off the boarded door or window beside you.
@@ -896,6 +961,33 @@ func _read_events() -> void:
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
+			LAID:
+				if who == me:
+					var f: PackedInt32Array = dusk.fire_beside()
+					if f.size() >= 4 and f[3] == 1:
+						hud.say("You put another %s on the fire." % _item_name(extra))
+					else:
+						hud.say("You lay the fire. Hold up a light (L) and press H to light it.")
+			FIRE_LIT:
+				if who == me:
+					hud.say("The fire catches. The room is lit, and so is anything seen through its windows.")
+			SMOTHERED:
+				if who == me:
+					hud.say("You put the fire out. What's left of the wood stays in it.")
+				else:
+					hud.say("%s puts out the fire! It wants you in the dark." % dusk.actor_name(who))
+					hud.flash()
+			FIRE_OUT:
+				if _near(events[i + 3], events[i + 4], 16.0):
+					hud.say("The fire has burnt out.")
+			SAW_FIRE:
+				# Once in a while: a crowd seeing it would fill the news.
+				if played - fire_seen_at > 20.0:
+					fire_seen_at = played
+					if _seen(who):
+						hud.say("%s has seen the firelight, and comes to it." % _a(who))
+					else:
+						hud.say("Something out in the dark has seen the firelight.")
 
 
 ## "A shambler", "A ghoul", or a rare's own name: what actor `i` is, for the news.
@@ -1081,6 +1173,55 @@ func _hold_up_light() -> void:
 	torch.position = actors[me].position + Vector3(0.35, 1.8, 0.35)
 
 
+## The fires alight in hearths, stoves and forges (DuskWorld.hearth_fires()): over each, embers
+## glowing on its top and a real light with shadows, reaching as far as the core's, flickering.
+## Only the look: what a fire lights, and who sees it, is the core's.
+func _light_the_fires() -> void:
+	var lit: PackedInt32Array = dusk.hearth_fires()
+	var now := Time.get_ticks_msec() / 1000.0
+	var alight := {}
+	for i in range(0, lit.size() - 4, 5):
+		var at := Vector2i(lit[i], lit[i + 1])
+		alight[at] = true
+		if not fires.has(at):
+			fires[at] = _make_fire(at, lit[i + 4])
+		var fire: OmniLight3D = fires[at]
+		fire.omni_range = lit[i + 2] + 1.0
+		var phase := float(at.x * 7 + at.y * 13)
+		fire.light_energy = 2.6 * (1.0 + 0.08 * sin(now * 11.0 + phase) + 0.05 * sin(now * 27.0 + phase))
+	for at: Vector2i in fires.keys():
+		if not alight.has(at):
+			fires[at].queue_free()
+			fires.erase(at)
+
+
+## A fire's light over the fixture on `at` (its number `fixture`), and its embers on top.
+func _make_fire(at: Vector2i, fixture: int) -> OmniLight3D:
+	var id: String = fixture_names[fixture] if fixture < fixture_names.size() else ""
+	var height: float = ChunkView.FURNITURE[id][0].y if ChunkView.FURNITURE.has(id) else 1.0
+	var fire := OmniLight3D.new()
+	fire.light_color = Color(1.0, 0.56, 0.24)
+	fire.shadow_enabled = true
+	fire.omni_attenuation = 1.3
+	# Above the fixture, so its own box doesn't shut the light in.
+	fire.position = Vector3(at.x + 0.5, height + 0.45, at.y + 0.5)
+	var embers := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.5, 0.12, 0.45)
+	embers.mesh = box
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(1.0, 0.42, 0.1)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.42, 0.1)
+	glow.emission_energy_multiplier = 4.0
+	embers.material_override = glow
+	embers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	embers.position = Vector3(0.0, -0.39, 0.0)
+	fire.add_child(embers)
+	add_child(fire)
+	return fire
+
+
 ## The rain: thin streaks falling in a box round where the camera looks, as many as the core's
 ## rain says (DuskWorld.rain()). Only the look: what it does is the core's.
 func _let_it_rain() -> void:
@@ -1158,6 +1299,8 @@ func _add_input_actions() -> void:
 		"burn": [KEY_G],
 		"second_wind": [KEY_C],
 		"unboard": [KEY_N],
+		"tend_fire": [KEY_H],
+		"smother_fire": [KEY_J],
 		"restart": [KEY_R],
 		"save": [KEY_F5],
 		"quit": [KEY_ESCAPE],
@@ -1248,6 +1391,12 @@ func _run_script() -> void:
 				_burn_body()
 			"unboard":
 				_pry_board()
+			"logs":
+				_take_logs()
+			"fire":
+				_tend_fire()
+			"smother":
+				_smother_fire()
 			"next":  # after a death, the next survivor
 				_next_survivor()
 

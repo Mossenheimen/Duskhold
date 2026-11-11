@@ -2,7 +2,8 @@
 # wound that's bleeding and stops it (time: seconds to put on). Food takes hunger away and drink
 # thirst (out of 100: rules.toml's [hunger] and [thirst]). A light is held up lit in your other
 # hand: it lights the tiles round it, and burns down until it goes out (rules.toml, [day]).
-# The cure takes ghoul fever away at any stage (rules.toml, [fever]).
+# The cure takes ghoul fever away at any stage (rules.toml, [fever]). Fuel burns on a fire for so
+# many game hours (rules.toml, [fire]); any item can be fuel.
 
 [[item]]
 id = "bandage"
@@ -97,6 +98,15 @@ name = "plank"
 weight = 2.0
 worth = 1
 stack = 5
+fuel = 1.0            # burns, at a pinch: better nailed across a window
+
+[[item]]
+id = "firewood"
+name = "split log"
+weight = 1.5
+worth = 0             # firewood is no find
+stack = 6
+fuel = 2.0            # game hours it burns: four see a fire through the night
 
 [[item]]
 id = "coins"

@@ -9,6 +9,7 @@ use crate::arena::Arena;
 use crate::barricade::Barricade;
 use crate::body::{Body, Part, WoundKind};
 use crate::fever::Fever;
+use crate::fire::{Fire, Hearth};
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
@@ -65,6 +66,8 @@ pub struct Rules {
     pub burning: Burning,
     /// Wading through shallows: how fast, and how loud.
     pub shallows: Shallows,
+    /// A fire in a hearth, a stove or a forge (`fire.rs`).
+    pub fire: Fire,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -286,6 +289,7 @@ impl Default for Rules {
             fever: Fever::default(),
             burning: Burning::default(),
             shallows: Shallows::default(),
+            fire: Fire::default(),
         }
     }
 }
@@ -554,6 +558,31 @@ pub enum Event {
     Burnt {
         body: ActorId,
     },
+    /// `who` put a piece of fuel (`item`) on the fire on `at` (`fire.rs`).
+    Laid {
+        who: ActorId,
+        at: TilePos,
+        item: u16,
+    },
+    /// `who` lit the fire on `at`.
+    FireLit {
+        who: ActorId,
+        at: TilePos,
+    },
+    /// `who` put out the fire on `at`: the one who tended it, or a Lantern-Eater.
+    Smothered {
+        who: ActorId,
+        at: TilePos,
+    },
+    /// The fire on `at` burnt out.
+    FireOut {
+        at: TilePos,
+    },
+    /// `who`, one of the dead, saw the fire on `at` in the night and comes to it.
+    SawFire {
+        who: ActorId,
+        at: TilePos,
+    },
     /// `who` bought one of an item at a holdout, for `price` coin (`holdout.rs`).
     Bought {
         who: ActorId,
@@ -686,6 +715,9 @@ pub struct World {
     pub(crate) pressure: u32,
     /// The bodies burning now (`remains.rs`): worked out from the actors, kept for the light.
     pub(crate) fires: Vec<ActorId>,
+    /// The fires laid in hearths, stoves and forges (`fire.rs`): only those with fuel in them.
+    /// Ordered, for the hash.
+    pub(crate) hearths: BTreeMap<TilePos, Hearth>,
     /// Hallowed ground (`holdout.rs`): inside the holdouts' walls. From the patch's making, not
     /// saved.
     pub hallowed: Vec<crate::holdout::Area>,
@@ -729,6 +761,7 @@ impl World {
             region: Region::default(),
             pressure: 0,
             fires: Vec::new(),
+            hearths: BTreeMap::new(),
             hallowed: Vec::new(),
             sold: BTreeMap::new(),
             flow: None,
@@ -918,6 +951,7 @@ impl World {
         self.pressure.hash(&mut h);
         self.sold.hash(&mut h);
         self.claimed.hash(&mut h);
+        self.hearths.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -1022,6 +1056,7 @@ impl World {
         self.toll();
         self.weather();
         self.burn_lights();
+        self.burn_fires();
         self.drag_downs();
     }
 

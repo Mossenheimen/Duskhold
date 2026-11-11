@@ -49,6 +49,7 @@ var _shown_reach := PackedInt32Array()
 var _shown_water := false
 var _queue: Array = []  # actions still to ask for: ["take" or "put", x, y, def]
 var _shown_counter := []  # the counter within reach and what it sells, as last drawn
+var _shown_fire := PackedInt32Array()  # the fire beside you (DuskWorld.fire_beside()), as last drawn
 
 
 func _ready() -> void:
@@ -110,13 +111,30 @@ func refresh(busy: bool, dead: bool) -> void:
 	if counter.size() >= 3:
 		sells = _dusk.counter_sells(counter[0], counter[1])
 	var at_counter := [counter, sells]
-	if reach != _shown_reach or water != _shown_water or at_counter != _shown_counter:
+	var fire: PackedInt32Array = _dusk.fire_beside()
+	if reach != _shown_reach or water != _shown_water or at_counter != _shown_counter \
+			or fire != _shown_fire:
 		_shown_reach = reach
 		_shown_water = water
 		_shown_counter = at_counter
+		_shown_fire = fire
 		_draw_reach(reach, water, counter, sells)
 	if not busy and not _queue.is_empty():
 		_next_queued(reach, items)
+
+
+## The fire in the hearth, stove or forge on (x, y), if it's the one beside you: "  ·  alight,
+## 3h 20m of wood (J puts it out)", "  ·  laid, ...", "  ·  cold (H lays a fire)"; else "".
+func _fire_line(x: int, y: int) -> String:
+	var f := _shown_fire
+	if f.size() < 4 or f[0] != x or f[1] != y:
+		return ""
+	var wood := "%dh %02dm of wood" % [f[2] / 60, f[2] % 60]
+	if f[3] == 1:
+		return "  ·  alight, %s (J puts it out)" % wood
+	if f[2] > 0:
+		return "  ·  laid, %s (H lights it)" % wood
+	return "  ·  cold (H lays a fire)"
 
 
 ## Where your stash is, if it's within reach; else (-1, -1).
@@ -284,7 +302,7 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 		var place := "On the ground" if fixture == 0 else _fixture_name(fixture).capitalize()
 		if mine:
 			place += "  ·  your stash"
-		var header := _row(_reach, place + ("  (empty)" if n == 0 else ""))
+		var header := _row(_reach, place + ("  (empty)" if n == 0 else "") + _fire_line(x, y))
 		if mine:
 			header.get_child(0).add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
 			_button(header, "Stash all finds", func() -> void: _stash_finds(x, y))

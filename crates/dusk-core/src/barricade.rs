@@ -81,7 +81,7 @@ fn count(items: &[Item], def: u16) -> u32 {
 }
 
 /// Takes `n` of an item out of a list, from its last stacks first.
-fn spend(items: &mut Vec<Item>, def: u16, mut n: u16) {
+pub(crate) fn spend(items: &mut Vec<Item>, def: u16, mut n: u16) {
     for i in (0..items.len()).rev() {
         if n == 0 {
             break;

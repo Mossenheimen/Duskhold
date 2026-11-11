@@ -19,8 +19,8 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
-    Intent, Item, ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill,
-    TilePos, View, World, WoundKind, demo,
+    Intent, Item, ItemKind, NoBoard, NoBurn, NoDeal, NoFire, NoSleep, NoStash, Part, Remains, Rise,
+    Skill, Tend, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -120,6 +120,11 @@ const RAIN_ENDED: i32 = 68;
 const RAINED_OUT: i32 = 69;
 const TALENT_CHOSEN: i32 = 70;
 const SECOND_WIND: i32 = 71;
+const LAID: i32 = 72;
+const FIRE_LIT: i32 = 73;
+const SMOTHERED: i32 = 74;
+const FIRE_OUT: i32 = 75;
+const SAW_FIRE: i32 = 76;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -364,6 +369,12 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             (TALENT_CHOSEN, Some(who), None, at(who), i32::from(talent))
         }
         Event::SecondWind { who } => (SECOND_WIND, Some(who), None, at(who), 0),
+        // A fire, named by the tile of its hearth, stove or forge.
+        Event::Laid { who, at: p, item } => (LAID, Some(who), None, (p.x, p.y), i32::from(item)),
+        Event::FireLit { who, at: p } => (FIRE_LIT, Some(who), None, (p.x, p.y), 0),
+        Event::Smothered { who, at: p } => (SMOTHERED, Some(who), None, (p.x, p.y), 0),
+        Event::FireOut { at: p } => (FIRE_OUT, None, None, (p.x, p.y), 0),
+        Event::SawFire { who, at: p } => (SAW_FIRE, Some(who), None, (p.x, p.y), 0),
         Event::RainEnded => (RAIN_ENDED, None, None, (-1, -1), 0),
         Event::RainedOut { who, item } => (RAINED_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),
@@ -1103,8 +1114,9 @@ impl DuskWorld {
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
     /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
-    /// lifted, 29 catching a second wind), how far through its wind-up it is (0 to 1000; 1000 once it
-    /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
+    /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out),
+    /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
+    /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
     fn actor_actions(&self) -> PackedInt32Array {
@@ -1156,6 +1168,14 @@ impl DuskWorld {
                         ActionKind::Identify { .. } => 27,
                         ActionKind::Uncurse { .. } => 28,
                         ActionKind::SecondWind => 29,
+                        ActionKind::Tend {
+                            tend: Tend::Lay { .. },
+                            ..
+                        } => 30,
+                        ActionKind::Tend {
+                            tend: Tend::Light, ..
+                        } => 31,
+                        ActionKind::Smother { .. } => 32,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1992,6 +2012,78 @@ impl DuskWorld {
     #[func]
     fn unboard(&mut self) {
         self.act(Intent::Unboard);
+    }
+
+    /// Whether you can tend the fire beside you now: 1 to lay a piece of fuel on, 2 to light it,
+    /// else why not: -1 no hearth, stove or forge beside you, -2 it holds all it can, -3 nothing
+    /// in your pack burns, -4 it's laid but you hold up no light to light it with.
+    #[func]
+    fn fire_check(&self) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_tend(me) {
+            Ok((_, Tend::Lay { .. })) => 1,
+            Ok((_, Tend::Light)) => 2,
+            Err(NoFire::Nothing) => -1,
+            Err(NoFire::Full) => -2,
+            Err(NoFire::NoFuel) => -3,
+            Err(NoFire::NoFlame) => -4,
+        }
+    }
+
+    /// Tends the fire beside you: lays fuel on, or lights it (see `fire_check`).
+    #[func]
+    fn tend_fire(&mut self) {
+        self.act(Intent::Tend);
+    }
+
+    /// Puts out the fire alight beside you: what's left of its fuel stays in it.
+    #[func]
+    fn smother_fire(&mut self) {
+        self.act(Intent::Smother);
+    }
+
+    /// The hearth, stove or forge beside you (one alight, if any is): [x, y, the fuel in it (game
+    /// minutes), 1 if it's alight, its fixture number (`fixture_names`)], or nothing.
+    #[func]
+    fn fire_beside(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        // One alight first, so this tells of the fire J would put out.
+        let beside = world.character().and_then(|me| {
+            world
+                .hearth_beside(me, true)
+                .or_else(|| world.hearth_beside(me, false))
+        });
+        let Some(at) = beside else {
+            return PackedInt32Array::new();
+        };
+        let (h, fixture) = (world.hearth(at), world.grid.tile(at).fixture);
+        PackedInt32Array::from(&[
+            at.x,
+            at.y,
+            h.fuel as i32,
+            i32::from(h.lit),
+            i32::from(fixture),
+        ])
+    }
+
+    /// The fires alight in hearths, stoves and forges, five numbers each: x, y, how far it
+    /// lights (tiles), the fuel left in it (game minutes), and its fixture number.
+    #[func]
+    fn hearth_fires(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for (at, reach) in world.hearth_fires() {
+            let fixture = i32::from(world.grid.tile(at).fixture);
+            out.extend([at.x, at.y, reach, world.hearth(at).fuel as i32, fixture]);
+        }
+        PackedInt32Array::from(&out[..])
     }
 
     /// The skills' names, in the order `character_skills` and the skill events use.

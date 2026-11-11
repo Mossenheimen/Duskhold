@@ -1,6 +1,8 @@
 # What can stand on a tile. solid: nobody walks through it. opaque: nobody sees through it.
 # A tile's fixture number is its place in this list, from 1. The client draws each by its id.
 # loot: it's a container, filled from that loot table (loot/*.toml). bed: you sleep best beside one.
+# fire: it takes a fire (a hearth, a stove, a forge: rules.toml's [fire]), which lights this many
+# tiles round it. Each keeps a few logs by it.
 
 [[fixture]]
 id = "tree"
@@ -34,6 +36,8 @@ solid = true
 [[fixture]]
 id = "stove"
 solid = true
+fire = 5              # an iron range: less light than an open hearth
+loot = "logs"
 
 [[fixture]]
 id = "crate"
@@ -73,6 +77,8 @@ solid = true
 [[fixture]]
 id = "forge"          # the smith's forge, gone cold
 solid = true
+fire = 6
+loot = "logs"
 
 [[fixture]]
 id = "anvil"
@@ -105,8 +111,10 @@ solid = true
 loot = "cellar"
 
 [[fixture]]
-id = "hearth"         # a stone hearth, cold (lighting a fire comes later)
+id = "hearth"         # a stone hearth, cold till someone lights it
 solid = true
+fire = 6
+loot = "logs"
 
 # The farms' (prefabs/farm.toml). water: you can drink from it, as from a pond.
 

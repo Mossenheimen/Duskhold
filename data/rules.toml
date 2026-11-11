@@ -206,6 +206,18 @@ time = 3.0            # seconds to pour the oil on and set it alight
 burn = 20             # game minutes a body burns, then it's ash
 light = 4             # tiles a burning body lights round it (a torch's 5, a candle's 2)
 
+[fire]
+# A fire for your base: a hearth, a stove or a forge takes one (fixtures.toml's fire: how far it
+# lights). Tending it (H) puts a piece of fuel on, the longest-burning first (items/*.toml's
+# fuel), or, once it's laid, lights it from the light you hold up (L). It burns down a game
+# minute at a time; putting it out (J) leaves what's left in it. A lit room needs no torch in
+# your hand. But light is bait: at night the dead that see a fire, through a window or a door
+# left open, come to it. Board the windows up before you light it.
+most = 8.0            # game hours of fuel a fire holds: a night's worth
+lay = 2.0             # seconds to put a piece on
+light = 3.0           # seconds to light it
+smother = 2.0         # seconds to put it out
+
 [shallows]
 # Wading (a river's banks and fords, regions/*.toml [river]): slow going for everyone, the dead
 # too, and a splash carries farther than a footstep. You can drink from it.

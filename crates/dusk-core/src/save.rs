@@ -6,8 +6,9 @@
 //!
 //! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning or ash), sounds
 //!   not yet heard, what containers and floors hold once touched, the harm doors and boards have
-//!   taken, the region's pressure, what the holdouts sold today, the bounties claimed, and the chunks of the map that changed since it was made (a
-//!   door opened, a board nailed on).
+//!   taken, the region's pressure, what the holdouts sold today, the bounties claimed, the fires
+//!   laid in hearths, and the chunks of the map that changed since it was made (a door opened, a
+//!   board nailed on).
 //! - **Not saved:** the land (it comes back from the seed), the rules and the definitions (they
 //!   come from `data/`, so a retuned game loads old saves). Items and creatures are saved by
 //!   number, so a save also carries a fingerprint of their ids, and one made with other data is
@@ -24,6 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actor::{Actor, ActorId};
 use crate::arena::Arena;
+use crate::fire::Hearth;
 use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Chunk;
 use crate::hash::Fnv64;
@@ -31,7 +33,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 12;
+pub const VERSION: u32 = 13;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -62,6 +64,8 @@ struct State {
     sold: BTreeMap<(u16, u16), (u64, u16)>,
     /// The bounties claimed.
     claimed: std::collections::BTreeSet<ActorId>,
+    /// The fires laid in hearths, stoves and forges.
+    hearths: BTreeMap<TilePos, Hearth>,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     memory: Vec<u8>,
@@ -153,6 +157,7 @@ impl World {
             pressure: self.pressure,
             sold: self.sold.clone(),
             claimed: self.claimed.clone(),
+            hearths: self.hearths.clone(),
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -183,6 +188,7 @@ impl World {
         self.pressure = state.pressure;
         self.sold = state.sold;
         self.claimed = state.claimed;
+        self.hearths = state.hearths;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }

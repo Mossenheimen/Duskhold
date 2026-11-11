@@ -48,6 +48,10 @@ struct ItemFile {
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
+    /// Fuel: put on a fire, it burns this many game hours (`fire.rs` in the core). Any kind
+    /// of item can burn: a plank is still a plank.
+    #[serde(default)]
+    fuel: Option<f64>,
     /// XP one brings home the first time (`rules.toml`, [deeds]); 0 if left out.
     #[serde(default)]
     worth: f64,
@@ -248,6 +252,8 @@ pub(crate) fn load_defs(
     fixtures: &[Fixture],
 ) -> Result<Defs, DataError> {
     let mut items: Vec<ItemDef> = Vec::new();
+    // What burns, by item number, and its game minutes.
+    let mut fuel: Vec<(u16, u32)> = Vec::new();
     for file in files_maybe(&dir.join("items"))? {
         for i in read::<ItemsFile>(&file)?.item {
             let kinds = [
@@ -306,6 +312,18 @@ pub(crate) fn load_defs(
             } else {
                 ItemKind::Other
             };
+            if let Some(hours) = i.fuel {
+                if !(hours > 0.0 && hours <= 24.0) {
+                    return Err(fail(
+                        &file,
+                        format!(
+                            "item {:?}: fuel burns above 0 and at most 24 game hours",
+                            i.id
+                        ),
+                    ));
+                }
+                fuel.push((items.len() as u16, (hours * 60.0).round().max(1.0) as u32));
+            }
             items.push(ItemDef {
                 weight: (i.weight * 1000.0).round() as u32,
                 id: i.id,
@@ -408,6 +426,14 @@ pub(crate) fn load_defs(
         wells: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.water))
             .collect(),
+        hearths: std::iter::once(0)
+            .chain(fixtures.iter().map(|f| f.fire))
+            .collect(),
+        // The longest-burning first: what goes on a fire before the rest.
+        fuel: {
+            fuel.sort_by_key(|&(item, minutes)| (std::cmp::Reverse(minutes), item));
+            fuel
+        },
         wield,
         kit: Vec::new(),
         carry: (kit.carry * 1000.0).round().max(0.0) as u32,

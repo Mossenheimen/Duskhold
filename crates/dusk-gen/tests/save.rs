@@ -226,3 +226,68 @@ fn a_claimed_bounty_stays_claimed_after_a_load() {
     assert_eq!(loaded.world.name_of(rare), w.name_of(rare));
     assert_eq!(loaded.world.state_hash(), w.state_hash());
 }
+
+#[test]
+fn a_fire_alight_in_a_stove_stays_alight_after_a_load_and_burns_down_the_same() {
+    use dusk_core::{ActorKind, TilePos};
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(1, &data, region);
+    // A stove with none of the dead within 12 tiles, and a survivor beside it.
+    let quiet = |w: &World, at: TilePos| {
+        w.actors()
+            .all(|(_, a)| a.dead || a.kind.is_character() || a.pos.dist2(at) > 144)
+    };
+    let stove = (0..256)
+        .flat_map(|y| (0..256).map(move |x| TilePos::new(x, y, 0)))
+        .find(|&p| w.hearth_reach(p) > 0 && quiet(&w, p))
+        .expect("a quiet stove");
+    let beside: Vec<TilePos> = [Dir8::N, Dir8::E, Dir8::S, Dir8::W]
+        .into_iter()
+        .filter(|&d| w.grid.edge(stove, d) == Edge::Open && w.grid.tile(stove.step(d)).walkable())
+        .map(|d| stove.step(d))
+        .collect();
+    let me = beside
+        .iter()
+        .find_map(|&p| w.spawn(ActorKind::Character, p))
+        .expect("room beside it");
+    let item = |id: &str| w.defs.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let (firewood, torch) = (item("firewood"), item("torch"));
+    // The logs kept by it, one on, and lit from the kit's torch.
+    assert_eq!(w.store(stove)[0].def, firewood, "logs by the stove");
+    w.intent(
+        me,
+        Intent::Take {
+            at: stove,
+            slot: 0,
+            def: firewood,
+        },
+    );
+    w.step(60);
+    w.intent(me, Intent::Tend);
+    w.step(40);
+    let slot = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.def == torch)
+        .unwrap() as u16;
+    w.intent(me, Intent::Light { slot, def: torch });
+    w.step(40);
+    w.intent(me, Intent::Tend);
+    w.step(40);
+    assert!(w.hearth(stove).lit, "alight");
+    w.step(250);
+
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let mut b = dusk_gen::load(&data, &bytes)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .world;
+    assert_eq!(b.hearth(stove), w.hearth(stove));
+    assert_eq!(b.state_hash(), w.state_hash());
+    w.step(500);
+    b.step(500);
+    assert_eq!(b.hearth(stove), w.hearth(stove), "burnt down the same");
+    assert_eq!(b.state_hash(), w.state_hash());
+}

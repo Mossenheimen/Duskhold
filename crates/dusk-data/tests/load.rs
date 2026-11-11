@@ -1001,3 +1001,51 @@ fn a_regions_farms_must_make_sense() {
         assert!(err.message.contains(says), "{err}");
     }
 }
+
+#[test]
+fn hearths_stoves_and_forges_take_a_fire_and_keep_logs_by_them_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    for (f, reach) in [("stove", 5), ("hearth", 6), ("forge", 6)] {
+        assert_eq!(d.hearth(fixture(f) as u16), reach, "{f}");
+        let t = d.containers[fixture(f)].unwrap_or_else(|| panic!("a {f} keeps logs by it"));
+        assert_eq!(d.loot[usize::from(t)].id, "logs", "{f}");
+    }
+    assert_eq!(d.hearth(fixture("bed") as u16), 0, "a bed takes no fire");
+    // Logs go on before planks, two game hours to one; a fire holds a night's worth.
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    assert_eq!(d.fuel, vec![(item("firewood"), 120), (item("plank"), 60)]);
+    assert_eq!(data.rules.fire.most, 8 * 60);
+    assert_eq!(
+        d.items[usize::from(item("firewood"))].worth,
+        0,
+        "firewood is no find"
+    );
+}
+
+#[test]
+fn a_fires_numbers_become_the_cores_and_nonsense_is_refused() {
+    let rules = format!("{RULES}[fire]\nmost = 6.0\nlay = 2.0\nlight = 3.0\nsmother = 1.5\n");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    files.push(("rules.toml", &rules));
+    let data = load(&folder("fire", &files)).unwrap_or_else(|e| panic!("{e}"));
+    let f = data.rules.fire;
+    assert_eq!((f.most, f.lay, f.light, f.smother), (360, 20, 30, 15));
+
+    let fixtures = format!("{FIXTURES}[[fixture]]\nid = \"pyre\"\nsolid = true\nfire = 13\n");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "fixtures.toml");
+    files.push(("fixtures.toml", &fixtures));
+    let err = load(&folder("fire-reach", &files)).unwrap_err();
+    assert!(err.message.contains("a fire lights 1 to 12 tiles"), "{err}");
+
+    let mut files = test_files(PREFABS);
+    files.push((
+        "items/wood.toml",
+        "[[item]]\nid = \"log\"\nname = \"log\"\nweight = 1.0\nfuel = 0.0\n",
+    ));
+    let err = load(&folder("fire-fuel", &files)).unwrap_err();
+    assert!(err.message.contains("fuel burns above 0"), "{err}");
+}

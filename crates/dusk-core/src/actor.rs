@@ -95,6 +95,11 @@ pub enum Intent {
     /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
     /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
     Burn,
+    /// Tend the hearth, stove or forge beside you (`fire.rs`): light it, if it's laid and you
+    /// hold up a light, else put fuel on.
+    Tend,
+    /// Put out the fire beside you: what fuel's left stays in it.
+    Smother,
 }
 
 impl Intent {
@@ -154,6 +159,14 @@ pub enum ActionKind {
     /// Setting a body alight.
     Burn {
         body: ActorId,
+    },
+    /// Laying or lighting the fire on `at`, and putting it out.
+    Tend {
+        at: TilePos,
+        tend: crate::fire::Tend,
+    },
+    Smother {
+        at: TilePos,
     },
     /// Deals over a holdout's counter.
     Buy {
