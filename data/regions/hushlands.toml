@@ -77,3 +77,15 @@ toll_every = 2        # a toll every so many game minutes
 loudness = 60         # tiles a toll carries: it wakes you, and it's heard across the hamlet
 reach = 96            # tiles from the bell the dead are drawn from
 door = 12.0           # a shut door is worth this many tiles of walking round to them
+
+[weather]
+# Rain (CONCEPT.md, the realm): it puts out lights held up outdoors, masks sound, washes blood
+# away, and darkens the sky. Under a roof, none of it but the sky. It comes in spells, each dry,
+# rain or heavy rain, from the seed and the clock.
+spell = 4.0           # game hours a spell lasts
+rain = 0.3            # the share of spells that are rain
+heavy = 0.35          # of those, the share that's heavy
+sound = [0.75, 0.5]   # how far a sound outdoors carries: in rain, in heavy rain
+scent = [0.5, 0.2]    # how far blood outdoors is smelled
+sky = [0.75, 0.55]    # the sky's light
+douse = [0.02, 0.08]  # the chance a minute a light held up outdoors goes out

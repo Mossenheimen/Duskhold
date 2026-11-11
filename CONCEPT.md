@@ -104,6 +104,10 @@ Why build it:
 - **Your base:** any building you can make hold, or one you build (see Base-building). Later, survivors you rescue can move in, and your base becomes a holdout of its own.
 - **Day and night** are Zomboid's: a game day is an hour of real time at normal speed, with the speed dial to skip the safe hours.
 - **Weather and seasons** matter: rain puts torches out, masks sound and washes scent away; fog shortens sight (and the moor's ghosts come out in it); wind carries scent and sound; snow keeps footprints, yours and theirs; summer heat and winter cold.
+  - *(built 2026-11-11)* **Rain** in the Hushlands comes in 4-hour spells, about a third of them wet, some of those heavy.
+    - **Outdoors, it changes three things:** a torch or candle held up may go out (in heavy rain, within a quarter of an hour or so); sounds carry less far, so the dead hear you less; and blood washes away, so a ghoul smells it from less far.
+    - **Everywhere, the sky is darker,** so everyone sees less far by day.
+    - **Rain is a time to move:** quieter and harder to track, but darker and with no light to rely on.
 - **The Long Dusk deepens:** over weeks, regions spread, roads close and holdouts fall, unless you push back. Each region's deepest dungeon holds its wardstone; relight it and the region weakens. That's the end-game.
   - *(review)* **It's one number per region, the pressure, and you can move it before any dungeon exists.** Otherwise the realm only ever gets worse until the end-game is built, which is a slow death, not tension.
     - It rises with time, to a ceiling (Zomboid's population peaks and stops), and with the region's own rule. In the Hushlands that's the unburned dead: every body left lying gets up.

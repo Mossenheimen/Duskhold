@@ -838,3 +838,22 @@ fn the_games_magic_has_properties_for_weapons_and_lights_and_curses_among_them()
     let rare = d.loot.iter().find(|t| t.id == "rare").unwrap();
     assert!(rare.entries.iter().any(|e| e.magic == 10_000));
 }
+
+#[test]
+fn it_rains_in_the_hushlands_now_and_then_and_harder_rain_does_more() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let w = data
+        .region("hushlands")
+        .unwrap()
+        .weather
+        .as_ref()
+        .expect("weather")
+        .to_weather();
+    assert!(
+        w.spell > 0 && (1..10_000).contains(&w.rain),
+        "rain some of the time, not all"
+    );
+    // Heavy rain does more than light: quieter, less scent, darker, and lights out sooner.
+    assert!(w.sound[1] < w.sound[0] && w.scent[1] < w.scent[0] && w.sky[1] < w.sky[0]);
+    assert!(w.douse[1] > w.douse[0]);
+}

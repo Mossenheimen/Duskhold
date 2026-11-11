@@ -559,6 +559,14 @@ fn describe(w: &World, e: Event) -> String {
         Event::CurseLifted { who, item } => {
             format!("the curse on {}'s item {item} was lifted", name(who))
         }
+        Event::RainBegan { heavy } => if heavy {
+            "it rains hard"
+        } else {
+            "it starts to rain"
+        }
+        .to_string(),
+        Event::RainEnded => "the rain stops".to_string(),
+        Event::RainedOut { who, item } => format!("the rain put out {}'s item {item}", name(who)),
         Event::LightEaten { by, who } => {
             format!("{} put out {}'s light", name(by), name(who))
         }

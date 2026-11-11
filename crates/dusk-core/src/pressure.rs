@@ -53,6 +53,8 @@ pub struct Region {
     pub bell: Option<TilePos>,
     /// Where a character comes into the patch: the next one after a death too (`legacy.rs`).
     pub start: Option<TilePos>,
+    /// Its weather (`weather.rs`).
+    pub weather: crate::weather::Weather,
 }
 
 /// Rolls a tile can take before an arrival gives up for this time.

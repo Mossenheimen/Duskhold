@@ -72,6 +72,12 @@ impl World {
 
     /// The sky's light now, out of 100.
     pub fn daylight(&self) -> u32 {
+        // Under rain clouds, darker (`weather.rs`).
+        self.clear_daylight() * self.overcast() / 1000
+    }
+
+    /// The sky's light as if it were clear: what the dead count night by.
+    fn clear_daylight(&self) -> u32 {
         let d = self.rules.day;
         let m = self.time_of_day();
         // From one light to another over a span of minutes, `t` minutes in.
@@ -92,7 +98,7 @@ impl World {
 
     /// Night, for the dead: the sky's light under half.
     pub fn is_night(&self) -> bool {
-        self.daylight() * 2 < FULL_LIGHT
+        self.clear_daylight() * 2 < FULL_LIGHT
     }
 
     /// The sky's light on a tile: dimmer under a roof.

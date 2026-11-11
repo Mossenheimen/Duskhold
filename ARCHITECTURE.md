@@ -991,6 +991,22 @@ Game first: every step ends with something to look at or play.
          - magic on armour;
          - Very Rare and Legendary (the dungeons);
          - a broken magic item that stays, to be mended (today one breaks like any weapon).
+     - **Rain** (2026-11-11; 170 tests pass):
+       - **the weather comes from the seed and the clock** (`dusk-core/src/weather.rs`, `World::rain`). Time falls into spells (the Hushlands': 4 game hours), each dry, rain or heavy rain by a roll of its own (`Purpose::Weather`). Nothing is saved, like the Tolling's calendar;
+       - **what it does, outdoors only** (not under a roof):
+         - a light held up may go out, a chance each minute: 2% in rain, 8% in heavy rain (`RainedOut`). It goes back into the pack, as if put out;
+         - a sound made outdoors carries 75% as far, or 50% in heavy rain (`World::carries`). That's for the dead hearing you and for a noise waking you;
+         - blood outdoors is smelled from half as far, or a fifth (`World::scent_reach`);
+       - **the sky is darker** everywhere: 75%, or 55% (`daylight()`), so everyone's sight by daylight is shorter. It's no more night for the dead: they count night by the clear sky's light (`clear_daylight`);
+       - **numbers:** a region's `[weather]`: the spell, the share of rain and of heavy rain, and, for light and heavy rain, sound, scent, sky and the chance a light goes out;
+       - **the save format** doesn't change;
+       - **the client:**
+         - rain drawn as streaks falling round the camera, more of them in heavy rain;
+         - the sky darkens with the core's daylight;
+         - the clock line says "rain" or "heavy rain";
+         - the news tells when it begins and ends, and when it puts your light out;
+         - **checked on screen:** a picture in heavy rain, from a copy of `data/` where it always rains;
+       - **not yet:** fog, wind, snow and seasons; rain filling barrels; being wet and cold; lanterns, which rain doesn't put out.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

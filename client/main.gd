@@ -104,6 +104,11 @@ const BOUNTY_CLAIMED := 63
 const IDENTIFIED := 64
 const CURSE_CLINGS := 65
 const CURSE_LIFTED := 66
+const RAIN_BEGAN := 67
+const RAIN_ENDED := 68
+const RAINED_OUT := 69
+## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
+const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
@@ -156,6 +161,7 @@ var town_seed := 1
 var speed_index := 0
 var zoom := 14.0
 var focus := Vector3.ZERO  # where the camera looks: the character, smoothed
+var rain_fall: GPUParticles3D  # the rain, drawn round where the camera looks
 var wound_names := PackedStringArray()
 var part_names := PackedStringArray()
 var last_hurt := ""  # what last hurt you, for the death screen
@@ -318,6 +324,7 @@ func _process(delta: float) -> void:
 		map_view.show_view(dusk.view_tiles())
 	_light_the_sky(dusk.daylight())
 	_hold_up_light()
+	_let_it_rain()
 	_move_camera(delta)
 	map_view.update(focus)
 	_move_cursor()
@@ -328,7 +335,7 @@ func _process(delta: float) -> void:
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling())
+	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain())
 	hud.show_moodles(moodles)
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
@@ -843,6 +850,13 @@ func _read_events() -> void:
 				if target == me:
 					hud.say("%s puts out your light! It wants you in the dark." % dusk.actor_name(who))
 					hud.flash()
+			RAIN_BEGAN:
+				hud.say("It's raining hard. Lights gutter outdoors; sound and blood don't carry far." if extra == 1 else "It starts to rain: lights gutter outdoors, and the dead hear and smell less.")
+			RAIN_ENDED:
+				hud.say("The rain stops.")
+			RAINED_OUT:
+				if who == me:
+					hud.say("The rain puts out your %s. Light it under a roof." % _item_name(extra))
 			IDENTIFIED:
 				if who == me:
 					hud.say("You know what it is now: %s." % _known_as(extra))
@@ -1048,6 +1062,39 @@ func _hold_up_light() -> void:
 	torch.light_energy = 3.0 * (1.0 + 0.06 * sin(now * 13.0) + 0.04 * sin(now * 31.0))
 	# In the hand on the camera's side, so it lights the body you see, not from inside it.
 	torch.position = actors[me].position + Vector3(0.35, 1.8, 0.35)
+
+
+## The rain: thin streaks falling in a box round where the camera looks, as many as the core's
+## rain says (DuskWorld.rain()). Only the look: what it does is the core's.
+func _let_it_rain() -> void:
+	var drops: int = RAIN_DROPS[clampi(dusk.rain(), 0, 2)]
+	if rain_fall == null:
+		rain_fall = GPUParticles3D.new()
+		var fall := ParticleProcessMaterial.new()
+		fall.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		fall.emission_box_extents = Vector3(22.0, 0.5, 22.0)
+		fall.direction = Vector3(0.12, -1.0, 0.05)
+		fall.spread = 3.0
+		fall.initial_velocity_min = 16.0
+		fall.initial_velocity_max = 20.0
+		fall.gravity = Vector3(0.0, -9.8, 0.0)
+		rain_fall.process_material = fall
+		var streak := BoxMesh.new()
+		streak.size = Vector3(0.02, 0.55, 0.02)
+		var wet := StandardMaterial3D.new()
+		wet.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		wet.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		wet.albedo_color = Color(0.7, 0.78, 0.9, 0.35)
+		streak.material = wet
+		rain_fall.draw_pass_1 = streak
+		rain_fall.lifetime = 0.9
+		rain_fall.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 25, 50))
+		rain_fall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(rain_fall)
+	rain_fall.emitting = drops > 0
+	if drops > 0 and rain_fall.amount != drops:
+		rain_fall.amount = drops
+	rain_fall.position = focus + Vector3(0.0, 14.0, 0.0)
 
 
 ## L: light the first torch or candle in your pack, or put out the one you hold up.

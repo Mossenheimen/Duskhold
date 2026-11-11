@@ -37,6 +37,7 @@ pub mod skills;
 pub mod text;
 pub mod tolling;
 pub mod view;
+pub mod weather;
 pub mod world;
 
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind, Remains};
@@ -56,4 +57,5 @@ pub use remains::NoBurn;
 pub use skills::{Rise, Skill, Skills, Standing};
 pub use tolling::Tolling;
 pub use view::View;
+pub use weather::Weather;
 pub use world::{Event, Rules, World};

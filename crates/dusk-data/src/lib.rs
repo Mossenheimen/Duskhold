@@ -18,10 +18,12 @@ mod rare;
 mod remains;
 mod skills;
 mod tolling;
+mod weather;
 
 pub use rare::RaresFile;
 pub use remains::PressureFile;
 pub use tolling::TollingFile;
+pub use weather::WeatherFile;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -171,6 +173,9 @@ pub struct Region {
     /// Its rare monsters, if a patch has any (`affixes.toml`).
     #[serde(default)]
     pub rares: Option<RaresFile>,
+    /// Its rain, if it has any.
+    #[serde(default)]
+    pub weather: Option<WeatherFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -1030,6 +1035,8 @@ fn check_region(
     } else if let Some(problem) = r.pressure.problem() {
         Some(problem)
     } else if let Some(problem) = r.tolling.as_ref().and_then(TollingFile::problem) {
+        Some(problem)
+    } else if let Some(problem) = r.weather.as_ref().and_then(WeatherFile::problem) {
         Some(problem)
     } else if let Some(t) = r
         .tolling

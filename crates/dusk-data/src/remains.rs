@@ -140,6 +140,11 @@ impl Region {
             // Where the bell hangs, and where you come in, are the patch's to say (`dusk-gen`).
             bell: None,
             start: None,
+            weather: self
+                .weather
+                .as_ref()
+                .map(|w| w.to_weather())
+                .unwrap_or_default(),
         }
     }
 }

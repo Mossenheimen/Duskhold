@@ -606,6 +606,17 @@ pub enum Event {
     Came {
         who: ActorId,
     },
+    /// It began to rain (`weather.rs`), or rain hard.
+    RainBegan {
+        heavy: bool,
+    },
+    /// The rain stopped.
+    RainEnded,
+    /// The rain put out the light `who` held up.
+    RainedOut {
+        who: ActorId,
+        item: u16,
+    },
 }
 
 /// A sound made this tick.
@@ -975,6 +986,7 @@ impl World {
         self.remains();
         self.press();
         self.toll();
+        self.weather();
         self.burn_lights();
         self.drag_downs();
     }
@@ -1122,7 +1134,8 @@ impl World {
             if a.body.asleep {
                 let pos = a.pos;
                 let woken = self.sounds.iter().any(|s| {
-                    s.by != Some(id) && hears(&self.grid, s.at, pos, s.loudness, rules.muffling)
+                    let loud = self.carries(s.at, s.loudness);
+                    s.by != Some(id) && hears(&self.grid, s.at, pos, loud, rules.muffling)
                 });
                 if woken {
                     self.wake(id, Woke::Noise);
@@ -1146,7 +1159,9 @@ impl World {
                 if crate::holdout::in_hallowed(&self.hallowed, s.at) || self.is_bell(s) {
                     continue;
                 }
-                if s.by != Some(id) && hears(&self.grid, s.at, pos, s.loudness, rules.muffling) {
+                // Out in the rain, a sound carries less far.
+                let loud = self.carries(s.at, s.loudness);
+                if s.by != Some(id) && hears(&self.grid, s.at, pos, loud, rules.muffling) {
                     let d2 = s.at.dist2(pos);
                     if nearest.is_none_or(|(best, _)| d2 < best) {
                         nearest = Some((d2, s.at));
@@ -1431,7 +1446,8 @@ impl World {
                 .filter(|w| w.bleeding > 0)
                 .count()
                 .min(3);
-            let range = i64::from(per_wound) * bleeding as i64;
+            // Out in the rain, blood washes away: smelled from less far.
+            let range = i64::from(self.scent_reach(c.pos, per_wound)) * bleeding as i64;
             let d2 = from.dist2(c.pos);
             if d2 <= range * range && best.is_none_or(|(b, ..)| d2 < b) {
                 best = Some((d2, id, c.pos));

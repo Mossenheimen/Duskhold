@@ -115,6 +115,9 @@ const BOUNTY_CLAIMED: i32 = 63;
 const IDENTIFIED: i32 = 64;
 const CURSE_CLINGS: i32 = 65;
 const CURSE_LIFTED: i32 = 66;
+const RAIN_BEGAN: i32 = 67;
+const RAIN_ENDED: i32 = 68;
+const RAINED_OUT: i32 = 69;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -343,6 +346,9 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Risen { body, revenant } => (RISEN, Some(body), Some(revenant), at(revenant), 0),
         Event::Came { who } => (CAME, Some(who), None, at(who), 0),
         Event::LightEaten { by, who } => (LIGHT_EATEN, Some(by), Some(who), at(who), 0),
+        Event::RainBegan { heavy } => (RAIN_BEGAN, None, None, (-1, -1), i32::from(heavy)),
+        Event::RainEnded => (RAIN_ENDED, None, None, (-1, -1), 0),
+        Event::RainedOut { who, item } => (RAINED_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),
         Event::CurseClings { who, item } => {
             (CURSE_CLINGS, Some(who), None, at(who), i32::from(item))
@@ -1649,6 +1655,12 @@ impl DuskWorld {
             bell.x,
             bell.y,
         ])
+    }
+
+    /// The rain now (`weather.rs`): 0 dry, 1 rain, 2 heavy rain.
+    #[func]
+    fn rain(&self) -> i32 {
+        self.world.as_ref().map_or(0, |w| i32::from(w.rain()))
     }
 
     /// Whether you stand on hallowed ground: inside a holdout's walls, where the dead don't come.

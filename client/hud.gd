@@ -119,14 +119,16 @@ func _process(delta: float) -> void:
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
 ## the region's pressure (DuskWorld.pressure(): how many of the dead the patch holds, against
 ## how many it began with). Bodies that get up raise it; burning them lowers it. Then the
-## Tolling's countdown (DuskWorld.tolling()), so you can build for it.
+## Tolling's countdown (DuskWorld.tolling()), so you can build for it; and the rain
+## (DuskWorld.rain(): 0 dry, 1 rain, 2 heavy).
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool,
-		pressure: PackedInt32Array, tolling: PackedInt32Array) -> void:
+		pressure: PackedInt32Array, tolling: PackedInt32Array, rain: int) -> void:
 	var dead := ""
 	if pressure.size() >= 3 and pressure[0] > 0:
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
-	_state.text = "DUSKHOLD  ·  build step 6: rares and bounties\n%s  ·  Seed %d  ·  %d×%s%s" % [
-		time_of_day(clock), world_seed, speed, dead, _countdown(tolling)]
+	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
+	_state.text = "DUSKHOLD  ·  build step 6: rain\n%s%s  ·  Seed %d  ·  %d×%s%s" % [
+		time_of_day(clock), weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
 
