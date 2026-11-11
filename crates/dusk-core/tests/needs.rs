@@ -12,6 +12,7 @@ const HOUR: u32 = 25 * 60;
 const BREAD: u16 = 0;
 const WATER: u16 = 1;
 const BED: u16 = 1;
+const WELL: u16 = 2;
 
 fn defs() -> Defs {
     let item = |id: &str, kind| ItemDef {
@@ -40,6 +41,7 @@ fn defs() -> Defs {
             ),
         ],
         beds: vec![false, true],
+        wells: vec![false, false, true],
         kit: vec![Item::new(BREAD, 1), Item::new(WATER, 1)],
         ..Defs::default()
     }
@@ -264,4 +266,33 @@ fn starving_drains_you_and_the_fed_heal() {
         before - 60,
         "2 points an hour starving and 4 dying of thirst (health counts tenths)"
     );
+}
+
+/// A well is water to drink from, as a pond is; other furniture isn't.
+#[test]
+fn a_well_is_water_to_drink_from() {
+    let (mut w, me) = room();
+    let (here, east) = (TilePos::new(1, 0, 0), TilePos::new(2, 0, 0));
+    w.grid.set_tile(east, Tile::FLOOR);
+    assert!(
+        w.water_beside(here).is_none(),
+        "a bed beside you isn't water"
+    );
+    w.grid.set_tile(
+        east,
+        Tile {
+            fixture: WELL,
+            solid: true,
+            ..Tile::FLOOR
+        },
+    );
+    assert_eq!(w.water_beside(here), Some(east));
+    w.step(6 * HOUR);
+    assert!(w.actor(me).unwrap().body.thirst > 0, "thirsty by now");
+    let seen = act(&mut w, me, Intent::DrinkWater);
+    assert!(
+        seen.contains(&Event::DrankWater { who: me }),
+        "from the well"
+    );
+    assert_eq!(w.actor(me).unwrap().body.thirst, 0);
 }

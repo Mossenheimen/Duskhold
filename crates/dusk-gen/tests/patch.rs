@@ -377,3 +377,70 @@ fn the_tavern_was_full_when_the_dusk_came() {
         assert!((2..=5).contains(&dead), "seed {seed}: {dead} in the tavern");
     }
 }
+
+#[test]
+fn farms_lie_out_in_the_fields_with_a_track_to_the_road_a_well_and_wheat() {
+    use dusk_core::{Ground, TilePos};
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let f = region.farms.as_ref().expect("the Hushlands have farms");
+    let is_farm = |l: &dusk_gen::Lot| {
+        data.prefab(&l.prefab)
+            .is_some_and(|p| p.tags.contains(&f.tag))
+    };
+    for seed in 1..=8 {
+        let (w, layout) = patch(seed, &data, region);
+        let farms: Vec<_> = layout.lots.iter().filter(|l| is_farm(l)).collect();
+        assert!(farms.len() >= 2, "seed {seed}: {} farms", farms.len());
+        for farm in &farms {
+            // Out in the fields: a track at least off_road long, from its door to the road.
+            assert!(
+                farm.path.len() as i32 >= f.off_road.0,
+                "seed {seed}: a track of {}",
+                farm.path.len()
+            );
+            let end = *farm.path.last().unwrap();
+            let past = end.offset(0, if farm.north { 1 } else { -1 });
+            assert_eq!(
+                w.grid.tile(past).ground,
+                Ground::Road,
+                "seed {seed}: the track meets the road"
+            );
+            // Clear of every other lot by the gap, and of the river's whole course.
+            let (x0, y0, x1, y1) = farm.yard;
+            for other in layout.lots.iter().filter(|l| l.origin != farm.origin) {
+                let (a0, b0, a1, b1) = other.yard;
+                assert!(
+                    x0 - f.gap >= a1 || x1 + f.gap <= a0 || y0 - f.gap >= b1 || y1 + f.gap <= b0,
+                    "seed {seed}: a farm too near the {}",
+                    other.prefab
+                );
+            }
+            if let Some(river) = &layout.river {
+                let x = river.base as i32;
+                assert!(x1 + f.gap <= x - 12 || x0 - f.gap >= x + 12, "seed {seed}");
+            }
+            // One well, and a field of wheat that's walked through but not seen through.
+            let inside = farm.inside();
+            let (mut wells, mut wheat) = (0, 0);
+            for y in inside.y0..inside.y1 {
+                for x in inside.x0..inside.x1 {
+                    let t = w.grid.tile(TilePos::new(x, y, 0));
+                    wells += usize::from(w.defs.is_well(t.fixture));
+                    if data.fixture(t.fixture).is_some_and(|fx| fx.id == "wheat") {
+                        assert!(t.walkable() && t.blocks_sight());
+                        wheat += 1;
+                    }
+                }
+            }
+            assert_eq!(wells, 1, "seed {seed}: one well");
+            assert!(wheat >= 60, "seed {seed}: {wheat} tiles of wheat");
+            // Its dead are its own: none walk in from the open at the start.
+            let dead = w
+                .actors()
+                .filter(|(_, a)| !a.kind.is_character() && farm.inside().contains(a.pos))
+                .count();
+            assert!(dead <= 3, "seed {seed}: {dead} dead on a farm");
+        }
+    }
+}

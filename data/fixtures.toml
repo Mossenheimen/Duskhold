@@ -107,3 +107,28 @@ loot = "cellar"
 [[fixture]]
 id = "hearth"         # a stone hearth, cold (lighting a fire comes later)
 solid = true
+
+# The farms' (prefabs/farm.toml). water: you can drink from it, as from a pond.
+
+[[fixture]]
+id = "wheat"          # tall wheat, never harvested: you walk through it, but nobody sees through it
+opaque = true
+
+[[fixture]]
+id = "well"
+solid = true
+water = true
+
+[[fixture]]
+id = "sack"           # sacks of the harvest
+solid = true
+loot = "harvest"
+
+[[fixture]]
+id = "hay"            # bales
+solid = true
+
+[[fixture]]
+id = "tools"          # a rack of farm tools
+solid = true
+loot = "farm"

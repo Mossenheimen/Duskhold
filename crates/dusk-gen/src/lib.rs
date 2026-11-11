@@ -1,6 +1,7 @@
 //! Duskhold's world generation: a patch of a region, from a seed.
 //!
-//! First the large-scale layout, once: the road and the town's lots. Then every tile is a
+//! First the large-scale layout, once: the road, the town's lots, the holdout, the river and
+//! the farms out in the fields. Then every tile is a
 //! function of the seed, the layout and its place alone, so a chunk comes out the same whatever
 //! order chunks are made in (`ARCHITECTURE.md`, world generation). Last, the dead: some in the
 //! buildings, by lot, and some in the open, by chunk.
@@ -159,7 +160,116 @@ impl Layout {
             layout.lots.push(abbey);
         }
         layout.river = layout.place_river();
+        let farms = layout.place_farms(data);
+        layout.lots.extend(farms);
         layout
+    }
+
+    /// The region's farms (`[farms]`): each a farmstead out in the fields, its front toward the
+    /// road and its fence `off_road` tiles from it, with a track from its door to the road.
+    /// Where, by the seed: anywhere that keeps `gap` tiles clear of every other lot and of the
+    /// river's whole course, with a track that crosses no lot. A farm that finds no room in its
+    /// tries isn't there.
+    fn place_farms(&self, data: &Data) -> Vec<Lot> {
+        let Some(f) = self.region.farms.as_ref() else {
+            return Vec::new();
+        };
+        let choices: Vec<_> = data
+            .prefabs
+            .iter()
+            .filter(|p| p.tags.contains(&f.tag))
+            .collect();
+        let yard = self.region.hamlet.yard;
+        // The river's whole course, west to east, wherever it bends: [from, to).
+        let river = self.river.as_ref().map(|r| {
+            let reach = r.sway.ceil() as i32 + r.half + 1;
+            let base = r.base.round() as i32;
+            (base - reach, base + reach + 1)
+        });
+        let mut farms: Vec<Lot> = Vec::new();
+        for k in 0..i64::from(f.count) {
+            for attempt in 0..48 {
+                let roll = |what: i64| hash(self.seed, Layer::Farm, k * 64 + attempt, what);
+                let Some(&prefab) = choices.get((roll(0) % choices.len().max(1) as u64) as usize)
+                else {
+                    return farms;
+                };
+                // North of the road or south of it, mirrored or not, turned to face it.
+                let north = roll(1) % 2 == 0;
+                let (mut grid, mut front) = if roll(2) % 2 == 1 {
+                    (prefab.grid.mirrored(), prefab.front.mirrored())
+                } else {
+                    (prefab.grid.clone(), prefab.front)
+                };
+                let facing = if north { Side::South } else { Side::North };
+                while front != facing {
+                    grid = grid.rotated();
+                    front = front.turned();
+                }
+                let (w, d) = (grid.width + 2 * yard, grid.height + 2 * yard);
+                let x0 = 1 + (roll(3) % (self.width - 2 - w).max(1) as u64) as i32;
+                let x1 = x0 + w;
+                let (near, far) = f.off_road;
+                let off = near + (roll(4) % (far - near + 1) as u64) as i32;
+                let (y0, y1) = if north {
+                    let top = (x0..x1).map(|x| self.road_rows(x).0).min().unwrap_or(0);
+                    (top - off - d, top - off)
+                } else {
+                    let bottom = (x0..x1).map(|x| self.road_rows(x).1).max().unwrap_or(0);
+                    (bottom + 1 + off, bottom + 1 + off + d)
+                };
+                if x0 < 1 || y0 < 1 || x1 > self.width - 1 || y1 > self.height - 1 {
+                    continue;
+                }
+                let (g0, g1) = (x0 - f.gap, x1 + f.gap);
+                if river.is_some_and(|(r0, r1)| g0 < r1 && g1 > r0) {
+                    continue;
+                }
+                let crowded = |l: &Lot| {
+                    let (a0, b0, a1, b1) = l.yard;
+                    g0 < a1 && g1 > a0 && y0 - f.gap < b1 && y1 + f.gap > b0
+                };
+                if self.lots.iter().chain(&farms).any(crowded) {
+                    continue;
+                }
+                // Its door, and the track from it to the road.
+                let origin = TilePos::new(x0 + yard, y0 + yard, 0);
+                let doors = doors_on(&grid, facing);
+                let Some(&along) = doors.get(doors.len() / 2) else {
+                    continue;
+                };
+                let (door, step) = if north {
+                    (origin.offset(along, grid.height - 1), 1)
+                } else {
+                    (origin.offset(along, 0), -1)
+                };
+                let mut path = Vec::new();
+                let mut at = door.offset(0, step);
+                while !self.is_road(at.x, at.y) && (0..self.height).contains(&at.y) {
+                    path.push(at);
+                    at = at.offset(0, step);
+                }
+                let through_a_lot =
+                    |p: &TilePos| self.lots.iter().chain(&farms).any(|l| l.in_yard(p.x, p.y));
+                if path.iter().any(through_a_lot) {
+                    continue;
+                }
+                farms.push(Lot {
+                    prefab: prefab.id.clone(),
+                    name: prefab.name.clone(),
+                    dead: prefab.dead.unwrap_or(self.region.dead.per_house),
+                    grid,
+                    origin,
+                    yard: (x0, y0, x1, y1),
+                    north,
+                    door,
+                    path,
+                    holdout: false,
+                });
+                break;
+            }
+        }
+        farms
     }
 
     /// The region's river: east of the town if there's room there, else between the holdout

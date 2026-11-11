@@ -7,6 +7,7 @@
 
 mod barricade;
 mod class;
+mod farm;
 mod fever;
 mod holdout;
 mod home;
@@ -22,6 +23,7 @@ mod skills;
 mod tolling;
 mod weather;
 
+pub use farm::FarmsFile;
 pub use rare::RaresFile;
 pub use remains::PressureFile;
 pub use river::RiverFile;
@@ -89,6 +91,9 @@ pub struct Fixture {
     /// A counter: the holdout that trades over it (`holdouts.toml`).
     #[serde(default)]
     pub trade: Option<String>,
+    /// Water to drink from, as a pond is: a well.
+    #[serde(default)]
+    pub water: bool,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -187,6 +192,9 @@ pub struct Region {
     /// Its river, if a patch has one.
     #[serde(default)]
     pub river: Option<RiverFile>,
+    /// Its farms, if a patch has any.
+    #[serde(default)]
+    pub farms: Option<FarmsFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -1072,6 +1080,14 @@ fn check_region(
         Some(problem)
     } else if let Some(problem) = r.river.as_ref().and_then(RiverFile::problem) {
         Some(problem)
+    } else if let Some(problem) = r.farms.as_ref().and_then(FarmsFile::problem) {
+        Some(problem)
+    } else if let Some(f) = r
+        .farms
+        .as_ref()
+        .filter(|f| !prefabs.iter().any(|p| p.tags.contains(&f.tag)))
+    {
+        Some(format!("farms.tag: no prefab has the tag {:?}", f.tag))
     } else if let Some(t) = r
         .tolling
         .as_ref()

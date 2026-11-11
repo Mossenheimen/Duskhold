@@ -122,3 +122,13 @@ weight = 0.3
 worth = 3
 stack = 4
 food = { nutrition = 30, time = 3.0 }
+
+# The farms' (loot/farm.toml).
+
+[[item]]
+id = "turnip"
+name = "turnip"
+weight = 0.25
+worth = 1
+stack = 10
+food = { nutrition = 12, time = 2.0 }

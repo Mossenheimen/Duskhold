@@ -103,3 +103,13 @@ sway = 9              # the most it strays east or west of its line, in tiles
 bend = 48.0           # tiles between its bends
 fords = 2
 margin = 6            # tiles it keeps clear of the hamlet's lots
+
+[farms]
+# Farmsteads out in the fields (prefabs/farm.toml): a farmhouse and its barn about a farmyard
+# with a well, and a field of tall wheat that nobody sees through. Each faces the road, a track
+# from its gate to it, wherever it keeps clear of the town, the abbey, the river and the others.
+# Out here the dead are few, and there's water at the well: a place to make a home.
+tag = "farm"
+count = 3
+off_road = [16, 48]   # tiles from the road to a farm's fence: the fewest and the most
+gap = 10              # tiles a farm keeps clear of every other lot, and of the river

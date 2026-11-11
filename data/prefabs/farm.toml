@@ -1,0 +1,64 @@
+# The Hushlands' farms, as text grids (crates/dusk-core/src/text.rs; the edges and cells are read
+# as in hamlet.toml). The region asks for them by tag (regions/hushlands.toml, [farms]): each out
+# in the fields, its front toward the road, a track from its door to it.
+#
+# A farmstead: the farmhouse (the town's old one), its barn about a farmyard with a well, and
+# behind them a field of tall wheat nobody sees through, in pairs of rows with a furrow between.
+# The fence round it all is the lot's, as a house's yard is. Its dead may be in the wheat.
+# The + all round only marks its edge (a corner with no wall to it is open ground).
+
+[legend]
+"." = { ground = "floor" }
+":" = { ground = "dirt" }
+"*" = { ground = "dirt", fixture = "wheat" }
+"o" = { ground = "dirt", fixture = "well" }
+"q" = { ground = "dirt", fixture = "hay" }
+"y" = { ground = "floor", fixture = "hay" }
+"g" = { ground = "floor", fixture = "sack" }
+"x" = { ground = "floor", fixture = "tools" }
+"b" = { ground = "floor", fixture = "bed" }
+"a" = { ground = "floor", fixture = "wardrobe" }
+"c" = { ground = "floor", fixture = "cupboard" }
+"t" = { ground = "floor", fixture = "table" }
+"h" = { ground = "floor", fixture = "chair" }
+"s" = { ground = "floor", fixture = "stove" }
+"k" = { ground = "floor", fixture = "crate" }
+"r" = { ground = "floor", fixture = "barrel" }
+
+[[prefab]]
+id = "farmstead"
+name = "a farmstead"
+tags = ["farm"]
+front = "south"
+dead = [1, 3]
+grid = """
++ + + + + + + + + + + + + + + + + + + + +
+ * * * * * * * * * * * * * * * * * * * * 
++                                       +
+ * * * * * * * * * * * * * * * * * * * * 
++                                       +
+ : : : : : : : : : : : : : : : : : : : : 
++                                       +
+ * * * * * * * * * * * * * * * * * * * * 
++                                       +
+ * * * * * * * * * * * * * * * * * * * * 
++                                       +
+ : : : : : : : : : : : : : : : : : : : : 
++                                       +
+ * * * * * * * * * * * * * * * * * * * * 
++                                       +
+ : : : : : : : : : : : : : : : : : : : : 
++-+-+-+-+-+-+       +-+-+-+-+-+-+-+d+-+-+
+|k . . . y y|: : : :|b b a .|s c c . . r|
++           +       +       +           +
+|x . . . . y|: o : :W. . . .|. . . . . .|
++           +       +-+d+-+-+-+d+-+-+-+-+
+|. . . . . .d: : : :|. . . . . . .|k k r|
++           +       +             +     +
+Wg . . . . .d: : : :|h t t h . . .d. . .|
++           +       +             +     +
+|g . . . . .|: : : q|. . . . . . .|. . k|
++           +       +             +     +
+|g . . . y k|: : : :|a . . . . . .|r . .W
++-+-+-+-+-+-+ + + + +-+W+-+d+-+-+W+-+-+-+
+"""

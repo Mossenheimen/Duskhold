@@ -1,0 +1,23 @@
+# What the farms hold (prefabs/farm.toml; the fixtures name their tables in fixtures.toml).
+# Read as hamlet.toml is. A farm is worth the walk for food in plenty and a tool to fight with;
+# its farmhouse's cupboards, wardrobes and barrels fill from hamlet.toml's tables, as a house's do.
+
+[[loot]]
+id = "harvest"        # sacks in the barn: what was got in before the Dusk
+rolls = [1, 2]
+items = [
+  { item = "turnip", weight = 4, count = [2, 6] },
+  { item = "apple", weight = 3, count = [2, 6] },
+  { item = "jerky", weight = 1, count = [1, 3] },
+]
+
+[[loot]]
+id = "farm"           # the barn's tool rack: always a tool to fight with
+rolls = [1, 1]
+items = [
+  { item = "scythe", weight = 3, magic = 0.1 },
+  { item = "pitchfork", weight = 3, magic = 0.1 },
+  { item = "shovel", weight = 2, magic = 0.1 },
+  { item = "wood_axe", weight = 1, magic = 0.1 },
+  { item = "hand_axe", weight = 1, magic = 0.1 },
+]

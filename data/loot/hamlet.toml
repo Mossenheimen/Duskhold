@@ -20,11 +20,13 @@ items = [
 id = "bedroom"        # wardrobes
 rolls = [0, 2]
 items = [
-  { item = "rag", weight = 4, count = [1, 3] },
-  { item = "bandage", weight = 2, count = [1, 2] },
-  { item = "coins", weight = 3, count = [3, 20] },
-  { item = "candle", weight = 1 },
-  { item = "tincture", weight = 3 },   # one to four in a patch: rare, but always one to find
+  { item = "rag", weight = 8, count = [1, 3] },
+  { item = "bandage", weight = 4, count = [1, 2] },
+  { item = "coins", weight = 6, count = [3, 20] },
+  { item = "candle", weight = 2 },
+  # About three in a patch, with the farms' bedrooms: rare, but nearly always one to find
+  # (`dusk-cli gen` counts them).
+  { item = "tincture", weight = 3 },
 ]
 
 [[loot]]
@@ -61,5 +63,5 @@ items = [
   { item = "bandage", weight = 2 },
   { item = "jerky", weight = 2, count = [1, 3] },
   { item = "nails", weight = 1, count = [2, 10] },
-  { item = "tincture", weight = 2 },
+  { item = "tincture", weight = 1 },
 ]

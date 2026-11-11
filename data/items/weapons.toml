@@ -84,3 +84,13 @@ weight = 2.0
 worth = 16
 # Two blows fell a shambler nearly every time (not always, as the wood axe does), and it hardly wears.
 weapon = { wind_up = 0.55, recovery = 0.75, endurance = 13, hit = 0.85, damage = [13, 21], noise = 7, wear = 0.4, skill = "blunt" }
+
+# The farms' (loot/farm.toml).
+
+[[item]]
+id = "scythe"
+name = "scythe"
+weight = 3.0
+worth = 8
+# Slow and tiring, but it cuts deep: a blade for those without a sword.
+weapon = { wind_up = 0.7, recovery = 0.9, endurance = 15, hit = 0.8, damage = [12, 20], noise = 6, wear = 1.0, skill = "blade" }

@@ -405,6 +405,9 @@ pub(crate) fn load_defs(
         beds: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.bed))
             .collect(),
+        wells: std::iter::once(false)
+            .chain(fixtures.iter().map(|f| f.water))
+            .collect(),
         wield,
         kit: Vec::new(),
         carry: (kit.carry * 1000.0).round().max(0.0) as u32,

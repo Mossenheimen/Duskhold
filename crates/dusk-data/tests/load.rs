@@ -938,3 +938,66 @@ fn the_market_towns_shops_have_their_own_wares_in_the_games_data() {
         dusk_core::ItemKind::Food { .. }
     ));
 }
+
+#[test]
+fn the_farms_have_wheat_a_well_and_tools_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let region = data.region("hushlands").unwrap();
+    let farms = region.farms.as_ref().expect("the Hushlands have farms");
+    assert_eq!(
+        (farms.tag.as_str(), farms.count, farms.off_road),
+        ("farm", 3, (16, 48))
+    );
+    let farm = data
+        .prefabs
+        .iter()
+        .find(|p| p.tags.contains(&farms.tag))
+        .expect("a farmstead");
+    assert_eq!(
+        (farm.name.as_str(), farm.dead),
+        ("a farmstead", Some((1, 3)))
+    );
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    let wheat = &data.fixtures[fixture("wheat") - 1];
+    assert!(
+        !wheat.solid && wheat.opaque,
+        "wheat: walked through, not seen through"
+    );
+    assert!(d.is_well(fixture("well") as u16) && !d.is_well(fixture("barrel") as u16));
+    for (f, table) in [("sack", "harvest"), ("tools", "farm")] {
+        let t = d.containers[fixture(f)].unwrap_or_else(|| panic!("a {f} is a container"));
+        assert_eq!(d.loot[usize::from(t)].id, table, "{f}");
+    }
+    let scythe = d.items.iter().find(|i| i.id == "scythe").unwrap();
+    assert!(matches!(
+        scythe.kind,
+        dusk_core::ItemKind::Weapon {
+            skill: Some(dusk_core::Skill::Blade),
+            ..
+        }
+    ));
+    // The farmhouse and its barn are out on the farms now, not in the town.
+    assert!(data.prefab("farmhouse").is_none() && data.prefab("barn").is_none());
+}
+
+#[test]
+fn a_regions_farms_must_make_sense() {
+    for (bad, says) in [
+        (
+            "tag = \"house\"\ncount = 1\noff_road = [5, 2]\ngap = 2",
+            "farms:",
+        ),
+        (
+            "tag = \"barn\"\ncount = 1\noff_road = [2, 5]\ngap = 2",
+            "farms.tag",
+        ),
+    ] {
+        let region = format!("{REGION}[farms]\n{bad}\n");
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "regions/test.toml");
+        files.push(("regions/test.toml", &region));
+        let err = load(&folder("farms", &files)).unwrap_err();
+        assert!(err.message.contains(says), "{err}");
+    }
+}

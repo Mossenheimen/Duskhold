@@ -287,6 +287,8 @@ fn draw_map(world: &World, width: i32, height: i32, scale: usize, path: &Path) {
             let tile = world.grid.tile(at);
             let fill = match (tile.fixture, tile.ground) {
                 (1, _) => [38, 66, 40], // a tree (the first fixture in the data)
+                // Crops: walked through, but not seen through.
+                (f, _) if f > 0 && !tile.solid && tile.opaque => [176, 150, 72],
                 (f, _) if f > 0 => [92, 62, 40],
                 (_, Ground::Void) => [18, 20, 26],
                 (_, Ground::Grass) => [92, 112, 74],

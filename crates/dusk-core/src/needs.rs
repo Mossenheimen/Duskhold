@@ -228,14 +228,16 @@ impl World {
         })
     }
 
-    /// Water within reach of a tile: a side of it that's a pond, a stream...
+    /// Water within reach of a tile: a side of it that's a pond, a stream, a well...
     pub fn water_beside(&self, pos: TilePos) -> Option<TilePos> {
-        // The shallows you stand in, else water beside you, deep or shallow.
+        // The shallows you stand in, else water beside you, deep or shallow, or a well.
         if self.grid.tile(pos).ground == Ground::Shallows {
             return Some(pos);
         }
         Dir8::ALL.iter().map(|&d| pos.step(d)).find(|&at| {
-            matches!(self.grid.tile(at).ground, Ground::Water | Ground::Shallows)
+            let tile = self.grid.tile(at);
+            (matches!(tile.ground, Ground::Water | Ground::Shallows)
+                || self.defs.is_well(tile.fixture))
                 && within_reach(&self.grid, pos, at)
         })
     }

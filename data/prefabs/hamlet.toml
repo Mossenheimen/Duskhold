@@ -1,5 +1,6 @@
 # The Hushlands' town houses and outbuildings, and its chapel, as text grids
-# (crates/dusk-core/src/text.rs). Its shops are in town.toml.
+# (crates/dusk-core/src/text.rs). Its shops are in town.toml; the farms, out in the fields, in
+# farm.toml.
 #
 # Edges: - and | walls, D/d a shut/open door, W/w a shut/open window, f a fence, a space open.
 # Cells come from the legend below; a space cell leaves the land as it was.
@@ -56,48 +57,6 @@ W. . . . . . . . .W
 +                 +
 |a . . . . h h h e|
 +-+-+-+-+d+-+-+-+-+
-"""
-
-[[prefab]]
-id = "farmhouse"
-name = "a farmhouse"
-tags = ["house"]
-front = "south"
-grid = """
-+-+-+-+-+-+-+-+d+-+-+
-|b b a .|s c c . . r|
-+       +           +
-W. . . .|. . . . . .|
-+-+d+-+-+-+d+-+-+-+-+
-|. . . . . . .|k k r|
-+             +     +
-|h t t h . . .d. . .|
-+             +     +
-|. . . . . . .|. . k|
-+             +     +
-|a . . . . . .|r . .W
-+-+W+-+d+-+-+W+-+-+-+
-"""
-
-[[prefab]]
-id = "barn"
-name = "a barn"
-tags = ["outbuilding"]
-front = "south"
-grid = """
-+-+-+-+-+-+-+-+
-|k k . . . r r|
-+             +
-|. . . . . . .|
-+             +
-W. . . . . . .W
-+             +
-|. . . . . . .|
-+             +
-|r . . . . . k|
-+             +
-|k k . . . . k|
-+-+-+d+d+d+-+-+
 """
 
 [[prefab]]

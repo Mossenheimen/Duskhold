@@ -1071,6 +1071,24 @@ Game first: every step ends with something to look at or play.
        - **measured:**
          - the patch runs at about 255k ticks a second (from about 270k: it holds more of the dead);
          - at the Tolling, 45 to 50 of the 52 to 57 dead in reach gather within 15 tiles of the bell (seeds 1 to 3), as before.
+     - **The farms** (2026-11-11; 192 tests pass):
+       - **a farmstead** (`prefabs/farm.toml`, tag `farm`): the town's old farmhouse and a barn about a dirt farmyard with a well and hay; behind them, a field of tall wheat in pairs of rows with a furrow between. The farmhouse and the barn have left the town for the farms. The fence round it all is the lot's, as a house's yard is, and its gate opens onto its track;
+       - **tall wheat** (a fixture that's opaque but not solid): you walk through it, but nobody sees through it, you or the dead. A farm's dead (1 to 3, the prefab's own) may be standing in it;
+       - **a well** (a fixture with `water = true`; `Defs::wells`, `is_well`): water to drink from, as a pond is (`World::water_beside`). A farm can be a home with no walk to the river;
+       - **where** (`Layout::place_farms`, a region's `[farms]`): three, each 16 to 48 tiles off the road, north or south of it, mirrored or not and turned to face it. A farm goes anywhere that keeps 10 tiles clear of every other lot and of the river's whole course, with a track from its door to the road that crosses no lot. Each has 48 tries; one that finds no room isn't there. All three found room in seeds 1 to 8;
+       - **their loot** (`loot/farm.toml`):
+         - the barn's sacks hold the harvest: new turnips, apples, dried meat;
+         - its tool rack always holds a tool to fight with: the new scythe (a slow, tiring blade that cuts deep), or a pitchfork, a shovel or an axe;
+         - the farmhouse's cupboards, wardrobes and barrels fill as a house's do;
+       - **the cure, rebalanced:** the farms' bedrooms put five cures for the fever in a patch on average, against the design's one to four. The wardrobes' and shelves' chance of one was cut: now 1 to 5 in seeds 1 to 12 (a mean of 3.25), and never none;
+       - **the save format** is version 12: the land changed;
+       - **the client:** the farms' furniture (wheat drawn thinner than its tile, since it's walked through); the patch's map image draws crops gold;
+       - **checked:**
+         - by tests: seeds 1 to 8 have their farms (three each), each with a track at least 16 tiles long that meets the road, clear of every lot and of the river, with one well and at least 60 tiles of wheat that's walked through and not seen through; a well is water to drink from; the data's farms load; a bad `[farms]` is refused;
+         - on screen: a picture in a farmyard at noon on seed 1 shows the HUD's "in a farmstead", the well, the hay, and the first row of wheat with nothing seen past it;
+       - **measured:**
+         - a patch is made in about 55 ms (from 52) and runs at about 243k ticks a second (from 255k: the farms' dead);
+         - at the Tolling, 47 to 56 of the 56 to 62 dead in reach gather within 15 tiles of the bell (seeds 1 to 3).
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

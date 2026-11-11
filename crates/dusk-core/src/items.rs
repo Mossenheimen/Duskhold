@@ -115,6 +115,8 @@ pub struct Defs {
     pub containers: Vec<Option<u16>>,
     /// By fixture number: whether it's a bed (sleep beside one rests you twice as fast).
     pub beds: Vec<bool>,
+    /// By fixture number: whether it's water to drink from, as a pond is (a well).
+    pub wells: Vec<bool>,
     /// What a character starts with: in hand, and carried.
     pub wield: Option<u16>,
     pub kit: Vec<Item>,
@@ -164,6 +166,7 @@ impl Default for Defs {
             loot: Vec::new(),
             containers: Vec::new(),
             beds: Vec::new(),
+            wells: Vec::new(),
             wield: None,
             kit: Vec::new(),
             carry: 0,
@@ -199,6 +202,14 @@ impl Defs {
     /// Whether a fixture is a bed.
     pub fn is_bed(&self, fixture: u16) -> bool {
         self.beds
+            .get(usize::from(fixture))
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// Whether a fixture is water to drink from (a well).
+    pub fn is_well(&self, fixture: u16) -> bool {
+        self.wells
             .get(usize::from(fixture))
             .copied()
             .unwrap_or(false)
