@@ -18,6 +18,8 @@ const GROUND := [
 	Color(0.52, 0.48, 0.4),  # road
 	Color(0.2, 0.3, 0.38),  # water
 	Color(0.47, 0.35, 0.24),  # a floor: planks
+	Color(0.3, 0.42, 0.47),  # shallows: water you can wade
+	Color(0.4, 0.29, 0.18),  # a bridge: darker planks over the water
 ]
 const WALL := Color(0.66, 0.63, 0.57)
 const DOOR := Color(0.38, 0.25, 0.15)
@@ -171,7 +173,7 @@ func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void
 		for x in size:
 			var ground := tiles[y * size + x] & 15
 			var colour: Color = GROUND[ground].darkened(_shade(origin.x + x, origin.y + y))
-			colour.a = 0.5 if ground == 4 else 1.0  # water shines
+			colour.a = 0.5 if ground == 4 or ground == 6 else 1.0  # water shines, shallow or deep
 			image.set_pixel(x, y, colour)
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/ground.gdshader")

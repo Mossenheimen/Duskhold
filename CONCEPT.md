@@ -560,6 +560,7 @@ Before classes, spells, quests and other regions: is surviving the Hushlands ten
 The first playable:
 
 - the Hushlands as a small open map: a market town, farms, a stretch of forest, a river, the abbey holdout;
+  - *(built 2026-11-11)* **the river:** north to south beside the hamlet, deep in the middle, crossed by the road on a bridge and by two fords. Wading is half pace and loud, for you and for the dead, so the bridge is a choke point and a ford a gamble. You can drink from the shallows;
 - Zomboid's day and night, and rain;
 - base-building basics: board the windows, barricade the doors, a bed, storage, a fire;
 - the dead: shamblers and ghouls, the Tolling (the first siege on the calendar), a handful of rare affixes, revenants;

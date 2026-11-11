@@ -21,6 +21,11 @@ pub enum Ground {
     Water,
     /// A built floor.
     Floor,
+    /// Water shallow enough to wade: a ford, a river's edge. Slow going, and loud
+    /// (`Rules::shallows`), and you can drink from it.
+    Shallows,
+    /// Planks over water: a bridge, walked as a road is.
+    Bridge,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

@@ -29,8 +29,8 @@ pub struct Cell {
     pub marker: Option<char>,
 }
 
-/// The default legend: `.` a floor (indoors), `,` grass, `:` dirt, `=` road, `~` water, `#`
-/// rock (or furniture), a space nothing at all. A letter or `@` marks a floor tile (tests and the
+/// The default legend: `.` a floor (indoors), `,` grass, `:` dirt, `=` road, `~` water, `;`
+/// shallows, `_` a bridge, `#` rock (or furniture), a space nothing at all. A letter or `@` marks a floor tile (tests and the
 /// demo use `@` for the character and `z` for a shambler).
 pub fn default_legend(ch: char) -> Option<Cell> {
     let outdoors = |ground| Tile {
@@ -43,6 +43,8 @@ pub fn default_legend(ch: char) -> Option<Cell> {
         ':' => outdoors(Ground::Dirt),
         '=' => outdoors(Ground::Road),
         '~' => outdoors(Ground::Water),
+        ';' => outdoors(Ground::Shallows),
+        '_' => outdoors(Ground::Bridge),
         '#' => Tile::ROCK,
         ' ' => Tile::VOID,
         c if c == '@' || c.is_ascii_alphabetic() => {
@@ -341,6 +343,8 @@ pub fn tile_symbol(tile: Tile) -> char {
         Ground::Road => '=',
         Ground::Water => '~',
         Ground::Floor => '.',
+        Ground::Shallows => ';',
+        Ground::Bridge => '_',
     }
 }
 

@@ -63,6 +63,24 @@ pub struct Rules {
     pub fever: Fever,
     /// Burning the dead (`remains.rs`).
     pub burning: Burning,
+    /// Wading through shallows: how fast, and how loud.
+    pub shallows: Shallows,
+}
+
+/// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Shallows {
+    pub pace: u32,
+    pub noise: u32,
+}
+
+impl Default for Shallows {
+    fn default() -> Shallows {
+        Shallows {
+            pace: 500,
+            noise: 1500,
+        }
+    }
 }
 
 /// A swing's numbers: its wind-up (the tell) and recovery, in ticks; the endurance it costs (out
@@ -267,6 +285,7 @@ impl Default for Rules {
             deeds: Deeds::default(),
             fever: Fever::default(),
             burning: Burning::default(),
+            shallows: Shallows::default(),
         }
     }
 }
@@ -1087,6 +1106,7 @@ impl World {
             } else {
                 STRAIGHT
             };
+            let wade = self.grid.tile(to).ground == crate::grid::Ground::Shallows;
             a.step = Some(Step {
                 from: a.pos,
                 to,
@@ -1094,6 +1114,7 @@ impl World {
                 progress: a.carry,
                 length,
                 run,
+                wade,
             });
             a.carry = 0;
             self.occupied.insert(to, id);
@@ -1107,6 +1128,11 @@ impl World {
         if let (true, Some(pace)) = (night, night_pace) {
             speed = speed * pace / 1000;
         }
+        // Wading is slow going, for everyone.
+        let wading = step.wade;
+        if wading {
+            speed = speed * rules.shallows.pace / 1000;
+        }
         step.progress += speed / TICKS_PER_SECOND;
         if step.progress < step.length {
             a.step = Some(step);
@@ -1119,6 +1145,14 @@ impl World {
             rules.run_noise
         } else {
             rules.walk_noise
+        });
+        // A splash carries farther than a footstep.
+        let footsteps = footsteps.map(|n| {
+            if wading {
+                (i64::from(n) * i64::from(rules.shallows.noise) / 1000) as i32
+            } else {
+                n
+            }
         });
         self.occupied.remove(&step.from);
         if let Some(loudness) = footsteps {

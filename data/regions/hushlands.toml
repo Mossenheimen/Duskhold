@@ -89,3 +89,14 @@ sound = [0.75, 0.5]   # how far a sound outdoors carries: in rain, in heavy rain
 scent = [0.5, 0.2]    # how far blood outdoors is smelled
 sky = [0.75, 0.55]    # the sky's light
 douse = [0.02, 0.08]  # the chance a minute a light held up outdoors goes out
+
+[river]
+# A river north to south across the patch, beside the hamlet (east of it if there's room). Deep
+# water nobody crosses, a tile of shallows at each bank, a bridge where the road meets it, and
+# fords: rows shallow all the way across. Wading is slow and loud (rules.toml, [shallows]), so a
+# ford is a gamble and the bridge a choke point, for you and for the dead.
+width = 5             # tiles of deep water across
+sway = 9              # the most it strays east or west of its line, in tiles
+bend = 48.0           # tiles between its bends
+fords = 2
+margin = 6            # tiles it keeps clear of the hamlet's lots

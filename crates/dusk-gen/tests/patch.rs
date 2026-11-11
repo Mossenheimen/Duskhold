@@ -210,3 +210,48 @@ fn each_patch_has_its_rares_far_from_the_start_each_named_once() {
         }
     }
 }
+
+#[test]
+fn the_river_has_its_bridge_and_fords_clear_of_the_hamlet_and_the_far_bank_is_reached() {
+    use dusk_core::{Ground, TilePos};
+    for seed in 1..=6 {
+        let (w, layout) = make(seed);
+        let river = layout.river.as_ref().expect("a river");
+        assert_eq!(river.fords.len(), 2, "seed {seed}: two fords");
+        let x = river.base as i32;
+        // Its rows: deep water across most of them, a bridge on the road.
+        let deep = (0..layout.height)
+            .filter(|&y| {
+                (x - 12..=x + 12)
+                    .any(|x| w.grid.tile(TilePos::new(x, y, 0)).ground == Ground::Water)
+            })
+            .count();
+        assert!(
+            deep > layout.height as usize * 3 / 4,
+            "seed {seed}: deep most of the way"
+        );
+        let bridge = (0..layout.height).any(|y| {
+            (x - 12..=x + 12).any(|x| w.grid.tile(TilePos::new(x, y, 0)).ground == Ground::Bridge)
+        });
+        assert!(bridge, "seed {seed}: the road crosses on a bridge");
+        // No lot within its sway of it.
+        for lot in &layout.lots {
+            let (x0, _, x1, _) = lot.yard;
+            assert!(
+                x1 + 6 <= x - 9 - 3 || x0 - 6 >= x + 9 + 3,
+                "seed {seed}: {} too near",
+                lot.prefab
+            );
+        }
+        // The far bank: a tile 20 east of the river, reached from the start on foot.
+        let far = TilePos::new((x + 20).min(layout.width - 2), layout.start.y, 0);
+        let far = (0..40)
+            .map(|k| far.offset(0, k - 20))
+            .find(|&p| w.grid.tile(p).walkable())
+            .expect("somewhere to stand over there");
+        assert!(
+            find_path(&w.grid, layout.start, far, 60_000).is_some(),
+            "seed {seed}"
+        );
+    }
+}

@@ -214,6 +214,8 @@ pub struct Step {
     pub progress: u32,
     pub length: u32,
     pub run: bool,
+    /// Into shallows: slow going, and a splash (`Rules::shallows`). Settled as the step starts.
+    pub wade: bool,
 }
 
 /// A creature's thoughts.

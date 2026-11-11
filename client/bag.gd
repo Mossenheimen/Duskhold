@@ -53,10 +53,10 @@ var _shown_counter := []  # the counter within reach and what it sells, as last 
 
 func _ready() -> void:
 	_pack_panel = _panel(Control.PRESET_BOTTOM_RIGHT)
-	_pack_panel.position.y -= 100.0  # above the controls, as the other panel is
+	_pack_panel.position.y -= 125.0  # above the legend and the controls, as the other panel is
 	_pack = _pack_panel.get_child(0)
 	_reach_panel = _panel(Control.PRESET_BOTTOM_LEFT)
-	_reach_panel.position.y -= 100.0  # above the legend
+	_reach_panel.position.y -= 125.0  # above the legend and the controls
 	_reach_panel.visible = false  # until something's within reach
 	_reach = _reach_panel.get_child(0)
 

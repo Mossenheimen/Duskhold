@@ -15,6 +15,8 @@ pub enum Layer {
     Dead = 6,
     DeadKind = 7,
     Rare = 8,
+    River = 9,
+    Ford = 10,
 }
 
 /// A hash of (seed, layer, a, b): every input bit stirs every output bit.

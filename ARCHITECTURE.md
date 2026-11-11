@@ -1035,6 +1035,22 @@ Game first: every step ends with something to look at or play.
          - a class's starting kit (the rules' kit is everyone's);
          - shields, so Brace and Shield Bash as the design names them (Bash is a harder shove for now);
          - a holdout trainer re-picking talents for coin.
+   - **The rest of the first playable** (`CONCEPT.md`'s list), in slices: the river; the market town; farms; a fire for your base; the pain and dread moodles.
+     - **The river** (2026-11-11; 184 tests pass):
+       - **two new grounds** (`Ground::Shallows`, `Ground::Bridge`, `;` and `_` in text grids):
+         - **shallows** are walkable. A step into them goes at half pace for everyone, the dead too, and a splash carries half as far again as a footstep (rules.toml's `[shallows]`, `Rules::shallows`; settled as the step starts, `Step::wade`). You can drink standing in them (`water_beside`);
+         - **a bridge** is planks over water, walked as a road;
+       - **the river** (`dusk-gen`, `Layout::place_river`, `river_at`; a region's `[river]`):
+         - **where:** north to south across the patch, east of the hamlet if there's room, else between the holdout and the hamlet, clear of every lot by its margin, wherever it bends;
+         - **its course:** its middle line bends by smooth noise (stretched, so it uses its whole sway);
+         - **across:** deep water in the middle (5 tiles), a tile of shallows at each bank;
+         - **fords:** two rows by the seed, at least 20 tiles from the bridge and 24 from each other, shallow all the way across;
+         - **the bridge:** where the road meets the river, the road wins, as bridge planks;
+       - **what it does:** the far bank is reached by the bridge, a choke point, or by a ford, slow and loud. The dead go round by the same ways (the paths and the Tolling's field already avoid deep water). At the Tolling, 46 to 50 of the dead in reach still gather within 15 tiles of the bell (seeds 1 to 3);
+       - **the save format** is version 10: the land itself changed, so an older save would have a river through it;
+       - **the client:** shallows drawn as lighter water, a bridge as dark planks. The controls are now three lines (they ran off the screen), with both panels lifted clear of them;
+       - **checked:** the patch's map image shows the river, its bridge and its fords (seeds 1 and 2). A picture at the bridge didn't get there: the walk was caught by a shambler in the hamlet;
+       - **measured:** no change to a tick (wading is settled once a step).
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

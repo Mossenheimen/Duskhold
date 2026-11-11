@@ -417,6 +417,8 @@ fn ground_code(ground: Ground) -> i32 {
         Ground::Road => 3,
         Ground::Water => 4,
         Ground::Floor => 5,
+        Ground::Shallows => 6,
+        Ground::Bridge => 7,
     }
 }
 

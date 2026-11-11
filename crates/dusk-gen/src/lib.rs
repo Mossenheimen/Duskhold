@@ -65,6 +65,21 @@ impl Lot {
     }
 }
 
+/// A patch's river (the region's `[river]`): north to south, its middle line bending about
+/// `base`. Deep water in the middle, a tile of shallows at each bank, and fords where it's
+/// shallow all the way across. The road crosses it on a bridge.
+#[derive(Clone, Debug)]
+pub struct River {
+    /// Where its middle line runs, how far it strays from it, and how long a bend is.
+    pub base: f32,
+    sway: f32,
+    bend: f32,
+    /// Tiles of deep water each side of the middle line.
+    half: i32,
+    /// The rows of its fords.
+    pub fords: Vec<i32>,
+}
+
 /// A patch's large-scale layout: everything decided once, before any chunk is made.
 #[derive(Clone, Debug)]
 pub struct Layout {
@@ -80,6 +95,8 @@ pub struct Layout {
     pub start: TilePos,
     /// A tree, as the data's fixtures have it.
     tree: Tile,
+    /// Its river, if the region has one and there's room for it.
+    pub river: Option<River>,
 }
 
 impl Layout {
@@ -119,6 +136,7 @@ impl Layout {
             lots: Vec::new(),
             start: TilePos::new(0, 0, 0),
             tree,
+            river: None,
         };
         layout.lots = layout.place_lots(data);
         // You come along the road from the west, `start` tiles short of the hamlet.
@@ -135,7 +153,73 @@ impl Layout {
             layout.start = abbey.door;
             layout.lots.push(abbey);
         }
+        layout.river = layout.place_river();
         layout
+    }
+
+    /// The region's river: east of the hamlet if there's room there, else between the holdout
+    /// and the hamlet, else none. Clear of every lot by the river's margin, wherever it bends.
+    /// Its fords are rows by the seed, well away from the bridge and from each other.
+    fn place_river(&self) -> Option<River> {
+        let r = self.region.river.as_ref()?;
+        let half = r.width / 2;
+        let reach = r.sway + half + 1;
+        let hamlet = self.lots.iter().filter(|l| !l.holdout);
+        let east = hamlet.clone().map(|l| l.yard.2).max()?;
+        let west = hamlet.map(|l| l.yard.0).min()?;
+        let holdout = self
+            .lots
+            .iter()
+            .filter(|l| l.holdout)
+            .map(|l| l.yard.2)
+            .max();
+        let base = if east + r.margin + 2 * reach < self.width - 2 {
+            east + r.margin + reach
+        } else if west - r.margin - 2 * reach > holdout.unwrap_or(0) + r.margin {
+            west - r.margin - reach
+        } else {
+            return None;
+        };
+        let crossing = self.road_rows(base).0;
+        let mut fords: Vec<i32> = Vec::new();
+        for k in 0..i64::from(r.fords) {
+            for attempt in 0..24 {
+                let roll = hash(self.seed, Layer::Ford, k, attempt);
+                let y = 8 + (roll % (self.height - 16).max(1) as u64) as i32;
+                let clear = (y - crossing).abs() >= 20 && fords.iter().all(|f| (y - f).abs() >= 24);
+                if clear {
+                    fords.push(y);
+                    break;
+                }
+            }
+        }
+        fords.sort();
+        Some(River {
+            base: base as f32,
+            sway: r.sway as f32,
+            bend: r.bend,
+            half,
+            fords,
+        })
+    }
+
+    /// The river at a tile, if it's there: deep water, or shallows (its banks and its fords).
+    pub fn river_at(&self, x: i32, y: i32) -> Option<Ground> {
+        let r = self.river.as_ref()?;
+        // Smooth noise keeps near its middle: stretched, so the river uses its whole sway.
+        let bend = ((fractal(self.seed, Layer::River, 0.5, y as f32, r.bend) - 0.5) * 4.0)
+            .clamp(-1.0, 1.0);
+        let middle = (r.base + r.sway * bend).round() as i32;
+        let off = (x - middle).abs();
+        if off > r.half + 1 {
+            return None;
+        }
+        let ford = r.fords.iter().any(|f| (y - f).abs() <= 1);
+        Some(if off <= r.half && !ford {
+            Ground::Water
+        } else {
+            Ground::Shallows
+        })
     }
 
     /// The region's holdout, north of the road with its gate at `gate_x`: None if the region
@@ -328,9 +412,16 @@ impl Layout {
         if !(0..self.width).contains(&x) || !(0..self.height).contains(&y) {
             return Tile::VOID;
         }
+        let river = self.river_at(x, y);
         if self.is_road(x, y) {
+            // Where the road meets the river, it crosses on a bridge.
+            let ground = if river.is_some() {
+                Ground::Bridge
+            } else {
+                Ground::Road
+            };
             return Tile {
-                ground: Ground::Road,
+                ground,
                 ..Tile::GRASS
             };
         }
@@ -348,6 +439,12 @@ impl Layout {
         {
             return Tile {
                 ground: Ground::Dirt,
+                ..Tile::GRASS
+            };
+        }
+        if let Some(ground) = river {
+            return Tile {
+                ground,
                 ..Tile::GRASS
             };
         }

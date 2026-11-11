@@ -17,12 +17,14 @@ mod magic;
 mod needs;
 mod rare;
 mod remains;
+mod river;
 mod skills;
 mod tolling;
 mod weather;
 
 pub use rare::RaresFile;
 pub use remains::PressureFile;
+pub use river::RiverFile;
 pub use tolling::TollingFile;
 pub use weather::WeatherFile;
 
@@ -177,6 +179,9 @@ pub struct Region {
     /// Its rain, if it has any.
     #[serde(default)]
     pub weather: Option<WeatherFile>,
+    /// Its river, if a patch has one.
+    #[serde(default)]
+    pub river: Option<RiverFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -374,6 +379,9 @@ struct RulesFile {
     deeds: home::DeedsFile,
     fever: fever::FeverFile,
     burning: remains::BurningFile,
+    /// Optional: with no [shallows], wading uses the core's defaults.
+    #[serde(default)]
+    shallows: Option<river::ShallowsFile>,
     /// Optional: with no [magic], magic items use the core's defaults (and need properties.toml).
     #[serde(default)]
     magic: Option<magic::MagicFile>,
@@ -869,6 +877,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     rules.deeds = home::to_deeds(file, &r.deeds)?;
     rules.fever = fever::to_fever(file, &r.fever)?;
     rules.burning = remains::to_burning(file, &r.burning)?;
+    if let Some(s) = &r.shallows {
+        rules.shallows = river::to_shallows(file, s)?;
+    }
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
     }
@@ -897,6 +908,8 @@ fn to_prefab(
             "dirt" => Ground::Dirt,
             "road" => Ground::Road,
             "water" => Ground::Water,
+            "shallows" => Ground::Shallows,
+            "bridge" => Ground::Bridge,
             other => {
                 return Err(fail(
                     file,
@@ -1039,6 +1052,8 @@ fn check_region(
     } else if let Some(problem) = r.tolling.as_ref().and_then(TollingFile::problem) {
         Some(problem)
     } else if let Some(problem) = r.weather.as_ref().and_then(WeatherFile::problem) {
+        Some(problem)
+    } else if let Some(problem) = r.river.as_ref().and_then(RiverFile::problem) {
         Some(problem)
     } else if let Some(t) = r
         .tolling

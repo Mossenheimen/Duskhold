@@ -294,6 +294,8 @@ fn draw_map(world: &World, width: i32, height: i32, scale: usize, path: &Path) {
                 (_, Ground::Road) => [152, 138, 108],
                 (_, Ground::Water) => [58, 88, 122],
                 (_, Ground::Floor) => [146, 116, 84],
+                (_, Ground::Shallows) => [92, 128, 150],
+                (_, Ground::Bridge) => [120, 86, 54],
             };
             let (px, py) = (tx as usize * scale, ty as usize * scale);
             for dy in 0..scale {
