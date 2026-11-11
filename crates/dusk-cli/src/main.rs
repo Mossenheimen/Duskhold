@@ -176,6 +176,11 @@ fn gen_patch(args: &[String]) {
             running.dead_wanted()
         );
     }
+    // --tolling runs the patch to its first Tolling, then two game hours of it: how many of the
+    // dead in the bell's reach are at the bell by then, and how fast it ran.
+    if args.iter().any(|a| a == "--tolling") {
+        tolling(&world);
+    }
     // --text X,Y,W,H prints that part of the patch as a text grid (@ you, z the dead).
     if let Some(area) = flag::<String>(args, "--text") {
         let n: Vec<i32> = area.split(',').filter_map(|v| v.parse().ok()).collect();
@@ -490,6 +495,12 @@ fn describe(w: &World, e: Event) -> String {
         Event::Mended { who, item, price } => {
             format!("{} had item {item} mended for {price} coin", name(who))
         }
+        Event::TollingTonight => "the bell will toll tonight".to_string(),
+        Event::TollingBegan { at } => {
+            format!("the Tolling: the bell at ({}, {}) tolls", at.x, at.y)
+        }
+        Event::Tolled { .. } => "the bell tolls".to_string(),
+        Event::TollingEnded => "dawn: the Tolling is over".to_string(),
     }
 }
 
@@ -502,6 +513,25 @@ fn bench(args: &[String]) {
     w.creature_mut(0).think_every = think;
     w.creature_mut(0).sight = 15;
     let me = w.character().expect("placed");
+    // --tolling: the bell tolls a game minute in, in a corner of the field, and draws them all.
+    let tolling = args.iter().any(|a| a == "--tolling");
+    if tolling {
+        let start = (w.rules.clock.start + 1) % 1440;
+        w.set_region(dusk_core::Region {
+            tolling: dusk_core::Tolling {
+                first: 1,
+                every: 1,
+                start,
+                rings: 60,
+                toll_every: 2,
+                loudness: 40,
+                reach: 140,
+                door: 12_000,
+            },
+            bell: Some(TilePos::new(8, 8, 0)),
+            ..dusk_core::Region::default()
+        });
+    }
     let start = Instant::now();
     for t in 0..ticks {
         if t % 5 == 0 {
@@ -522,9 +552,48 @@ fn bench(args: &[String]) {
         w.events().for_each(drop);
     }
     let tps = f64::from(ticks) / start.elapsed().as_secs_f64();
+    let during = if tolling { ", the Tolling on" } else { "" };
     println!(
-        "{dead} dead on a 96 x 96 map, thinking every {think} tick(s): {tps:.0} ticks/s = {:.0}x real time",
+        "{dead} dead on a 96 x 96 map, thinking every {think} tick(s){during}: {tps:.0} ticks/s = {:.0}x real time",
         tps / f64::from(TICKS_PER_SECOND)
+    );
+}
+
+/// The patch's first Tolling: run to it, then two game hours of it.
+fn tolling(world: &World) {
+    let (Some(bell), Some(begins)) = (world.region.bell, world.next_tolling()) else {
+        println!("  no Tolling in this region");
+        return;
+    };
+    let t = world.region.tolling;
+    let (day, minute) = (begins / 1440 + 1, begins % 1440);
+    let mut w = world.clone();
+    let per = u64::from(w.rules.clock.ticks_per_minute);
+    w.step(((begins - w.clock_minutes()) * per) as u32);
+    let reach = i64::from(t.reach).pow(2);
+    let drawn = |w: &World, near: i64| {
+        w.actors()
+            .filter(|(_, a)| !a.kind.is_character() && !a.dead)
+            .filter(|(_, a)| a.pos.dist2(bell) <= near)
+            .count()
+    };
+    let in_reach = drawn(&w, reach);
+    let start = Instant::now();
+    let ticks = (120 * per) as u32;
+    w.step(ticks);
+    let tps = f64::from(ticks) / start.elapsed().as_secs_f64();
+    println!(
+        "  the Tolling: day {day} at {:02}:{:02}, then every {} days; the bell at ({}, {})",
+        minute / 60,
+        minute % 60,
+        t.every,
+        bell.x,
+        bell.y
+    );
+    println!(
+        "  {in_reach} of the dead within its reach; two hours on, {} within 6 tiles of it and {} within 15 ({tps:.0} ticks/s)",
+        drawn(&w, 36),
+        drawn(&w, 225)
     );
 }
 

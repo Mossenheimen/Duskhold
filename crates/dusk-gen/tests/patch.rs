@@ -131,3 +131,57 @@ fn you_start_inside_the_abbey_with_none_of_the_dead_within_its_walls() {
         );
     }
 }
+
+#[test]
+fn the_bell_hangs_in_the_chapel_where_the_dead_can_walk_to_it() {
+    for seed in 1..=4 {
+        let (w, layout) = make(seed);
+        let bell = w.region.bell.expect("the Hushlands have a Tolling");
+        let chapel = layout.lots.iter().find(|l| l.prefab == "chapel").unwrap();
+        assert_eq!(
+            bell, chapel.door,
+            "seed {seed}: just inside the chapel's door"
+        );
+        assert!(w.grid.tile(bell).walkable());
+        // Its field reaches most of the patch's dead within its reach.
+        let t = w.region.tolling;
+        let field = dusk_core::flow::Flow::build(&w.grid, bell, t.reach, t.door);
+        let r2 = i64::from(t.reach).pow(2);
+        let (mut near, mut way) = (0, 0);
+        for (_, a) in w.actors().filter(|(_, a)| !a.kind.is_character()) {
+            if a.pos.dist2(bell) <= r2 {
+                near += 1;
+                way += usize::from(field.cost_at(a.pos) != dusk_core::flow::NOWHERE);
+            }
+        }
+        assert!(
+            near > 0 && way * 10 >= near * 9,
+            "seed {seed}: {way} of {near} have a way"
+        );
+    }
+}
+
+#[test]
+fn every_floor_of_every_building_can_be_walked_to_from_its_door() {
+    for seed in 1..=6 {
+        let (w, layout) = make(seed);
+        for lot in &layout.lots {
+            let (x0, y0) = (lot.origin.x, lot.origin.y);
+            for y in y0..y0 + lot.grid.height {
+                for x in x0..x0 + lot.grid.width {
+                    let at = dusk_core::TilePos::new(x, y, 0);
+                    let tile = w.grid.tile(at);
+                    if tile.ground != dusk_core::Ground::Floor || !tile.walkable() {
+                        continue;
+                    }
+                    assert!(
+                        find_path(&w.grid, lot.door, at, 2000).is_some(),
+                        "seed {seed}: the {} at {:?} has a floor at {at:?} its door can't reach",
+                        lot.prefab,
+                        lot.origin
+                    );
+                }
+            }
+        }
+    }
+}

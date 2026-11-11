@@ -132,6 +132,13 @@ impl Region {
             kinds: kinds.collect(),
             chunks: self.patch.chunks,
             dead,
+            tolling: self
+                .tolling
+                .as_ref()
+                .map(|t| t.to_tolling())
+                .unwrap_or_default(),
+            // Where the bell hangs is the patch's to say (`dusk-gen`).
+            bell: None,
         }
     }
 }

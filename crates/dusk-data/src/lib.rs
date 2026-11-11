@@ -14,8 +14,10 @@ mod light;
 mod needs;
 mod remains;
 mod skills;
+mod tolling;
 
 pub use remains::PressureFile;
+pub use tolling::TollingFile;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -159,6 +161,9 @@ pub struct Region {
     /// Its holdout, if a patch has one: where the road starts, and you with it.
     #[serde(default)]
     pub holdout: Option<HoldoutSite>,
+    /// Its event on a calendar, if it has one: the Hushlands' Tolling.
+    #[serde(default)]
+    pub tolling: Option<TollingFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -992,6 +997,14 @@ fn check_region(
         Some("dead.kinds: each share is above 0, and they add up to 1".to_string())
     } else if let Some(problem) = r.pressure.problem() {
         Some(problem)
+    } else if let Some(problem) = r.tolling.as_ref().and_then(TollingFile::problem) {
+        Some(problem)
+    } else if let Some(t) = r
+        .tolling
+        .as_ref()
+        .filter(|t| !prefabs.iter().any(|p| p.id == t.bell))
+    {
+        Some(format!("tolling.bell: no prefab called {:?}", t.bell))
     } else if let Some(site) = r
         .holdout
         .as_ref()

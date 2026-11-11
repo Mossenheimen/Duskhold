@@ -104,6 +104,10 @@ const BOUGHT: i32 = 52;
 const SOLD: i32 = 53;
 const SUPPLIED: i32 = 54;
 const MENDED: i32 = 55;
+const TOLLING_TONIGHT: i32 = 56;
+const TOLLING_BEGAN: i32 = 57;
+const TOLLED: i32 = 58;
+const TOLLING_ENDED: i32 = 59;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -325,6 +329,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Mended { who, item, price } => {
             (MENDED, Some(who), None, (i32::from(item), 1), price as i32)
         }
+        Event::TollingTonight => (TOLLING_TONIGHT, None, None, (-1, -1), 0),
+        Event::TollingBegan { at: p } => (TOLLING_BEGAN, None, None, (p.x, p.y), 0),
+        Event::Tolled { at: p } => (TOLLED, None, None, (p.x, p.y), 0),
+        Event::TollingEnded => (TOLLING_ENDED, None, None, (-1, -1), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1340,6 +1348,25 @@ impl DuskWorld {
     fn coins(&self) -> i32 {
         let Some(world) = &self.world else { return 0 };
         world.character().map_or(0, |me| world.coins(me) as i32)
+    }
+
+    /// The Tolling (`tolling.rs`): [game minutes until it begins (0 once it has), 1 while it's
+    /// on, the bell's x, y], or nothing in a region without one.
+    #[func]
+    fn tolling(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let (Some(begins), Some(bell)) = (world.next_tolling(), world.region.bell) else {
+            return PackedInt32Array::new();
+        };
+        let until = begins.saturating_sub(world.clock_minutes());
+        PackedInt32Array::from(&[
+            i32::try_from(until).unwrap_or(i32::MAX),
+            i32::from(world.is_tolling()),
+            bell.x,
+            bell.y,
+        ])
     }
 
     /// Whether you stand on hallowed ground: inside a holdout's walls, where the dead don't come.

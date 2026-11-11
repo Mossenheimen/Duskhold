@@ -118,15 +118,30 @@ func _process(delta: float) -> void:
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
 ## the region's pressure (DuskWorld.pressure(): how many of the dead the patch holds, against
-## how many it began with). Bodies that get up raise it; burning them lowers it.
+## how many it began with). Bodies that get up raise it; burning them lowers it. Then the
+## Tolling's countdown (DuskWorld.tolling()), so you can build for it.
 func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool,
-		pressure: PackedInt32Array) -> void:
+		pressure: PackedInt32Array, tolling: PackedInt32Array) -> void:
 	var dead := ""
 	if pressure.size() >= 3 and pressure[0] > 0:
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
-	_state.text = "DUSKHOLD  ·  build step 6: the abbey\n%s  ·  Seed %d  ·  %d×%s" % [
-		time_of_day(clock), world_seed, speed, dead]
+	_state.text = "DUSKHOLD  ·  build step 6: the Tolling\n%s  ·  Seed %d  ·  %d×%s%s" % [
+		time_of_day(clock), world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
+
+
+## "the Tolling in 2 days", "the Tolling tonight", "THE TOLLING": from DuskWorld.tolling()'s
+## minutes until it begins, and whether it's on.
+static func _countdown(tolling: PackedInt32Array) -> String:
+	if tolling.size() < 2:
+		return ""
+	if tolling[1] == 1:
+		return "  ·  THE TOLLING, till dawn"
+	var minutes := tolling[0]
+	if minutes < 24 * 60:
+		return "  ·  the Tolling in %dh %02dm" % [minutes / 60, minutes % 60]
+	var days := ceili(minutes / 1440.0)
+	return "  ·  the Tolling in %d days" % days
 
 
 ## "Day 2  ·  06:45", from DuskWorld.clock().

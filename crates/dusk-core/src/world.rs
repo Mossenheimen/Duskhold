@@ -559,6 +559,18 @@ pub enum Event {
         item: u16,
         price: u32,
     },
+    /// Dawn on a Tolling day: the bell tolls tonight (`tolling.rs`).
+    TollingTonight,
+    /// The Tolling began: the bell at `at` tolls, and the dead in reach walk to it.
+    TollingBegan {
+        at: TilePos,
+    },
+    /// A toll of the bell.
+    Tolled {
+        at: TilePos,
+    },
+    /// Dawn: the Tolling's over, and the dead give up as they did.
+    TollingEnded,
 }
 
 /// A sound made this tick.
@@ -606,6 +618,8 @@ pub struct World {
     /// What each holdout's line has sold, and on which game day, by (holdout, line). Ordered,
     /// for the hash.
     pub(crate) sold: BTreeMap<(u16, u16), (u64, u16)>,
+    /// The bell's flow field while the Tolling's on (`tolling.rs`): worked out, not saved.
+    pub(crate) flow: Option<crate::flow::Flow>,
 }
 
 impl World {
@@ -638,6 +652,7 @@ impl World {
             fires: Vec::new(),
             hallowed: Vec::new(),
             sold: BTreeMap::new(),
+            flow: None,
         }
     }
 
@@ -842,23 +857,26 @@ impl World {
     /// Elsewhere it sleeps, and creatures there stay as they are until someone comes near.
     pub fn is_awake(&self, pos: TilePos) -> bool {
         let r = self.rules.active_radius;
-        self.characters.iter().any(|&id| {
-            self.actors.get(id).is_some_and(|c| {
-                let (a, b) = (pos.chunk(), c.pos.chunk());
-                c.pos.z == pos.z && (a.x - b.x).abs() <= r && (a.y - b.y).abs() <= r
-            })
+        self.anchors().any(|at| {
+            let (a, b) = (pos.chunk(), at.chunk());
+            at.z == pos.z && (a.x - b.x).abs() <= r && (a.y - b.y).abs() <= r
         })
+    }
+
+    /// What keeps the world awake round it: each character, and the bell while the Tolling's
+    /// on (`tolling.rs`), so the dead walk to it even with you away.
+    fn anchors(&self) -> impl Iterator<Item = TilePos> + '_ {
+        let characters = self.characters.iter().filter_map(|&id| self.actors.get(id));
+        let bell = self.region.bell.filter(|_| self.flow.is_some());
+        characters.map(|c| c.pos).chain(bell)
     }
 
     /// The chunks that are awake, for the tools and the client.
     pub fn awake_chunks(&self) -> Vec<ChunkPos> {
         let r = self.rules.active_radius;
         let mut out: Vec<ChunkPos> = Vec::new();
-        for &id in &self.characters {
-            let Some(c) = self.actors.get(id) else {
-                continue;
-            };
-            let at = c.pos.chunk();
+        for anchor in self.anchors() {
+            let at = anchor.chunk();
             for y in at.y - r..=at.y + r {
                 for x in at.x - r..=at.x + r {
                     out.push(ChunkPos { x, y });
@@ -904,6 +922,7 @@ impl World {
         self.needs();
         self.remains();
         self.press();
+        self.toll();
         self.burn_lights();
         self.drag_downs();
     }
@@ -1071,8 +1090,9 @@ impl World {
             let pos = a.pos;
             let mut nearest: Option<(i64, TilePos)> = None;
             for s in &self.sounds {
-                // What's done on hallowed ground, the dead pay no heed.
-                if crate::holdout::in_hallowed(&self.hallowed, s.at) {
+                // What's done on hallowed ground, the dead pay no heed; and the bell draws them
+                // by its field, not as a noise to chase.
+                if crate::holdout::in_hallowed(&self.hallowed, s.at) || self.is_bell(s) {
                     continue;
                 }
                 if s.by != Some(id) && hears(&self.grid, s.at, pos, s.loudness, rules.muffling) {
@@ -1163,9 +1183,11 @@ impl World {
             target = Some(at);
             since = tick;
         }
-        // Gone past the forgetting, or onto hallowed ground, where it won't follow.
+        // Gone past the forgetting, or onto hallowed ground, where it won't follow. On a Tolling
+        // night, the dead the bell draws don't forget: what they're after, they keep after.
         let hallowed = target.is_some_and(|t| self.is_hallowed(t));
-        if tick.saturating_sub(since) > kind.forget_after || hallowed {
+        let forgot = tick.saturating_sub(since) > kind.forget_after && !self.drawn_to_bell(pos);
+        if forgot || hallowed {
             target = None;
         }
         let next_to = seen
@@ -1191,6 +1213,8 @@ impl World {
                 Intent::Idle
             }
             (None, Some(goal)) => self.chase(a, goal),
+            // After nothing, on a Tolling night: to the bell, by its field.
+            (None, None) if self.drawn_to_bell(pos) => self.pulled(id, pos).unwrap_or_default(),
             (None, None) => {
                 let who = id.index() as u64;
                 if below(roll(seed, tick, who, Purpose::Wander), 10_000) < kind.wander {

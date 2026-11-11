@@ -48,6 +48,9 @@ pub struct Region {
     pub chunks: (i32, i32),
     /// How many of the dead the patch began with: what a pressure of 1000 means.
     pub dead: u32,
+    /// The region's event on a calendar (`tolling.rs`), and where its bell is in the patch.
+    pub tolling: crate::tolling::Tolling,
+    pub bell: Option<TilePos>,
 }
 
 /// Rolls a tile can take before an arrival gives up for this time.

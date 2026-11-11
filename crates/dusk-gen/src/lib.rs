@@ -179,6 +179,15 @@ impl Layout {
         })
     }
 
+    /// Where the Tolling's bell hangs: just inside the door of the first lot of its prefab.
+    pub fn bell(&self) -> Option<TilePos> {
+        let t = self.region.tolling.as_ref()?;
+        self.lots
+            .iter()
+            .find(|l| l.prefab == t.bell)
+            .map(|l| l.door)
+    }
+
     /// Hallowed ground: inside the holdout's walls.
     pub fn hallowed(&self) -> Vec<Area> {
         self.lots
@@ -506,7 +515,9 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
         }
     }
     // What the patch began with is what its pressure is measured against.
-    world.set_region(region.to_core(&data.defs, dead));
+    let mut core = region.to_core(&data.defs, dead);
+    core.bell = layout.bell();
+    world.set_region(core);
     world.hallowed = layout.hallowed();
     // The land is made: from here on, what changes is what a save keeps.
     world.grid.track_changes();

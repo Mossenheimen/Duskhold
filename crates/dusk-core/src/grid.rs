@@ -190,6 +190,25 @@ pub struct Grid {
     /// since: what a save keeps, the rest coming back from the seed.
     tracking: bool,
     changed: BTreeSet<ChunkPos>,
+    edits: Edits,
+}
+
+/// How many times the grid has been changed: for caches built from it (the Tolling's flow
+/// field) to know they're stale. Not part of the grid's state: it neither hashes nor compares,
+/// so a loaded world is the same world as the one saved.
+#[derive(Clone, Copy, Debug, Default)]
+struct Edits(u64);
+
+impl PartialEq for Edits {
+    fn eq(&self, _: &Edits) -> bool {
+        true
+    }
+}
+
+impl Eq for Edits {}
+
+impl std::hash::Hash for Edits {
+    fn hash<H: std::hash::Hasher>(&self, _: &mut H) {}
 }
 
 impl Grid {
@@ -218,7 +237,13 @@ impl Grid {
         self.changed.clear();
     }
 
+    /// How many times the grid has changed (see `Edits`).
+    pub fn edits(&self) -> u64 {
+        self.edits.0
+    }
+
     fn touch(&mut self, pos: TilePos) {
+        self.edits.0 += 1;
         if self.tracking {
             self.changed.insert(pos.chunk());
         }
@@ -237,6 +262,7 @@ impl Grid {
     /// Puts a whole chunk in place (a saved one, over the one the seed made).
     pub fn put_chunk(&mut self, at: ChunkPos, chunk: Chunk) {
         self.chunks.insert(at, chunk);
+        self.edits.0 += 1;
         if self.tracking {
             self.changed.insert(at);
         }

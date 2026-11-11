@@ -93,6 +93,10 @@ const BOUGHT := 52
 const SOLD := 53
 const SUPPLIED := 54
 const MENDED := 55
+const TOLLING_TONIGHT := 56
+const TOLLING_BEGAN := 57
+const TOLLED := 58
+const TOLLING_ENDED := 59
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
@@ -312,7 +316,7 @@ func _process(delta: float) -> void:
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure())
+	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling())
 	hud.show_moodles(moodles)
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
@@ -801,6 +805,14 @@ func _read_events() -> void:
 			MENDED:
 				if who == me:
 					hud.say("Your %s is mended, good as new." % _item_name(events[i + 3]))
+			TOLLING_TONIGHT:
+				hud.say("Tonight the old chapel's bell will toll, at 22:00. The dead will come to it, and they won't give up till dawn.")
+			TOLLING_BEGAN:
+				hud.say("The bell is tolling! Every dead thing for miles is walking to the chapel.")
+				hud.flash()
+			TOLLING_ENDED:
+				hud.say("Dawn. The bell is quiet, and the dead give up as they did.")
+				hud.flash_good()
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)

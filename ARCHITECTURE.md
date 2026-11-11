@@ -489,7 +489,7 @@ Asked for by the user after step 5, together with the concept's (`CONCEPT.md`, u
 
 1. **The shambler is hard-coded** (paid the same day: step 6, slice 0). `ActorKind::Shambler`, `Mind::Shambler` and a dozen `Rules::shambler_*` fields are the one creature. "A region is mostly data" needs `Defs::creatures` (a table of definitions: speeds, senses, attack, wounds, groan, what it does at a door) and `ActorKind::Creature(n)`. Do it when the ghoul arrives, with the ghoul as the proof: a second creature that needs no new field in `Rules`.
 2. **Nothing is saved** (paid 2026-11-10: step 6, slice 1). The saves section above is still a plan. A game day is an hour of play, bases and stashes are the point, and permadeath in a persistent world needs the world to persist. It's first in step 6.
-3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now.
+3. **Crowds plan one path each.** 500 dead run at 16,000 ticks a second, under the budget. Flow fields (planned above) are needed before the Tolling, and the groan makes small crowds common now. *(Part paid 2026-11-10, step 6, slice 6: the Tolling's crowd shares one field. What's left: the dead chasing prey still plan one A* each, and on a Tolling night they don't give up, so 500 of them all after you run at 5,800 ticks a second. The next fix is the per-chunk cache of open steps: a step of A* or of a field costs about 0.8 µs now, most of it looking up chunks.)*
 
 **Smaller things, noted and left:**
 
@@ -871,7 +871,22 @@ Game first: every step ends with something to look at or play.
        - **checked on screen:** one picture at seed 1's counter: the stores room, the sister, the trade panel with the day's stock, and Sell on the pack's lines. Headless runs walked there without errors;
      - **not yet:** the sisters as actors, defenders, morale and raids; bounties (they need rare monsters); training and healing for coin; the next character starting here (slice 7 makes death lead to it); selling the weapon in your hand;
      - **measured:** 100 dead 127,000 ticks/s, the patch 349,000 (no change).
-   - **Slice 6, the Tolling:** the first siege on the calendar, with flow fields for its crowd, and the dead keeping at a door.
+   - **Slice 6, the Tolling:** done 2026-11-10; 140 tests pass. What it has:
+     - **the calendar** (`dusk-core/src/tolling.rs`, the region's `Tolling`). The Hushlands' first Tolling is on day 3 and then every 5 days. The bell begins at 22:00, tolls every 2 game minutes for an hour, and its pull lasts until dawn. It's all worked out from the clock: nothing is saved. Word comes at dawn on the day (`TollingTonight`), and the HUD counts down to it;
+     - **the bell** hangs just inside the hamlet chapel's door (`Layout::bell`, from `[tolling] bell = "chapel"`). Its tolls are sounds (they wake you, and they're drawn), but the dead don't chase them as noise (`World::is_bell`): the field is how they go;
+     - **flow fields** (`dusk-core/src/flow.rs`): one Dijkstra map from the bell over the square within its reach, shared by the whole crowd. Each creature after nothing, within reach, steps to the cheapest tile round it that's free (`Flow::step`), else waits. A shut door is a way through at a cost (12 tiles' worth): the way goes through it, and the dead beat it down. The field is planned when the bell begins, and again when the map has changed (`Grid::edits`, a counter that neither hashes nor compares), at most every 5 game minutes;
+     - **the bell keeps the world awake round it** (`World::anchors`): the dead walk to it with you away at the abbey;
+     - **they don't give up:** on a Tolling night, the dead within the bell's reach don't forget what they're after (`think`). Seen or heard going into a house, you're besieged in it: they beat on the door until it gives, or dawn comes. The field is what says the Tolling is on (`drawn_to_bell`), so nothing works out the calendar on every thought;
+     - **found on the way, and fixed:**
+       - the longhouse's door opened onto a tile boxed in by chairs and the table, so nobody could get in, you or the dead;
+       - the farmhouse's kitchen, mirrored, had a corner nobody could reach;
+       - the abbey chapel's front corners were shut in by the altar and pews;
+       - a new test holds every floor of every building on six seeds to being walkable from its door;
+     - **measured** (`dusk-cli gen --tolling`, seeds 1 to 3): 49 to 54 of the dead are within the bell's reach, and two hours on, 43 to 49 of them are within 15 tiles of it. The patch runs at 120,000 to 126,000 ticks/s through it. `bench --tolling`: 100 dead 43,500 ticks/s, 500 dead 5,800, all of them after you and none giving up (above: the cache of open steps is next);
+     - **numbers:** a region's `[tolling]`: the bell's prefab, the first day, days apart, the hour, how long it rings and how often, how far a toll carries (60 tiles), the reach (96), and what a door is worth to the dead;
+     - **the save format** doesn't change: the calendar comes from the clock, and the field from the map;
+     - **the client:** the clock line counts down ("the Tolling in 2 days", "in 3h 20m", "THE TOLLING, till dawn"), and the news tells of it at dawn on the day, as it begins and as it ends. **Checked:** headless, on a copy of `data/` with the Tolling minutes away: "The bell is tolling!". The crowd at the chapel wasn't caught in a picture;
+     - **not yet:** the Director (the pressure choosing how often the event comes); a raid's horns and the hunter's moon (other regions); the dead breaking windows; rewards for a night survived.
    - **Slice 7, death and the revenant:** the recap, the body and its gear where it fell, the next character in the same world.
    - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.

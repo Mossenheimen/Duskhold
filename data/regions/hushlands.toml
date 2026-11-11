@@ -54,3 +54,18 @@ every = 30            # game minutes between the dead walking in, while the patc
 # The abbey on the hill (prefabs/abbey.toml, holdouts.toml): north of the road where it starts,
 # its gate on the road. You start just inside it; the hamlet is the road's start tiles east.
 prefab = "abbey"
+
+[tolling]
+# The Tolling (CONCEPT.md): on set nights the old chapel's bell, which no one rings, tolls, and
+# every dead thing within reach walks to it, by one shared way (crates/dusk-core/src/flow.rs),
+# beating down shut doors on the way. That night they don't give up on what they go after: seen
+# going into a house, you're besieged in it until dawn. Word comes at dawn on the day.
+bell = "chapel"       # the prefab it hangs in: just inside its door
+first = 3             # the first Tolling's game day
+every = 5             # days from one to the next
+hour = 22.0           # it begins at 22:00, and lasts until dawn
+rings = 60            # game minutes the bell rings
+toll_every = 2        # a toll every so many game minutes
+loudness = 60         # tiles a toll carries: it wakes you, and it's heard across the hamlet
+reach = 96            # tiles from the bell the dead are drawn from
+door = 12.0           # a shut door is worth this many tiles of walking round to them

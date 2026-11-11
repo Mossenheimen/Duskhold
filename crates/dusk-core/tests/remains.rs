@@ -257,6 +257,7 @@ fn region(pressure: Pressure) -> Region {
         kinds: vec![(SHAMBLER, 10_000)],
         chunks: (8, 8),
         dead: 10,
+        ..Region::default()
     }
 }
 

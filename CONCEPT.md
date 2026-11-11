@@ -454,6 +454,8 @@ One table of how things act on each other, written before the content, so the ga
 
   You know a siege is coming, so you build for it.
 
+  *(built 2026-11-10)* **The Tolling** is on day 3, then every 5 days. At dawn on the day, word comes that the old chapel's bell will toll at 22:00, and the clock line counts down to it. At 22:00 it tolls for an hour, and every dead thing within 96 tiles walks to the chapel, beating down shut doors on the way. Until dawn they don't give up on anything they go after: be seen going into a house that night, and you're besieged in it until the door gives or the sun comes up. The abbey is the safe place to sit it out; your hamlet base is where it's tested.
+
 ## Dungeons (decided: later, as the end-game)
 
 - Each region has dungeons of its own family, from a one-room barrow to the wardstone vault. Deeper is harder and richer, and that's where power keeps growing: levels past 10, Very Rare and Legendary items, bosses.
