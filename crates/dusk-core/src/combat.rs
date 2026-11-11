@@ -76,6 +76,9 @@ impl World {
                 ActionKind::Stash { at } => self.mark_stash(id, at),
                 ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
                 ActionKind::Burn { body } => self.kindle(id, body),
+                ActionKind::Buy { at, line } => self.buy(id, at, line),
+                ActionKind::Sell { at, slot, def } => self.sell(id, at, slot, def),
+                ActionKind::Mend { at } => self.mend(id, at),
             }
         }
         true
@@ -161,6 +164,21 @@ impl World {
             Intent::Put { at, slot, def } => {
                 let ticks = self.put_ticks(id, at, slot, def)?.max(1);
                 (ActionKind::Put { at, slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::Buy { at, line } => {
+                self.can_buy(id, at, line).ok()?;
+                let kind = ActionKind::Buy { at, line };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+            }
+            Intent::Sell { at, slot, def } => {
+                self.can_sell(id, at, slot, def).ok()?;
+                let kind = ActionKind::Sell { at, slot, def };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+            }
+            Intent::Mend { at } => {
+                self.repair_cost(id, at).ok()?;
+                let kind = ActionKind::Mend { at };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
             }
             Intent::Burn => {
                 let (kind, dir, ticks) = self.burn_action(id)?;

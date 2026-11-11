@@ -844,7 +844,33 @@ Game first: every step ends with something to look at or play.
      - **`dusk-cli gen`** says the oil a patch holds, and `--ticks` the pressure before and after (seed 1, a game day with nobody about: 100% to 105%, four of the dead walked in);
      - **not yet:** holy water and consecration (the cleric); bounties and a supplied holdout lowering the pressure (slice 5); a relit wardstone lowering the ceiling (the dungeons); ash that's cleared away (bodies stay in the world, so it grows a little with every arrival); fire that harms the living or spreads to the house;
      - **measured:** 100 dead 125,000 ticks/s, the patch 341,000 (no change worth the name).
-   - **Slice 5, the abbey holdout:** a safe place with a trader (coin, the cure, repairs) and a bunk; where the next character starts.
+   - **Slice 5, the abbey holdout:** done 2026-11-10; 133 tests pass. What it has:
+     - **the abbey** (`prefabs/abbey.toml`): a walled close with the chapel, the sisters' dormitory and the stores, its gate open on the road. `dusk-gen` stands it north of the road where it starts (`Layout::place_holdout`, from the region's `[holdout]`), as a lot marked `holdout`: no fence round it, and none of the dead inside. You start just inside its gate; the hamlet is the road's `start` tiles east;
+     - **hallowed ground** (`dusk-core/src/holdout.rs`, `World::hallowed`, from the patch's making like the region; not saved). Inside the walls:
+       - the dead never step (`move_actor` refuses the step);
+       - they don't see, smell or hear anything there (`nearest_visible_character`, `smells` and `hear` skip it), and one after a target there gives it up (`think`). So a crowd that followed you to the gate drifts off;
+       - you can sleep with the dead about (`can_sleep`), but a bed there is a guest's: it doesn't make a home (`make_home`);
+       - the dead don't walk in there (`walk_in`);
+     - **the counter** (`Defs::counters`: a fixture with `trade = "abbey"`; `World::counter_in_reach`). It's a fixture, with the sister drawn behind it, until a holdout's people are actors. Over it, three timed deals (`Intent::Buy`, `Sell`, `Mend`; the reasons why not are `NoDeal`):
+       - **buy:** each line has a price and a stock a game day. What's sold is kept by (holdout, line) with the day (`World::sold`, saved), so the stock comes back with the day and nothing ticks;
+       - **sell:** anything with a worth, for a share of it in coin (the abbey's is half). A find sold there is brought home: it pays its worth in XP, once (`BroughtHome`, as in the stash). Coin isn't sold. You pay with ordinary coin first, so a found coin keeps its XP as long as it can;
+       - **supply:** selling what it's short of (`Holdout::wants`) also lowers the pressure, by its worth (`Supplied`);
+       - **mend:** the weapon in hand, good as new, for its share of the weapon's worth by how worn it is, and at least a coin;
+     - **coin** is the `coins` item (`Defs::coin`), carried and weighed: a coin is worth 1, as XP brought home or as a price;
+     - **numbers** (`data/holdouts.toml`):
+       - the abbey pays half an item's worth, and a full repair costs its whole worth;
+       - a deal takes 1.5 s;
+       - it sells the tincture (30 coin, one a day), bandages 6, oil 5, bread 5, water 4, torches 4 and candles 2;
+       - it's short of bread, apples, dried meat, water, oil and candles, at 0.25% of pressure a point of worth;
+       - a test holds the game's data to two things: the cure costs 20 coin or more, and no more than half of what the leanest patch's finds fetch (113 coin); and nothing sells back for more than it costs;
+     - **the save format** is version 5 (what the holdouts sold, and when);
+     - **the client:**
+       - at the counter, the "within reach" panel lists the stock with prices, what's left today and Buy buttons, and says what the abbey is short of;
+       - the pack's lines get a Sell button with the price, the weapon in hand a Mend button, and the pack's title shows your coin;
+       - the news says what you bought, sold and had mended, and when the dusk falls back from supplying the abbey; stepping on and off hallowed ground says so too;
+       - **checked on screen:** one picture at seed 1's counter: the stores room, the sister, the trade panel with the day's stock, and Sell on the pack's lines. Headless runs walked there without errors;
+     - **not yet:** the sisters as actors, defenders, morale and raids; bounties (they need rare monsters); training and healing for coin; the next character starting here (slice 7 makes death lead to it); selling the weapon in your hand;
+     - **measured:** 100 dead 127,000 ticks/s, the patch 349,000 (no change).
    - **Slice 6, the Tolling:** the first siege on the calendar, with flow fields for its crowd, and the dead keeping at a door.
    - **Slice 7, death and the revenant:** the recap, the body and its gear where it fell, the next character in the same world.
    - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class.

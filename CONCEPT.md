@@ -93,6 +93,14 @@ Why build it:
 - **Regions** lie around the old heartland, harder and stranger the farther out they are. You can walk anywhere from the start (in Zomboid, Louisville is open on day one); you won't last long in a region without its tools.
 - **Borders mix:** where two regions meet, their creatures meet too, and families fight each other. Lead a horde of the dead into a goblin camp (Zomboid players lead hordes on purpose).
 - **Holdouts** (the duskholds): walled towns, camps, a monastery, a mill, a lighthouse; 1–3 per region (Default). People live there: trade, repairs, healing, training, quests, a bunk for the night. Each knows its region's trick (the Wolfmark's silver, the moor's salt). They have stores, defenders and morale: they grow if you help them, and they can fall to a raid (then they're a ruin to loot). Caravans travel between them.
+  - *(built 2026-11-10)* The abbey on the hill stands north of the road where it starts, and you start just inside its gate.
+    - **Its walls are hallowed ground:** the dead never set foot inside, and pay no heed to anything done there, so you can sleep there with them about. Its beds are a guest's, though: sleeping there doesn't make a home.
+    - **At its counter, Sister Agnes:**
+      - sells the cure (one a day, 30 coin), bandages, oil, bread, water, torches and candles, from a stock that comes back each day;
+      - buys anything with a worth for half of it in coin. A find sold there pays its XP too, as it would in your stash, so pillar 5's "or sold at a holdout" is built;
+      - mends the weapon in your hand for coin, by how worn it is.
+    - **Selling it what it's short of** (food, water, oil, candles) pushes the pressure back by a quarter of a per cent for each point of worth: "a holdout supplied".
+    - **Not yet:** the sisters as people (actors with a day of their own), defenders, morale and raids, bounties, and training.
 - **Your base:** any building you can make hold, or one you build (see Base-building). Later, survivors you rescue can move in, and your base becomes a holdout of its own.
 - **Day and night** are Zomboid's: a game day is an hour of real time at normal speed, with the speed dial to skip the safe hours.
 - **Weather and seasons** matter: rain puts torches out, masks sound and washes scent away; fog shortens sight (and the moor's ghosts come out in it); wind carries scent and sound; snow keeps footprints, yours and theirs; summer heat and winter cold.

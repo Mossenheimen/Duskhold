@@ -89,12 +89,16 @@ const GOT_UP := 48
 const KINDLED := 49
 const CAUGHT := 50
 const BURNT := 51
+const BOUGHT := 52
+const SOLD := 53
+const SUPPLIED := 54
+const MENDED := 55
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
-	22: "Setting it alight"}
+	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended"}
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -119,6 +123,7 @@ var litter: Litter
 var skills: Skills
 var item_names := PackedStringArray()
 var told_get_up := false  # the first body you see fall says it'll get up
+var hallowed := false  # on hallowed ground, as last told
 var creature_names := PackedStringArray()  # by creature number: actor kind 1 + n is creature n
 var kinds := PackedInt32Array()  # each actor's kind (DuskWorld.actor_kinds())
 var fever_took := false  # the fever killed you, for the death screen
@@ -230,6 +235,7 @@ func _start(carry_on := false) -> void:
 	creature_names = dusk.creature_names()
 	fever_took = false
 	told_get_up = false
+	hallowed = false  # so the first frame says where you are
 	for kind in kinds:
 		var view := ActorView.new()
 		view.setup(kind)
@@ -313,6 +319,7 @@ func _process(delta: float) -> void:
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
 	hud.show_deeds(dusk.character_deeds())
+	_mind_the_ground()
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
@@ -496,6 +503,20 @@ func _board_up() -> void:
 			hud.say("You need nails: two a board.")
 		_:
 			dusk.board()
+
+
+## Stepping onto hallowed ground, or off it: the news says so, once each way.
+func _mind_the_ground() -> void:
+	if dead:
+		return
+	var now: bool = dusk.on_hallowed()
+	if now == hallowed:
+		return
+	hallowed = now
+	if now:
+		hud.say("Hallowed ground. The dead won't come in, nor heed you here.")
+	else:
+		hud.say("You leave hallowed ground.")
 
 
 ## G: pour oil on the body beside you and set it alight from the light you hold up.
@@ -767,6 +788,19 @@ func _read_events() -> void:
 			CAUGHT:
 				if _seen(who):
 					hud.say("The fire spreads to another body.")
+			BOUGHT:
+				if who == me:
+					hud.say("Bought %s for %d coin." % [_item_name(events[i + 3]), extra])
+			SOLD:
+				if who == me:
+					hud.say("Sold %s for %d coin." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
+			SUPPLIED:
+				if who == me:
+					hud.say("The sisters were short of that. The dusk falls back a little (%.1f%%)." % (extra / 10.0))
+					hud.flash_good()
+			MENDED:
+				if who == me:
+					hud.say("Your %s is mended, good as new." % _item_name(events[i + 3]))
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)

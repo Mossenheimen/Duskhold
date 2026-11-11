@@ -198,7 +198,8 @@ impl World {
         if a.body.fatigue < n.fatigue.levels[0] {
             return Err(NoSleep::NotTired);
         }
-        if self.dead_after(id, n.sleep_clear) {
+        // On hallowed ground the dead outside can't come in, so they don't keep you awake.
+        if self.dead_after(id, n.sleep_clear) && !self.is_hallowed(a.pos) {
             return Err(NoSleep::DeadAbout);
         }
         Ok(self.bed_beside(a.pos))

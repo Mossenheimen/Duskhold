@@ -738,3 +738,43 @@ fn the_ghoul_out_paces_your_walk_and_not_your_run_in_the_games_data() {
             .any(|i| matches!(i.kind, dusk_core::ItemKind::Cure { .. }))
     );
 }
+
+#[test]
+fn the_abbey_sells_the_cure_for_what_a_trip_or_two_brings_home_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let abbey = d
+        .holdouts
+        .iter()
+        .find(|h| h.id == "abbey")
+        .expect("the abbey");
+    let n = d.holdouts.iter().position(|h| h.id == "abbey").unwrap() as u16;
+    assert!(d.counters.contains(&Some(n)), "a counter it trades over");
+    assert_eq!(
+        d.coin.and_then(|c| d.item(c)).map(|i| i.id.as_str()),
+        Some("coins")
+    );
+    let cure = abbey
+        .sells
+        .iter()
+        .find(|s| {
+            matches!(
+                d.item(s.item).unwrap().kind,
+                dusk_core::ItemKind::Cure { .. }
+            )
+        })
+        .expect("it sells the cure");
+    // It pays less than it sells for, so nothing is bought and sold back at a profit.
+    for s in &abbey.sells {
+        let worth = d.item(s.item).unwrap().worth;
+        assert!(u64::from(worth) * u64::from(abbey.buys) / 1_000_000 < u64::from(s.price));
+    }
+    // The leanest patch's finds (227 XP, `dusk-cli gen --seed 1`) fetch 113 coin there: the
+    // cure is within half of that, but costs more than a trip or two brings.
+    let leanest = 227 * abbey.buys / 1000;
+    assert!(
+        (20..=leanest / 2).contains(&cure.price),
+        "the cure's price: {}",
+        cure.price
+    );
+}

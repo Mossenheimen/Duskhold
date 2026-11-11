@@ -58,3 +58,12 @@ solid = true
 [[fixture]]
 id = "altar"
 solid = true
+
+[[fixture]]
+id = "counter"
+solid = true
+trade = "abbey"       # a holdout trades over it (holdouts.toml)
+
+[[fixture]]
+id = "sister"         # the one who keeps the counter (a holdout's people come later)
+solid = true

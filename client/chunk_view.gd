@@ -43,6 +43,9 @@ const FURNITURE := {
 	"shelf": [Vector3(0.9, 1.8, 0.4), Color(0.36, 0.25, 0.16)],
 	"pew": [Vector3(0.95, 0.5, 0.5), Color(0.4, 0.28, 0.17)],
 	"altar": [Vector3(0.95, 1.0, 0.7), Color(0.62, 0.6, 0.56)],
+	"counter": [Vector3(0.95, 1.0, 0.8), Color(0.5, 0.36, 0.22)],
+	# The sister who keeps the counter: a figure in grey, until a holdout's people are actors.
+	"sister": [Vector3(0.42, 1.6, 0.42), Color(0.36, 0.38, 0.46)],
 }
 
 const SIDE_WEST := 1

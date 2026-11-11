@@ -78,6 +78,12 @@ pub enum Intent {
     Stash { at: TilePos },
     /// Put the stack at `slot` of your pack into the container on `at`.
     Put { at: TilePos, slot: u16, def: u16 },
+    /// Buy one of a holdout's `line` over the counter on `at` (`holdout.rs`).
+    Buy { at: TilePos, line: u16 },
+    /// Sell the stack at `slot` of your pack over the counter on `at`.
+    Sell { at: TilePos, slot: u16, def: u16 },
+    /// Have the weapon in your hand mended at the counter on `at`.
+    Mend { at: TilePos },
     /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
     /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
     Burn,
@@ -140,6 +146,19 @@ pub enum ActionKind {
     /// Setting a body alight.
     Burn {
         body: ActorId,
+    },
+    /// Deals over a holdout's counter.
+    Buy {
+        at: TilePos,
+        line: u16,
+    },
+    Sell {
+        at: TilePos,
+        slot: u16,
+        def: u16,
+    },
+    Mend {
+        at: TilePos,
     },
 }
 

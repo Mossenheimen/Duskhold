@@ -127,6 +127,12 @@ pub struct Defs {
     pub douse_time: u32,
     /// What boarding up takes (`barricade.rs`); None: nobody can.
     pub boarding: Option<Boarding>,
+    /// The holdouts' trade (`holdout.rs`), and by fixture number, the holdout a counter is
+    /// the counter of.
+    pub holdouts: Vec<crate::holdout::Holdout>,
+    pub counters: Vec<Option<u16>>,
+    /// The item that's coin.
+    pub coin: Option<u16>,
 }
 
 impl Default for Defs {
@@ -149,6 +155,9 @@ impl Default for Defs {
             light_time: 0,
             douse_time: 0,
             boarding: None,
+            holdouts: Vec::new(),
+            counters: Vec::new(),
+            coin: None,
         }
     }
 }

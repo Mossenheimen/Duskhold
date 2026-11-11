@@ -535,6 +535,30 @@ pub enum Event {
     Burnt {
         body: ActorId,
     },
+    /// `who` bought one of an item at a holdout, for `price` coin (`holdout.rs`).
+    Bought {
+        who: ActorId,
+        item: u16,
+        price: u32,
+    },
+    /// `who` sold `count` of an item at a holdout, for `price` coin.
+    Sold {
+        who: ActorId,
+        item: u16,
+        count: u16,
+        price: u32,
+    },
+    /// ...and it was what the holdout was short of: the pressure fell `by` (thousandths).
+    Supplied {
+        who: ActorId,
+        by: u32,
+    },
+    /// `who` had the weapon in hand mended, for `price` coin.
+    Mended {
+        who: ActorId,
+        item: u16,
+        price: u32,
+    },
 }
 
 /// A sound made this tick.
@@ -576,6 +600,12 @@ pub struct World {
     pub(crate) pressure: u32,
     /// The bodies burning now (`remains.rs`): worked out from the actors, kept for the light.
     pub(crate) fires: Vec<ActorId>,
+    /// Hallowed ground (`holdout.rs`): inside the holdouts' walls. From the patch's making, not
+    /// saved.
+    pub hallowed: Vec<crate::holdout::Area>,
+    /// What each holdout's line has sold, and on which game day, by (holdout, line). Ordered,
+    /// for the hash.
+    pub(crate) sold: BTreeMap<(u16, u16), (u64, u16)>,
 }
 
 impl World {
@@ -606,6 +636,8 @@ impl World {
             region: Region::default(),
             pressure: 0,
             fires: Vec::new(),
+            hallowed: Vec::new(),
+            sold: BTreeMap::new(),
         }
     }
 
@@ -777,6 +809,7 @@ impl World {
         self.board_strength.hash(&mut h);
         self.stores.hash(&mut h);
         self.pressure.hash(&mut h);
+        self.sold.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -931,7 +964,8 @@ impl World {
             };
             a.facing = dir;
             let to = a.pos.step(dir);
-            if !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
+            let barred = creature.is_some() && crate::holdout::in_hallowed(&self.hallowed, to);
+            if barred || !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
                 a.blocked += 1;
                 a.carry = 0;
                 return None;
@@ -1037,6 +1071,10 @@ impl World {
             let pos = a.pos;
             let mut nearest: Option<(i64, TilePos)> = None;
             for s in &self.sounds {
+                // What's done on hallowed ground, the dead pay no heed.
+                if crate::holdout::in_hallowed(&self.hallowed, s.at) {
+                    continue;
+                }
                 if s.by != Some(id) && hears(&self.grid, s.at, pos, s.loudness, rules.muffling) {
                     let d2 = s.at.dist2(pos);
                     if nearest.is_none_or(|(best, _)| d2 < best) {
@@ -1125,7 +1163,9 @@ impl World {
             target = Some(at);
             since = tick;
         }
-        if tick.saturating_sub(since) > kind.forget_after {
+        // Gone past the forgetting, or onto hallowed ground, where it won't follow.
+        let hallowed = target.is_some_and(|t| self.is_hallowed(t));
+        if tick.saturating_sub(since) > kind.forget_after || hallowed {
             target = None;
         }
         let next_to = seen
@@ -1263,7 +1303,11 @@ impl World {
         let from = self.actors.get(who)?.pos;
         let mut best: Option<(i64, ActorId, TilePos)> = None;
         for &id in &self.characters {
-            let Some(c) = self.actors.get(id).filter(|c| !c.dead) else {
+            let Some(c) = self
+                .actors
+                .get(id)
+                .filter(|c| !c.dead && !self.is_hallowed(c.pos))
+            else {
                 continue;
             };
             let d2 = from.dist2(c.pos);
@@ -1290,7 +1334,11 @@ impl World {
         let from = a.pos;
         let mut best: Option<(i64, ActorId, TilePos)> = None;
         for &id in &self.characters {
-            let Some(c) = self.actors.get(id).filter(|c| !c.dead && c.pos.z == from.z) else {
+            let Some(c) = self
+                .actors
+                .get(id)
+                .filter(|c| !c.dead && c.pos.z == from.z && !self.is_hallowed(c.pos))
+            else {
                 continue;
             };
             let bleeding = c

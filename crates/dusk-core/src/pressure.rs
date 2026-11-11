@@ -132,8 +132,8 @@ impl World {
             let r = roll(seed, tick, attempt, Purpose::Arrival);
             let at = TilePos::new(below(r, wide) as i32, below(r << 32, high) as i32, 0);
             let tile = self.grid.tile(at);
-            if tile.ground != Ground::Floor && !self.is_awake(at) && self.spawn(kind, at).is_some()
-            {
+            let open = tile.ground != Ground::Floor && !self.is_hallowed(at);
+            if open && !self.is_awake(at) && self.spawn(kind, at).is_some() {
                 return;
             }
         }

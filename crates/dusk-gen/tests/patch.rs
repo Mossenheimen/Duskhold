@@ -97,3 +97,37 @@ fn the_dead_are_mostly_shamblers_with_some_ghouls_among_them() {
         "{ghouls} ghouls of {all}"
     );
 }
+
+#[test]
+fn you_start_inside_the_abbey_with_none_of_the_dead_within_its_walls() {
+    for seed in 1..=8 {
+        let (w, layout) = make(seed);
+        let me = w.character().unwrap();
+        let at = w.actor(me).unwrap().pos;
+        assert!(
+            w.is_hallowed(at),
+            "seed {seed}: you start on hallowed ground"
+        );
+        assert!(layout.lots.iter().any(|l| l.holdout && l.prefab == "abbey"));
+        assert!(
+            w.actors()
+                .all(|(_, a)| a.kind.is_character() || !w.is_hallowed(a.pos)),
+            "seed {seed}: none of the dead inside"
+        );
+        // Its counter can be walked to and reached from inside.
+        let counter = (0..layout.width)
+            .flat_map(|x| (0..layout.height).map(move |y| dusk_core::TilePos::new(x, y, 0)))
+            .find(|&p| w.counter_at(p).is_some())
+            .expect("the abbey has its counter");
+        assert!(w.is_hallowed(counter));
+        let beside = dusk_core::Dir8::ALL
+            .iter()
+            .map(|&d| counter.step(d))
+            .find(|&p| w.grid.tile(p).walkable())
+            .expect("a place to stand at the counter");
+        assert!(
+            find_path(&w.grid, at, beside, 4000).is_some(),
+            "seed {seed}: the counter is reachable"
+        );
+    }
+}

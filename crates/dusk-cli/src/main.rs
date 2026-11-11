@@ -473,6 +473,23 @@ fn describe(w: &World, e: Event) -> String {
         Event::Kindled { who, body } => format!("{} set {} alight", name(who), name(body)),
         Event::Caught { body } => format!("{} caught fire", name(body)),
         Event::Burnt { body } => format!("{} burnt to ash", name(body)),
+        Event::Bought { who, item, price } => {
+            format!("{} bought item {item} for {price} coin", name(who))
+        }
+        Event::Sold {
+            who,
+            item,
+            count,
+            price,
+        } => format!("{} sold {count} of item {item} for {price} coin", name(who)),
+        Event::Supplied { who, by } => format!(
+            "{} supplied the holdout: the pressure fell {:.1}%",
+            name(who),
+            f64::from(by) / 10.0
+        ),
+        Event::Mended { who, item, price } => {
+            format!("{} had item {item} mended for {price} coin", name(who))
+        }
     }
 }
 

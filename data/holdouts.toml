@@ -1,0 +1,25 @@
+# The holdouts' trade (CONCEPT.md, the realm). Over a holdout's counter (a fixture with trade =
+# its id, fixtures.toml) you buy from its stock, which comes back each game day; sell anything
+# with a worth for a share of it in coin (a find sold there pays its XP too, as in your stash);
+# and have the weapon in your hand mended. Selling it what it's short of (wants) pushes the
+# region's pressure back as well. Prices are in coin; a coin is worth 1 (items/supplies.toml).
+
+coin = "coins"
+
+[[holdout]]
+id = "abbey"
+name = "the abbey on the hill"
+buys = 0.5            # what it pays: this share of an item's worth, in coin
+repair = 1.0          # a full repair costs this share of the weapon's worth
+time = 1.5            # seconds a deal takes
+wants = ["bread", "apple", "jerky", "water", "lamp_oil", "candle"]
+supply = 0.25         # each point of worth of what it wants lowers the pressure this many per cent
+sells = [
+  { item = "tincture", price = 30, stock = 1 },    # the cure for ghoul fever: one a day
+  { item = "bandage", price = 6, stock = 3 },
+  { item = "lamp_oil", price = 5, stock = 3 },
+  { item = "bread", price = 5, stock = 2 },
+  { item = "water", price = 4, stock = 3 },
+  { item = "torch", price = 4, stock = 2 },
+  { item = "candle", price = 2, stock = 4 },
+]

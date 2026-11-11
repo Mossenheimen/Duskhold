@@ -19,8 +19,8 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, ChunkPos, Dir8, Edge, Event, Ground, Intent, Item,
-    ItemKind, NoBoard, NoBurn, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos, View, World,
-    WoundKind, demo,
+    ItemKind, NoBoard, NoBurn, NoDeal, NoSleep, NoStash, Part, Remains, Rise, Skill, TilePos, View,
+    World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -100,6 +100,10 @@ const GOT_UP: i32 = 48;
 const KINDLED: i32 = 49;
 const CAUGHT: i32 = 50;
 const BURNT: i32 = 51;
+const BOUGHT: i32 = 52;
+const SOLD: i32 = 53;
+const SUPPLIED: i32 = 54;
+const MENDED: i32 = 55;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -300,6 +304,27 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Kindled { who, body } => (KINDLED, Some(who), Some(body), at(body), 0),
         Event::Caught { body } => (CAUGHT, Some(body), None, at(body), 0),
         Event::Burnt { body } => (BURNT, Some(body), None, at(body), 0),
+        // In the place of a tile: the item and how many. The extra is the coin.
+        Event::Bought { who, item, price } => {
+            (BOUGHT, Some(who), None, (i32::from(item), 1), price as i32)
+        }
+        Event::Sold {
+            who,
+            item,
+            count,
+            price,
+        } => (
+            SOLD,
+            Some(who),
+            None,
+            (i32::from(item), i32::from(count)),
+            price as i32,
+        ),
+        // The extra: how far the pressure fell, in thousandths.
+        Event::Supplied { who, by } => (SUPPLIED, Some(who), None, at(who), by as i32),
+        Event::Mended { who, item, price } => {
+            (MENDED, Some(who), None, (i32::from(item), 1), price as i32)
+        }
         Event::Sound { .. } => return None,
     };
     Some([
@@ -988,7 +1013,8 @@ impl DuskWorld {
     /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
     /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
-    /// 21 taking the cure, 22 setting a body alight), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
+    /// 25 having a weapon mended), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -1034,6 +1060,9 @@ impl DuskWorld {
                         ActionKind::Stash { .. } => 19,
                         ActionKind::Put { .. } => 20,
                         ActionKind::Burn { .. } => 22,
+                        ActionKind::Buy { .. } => 23,
+                        ActionKind::Sell { .. } => 24,
+                        ActionKind::Mend { .. } => 25,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1200,6 +1229,153 @@ impl DuskWorld {
             Err(NoBurn::NoOil) => -2,
             Err(NoBurn::NoFlame) => -3,
         }
+    }
+
+    /// A holdout's counter within your reach: [x, y, the holdout's number], or nothing.
+    #[func]
+    fn counter_in_reach(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let found = world.character().and_then(|me| world.counter_in_reach(me));
+        match found {
+            Some((at, h)) => PackedInt32Array::from(&[at.x, at.y, i32::from(h)]),
+            None => PackedInt32Array::new(),
+        }
+    }
+
+    /// A holdout's name, by its number.
+    #[func]
+    fn holdout_name(&self, holdout: i32) -> GString {
+        let Some(world) = &self.world else {
+            return GString::new();
+        };
+        let h = u16::try_from(holdout)
+            .ok()
+            .and_then(|n| world.defs.holdout(n));
+        h.map_or_else(GString::new, |h| GString::from(h.name.as_str()))
+    }
+
+    /// What the counter on (x, y) sells, four numbers a line: the item, its price in coin, how
+    /// many are left today, and whether you can buy one (1), or why not: -1 sold out, -2 not
+    /// enough coin.
+    #[func]
+    fn counter_sells(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let (Some(me), at) = (world.character(), TilePos::new(x, y, 0)) else {
+            return PackedInt32Array::new();
+        };
+        let Some(n) = world.counter_at(at) else {
+            return PackedInt32Array::new();
+        };
+        let Some(h) = world.defs.holdout(n) else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for (line, sale) in h.sells.iter().enumerate() {
+            let can = match world.can_buy(me, at, line as u16) {
+                Ok(_) => 1,
+                Err(NoDeal::SoldOut) => -1,
+                Err(_) => -2,
+            };
+            out.extend([
+                i32::from(sale.item),
+                sale.price as i32,
+                i32::from(world.stock_left(n, line as u16)),
+                can,
+            ]);
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// What the holdout over the counter on (x, y) is short of: item numbers.
+    #[func]
+    fn counter_wants(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let h = world
+            .counter_at(TilePos::new(x, y, 0))
+            .and_then(|n| world.defs.holdout(n));
+        h.map_or_else(PackedInt32Array::new, |h| {
+            h.wants.iter().map(|&w| i32::from(w)).collect()
+        })
+    }
+
+    /// What the counter on (x, y) pays for the stack at `slot` of your pack, in coin, or -1 if
+    /// it won't take it.
+    #[func]
+    fn sell_price(&self, x: i32, y: i32, slot: i32, def: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        let (Ok(slot), Ok(def)) = (u16::try_from(slot), u16::try_from(def)) else {
+            return -1;
+        };
+        world
+            .can_sell(me, TilePos::new(x, y, 0), slot, def)
+            .map_or(-1, |p| p as i32)
+    }
+
+    /// What mending the weapon in your hand costs at the counter on (x, y), in coin, or why
+    /// not: -1 nothing worn in hand, -2 not enough coin.
+    #[func]
+    fn mend_check(&self, x: i32, y: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.repair_cost(me, TilePos::new(x, y, 0)) {
+            Ok(cost) => cost as i32,
+            Err(NoDeal::TooPoor) => -2,
+            Err(_) => -1,
+        }
+    }
+
+    /// The coin you carry.
+    #[func]
+    fn coins(&self) -> i32 {
+        let Some(world) = &self.world else { return 0 };
+        world.character().map_or(0, |me| world.coins(me) as i32)
+    }
+
+    /// Whether you stand on hallowed ground: inside a holdout's walls, where the dead don't come.
+    #[func]
+    fn on_hallowed(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        let me = world.character().and_then(|me| world.actor(me));
+        me.is_some_and(|a| world.is_hallowed(a.pos))
+    }
+
+    /// Buys one of `line` over the counter on (x, y).
+    #[func]
+    fn buy(&mut self, x: i32, y: i32, line: i32) {
+        let at = TilePos::new(x, y, 0);
+        if let Ok(line) = u16::try_from(line) {
+            self.act(Intent::Buy { at, line });
+        }
+    }
+
+    /// Sells the stack at `slot` of your pack over the counter on (x, y).
+    #[func]
+    fn sell(&mut self, x: i32, y: i32, slot: i32, def: i32) {
+        let at = TilePos::new(x, y, 0);
+        if let (Ok(slot), Ok(def)) = (u16::try_from(slot), u16::try_from(def)) {
+            self.act(Intent::Sell { at, slot, def });
+        }
+    }
+
+    /// Has the weapon in your hand mended at the counter on (x, y).
+    #[func]
+    fn mend(&mut self, x: i32, y: i32) {
+        self.act(Intent::Mend {
+            at: TilePos::new(x, y, 0),
+        });
     }
 
     /// Pours oil on the body beside you and sets it alight (see `burn_check`).

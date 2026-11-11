@@ -129,6 +129,10 @@ impl World {
         if a.kind != ActorKind::Character || a.home == Some(a.pos) {
             return;
         }
+        // A holdout's bed is a guest's: it doesn't make a home.
+        if crate::holdout::in_hallowed(&self.hallowed, a.pos) {
+            return;
+        }
         a.home = Some(a.pos);
         let at = a.pos;
         self.events.push(Event::MadeHome { who: id, at });

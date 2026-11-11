@@ -49,3 +49,8 @@ ceiling = 150         # time raises it no higher (relighting the wardstone will 
 per_rise = 2          # each body that gets up
 per_burn = 2          # each body burned
 every = 30            # game minutes between the dead walking in, while the patch is short of them
+
+[holdout]
+# The abbey on the hill (prefabs/abbey.toml, holdouts.toml): north of the road where it starts,
+# its gate on the road. You start just inside it; the hamlet is the road's start tiles east.
+prefab = "abbey"

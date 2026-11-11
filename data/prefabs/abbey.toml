@@ -1,0 +1,45 @@
+# The Hushlands' holdout: the abbey on the hill, as a text grid (crates/dusk-core/src/text.rs;
+# the edges and cells are read as in hamlet.toml).
+#
+# A walled close: the chapel, the sisters' dormitory (a guest may sleep in its beds), and the
+# stores, where Sister Agnes keeps the counter. Inside its walls is hallowed ground: the dead
+# never set foot there, and pay no heed to what's done there. The gate stands open.
+# Nothing here is a container: the abbey's stores are traded over the counter, not looted.
+
+[legend]
+"." = { ground = "floor" }
+"," = { ground = "grass" }
+":" = { ground = "dirt" }
+"b" = { ground = "floor", fixture = "bed" }
+"p" = { ground = "floor", fixture = "pew" }
+"l" = { ground = "floor", fixture = "altar" }
+"t" = { ground = "floor", fixture = "table" }
+"h" = { ground = "floor", fixture = "chair" }
+"u" = { ground = "floor", fixture = "counter" }
+"n" = { ground = "floor", fixture = "sister" }
+
+[[prefab]]
+id = "abbey"
+tags = ["holdout"]
+front = "south"
+grid = """
++-+-+-+-+-+-+-+-+-+-+-+-+-+
+|. . l . .|,|b . b . b . b|
++         + +             +
+|p p . p pW,|. . . . . . .|
++         + +             +
+|p p . p p|,|b . b . b . b|
++         + +-+-+-+d+-+-+-+
+|. . . . .|, , , , , , , ,|
++-+-+d+-+-+               +
+|, , : : : : : , , , , , ,|
++               +-+-+-+-+-+
+|, , , , , , : ,|. . . . .|
++               +         +
+|, , , , , , : ,d. u n . t|
++               +         +
+|, , , , , , : ,|. . . . h|
++               +         +
+|, , , , , , : ,W. . . . .|
++-+-+-+-+-+-+d+-+-+-+-+-+-+
+"""

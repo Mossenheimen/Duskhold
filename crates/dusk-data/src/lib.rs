@@ -7,6 +7,7 @@
 
 mod barricade;
 mod fever;
+mod holdout;
 mod home;
 mod items;
 mod light;
@@ -74,6 +75,9 @@ pub struct Fixture {
     /// A bed: you sleep best beside one.
     #[serde(default)]
     pub bed: bool,
+    /// A counter: the holdout that trades over it (`holdouts.toml`).
+    #[serde(default)]
+    pub trade: Option<String>,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -152,6 +156,17 @@ pub struct Region {
     pub dead: Dead,
     /// Its pressure (`dusk_core::pressure`), in per cent of the dead a patch began with.
     pub pressure: remains::PressureFile,
+    /// Its holdout, if a patch has one: where the road starts, and you with it.
+    #[serde(default)]
+    pub holdout: Option<HoldoutSite>,
+}
+
+/// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
+/// ground), north of the road where you start, its gate facing the road.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HoldoutSite {
+    pub prefab: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -258,6 +273,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     if let Some(b) = &raw.barricade {
         defs.boarding = Some(barricade::to_boarding(&rules_file, b, &defs.items)?);
     }
+    holdout::load(dir, &mut defs, &fixtures)?;
     defs.creatures = creatures;
     let defs = Arc::new(defs);
 
@@ -976,6 +992,15 @@ fn check_region(
         Some("dead.kinds: each share is above 0, and they add up to 1".to_string())
     } else if let Some(problem) = r.pressure.problem() {
         Some(problem)
+    } else if let Some(site) = r
+        .holdout
+        .as_ref()
+        .filter(|s| !prefabs.iter().any(|p| p.id == s.prefab))
+    {
+        Some(format!(
+            "holdout.prefab: no prefab called {:?}",
+            site.prefab
+        ))
     } else {
         r.hamlet
             .lots

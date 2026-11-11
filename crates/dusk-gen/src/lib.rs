@@ -9,7 +9,7 @@ pub mod noise;
 
 use dusk_core::save::SaveError;
 use dusk_core::text::TextGrid;
-use dusk_core::{ActorKind, ChunkPos, Edge, Ground, Tile, TilePos, World, geom::CHUNK_SIZE};
+use dusk_core::{ActorKind, Area, ChunkPos, Edge, Ground, Tile, TilePos, World, geom::CHUNK_SIZE};
 use dusk_data::{Data, PrefabCell, Region, Side, doors_on};
 
 use noise::{Layer, fractal, hash, unit};
@@ -31,9 +31,22 @@ pub struct Lot {
     pub door: TilePos,
     /// The path from the door to the road, door end first.
     pub path: Vec<TilePos>,
+    /// The region's holdout: walled, so no fence round it, and none of the dead inside.
+    pub holdout: bool,
 }
 
 impl Lot {
+    /// Inside its walls: the building's whole grid.
+    pub fn inside(&self) -> Area {
+        Area {
+            x0: self.origin.x,
+            y0: self.origin.y,
+            x1: self.origin.x + self.grid.width,
+            y1: self.origin.y + self.grid.height,
+            z: self.origin.z,
+        }
+    }
+
     fn in_yard(&self, x: i32, y: i32) -> bool {
         let (x0, y0, x1, y1) = self.yard;
         (x0..x1).contains(&x) && (y0..y1).contains(&y)
@@ -117,7 +130,62 @@ impl Layout {
             .unwrap_or(width / 2);
         let start_x = (hamlet_west - road.start).clamp(1, width - 2);
         layout.start = TilePos::new(start_x, layout.road_rows(start_x).0 + road.width / 2, 0);
+        // The holdout stands north of the road there, its gate on the road; you start inside.
+        if let Some(abbey) = layout.place_holdout(data, start_x) {
+            layout.start = abbey.door;
+            layout.lots.push(abbey);
+        }
         layout
+    }
+
+    /// The region's holdout, north of the road with its gate at `gate_x`: None if the region
+    /// has none, or it doesn't fit.
+    fn place_holdout(&self, data: &Data, gate_x: i32) -> Option<Lot> {
+        let site = self.region.holdout.as_ref()?;
+        let prefab = data.prefab(&site.prefab)?;
+        let (mut grid, mut front) = (prefab.grid.clone(), prefab.front);
+        while front != Side::South {
+            grid = grid.rotated();
+            front = front.turned();
+        }
+        let doors = doors_on(&grid, Side::South);
+        let along = *doors.get(doors.len() / 2)?;
+        let setback = self.region.hamlet.setback;
+        let x0 = gate_x - along;
+        let x1 = x0 + grid.width;
+        let top = (x0..x1).map(|x| self.road_rows(x).0).min()?;
+        let y0 = top - setback - grid.height;
+        let y1 = y0 + grid.height;
+        if x0 < 1 || y0 < 1 || x1 > self.width - 1 {
+            return None;
+        }
+        let origin = TilePos::new(x0, y0, 0);
+        let door = origin.offset(along, grid.height - 1);
+        let mut path = Vec::new();
+        let mut at = door.offset(0, 1);
+        while !self.is_road(at.x, at.y) && at.y < self.height {
+            path.push(at);
+            at = at.offset(0, 1);
+        }
+        Some(Lot {
+            prefab: prefab.id.clone(),
+            grid,
+            origin,
+            yard: (x0, y0, x1, y1),
+            north: true,
+            door,
+            path,
+            holdout: true,
+        })
+    }
+
+    /// Hallowed ground: inside the holdout's walls.
+    pub fn hallowed(&self) -> Vec<Area> {
+        self.lots
+            .iter()
+            .filter(|l| l.holdout)
+            .map(Lot::inside)
+            .collect()
     }
 
     /// The road's middle line at x (tiles, fractional), eased from bend to bend.
@@ -220,6 +288,7 @@ impl Layout {
                 north: side == 0,
                 door,
                 path,
+                holdout: false,
             });
         }
         lots
@@ -297,7 +366,7 @@ impl Layout {
                 }
             }
         }
-        for lot in &self.lots {
+        for lot in self.lots.iter().filter(|l| !l.holdout) {
             let (x0, y0, x1, y1) = lot.yard;
             if (x0..x1).contains(&x) && (y == y0 || y == y1) {
                 let road_side = if lot.north { y == y1 } else { y == y0 };
@@ -320,7 +389,7 @@ impl Layout {
                 }
             }
         }
-        for lot in &self.lots {
+        for lot in self.lots.iter().filter(|l| !l.holdout) {
             let (x0, y0, x1, y1) = lot.yard;
             if (y0..y1).contains(&y) && (x == x0 || x == x1) {
                 return Edge::Fence;
@@ -350,6 +419,9 @@ impl Layout {
         let clear_of_start = |p: TilePos| p.dist2(self.start) > i64::from(d.clear_start).pow(2);
         let mut out = Vec::new();
         for (i, lot) in self.lots.iter().enumerate() {
+            if lot.holdout {
+                continue;
+            }
             let (fewest, most) = d.per_house;
             let roll = |what: i64| hash(self.seed, Layer::Dead, -(i as i64) - 1, what);
             let count = fewest + (roll(0) % u64::from(most - fewest + 1)) as u32;
@@ -435,6 +507,7 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     }
     // What the patch began with is what its pressure is measured against.
     world.set_region(region.to_core(&data.defs, dead));
+    world.hallowed = layout.hallowed();
     // The land is made: from here on, what changes is what a save keeps.
     world.grid.track_changes();
     (world, layout)

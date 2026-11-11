@@ -8,6 +8,10 @@ extends CanvasLayer
 ## Your stash (home.rs): a find (one that came out of the world) put into it pays its worth in
 ## XP, once. The pack marks finds with their worth; with your stash within reach, each line has
 ## a Stash button.
+##
+## A holdout's counter (holdout.rs), within reach, shows what it sells today and what it's short
+## of; the pack's lines then have a Sell button (a find sold pays its XP too), and the weapon in
+## your hand a Mend button.
 
 const WEAPON := 1
 const BANDAGE := 2
@@ -44,6 +48,7 @@ var _shown_pack := []  # what the pack panel shows now, to rebuild only when it 
 var _shown_reach := PackedInt32Array()
 var _shown_water := false
 var _queue: Array = []  # actions still to ask for: ["take" or "put", x, y, def]
+var _shown_counter := []  # the counter within reach and what it sells, as last drawn
 
 
 func _ready() -> void:
@@ -66,7 +71,8 @@ func start(dusk: Node) -> void:
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
 	_shown_water = false
-	_draw_reach(_shown_reach, false)
+	_shown_counter = []
+	_draw_reach(_shown_reach, false, PackedInt32Array(), PackedInt32Array())
 	_queue.clear()
 
 
@@ -89,15 +95,22 @@ func refresh(busy: bool, dead: bool) -> void:
 	var light: PackedInt32Array = _dusk.character_light()
 	var reach: PackedInt32Array = _dusk.stores_in_reach()
 	var stash := _stash_in(reach)
-	var pack := [hands, items, carried, light, stash]
+	var counter: PackedInt32Array = _dusk.counter_in_reach()
+	var coins: int = _dusk.coins()
+	var pack := [hands, items, carried, light, stash, counter, coins]
 	if pack != _shown_pack:
 		_shown_pack = pack
-		_draw_pack(hands, items, carried, light, stash)
+		_draw_pack(hands, items, carried, light, stash, counter, coins)
 	var water: bool = _dusk.water_in_reach()
-	if reach != _shown_reach or water != _shown_water:
+	var sells := PackedInt32Array()
+	if counter.size() >= 3:
+		sells = _dusk.counter_sells(counter[0], counter[1])
+	var at_counter := [counter, sells]
+	if reach != _shown_reach or water != _shown_water or at_counter != _shown_counter:
 		_shown_reach = reach
 		_shown_water = water
-		_draw_reach(reach, water)
+		_shown_counter = at_counter
+		_draw_reach(reach, water, counter, sells)
 	if not busy and not _queue.is_empty():
 		_next_queued(reach, items)
 
@@ -113,19 +126,24 @@ func _stash_in(reach: PackedInt32Array) -> Vector2i:
 
 
 func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: PackedInt32Array,
-		light: PackedInt32Array, stash: Vector2i) -> void:
+		light: PackedInt32Array, stash: Vector2i, counter: PackedInt32Array, coins: int) -> void:
 	for child in _pack.get_children():
 		child.queue_free()
 	if carried.size() < 2:
 		return
 	var heavy := carried[0] > carried[1]
-	var title := _line(_pack, "Pack  ·  %.1f / %.1f kg%s" % [carried[0] / 1000.0, carried[1] / 1000.0,
-		"  ·  too heavy to run" if heavy else ""], 17)
+	var title := _line(_pack, "Pack  ·  %.1f / %.1f kg  ·  %d coin%s" % [carried[0] / 1000.0,
+		carried[1] / 1000.0, coins, "  ·  too heavy to run" if heavy else ""], 17)
 	if heavy:
 		title.add_theme_color_override("font_color", Color(1.0, 0.55, 0.4))
+	var trading := counter.size() >= 3
 	if hands.size() >= 2:
 		var row := _row(_pack, "In hand: %s (%d%%)" % [_name(hands[0]), roundi(hands[1] / 10.0)])
 		_button(row, "Put away", func() -> void: _dusk.unwield())
+		if trading:
+			var cost: int = _dusk.mend_check(counter[0], counter[1])
+			if cost > 0 or cost == -2:
+				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
 	else:
 		_line(_pack, "In hand: nothing (bare fists)", 15)
 	if light.size() >= 2:
@@ -157,6 +175,10 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Burn a body", func() -> void: burn.call())
 		if stash.x >= 0:
 			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
+		if trading:
+			var price: int = _dusk.sell_price(counter[0], counter[1], slot, def)
+			if price >= 0:
+				_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
 		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
 
 
@@ -168,10 +190,13 @@ func _take_cure(slot: int, def: int) -> void:
 		_dusk.use_item(slot, def)
 
 
-func _draw_reach(reach: PackedInt32Array, water: bool) -> void:
+func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array,
+		sells: PackedInt32Array) -> void:
 	for child in _reach.get_children():
 		child.queue_free()
-	_reach_panel.visible = reach.size() > 0 or water
+	_reach_panel.visible = reach.size() > 0 or water or counter.size() >= 3
+	if counter.size() >= 3:
+		_draw_counter(counter, sells)
 	if water:
 		var row := _row(_reach, "Water")
 		_button(row, "Drink", func() -> void: _dusk.drink_water())
@@ -204,6 +229,52 @@ func _draw_reach(reach: PackedInt32Array, water: bool) -> void:
 			var row := _row(_reach, "   " + _describe(def, count, found))
 			_button(row, "Take", func() -> void: _dusk.take(x, y, slot, def))
 		i += n * STACK
+
+
+## A holdout's counter: what it sells today, at what price and how many are left, and what it's
+## short of (selling it those pushes the dusk back).
+func _draw_counter(counter: PackedInt32Array, sells: PackedInt32Array) -> void:
+	var x := counter[0]
+	var y := counter[1]
+	var name: String = _dusk.holdout_name(counter[2])
+	# "The abbey on the hill": only the first letter raised (capitalize() raises every word).
+	var title := name.left(1).to_upper() + name.substr(1)
+	var header := _line(_reach, title + "  ·  the counter", 16)
+	header.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
+	var wants: PackedInt32Array = _dusk.counter_wants(x, y)
+	if wants.size() > 0:
+		var short := []
+		for w in wants:
+			short.append(_name(w))
+		_line(_reach, "Short of: %s.  Sell it these to push the dusk back." % ", ".join(short), 13)
+	for line in range(0, sells.size() / 4):
+		var def := sells[line * 4]
+		var price := sells[line * 4 + 1]
+		var left := sells[line * 4 + 2]
+		var can := sells[line * 4 + 3]
+		var text := "   %s  ·  %d coin  ·  %s" % [_name(def), price,
+			"none left today" if left == 0 else "%d left today" % left]
+		var row := _row(_reach, text)
+		_button(row, "Buy", func() -> void: _buy(x, y, line, can))
+
+
+## "Buy": the core says whether you can, and this says why not.
+func _buy(x: int, y: int, line: int, can: int) -> void:
+	if can == 1:
+		_dusk.buy(x, y, line)
+	elif say.is_valid():
+		say.call("None left today: more tomorrow." if can == -1 else "You haven't the coin.")
+
+
+## "Mend": the weapon in your hand, made good as new for its price.
+func _mend(x: int, y: int) -> void:
+	var cost: int = _dusk.mend_check(x, y)
+	if cost > 0:
+		_dusk.mend(x, y)
+		if say.is_valid():
+			say.call("Mending it costs %d coin." % cost)
+	elif say.is_valid():
+		say.call("You haven't the coin to have it mended." if cost == -2 else "There's nothing to mend.")
 
 
 ## "Make it your stash": the core says whether it can be, and this says why not.
