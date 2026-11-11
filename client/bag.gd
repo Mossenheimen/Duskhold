@@ -72,6 +72,7 @@ func start(dusk: Node) -> void:
 	_shown_reach = PackedInt32Array()
 	_shown_water = false
 	_shown_counter = []
+	_pack_panel.visible = true  # hidden at a death; the next survivor has a pack again
 	_draw_reach(_shown_reach, false, PackedInt32Array(), PackedInt32Array())
 	_queue.clear()
 

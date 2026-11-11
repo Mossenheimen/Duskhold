@@ -10,6 +10,7 @@ mod fever;
 mod holdout;
 mod home;
 mod items;
+mod legacy;
 mod light;
 mod needs;
 mod remains;
@@ -280,6 +281,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     }
     holdout::load(dir, &mut defs, &fixtures)?;
     defs.creatures = creatures;
+    legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
@@ -342,6 +344,9 @@ struct RulesFile {
     deeds: home::DeedsFile,
     fever: fever::FeverFile,
     burning: remains::BurningFile,
+    /// Optional: with no [revenant], a character's body stays down.
+    #[serde(default)]
+    revenant: Option<legacy::RevenantFile>,
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,

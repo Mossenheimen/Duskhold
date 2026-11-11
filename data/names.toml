@@ -1,0 +1,13 @@
+# Characters' names (crates/dusk-core/src/legacy.rs): a given name and a family name, rolled as
+# each one comes into the world. Hushlands names: old, plain, a little worn.
+
+given = [
+  "Edda", "Tam", "Wyn", "Osric", "Maud", "Aldo", "Bryn", "Cole", "Hild", "Jory",
+  "Ness", "Piers", "Rook", "Sib", "Tobin", "Una", "Wat", "Ada", "Brand", "Elsa",
+  "Fenn", "Garth", "Isolde", "Kit", "Lark", "Merrow", "Orla", "Quill", "Rowan", "Silas",
+]
+family = [
+  "Marsh", "Hale", "Ashby", "Crane", "Dunmore", "Fallow", "Gorse", "Holloway", "Kettle",
+  "Lowe", "Mallory", "Nettle", "Ormond", "Pike", "Reed", "Sallow", "Thorne", "Underhill",
+  "Vane", "Wick",
+]

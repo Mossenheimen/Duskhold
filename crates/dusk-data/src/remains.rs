@@ -137,8 +137,9 @@ impl Region {
                 .as_ref()
                 .map(|t| t.to_tolling())
                 .unwrap_or_default(),
-            // Where the bell hangs is the patch's to say (`dusk-gen`).
+            // Where the bell hangs, and where you come in, are the patch's to say (`dusk-gen`).
             bell: None,
+            start: None,
         }
     }
 }

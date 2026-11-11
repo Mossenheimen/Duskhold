@@ -22,6 +22,7 @@ pub mod hash;
 pub mod holdout;
 pub mod home;
 pub mod items;
+pub mod legacy;
 pub mod light;
 pub mod needs;
 pub mod path;

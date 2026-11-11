@@ -478,6 +478,9 @@ One table of how things act on each other, written before the content, so the ga
 - **A fair death has a readable cause:** tells before hits, grabs with a way out, no unseen instant kills. The recap names the moment it went wrong: "grabbed by a third shambler in the hall".
 - **The world keeps it:** your body and gear lie where you fell, and you rise there as a revenant. Your base stays where it is.
 - **The next character** starts at a holdout and can walk back to the old base. What carries over: the base and what's in it, the holdouts' memory of you, your map, the places found, what you've learned about the creatures.
+- *(built 2026-11-10)* Every character has a name, and the death screen tells who it was, how long they lasted, how they died and what they carried.
+  - **The body stays where it fell, in its gear.** Unless it's burned first, at midnight it rises as a revenant, with your name: twice a shambler's health, faster than your walk, and it doesn't wander from where it fell. Put it down and your things fall where it falls. Burn the body before midnight and it never rises; the gear falls where it lay.
+  - **R brings the next survivor** to the abbey's gate, in the same world. Your home and stash carry over, and so does the map you remember; the levels and skills don't.
 - A sandbox option for a softer game: keep the character, lose what you carried.
 
 ## Multiplayer and PvP (Default: single-player first, built to allow more)

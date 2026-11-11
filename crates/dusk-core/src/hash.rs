@@ -59,6 +59,7 @@ pub enum Purpose {
     GetUpWhen = 17,
     Arrival = 18,
     ArrivalKind = 19,
+    Name = 20,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

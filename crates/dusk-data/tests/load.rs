@@ -778,3 +778,17 @@ fn the_abbey_sells_the_cure_for_what_a_trip_or_two_brings_home_in_the_games_data
         cure.price
     );
 }
+
+#[test]
+fn a_body_rises_as_the_revenant_and_characters_have_names_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let (kind, hour) = d.revenant.expect("a body rises");
+    assert_eq!(d.creature(kind).unwrap().id, "revenant");
+    assert_eq!(hour, 0, "at midnight");
+    // It never spawns in the region's mix, and put down it stays down.
+    let region = data.region("hushlands").unwrap();
+    assert!(!region.dead.kinds.iter().any(|k| k.creature == "revenant"));
+    assert_eq!(d.creature(kind).unwrap().stats.get_up.chance, 0);
+    assert!(d.given.len() >= 10 && d.family.len() >= 10);
+}

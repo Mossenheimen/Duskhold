@@ -241,6 +241,8 @@ pub enum Remains {
     Burning { until: u64 },
     /// Burnt: nothing left to get up.
     Ash,
+    /// A character's body that rose as a revenant (`legacy.rs`): nothing's left here.
+    Risen,
 }
 
 /// How fast a kind of actor moves, in thousandths of a tile a second (`Rules::speeds`).
@@ -293,6 +295,12 @@ pub struct Actor {
     pub stash: Option<TilePos>,
     /// XP from deeds, in thousandths: what's brought home. Its level comes from this.
     pub deeds: u32,
+    /// A character's name (`legacy.rs`), by its numbers in the data's lists; a revenant keeps
+    /// the one it was. None for the nameless.
+    pub name: Option<(u16, u16)>,
+    /// The game minute it came into the world, and the one it died.
+    pub born: u64,
+    pub died: Option<u64>,
 }
 
 impl Actor {
@@ -332,6 +340,9 @@ impl Actor {
             home: None,
             stash: None,
             deeds: 0,
+            name: None,
+            born: 0,
+            died: None,
         }
     }
 

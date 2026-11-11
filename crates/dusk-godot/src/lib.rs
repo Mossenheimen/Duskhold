@@ -108,6 +108,8 @@ const TOLLING_TONIGHT: i32 = 56;
 const TOLLING_BEGAN: i32 = 57;
 const TOLLED: i32 = 58;
 const TOLLING_ENDED: i32 = 59;
+const RISEN: i32 = 60;
+const CAME: i32 = 61;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -333,6 +335,8 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::TollingBegan { at: p } => (TOLLING_BEGAN, None, None, (p.x, p.y), 0),
         Event::Tolled { at: p } => (TOLLED, None, None, (p.x, p.y), 0),
         Event::TollingEnded => (TOLLING_ENDED, None, None, (-1, -1), 0),
+        Event::Risen { body, revenant } => (RISEN, Some(body), Some(revenant), at(revenant), 0),
+        Event::Came { who } => (CAME, Some(who), None, at(who), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1193,7 +1197,8 @@ impl DuskWorld {
     }
 
     /// What's become of each body: 0 nothing (the living, and a body lying there), 1 burning,
-    /// 2 ash. Whether a body will get up isn't told: you find out.
+    /// 2 ash, 3 risen as a revenant (nothing's left there). Whether a body will get up isn't
+    /// told: you find out.
     #[func]
     fn actor_remains(&self) -> PackedInt32Array {
         self.world
@@ -1203,8 +1208,52 @@ impl DuskWorld {
                 Remains::Lying | Remains::GetsUp { .. } => 0,
                 Remains::Burning { .. } => 1,
                 Remains::Ash => 2,
+                Remains::Risen => 3,
             })
             .collect()
+    }
+
+    /// An actor's name, by its index in the actor arrays: a character's own, a revenant's (the
+    /// one it was), else its kind's; "" for none.
+    #[func]
+    fn actor_name(&self, index: i32) -> GString {
+        let Some(world) = &self.world else {
+            return GString::new();
+        };
+        let id = usize::try_from(index)
+            .ok()
+            .and_then(|i| world.actors().nth(i))
+            .map(|(id, _)| id);
+        id.and_then(|id| world.name_of(id))
+            .map_or_else(GString::new, |n| GString::from(n.as_str()))
+    }
+
+    /// How long your character lasted, or has so far, in game minutes.
+    #[func]
+    fn character_lasted(&self) -> i32 {
+        let Some(world) = &self.world else { return 0 };
+        world
+            .character()
+            .map_or(0, |me| i32::try_from(world.lasted(me)).unwrap_or(i32::MAX))
+    }
+
+    /// After a death: the next character comes into this world, at the start, with the old home
+    /// and stash. False while you live (or with nowhere to come in).
+    #[func]
+    fn next_character(&mut self) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let came = world.next_character().is_some();
+        if came {
+            // The newcomer is drawn from where it stands; and it sees with its own eyes.
+            self.after = positions(world);
+            self.before = self.after.clone();
+            if let Some(me) = world.character() {
+                world.look(me, &mut self.view);
+            }
+        }
+        came
     }
 
     /// The region's pressure: [per mille of the dead the patch began with, the dead about

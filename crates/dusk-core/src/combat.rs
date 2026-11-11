@@ -594,6 +594,7 @@ impl World {
 
     /// Death: the body stays where it fell, as a corpse that nobody has to walk round.
     pub(crate) fn kill(&mut self, id: ActorId) {
+        let now = self.clock_minutes();
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -601,6 +602,7 @@ impl World {
             return;
         }
         a.dead = true;
+        a.died = Some(now);
         a.remains = crate::actor::Remains::Lying;
         a.action = None;
         a.prone_until = 0;
@@ -620,7 +622,15 @@ impl World {
             }
         }
         self.events.push(Event::Died { who: id });
-        self.settle_remains(id);
+        // A creature's gear falls where it's put down (a revenant's: yours); a character's stays
+        // on its body, which may rise.
+        let character = self.actors.get(id).is_some_and(|a| a.kind.is_character());
+        if character {
+            self.settle_body(id);
+        } else {
+            self.shed_gear(id);
+            self.settle_remains(id);
+        }
     }
 
     /// The characters' bodies, each tick: endurance spent running and got back walking or

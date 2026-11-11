@@ -97,12 +97,16 @@ const TOLLING_TONIGHT := 56
 const TOLLING_BEGAN := 57
 const TOLLED := 58
 const TOLLING_ENDED := 59
+const RISEN := 60
+const CAME := 61
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended"}
+## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
+const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -274,7 +278,7 @@ func _start(carry_on := false) -> void:
 	if loaded:
 		dead = dusk.character_body()[3] == 1
 		if dead:
-			hud.show_death("You died here.", clock[3])
+			_show_recap("You died here.")
 		else:
 			hud.say("You carry on.  %s" % Hud.time_of_day(clock))
 	elif not not_loaded.is_empty():
@@ -409,8 +413,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.say("This is a trial run: it isn't saved.")
 		else:
 			_save("Saved.")
+	elif event.is_action_pressed("restart") and dead and not Input.is_key_pressed(KEY_SHIFT):
+		# Dead, R brings the next survivor into this same world.
+		_next_survivor()
 	elif event.is_action_pressed("restart"):
-		# Alive in a saved world, R asks twice: the world you leave is gone for good.
+		# Alive in a saved world, R asks twice: the world you leave is gone for good. Dead,
+		# Shift+R leaves it at once.
 		if save_path != "" and not dead and played - restart_asked > 4.0:
 			restart_asked = played
 			hud.say("Abandon this world for a new one? Press R again.")
@@ -590,7 +598,7 @@ func _draw_actors(delta: float) -> void:
 	seen = dusk.actor_seen()
 	for i in actors.size():
 		# What you don't see isn't drawn (CONCEPT.md: never a live monster you can't see).
-		actors[i].visible = _seen(i)
+		actors[i].visible = _seen(i) and remains[i] != RISEN_BODY
 		actors[i].position = Vector3(where[i].x + 0.5, 0.0, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
@@ -813,6 +821,9 @@ func _read_events() -> void:
 			TOLLING_ENDED:
 				hud.say("Dawn. The bell is quiet, and the dead give up as they did.")
 				hud.flash_good()
+			RISEN:
+				# Your old body: you'd want to know, seen or not.
+				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
@@ -862,8 +873,44 @@ func _die() -> void:
 		how = "You starved."
 	elif how.is_empty():
 		how = "You died."
-	hud.show_death(how, dusk.clock()[3])
+	_show_recap(how)
 	_save("")  # the world keeps your death: there's no going back to before it
+
+
+## The death screen's recap: who, how, how long, and what they carried (the body still has it).
+func _show_recap(how: String) -> void:
+	var carried := []
+	var hands: PackedInt32Array = dusk.character_hands()
+	if hands.size() >= 2:
+		carried.append(_item_name(hands[0]))
+	var items: PackedInt32Array = dusk.character_items()
+	for i in range(0, items.size() - 3, 4):
+		var count := items[i + 1]
+		carried.append(_item_name(items[i]) + ("" if count == 1 else " ×%d" % count))
+	hud.show_death(dusk.actor_name(me), how, dusk.character_lasted(), ", ".join(carried), true)
+
+
+## After a death: the next survivor comes to the abbey, in this world. The old body stays where
+## it fell, with its gear; the home and stash carry over.
+func _next_survivor() -> void:
+	if not dusk.next_character():
+		return
+	_add_new_actors()
+	me = dusk.character_index()
+	dead = false
+	fever_took = false
+	hallowed = false
+	last_hurt = ""
+	last_hurt_at = -100
+	held = 0
+	dragged_by = 0
+	moodles = PackedInt32Array()
+	sleeping = false
+	hud.hide_death()
+	bag.start(dusk)
+	skills.start(dusk)
+	hud.say("%s comes to the abbey. Somewhere out there, the last one's body lies in its gear." % dusk.actor_name(me))
+	_save("")
 
 
 func _move_camera(delta: float) -> void:
@@ -1096,6 +1143,8 @@ func _run_script() -> void:
 				_burn_body()
 			"unboard":
 				_pry_board()
+			"next":  # after a death, the next survivor
+				_next_survivor()
 
 
 ## Your own timed action: (its kind, how far through it is out of 1000), or (0, 0).

@@ -7,11 +7,13 @@ extends Node3D
 const CHARACTER := Color(0.75, 0.32, 0.2)
 ## Each kind's look, by DuskWorld.actor_kinds() (0 the character, 1 + n creature n): its colour,
 ## its height, and how far it stoops. The shambler is grey-green and stooped; the ghoul pale,
-## lower and crouched, so a glance tells them apart. A kind with no look here borrows the last.
+## lower and crouched, so a glance tells them apart; the revenant tall, upright and dark, the
+## character's colour gone bad. A kind with no look here borrows the last.
 const LOOKS := [
 	[CHARACTER, 1.55, 0.0],
 	[Color(0.56, 0.6, 0.5), 1.45, -14.0],
 	[Color(0.82, 0.78, 0.7), 1.3, -28.0],
+	[Color(0.45, 0.24, 0.2), 1.6, -6.0],  # a revenant: you, in your gear, gone dark
 ]
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)

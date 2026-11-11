@@ -413,6 +413,10 @@ pub(crate) fn load_defs(
         holdouts: Vec::new(),
         counters: Vec::new(),
         coin: None,
+        // Filled in by the loader, from names.toml and rules.toml's [revenant].
+        given: Vec::new(),
+        family: Vec::new(),
+        revenant: None,
     };
     let mut start = Vec::new();
     for name in kit.kit {

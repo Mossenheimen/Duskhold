@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  G burn a body  ·  Tab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world  ·  Esc save and quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  G burn a body  ·  Tab pack  ·  K skills  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·Esc save and quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -125,7 +125,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 	var dead := ""
 	if pressure.size() >= 3 and pressure[0] > 0:
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
-	_state.text = "DUSKHOLD  ·  build step 6: the Tolling\n%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  build step 6: death and the revenant\n%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
@@ -293,16 +293,31 @@ func show_asleep(asleep: bool, clock: PackedInt32Array) -> void:
 	_asleep.text = "Asleep\n%s\n\nZ to get up" % time_of_day(clock) if asleep else ""
 
 
-## The end: how you died, and how long you lasted in game time (DuskWorld.clock()[3]).
-func show_death(how: String, minutes: int) -> void:
+## The end, as a recap (CONCEPT.md, death and legacy): who, how they died, how long they lasted
+## in game time (DuskWorld.character_lasted()), what they carried, and what becomes of the body.
+func show_death(name: String, how: String, minutes: int, carried: String, rises: bool) -> void:
 	var days := floori(minutes / 1440.0)
 	var hours := floori((minutes % 1440) / 60.0)
 	var lasted := "%d hours %d minutes" % [hours, minutes % 60]
+	if days == 0 and hours == 0:
+		lasted = "%d minutes" % minutes
 	if days > 0:
 		lasted = "%d day%s %d hours" % [days, "" if days == 1 else "s", hours]
-	_death.text = "This is how you died.\n%s\nYou lasted %s.\n\nR to begin again, in a new patch." % [how, lasted]
+	var who := name if name != "" else "You"
+	var lines := ["%s lasted %s." % [who, lasted], how]
+	if carried != "":
+		lines.append("Carrying %s." % carried)
+	if rises:
+		lines.append("The body lies where it fell. Unburned, at midnight it rises as a revenant, in that gear.")
+	lines.append("")
+	lines.append("R: the next survivor comes to the abbey, in this world.   Shift+R: a new world.")
+	_death.text = "\n".join(lines)
 	_veil.visible = false
 	_asleep.text = ""
+
+
+func hide_death() -> void:
+	_death.text = ""
 
 
 func _build_body_panel() -> void:

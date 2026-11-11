@@ -501,6 +501,14 @@ fn describe(w: &World, e: Event) -> String {
         }
         Event::Tolled { .. } => "the bell tolls".to_string(),
         Event::TollingEnded => "dawn: the Tolling is over".to_string(),
+        Event::Risen { body, revenant } => format!(
+            "{}'s body rose as a revenant: {}",
+            w.name_of(body).unwrap_or_default(),
+            name(revenant)
+        ),
+        Event::Came { who } => {
+            format!("{} came into the world", w.name_of(who).unwrap_or_default())
+        }
     }
 }
 
@@ -621,6 +629,10 @@ fn open_field(size: i32, dead: usize, seed: u64) -> World {
     }
     let centre = TilePos::new(size / 2, size / 2, 0);
     w.grid.set_tile(centre, Tile::GRASS);
+    // You don't die in the benchmark, of wounds or by being dragged down: a dead character no
+    // longer keeps the world awake, so the dead would stand still and the figure mean nothing.
+    w.rules.combat.character_health = 1_000_000_000;
+    w.rules.combat.drag_down = u32::MAX;
     w.spawn(ActorKind::Character, centre)
         .expect("the centre is clear");
     let (mut placed, mut n) = (0, 0u64);

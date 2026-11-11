@@ -517,6 +517,7 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     // What the patch began with is what its pressure is measured against.
     let mut core = region.to_core(&data.defs, dead);
     core.bell = layout.bell();
+    core.start = Some(layout.start);
     world.set_region(core);
     world.hallowed = layout.hallowed();
     // The land is made: from here on, what changes is what a save keeps.

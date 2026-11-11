@@ -54,3 +54,26 @@ wounds = { scratch = 0.5, laceration = 0.35, bite = 0.15 }
 fever = { scratch = 0.05, laceration = 0.25, bite = 0.75 }   # the chance each carries ghoul fever
 thump = [1, 2]        # it claws at a door rather than beating it down
 get_up = { chance = 1.0, after = [12.0, 36.0] }
+
+# What your own body rises as (rules.toml, [revenant]), at midnight unless it was burned: you, in
+# your gear, and worse. Twice a shambler's health, a quick hand, and faster than your walk, so
+# you don't stroll away from it. It makes no groan and it doesn't wander: it haunts the place it
+# fell. It never spawns in the region's mix (regions/*.toml), and put down, it stays down.
+[[creature]]
+id = "revenant"
+walk = 0.6
+run = 1.7             # faster than your walk (1.5), slower than your run (3.0)
+night_speed = 1.25
+sight = 10
+darkvision = 2
+cone = 140
+think_every = 3
+forget_after = 60.0
+wander = 0.0          # it stays where it fell
+path_budget = 800
+health = 60           # twice a shambler
+down = 2.0
+attack = { wind_up = 1.0, recovery = 0.5, hit = 0.65, noise = 3 }
+groan = 0
+wounds = { scratch = 0.4, laceration = 0.45, bite = 0.15 }
+thump = [3, 5]

@@ -167,3 +167,24 @@ fn a_save_keeps_the_pressure_and_what_became_of_each_body() {
     );
     assert_eq!(loaded.world.state_hash(), w.state_hash());
 }
+
+#[test]
+fn a_save_after_a_death_keeps_the_body_and_the_next_survivor() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(2, &data, region);
+    let first = w.character().unwrap();
+    while !w.actor(first).unwrap().dead {
+        w.wound(first, WoundKind::Bite, Part::Torso);
+    }
+    let next = w.next_character().expect("the next survivor");
+    assert_ne!(w.name_of(first), None);
+    assert!(w.is_hallowed(w.actor(next).unwrap().pos), "at the abbey");
+    w.step(100);
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let loaded = dusk_gen::load(&data, &bytes).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(loaded.world.character(), Some(next));
+    assert_eq!(loaded.world.name_of(first), w.name_of(first));
+    assert!(loaded.world.actor(first).unwrap().dead);
+    assert_eq!(loaded.world.state_hash(), w.state_hash());
+}

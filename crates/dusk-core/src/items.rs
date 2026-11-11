@@ -133,6 +133,12 @@ pub struct Defs {
     pub counters: Vec<Option<u16>>,
     /// The item that's coin.
     pub coin: Option<u16>,
+    /// Characters' names: given and family (`legacy.rs`).
+    pub given: Vec<String>,
+    pub family: Vec<String>,
+    /// What a character's unburned body rises as, and at what game minute of the day
+    /// (`legacy.rs`): None, and it stays down.
+    pub revenant: Option<(u16, u32)>,
 }
 
 impl Default for Defs {
@@ -158,6 +164,9 @@ impl Default for Defs {
             holdouts: Vec::new(),
             counters: Vec::new(),
             coin: None,
+            given: Vec::new(),
+            family: Vec::new(),
+            revenant: None,
         }
     }
 }

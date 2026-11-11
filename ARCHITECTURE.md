@@ -887,7 +887,29 @@ Game first: every step ends with something to look at or play.
      - **the save format** doesn't change: the calendar comes from the clock, and the field from the map;
      - **the client:** the clock line counts down ("the Tolling in 2 days", "in 3h 20m", "THE TOLLING, till dawn"), and the news tells of it at dawn on the day, as it begins and as it ends. **Checked:** headless, on a copy of `data/` with the Tolling minutes away: "The bell is tolling!". The crowd at the chapel wasn't caught in a picture;
      - **not yet:** the Director (the pressure choosing how often the event comes); a raid's horns and the hunter's moon (other regions); the dead breaking windows; rewards for a night survived.
-   - **Slice 7, death and the revenant:** the recap, the body and its gear where it fell, the next character in the same world.
+   - **Slice 7, death and the revenant:** done 2026-11-10; 146 tests pass. What it has:
+     - **names** (`data/names.toml`; `Actor::name`, rolled as a character comes into the world; `World::name_of`). A character also keeps the minute it came and the minute it died (`born`, `died`), so `World::lasted` says how long it lasted;
+     - **the body keeps its gear** (`dusk-core/src/legacy.rs`). Unburned, at the next midnight (rules.toml's `[revenant]`) it rises as a **revenant**: a creature of its own (`creatures/hushlands.toml`: twice a shambler's health, faster than your walk, no groan, and it doesn't wander, so it haunts the place it fell). It has the body's name and everything the body carried, and the body is gone (`Remains::Risen`). It waits while someone stands on the body;
+     - **gear comes back:**
+       - any creature put down drops what it carries where it falls (`shed_gear`), so killing the revenant gets your things back;
+       - burning the body before midnight stops it rising, and its gear falls where it lay: items don't burn;
+       - a revenant put down stays down;
+     - **the next character** (`World::next_character`) comes to the region's start (the abbey's gate, `Region::start`; the nearest free tile if someone's on it). It brings the last one's home and stash, so the base carries over; levels and skills don't. `World::character` is the last to come, so everything that asks for "you" follows the newest;
+     - **a dead character no longer keeps the world awake** (`anchors`): the world sleeps round a body until the next one comes near;
+     - **the save format** is version 6 (names, the minutes of coming and dying, the risen body);
+     - **the client:**
+       - the death screen is a recap: who, how long they lasted, how they died (the client's reading, as before), what they carried, and what becomes of the body;
+       - R brings the next survivor into the same world, and Shift+R starts a new world. Alive, R still asks twice before abandoning the world;
+       - the news says when your old body rises;
+       - a risen body isn't drawn, and the revenant is drawn tall, upright and dark;
+       - `--do=S:next` brings the next survivor from a script;
+       - **checked:** headless on a copy of `data/` that starves you on the hour: the next survivor, Cole Hale, came to the abbey. One picture of the death screen's recap;
+     - **found on the way:** `dusk-cli bench` had its character dragged down part-way, after which the crowd stood still once dead characters stopped keeping the world awake. The bench now keeps you alive in the crowd the whole run, which is harsher than before: 100 dead 86,000 ticks/s, 500 dead 12,600 (with the Tolling, 38,000 and 5,300);
+     - **not yet:**
+       - the revenant fighting the way you did (a bot trained on your play: the stretch goal);
+       - class abilities (no classes yet);
+       - what you've learned and the places you found carrying over (the map does: it's the client's, and the save keeps it);
+       - the holdouts remembering you.
    - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 

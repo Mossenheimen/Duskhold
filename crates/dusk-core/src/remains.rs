@@ -81,13 +81,11 @@ impl World {
         }
     }
 
-    /// Whether a body can burn: a creature's, not burning yet nor burnt.
+    /// Whether a body can burn: not burning yet, nor burnt, nor risen.
     fn burnable(&self, id: ActorId) -> bool {
-        self.actors.get(id).is_some_and(|a| {
-            a.dead
-                && !a.kind.is_character()
-                && matches!(a.remains, Remains::Lying | Remains::GetsUp { .. })
-        })
+        self.actors
+            .get(id)
+            .is_some_and(|a| a.dead && matches!(a.remains, Remains::Lying | Remains::GetsUp { .. }))
     }
 
     /// The bodies that can burn on a tile, in id order.
@@ -181,6 +179,10 @@ impl World {
     fn set_alight(&mut self, body: ActorId) {
         let per = u64::from(self.rules.clock.ticks_per_minute.max(1));
         let until = self.tick + u64::from(self.rules.burning.burn) * per;
+        // A character's gear doesn't burn: it falls where the body lies.
+        if self.actors.get(body).is_some_and(|b| b.kind.is_character()) {
+            self.shed_gear(body);
+        }
         if let Some(b) = self.actors.get_mut(body) {
             b.remains = Remains::Burning { until };
             self.fires.push(body);
@@ -256,7 +258,11 @@ impl World {
             .map(|(id, _)| id)
             .collect();
         for id in due {
-            self.get_up(id);
+            if self.actors.get(id).is_some_and(|a| a.kind.is_character()) {
+                self.rise_as_revenant(id);
+            } else {
+                self.get_up(id);
+            }
         }
     }
 

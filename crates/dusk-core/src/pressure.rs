@@ -51,6 +51,8 @@ pub struct Region {
     /// The region's event on a calendar (`tolling.rs`), and where its bell is in the patch.
     pub tolling: crate::tolling::Tolling,
     pub bell: Option<TilePos>,
+    /// Where a character comes into the patch: the next one after a death too (`legacy.rs`).
+    pub start: Option<TilePos>,
 }
 
 /// Rolls a tile can take before an arrival gives up for this time.

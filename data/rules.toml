@@ -206,6 +206,14 @@ time = 3.0            # seconds to pour the oil on and set it alight
 burn = 20             # game minutes a body burns, then it's ash
 light = 4             # tiles a burning body lights round it (a torch's 5, a candle's 2)
 
+[revenant]
+# Your own death (CONCEPT.md, death and legacy): your body stays where it fell, in your gear, and
+# unburned, the night after it rises as a revenant (creatures/*.toml), with your name and
+# everything you carried. Put it down, and the gear falls where it falls. Burn the body first
+# (rules.toml, [burning]), and it never rises; the gear falls where it lay.
+creature = "revenant"
+hour = 0.0            # it rises at midnight
+
 [barricade]
 # Board up a shut door or a window: a plank and nails for each board, with a hammer in hand or in
 # the pack. A boarded door can't be opened; a boarded window can't be seen through. The dead's

@@ -571,6 +571,15 @@ pub enum Event {
     },
     /// Dawn: the Tolling's over, and the dead give up as they did.
     TollingEnded,
+    /// A character's body rose at midnight as a revenant, in its gear (`legacy.rs`).
+    Risen {
+        body: ActorId,
+        revenant: ActorId,
+    },
+    /// The next character came into the world.
+    Came {
+        who: ActorId,
+    },
 }
 
 /// A sound made this tick.
@@ -687,6 +696,10 @@ impl World {
         };
         let mut actor = Actor::new(kind, pos);
         actor.body = Body::new(health);
+        actor.born = self.clock_minutes();
+        if kind == ActorKind::Character {
+            actor.name = self.roll_name(self.actors.len() as u64);
+        }
         // A character starts with the kit: something in hand, the rest in its pack.
         if kind == ActorKind::Character {
             actor.hands = self.defs.wield.map(|def| Item::new(def, 1));
@@ -742,9 +755,9 @@ impl World {
         self.actors.iter()
     }
 
-    /// The first character placed: the player's, in single player.
+    /// The player's character: the last to come into the world (after a death, the next one).
     pub fn character(&self) -> Option<ActorId> {
-        self.characters.first().copied()
+        self.characters.last().copied()
     }
 
     /// Asks an actor to do something from now on.
@@ -866,7 +879,11 @@ impl World {
     /// What keeps the world awake round it: each character, and the bell while the Tolling's
     /// on (`tolling.rs`), so the dead walk to it even with you away.
     fn anchors(&self) -> impl Iterator<Item = TilePos> + '_ {
-        let characters = self.characters.iter().filter_map(|&id| self.actors.get(id));
+        let characters = self
+            .characters
+            .iter()
+            .filter_map(|&id| self.actors.get(id))
+            .filter(|c| !c.dead);
         let bell = self.region.bell.filter(|_| self.flow.is_some());
         characters.map(|c| c.pos).chain(bell)
     }
