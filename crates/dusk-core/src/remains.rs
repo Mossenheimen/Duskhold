@@ -60,11 +60,13 @@ impl World {
         let Some(a) = self.actors.get(id) else {
             return;
         };
-        let Some(c) = self.creature(a.kind) else {
+        let risen = a.risen;
+        let Some(c) = self.stats(id) else {
             return;
         };
         let (g, who, tick) = (c.get_up, id.index() as u64, self.tick);
-        if a.risen > 0 || g.chance == 0 {
+        // Once for its kind, and once more for each time its affixes say (the Thrice-Risen).
+        if risen > self.extra_rises(id) || g.chance == 0 {
             return;
         }
         if below(roll(self.seed, tick, who, Purpose::GetUp), 10_000) >= g.chance {
@@ -273,7 +275,7 @@ impl World {
             return;
         };
         let pos = a.pos;
-        let Some(c) = self.creature(a.kind) else {
+        let Some(c) = self.stats(id) else {
             return;
         };
         if self.occupied.contains_key(&pos) {

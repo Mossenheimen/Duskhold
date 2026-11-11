@@ -150,6 +150,26 @@ fn gen_patch(args: &[String]) {
         xp / 1000,
         grams as f64 / 1000.0
     );
+    for id in world.rares().collect::<Vec<_>>() {
+        let a = world.actor(id).expect("a rare");
+        let worth: u32 = a
+            .items
+            .iter()
+            .map(|i| world.defs.item(i.def).map_or(0, |d| d.worth) * u32::from(i.count))
+            .sum();
+        let kind = match a.kind {
+            ActorKind::Creature(n) => world.defs.creature(n).map_or("?", |c| c.name.as_str()),
+            ActorKind::Character => "?",
+        };
+        println!(
+            "  a rare: {} ({kind}, {} health) at ({}, {}), carrying {} XP of finds",
+            world.name_of(id).unwrap_or_default(),
+            world.stats(id).map_or(0, |c| c.health) / 10,
+            a.pos.x,
+            a.pos.y,
+            worth / 1000
+        );
+    }
     for lot in &layout.lots {
         let side = if lot.north { "north" } else { "south" };
         println!(
@@ -505,6 +525,14 @@ fn describe(w: &World, e: Event) -> String {
             "{}'s body rose as a revenant: {}",
             w.name_of(body).unwrap_or_default(),
             name(revenant)
+        ),
+        Event::LightEaten { by, who } => {
+            format!("{} put out {}'s light", name(by), name(who))
+        }
+        Event::BountyClaimed { who, rare, coin } => format!(
+            "{} claimed the bounty on {} for {coin} coin",
+            name(who),
+            w.name_of(rare).unwrap_or_default()
         ),
         Event::Came { who } => {
             format!("{} came into the world", w.name_of(who).unwrap_or_default())

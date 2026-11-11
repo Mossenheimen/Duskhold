@@ -60,6 +60,7 @@ fn defs() -> Defs {
         wants: vec![APPLE],
         supply: 2500,
         time: 10,
+        bounty: dusk_core::Bounty::default(),
     };
     Defs {
         items: vec![

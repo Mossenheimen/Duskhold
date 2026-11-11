@@ -6,7 +6,7 @@
 //!
 //! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning or ash), sounds
 //!   not yet heard, what containers and floors hold once touched, the harm doors and boards have
-//!   taken, the region's pressure, what the holdouts sold today, and the chunks of the map that changed since it was made (a
+//!   taken, the region's pressure, what the holdouts sold today, the bounties claimed, and the chunks of the map that changed since it was made (a
 //!   door opened, a board nailed on).
 //! - **Not saved:** the land (it comes back from the seed), the rules and the definitions (they
 //!   come from `data/`, so a retuned game loads old saves). Items and creatures are saved by
@@ -31,7 +31,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -60,6 +60,8 @@ struct State {
     pressure: u32,
     /// What the holdouts have sold, and when.
     sold: BTreeMap<(u16, u16), (u64, u16)>,
+    /// The bounties claimed.
+    claimed: std::collections::BTreeSet<ActorId>,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     memory: Vec<u8>,
@@ -150,6 +152,7 @@ impl World {
             stores: self.stores.clone(),
             pressure: self.pressure,
             sold: self.sold.clone(),
+            claimed: self.claimed.clone(),
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -179,6 +182,7 @@ impl World {
         self.stores = state.stores;
         self.pressure = state.pressure;
         self.sold = state.sold;
+        self.claimed = state.claimed;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }

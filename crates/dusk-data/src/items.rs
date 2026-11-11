@@ -417,6 +417,9 @@ pub(crate) fn load_defs(
         given: Vec::new(),
         family: Vec::new(),
         revenant: None,
+        // Filled in by the loader, from affixes.toml and names.toml.
+        affixes: Vec::new(),
+        rare_names: Vec::new(),
     };
     let mut start = Vec::new();
     for name in kit.kit {

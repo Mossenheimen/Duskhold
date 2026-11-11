@@ -185,3 +185,28 @@ fn every_floor_of_every_building_can_be_walked_to_from_its_door() {
         }
     }
 }
+
+#[test]
+fn each_patch_has_its_rares_far_from_the_start_each_named_once() {
+    for seed in 1..=6 {
+        let (w, layout) = make(seed);
+        let rares: Vec<_> = w.rares().collect();
+        assert_eq!(rares.len(), 3, "seed {seed}");
+        let mut names: Vec<String> = rares.iter().filter_map(|&r| w.name_of(r)).collect();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), 3, "seed {seed}: three names");
+        for &r in &rares {
+            let a = w.actor(r).unwrap();
+            assert!(
+                a.pos.dist2(layout.start) >= 40 * 40,
+                "seed {seed}: far from the start"
+            );
+            assert!((1..=2).contains(&a.affixes.len()));
+            assert!(
+                a.items.iter().all(|i| i.found) && !a.items.is_empty(),
+                "a pack of finds"
+            );
+        }
+    }
+}

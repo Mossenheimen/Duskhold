@@ -11,7 +11,9 @@
 //!     home as it would be in your stash: it pays its worth in XP, once (`CONCEPT.md`, pillar 5);
 //!   - **supply** it: selling what it's short of (`Holdout::wants`) lowers the region's pressure
 //!     too, by how much it was worth (`pressure.rs`). A holdout supplied pushes the dusk back;
-//!   - **repair** the weapon in your hand, for coin by how worn it is.
+//!   - **repair** the weapon in your hand, for coin by how worn it is;
+//!   - **claim a bounty** on a rare that's been put down (`rare.rs`): coin, XP, and the
+//!     pressure falls. Each is claimed once.
 //!
 //! Coin is an item (`Defs::coin`), carried and weighed like any other. What you pay with is your
 //! ordinary coin first, and finds last, so a find keeps its XP for as long as it can.
@@ -27,6 +29,15 @@ pub struct Sale {
     pub item: u16,
     pub price: u32,
     pub stock: u16,
+}
+
+/// What a holdout pays for each rare put down: coin, XP (thousandths), and how far the
+/// pressure falls (thousandths). All 0: it posts no bounties.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Bounty {
+    pub coin: u32,
+    pub xp: u32,
+    pub pressure: u32,
 }
 
 /// A holdout's trade, in the core's units.
@@ -46,6 +57,8 @@ pub struct Holdout {
     pub supply: u32,
     /// Ticks a deal takes.
     pub time: u32,
+    /// What it pays for each rare put down.
+    pub bounty: Bounty,
 }
 
 /// A rectangle of tiles on one floor, from (x0, y0) up to, not including, (x1, y1).
@@ -82,6 +95,10 @@ pub enum NoDeal {
     Worthless,
     /// Nothing in hand that wear has touched.
     NothingToMend,
+    /// The rare's still about: put it down first.
+    StillAbout,
+    /// That bounty's been paid.
+    Claimed,
 }
 
 impl Defs {
@@ -225,6 +242,43 @@ impl World {
             return Err(NoDeal::TooPoor);
         }
         Ok(cost)
+    }
+
+    /// Whether `id` can claim the bounty on `rare` over the counter on `at`, and what it pays.
+    pub fn can_claim(&self, id: ActorId, at: TilePos, rare: ActorId) -> Result<Bounty, NoDeal> {
+        let h = self.reach_counter(id, at)?;
+        let bounty = h.bounty;
+        if bounty == Bounty::default() || !self.is_rare(rare) {
+            return Err(NoDeal::NoCounter);
+        }
+        if self.claimed.contains(&rare) {
+            return Err(NoDeal::Claimed);
+        }
+        if !self.actors.get(rare).is_some_and(|r| r.dead) {
+            return Err(NoDeal::StillAbout);
+        }
+        Ok(bounty)
+    }
+
+    /// Whether the bounty on a rare has been claimed.
+    pub fn bounty_claimed(&self, rare: ActorId) -> bool {
+        self.claimed.contains(&rare)
+    }
+
+    /// The deal's end: the bounty paid.
+    pub(crate) fn claim(&mut self, id: ActorId, at: TilePos, rare: ActorId) {
+        let Ok(b) = self.can_claim(id, at, rare) else {
+            return;
+        };
+        self.claimed.insert(rare);
+        self.earn(id, b.coin);
+        self.gain_deeds(id, b.xp);
+        self.nudge_pressure(-i64::from(b.pressure));
+        self.events.push(Event::BountyClaimed {
+            who: id,
+            rare,
+            coin: b.coin,
+        });
     }
 
     /// Ticks a deal over the counter on `at` takes.

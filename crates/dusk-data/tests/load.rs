@@ -792,3 +792,21 @@ fn a_body_rises_as_the_revenant_and_characters_have_names_in_the_games_data() {
     assert_eq!(d.creature(kind).unwrap().stats.get_up.chance, 0);
     assert!(d.given.len() >= 10 && d.family.len() >= 10);
 }
+
+#[test]
+fn the_games_rares_have_affixes_names_and_a_bounty_on_them() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    assert!(d.affixes.len() >= 5 && d.rare_names.len() >= 10);
+    let ids: Vec<&str> = d.affixes.iter().map(|a| a.id.as_str()).collect();
+    assert!(ids.contains(&"lantern_eater") && ids.contains(&"thrice_risen"));
+    let abbey = d.holdouts.iter().find(|h| h.id == "abbey").unwrap();
+    assert!(abbey.bounty.coin > 0 && abbey.bounty.pressure > 0);
+    let rares = data
+        .region("hushlands")
+        .unwrap()
+        .rares
+        .as_ref()
+        .expect("rares");
+    assert!(rares.count > 0);
+}

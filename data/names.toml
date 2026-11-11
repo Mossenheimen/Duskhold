@@ -11,3 +11,9 @@ family = [
   "Lowe", "Mallory", "Nettle", "Ormond", "Pike", "Reed", "Sallow", "Thorne", "Underhill",
   "Vane", "Wick",
 ]
+# Rare monsters' names (affixes.toml gives each its epithet): what the holdouts call them.
+rare = [
+  "Grimtooth", "Hollowjaw", "Mirewater", "Sexton", "Gallows", "Widow Pell", "Blackthumb", "Knell",
+  "Rattlebones", "Gaunt", "Morrow", "Crook", "Sallowface", "Tallow", "Old Harrow", "Wormwood",
+  "Sorrow", "Cinderhand", "Mother Ash", "Long Tom",
+]

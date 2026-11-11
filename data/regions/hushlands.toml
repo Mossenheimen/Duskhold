@@ -55,6 +55,14 @@ every = 30            # game minutes between the dead walking in, while the patc
 # its gate on the road. You start just inside it; the hamlet is the road's start tiles east.
 prefab = "abbey"
 
+[rares]
+# Rare monsters (affixes.toml): some of the region's dead, named, with one to three affixes and a
+# pack of finds (loot/rares.toml). The abbey puts a bounty on each (holdouts.toml).
+count = 3             # in a patch
+affixes = [1, 2]      # each has this many, the fewest and the most
+far = 40              # tiles from where you start, at the least
+loot = "rare"         # what they carry
+
 [tolling]
 # The Tolling (CONCEPT.md): on set nights the old chapel's bell, which no one rings, tolls, and
 # every dead thing within reach walks to it, by one shared way (crates/dusk-core/src/flow.rs),

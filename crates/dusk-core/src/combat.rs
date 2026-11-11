@@ -79,6 +79,7 @@ impl World {
                 ActionKind::Buy { at, line } => self.buy(id, at, line),
                 ActionKind::Sell { at, slot, def } => self.sell(id, at, slot, def),
                 ActionKind::Mend { at } => self.mend(id, at),
+                ActionKind::Claim { at, rare } => self.claim(id, at, rare),
             }
         }
         true
@@ -178,6 +179,11 @@ impl World {
             Intent::Mend { at } => {
                 self.repair_cost(id, at).ok()?;
                 let kind = ActionKind::Mend { at };
+                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+            }
+            Intent::Claim { at, rare } => {
+                self.can_claim(id, at, rare).ok()?;
+                let kind = ActionKind::Claim { at, rare };
                 (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
             }
             Intent::Burn => {
@@ -331,7 +337,7 @@ impl World {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
-        let creature = self.creature(kind);
+        let creature = self.stats(id);
         let swing = self.swing_of(id);
         // Read now: the blow may break the weapon.
         let skill = self.weapon_skill(id);
@@ -451,7 +457,7 @@ impl World {
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
         let (lo, hi) = match kind {
             ActorKind::Character => self.swing_of(id).damage,
-            ActorKind::Creature(_) => self.creature(kind).map_or((0, 0), |c| c.thump),
+            ActorKind::Creature(_) => self.stats(id).map_or((0, 0), |c| c.thump),
         };
         let span = (hi - lo).max(0) as u32 + 1;
         let mut harm = lo + below(roll(seed, tick, id.index() as u64, Purpose::Thump), span) as i32;
@@ -504,11 +510,7 @@ impl World {
         // A shove breaks a hold.
         self.release(target);
         // How long one of its kind stays down.
-        let stays_down = self
-            .actors
-            .get(target)
-            .and_then(|t| self.creature(t.kind))
-            .map_or(0, |c| c.down);
+        let stays_down = self.stats(target).map_or(0, |c| c.down);
         let Some(t) = self.actors.get_mut(target) else {
             return;
         };

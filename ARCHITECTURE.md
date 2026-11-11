@@ -926,7 +926,30 @@ Game first: every step ends with something to look at or play.
        - class abilities (no classes yet);
        - what you've learned and the places you found carrying over (the map does: it's the client's, and the save keeps it);
        - the holdouts remembering you.
-   - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class.
+   - **Last, if the loop is fun without them:** magic items and identification, rare affixes, rain, a class. Built so far, ahead of a playtest (the user said go on):
+     - **Rares and bounties** (2026-11-11; 156 tests pass):
+       - **an affix is data** (`data/affixes.toml`; `dusk-core/src/rare.rs`, `Affix`): what it does to its creature's numbers. Seven so far:
+         - the Frenzied (faster, a quicker tell);
+         - the Ironhide (2.5 times the health);
+         - the Bellwether (its groan carries 20 tiles more);
+         - the Hunter (keeps after you four times as long, and follows blood);
+         - the Lantern-Eater (lights held up within 4 tiles go out);
+         - the Thrice-Risen (gets up once more than its kind);
+         - the Plaguebearer (its wounds carry ghoul fever).
+         The Spectral (walking through doors) waits: it needs a movement rule;
+       - **an actor's numbers are its kind's with its affixes on top** (`World::stats`, used wherever a rule asks what a creature can do). Three hot paths read the kind in place for speed: the thinking beat, the eyes (`sees`), and the legs of all but a rare (`pace`). No affix changes the first two;
+       - **a rare** (`World::make_rare`) is one of the region's dead with one or two affixes, a name from `names.toml` (`rare`), the first affix's epithet ("Gaunt the Lantern-Eater"), and a pack of finds from `loot/rares.toml`. Put down, its pack falls where it does, as any creature's now does;
+       - **where:** `dusk-gen` makes three a patch (the region's `[rares]`), chosen by the seed among the dead at least 40 tiles from where you start, each with its own name;
+       - **bounties** (`holdouts.toml`, `bounty`): the abbey's counter lists each rare, where it was last heard of (the middle of its chunk: rumours, not places), and whether it's been put down. Put down, it's claimed over the counter, once (`Intent::Claim`, `World::claimed`, saved): 25 coin, 30 XP, and the pressure falls 3%. That's the last of the pressure's deeds `CONCEPT.md` names that could be built without dungeons;
+       - **the save format** is version 7 (an actor's affixes, the bounties claimed);
+       - **the client:**
+         - a rare has its name over its head, in gold, and stands a little bigger;
+         - the news names it ("Gaunt the Lantern-Eater saw you!"), tells when it puts out your light, and when a bounty's paid;
+         - the counter's panel lists the bounties, with Claim once one's put down;
+         - the pack's panel now sits above the controls, as the other does;
+         - **checked on screen:** the bounty list at seed 1's counter, a second affix shown ("the Thrice-Risen too"). No rare was caught in a picture: they stand 40 tiles out and more;
+       - **measured:** at first this cost 10–15%: `stats` was copying a creature's numbers for every actor on every tick, before thinking even checked its beat. Fixed by checking the beat first and reading the kind in place on the hot paths. 500 dead: 22,400 ticks/s (23,300 before); through the Tolling 16,000 (16,600). The quiet patch is 10% slower (277,000; it was 309,000), the same with no rares in it, so most likely the actor's new field: not worth chasing at 27,700× real time;
+       - **not yet:** rares roaming, the Spectral, family affixes (a Gravecaller raising the dead), better loot than finds (magic items come next on this list).
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

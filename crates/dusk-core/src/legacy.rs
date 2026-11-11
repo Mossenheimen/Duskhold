@@ -46,6 +46,10 @@ impl World {
     /// An actor's name: a character's own, a revenant's (the one it was), else its kind's.
     pub fn name_of(&self, id: ActorId) -> Option<String> {
         let a = self.actors.get(id)?;
+        // A rare: its given name and its first affix's epithet.
+        if let (Some((name, _)), Some(&first)) = (a.name, a.affixes.first()) {
+            return self.defs.rare_name(name, first);
+        }
         if let Some(name) = a.name.and_then(|n| self.defs.name(n)) {
             return Some(name);
         }

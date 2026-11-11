@@ -13,6 +13,9 @@ use crate::{DataError, fail, read};
 struct NamesFile {
     given: Vec<String>,
     family: Vec<String>,
+    /// Rare monsters' names (`affixes.toml` adds the epithet).
+    #[serde(default)]
+    rare: Vec<String>,
 }
 
 /// rules.toml's `[revenant]`.
@@ -39,8 +42,12 @@ pub(crate) fn load(
         if names.given.is_empty() || long(&names.given) || long(&names.family) {
             return Err(fail(&file, "given names: at least one (and sensibly many)"));
         }
+        if names.rare.len() >= usize::from(u16::MAX) {
+            return Err(fail(&file, "rare names: sensibly many"));
+        }
         defs.given = names.given;
         defs.family = names.family;
+        defs.rare_names = names.rare;
     }
     if let Some(r) = revenant {
         let Some(dusk_core::ActorKind::Creature(n)) = defs.creature_kind(&r.creature) else {

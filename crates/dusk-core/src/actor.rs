@@ -84,6 +84,8 @@ pub enum Intent {
     Sell { at: TilePos, slot: u16, def: u16 },
     /// Have the weapon in your hand mended at the counter on `at`.
     Mend { at: TilePos },
+    /// Claim the bounty on a rare put down, at the counter on `at`.
+    Claim { at: TilePos, rare: ActorId },
     /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
     /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
     Burn,
@@ -159,6 +161,10 @@ pub enum ActionKind {
     },
     Mend {
         at: TilePos,
+    },
+    Claim {
+        at: TilePos,
+        rare: ActorId,
     },
 }
 
@@ -301,6 +307,8 @@ pub struct Actor {
     /// The game minute it came into the world, and the one it died.
     pub born: u64,
     pub died: Option<u64>,
+    /// A rare's affixes (`rare.rs`), by their numbers in the data: none for the ordinary.
+    pub affixes: Vec<u8>,
 }
 
 impl Actor {
@@ -343,6 +351,7 @@ impl Actor {
             name: None,
             born: 0,
             died: None,
+            affixes: Vec::new(),
         }
     }
 

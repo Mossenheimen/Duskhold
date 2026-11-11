@@ -99,12 +99,15 @@ const TOLLED := 58
 const TOLLING_ENDED := 59
 const RISEN := 60
 const CAME := 61
+const LIGHT_EATEN := 62
+const BOUNTY_CLAIMED := 63
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
 const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
 	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
 	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
 	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
-	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended"}
+	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
+	26: "Claiming the bounty"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -130,6 +133,7 @@ var bag: Bag
 var litter: Litter
 var skills: Skills
 var item_names := PackedStringArray()
+var rares := PackedInt32Array()  # 1 for each actor that's a rare (DuskWorld.actor_rare())
 var told_get_up := false  # the first body you see fall says it'll get up
 var hallowed := false  # on hallowed ground, as last told
 var creature_names := PackedStringArray()  # by creature number: actor kind 1 + n is creature n
@@ -249,6 +253,7 @@ func _start(carry_on := false) -> void:
 		view.setup(kind)
 		add_child(view)
 		actors.append(view)
+	rares = PackedInt32Array()
 	me = dusk.character_index()
 	rings.clear()
 	hud.reset()
@@ -575,6 +580,14 @@ func _moodle(code: int) -> int:
 	return 0
 
 
+## Rares get their name over their heads (DuskWorld.actor_rare(), actor_name()).
+func _mark_rares() -> void:
+	rares = dusk.actor_rare()
+	for i in mini(rares.size(), actors.size()):
+		if rares[i] == 1:
+			actors[i].set_title(dusk.actor_name(i))
+
+
 ## The dead who walked into the patch since the last frame (pressure, in the core): a view each.
 ## They come in at the end of the core's order, so the others keep their places.
 func _add_new_actors() -> void:
@@ -593,6 +606,8 @@ func _draw_actors(delta: float) -> void:
 	var alert: PackedInt32Array = dusk.actor_alert()
 	_add_new_actors()
 	var states: PackedInt32Array = dusk.actor_states()
+	if rares.size() != actors.size():
+		_mark_rares()
 	var remains: PackedInt32Array = dusk.actor_remains()
 	var actions: PackedInt32Array = dusk.actor_actions()
 	seen = dusk.actor_seen()
@@ -821,6 +836,14 @@ func _read_events() -> void:
 			TOLLING_ENDED:
 				hud.say("Dawn. The bell is quiet, and the dead give up as they did.")
 				hud.flash_good()
+			LIGHT_EATEN:
+				if target == me:
+					hud.say("%s puts out your light! It wants you in the dark." % dusk.actor_name(who))
+					hud.flash()
+			BOUNTY_CLAIMED:
+				if who == me:
+					hud.say("The sisters pay the bounty on %s: %d coin, and the dusk falls back." % [dusk.actor_name(target), extra])
+					hud.flash_good()
 			RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
@@ -829,8 +852,10 @@ func _read_events() -> void:
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
 
 
-## "A shambler", "A ghoul": what actor `i` is, for the news.
+## "A shambler", "A ghoul", or a rare's own name: what actor `i` is, for the news.
 func _a(i: int) -> String:
+	if i >= 0 and i < rares.size() and rares[i] == 1:
+		return dusk.actor_name(i)
 	var n := kinds[i] - 1 if i >= 0 and i < kinds.size() else -1
 	if n < 0 or n >= creature_names.size():
 		return "Something"

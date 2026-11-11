@@ -188,3 +188,37 @@ fn a_save_after_a_death_keeps_the_body_and_the_next_survivor() {
     assert!(loaded.world.actor(first).unwrap().dead);
     assert_eq!(loaded.world.state_hash(), w.state_hash());
 }
+
+#[test]
+fn a_claimed_bounty_stays_claimed_after_a_load() {
+    use dusk_core::{Intent, TilePos};
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(1, &data, region);
+    let me = w.character().unwrap();
+    let rare = w.rares().next().expect("a rare");
+    while !w.actor(rare).unwrap().dead {
+        w.wound(rare, WoundKind::Bite, Part::Torso);
+    }
+    // The abbey's counter, and a tile beside it to stand on: walk there and claim.
+    let counter = (0..256)
+        .flat_map(|x| (0..256).map(move |y| TilePos::new(x, y, 0)))
+        .find(|&p| w.counter_at(p).is_some())
+        .unwrap();
+    w.intent(
+        me,
+        Intent::WalkTo {
+            to: counter.offset(-1, 0),
+            run: false,
+        },
+    );
+    w.step(400);
+    w.intent(me, Intent::Claim { at: counter, rare });
+    w.step(40);
+    assert!(w.bounty_claimed(rare), "claimed");
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let loaded = dusk_gen::load(&data, &bytes).unwrap_or_else(|e| panic!("{e}"));
+    assert!(loaded.world.bounty_claimed(rare));
+    assert_eq!(loaded.world.name_of(rare), w.name_of(rare));
+    assert_eq!(loaded.world.state_hash(), w.state_hash());
+}

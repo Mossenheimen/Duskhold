@@ -125,7 +125,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 	var dead := ""
 	if pressure.size() >= 3 and pressure[0] > 0:
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
-	_state.text = "DUSKHOLD  ·  build step 6: death and the revenant\n%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  build step 6: rares and bounties\n%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

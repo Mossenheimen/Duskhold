@@ -1,0 +1,42 @@
+# Rare monsters' affixes (CONCEPT.md, rare monsters: Diablo's champions). A rare is one of the
+# region's dead with one to three of these and a name (names.toml, rare): "Grimtooth the
+# Lantern-Eater". Each changes its creature's numbers (crates/dusk-core/src/rare.rs), so a new
+# affix is data, like a new creature. Multipliers are 1.0 for none; groan, blood and douses are
+# tiles; fever is a chance for each kind of wound.
+
+[[affix]]
+id = "frenzied"
+epithet = "the Frenzied"
+speed = 1.4           # faster on its feet: out-walks you
+swing = 0.7           # and quicker to strike: less tell to answer
+
+[[affix]]
+id = "ironhide"
+epithet = "the Ironhide"
+health = 2.5          # takes a long fight, or a crowd of blows while it's down
+
+[[affix]]
+id = "bellwether"
+epithet = "the Bellwether"
+groan = 20            # its groan calls every one of the dead for twenty tiles more
+
+[[affix]]
+id = "hunter"
+epithet = "the Hunter"
+forget = 4.0          # it keeps after you four times as long
+blood = 12            # and follows blood, as a ghoul does
+
+[[affix]]
+id = "lantern_eater"
+epithet = "the Lantern-Eater"
+douses = 4            # lights held up within 4 tiles go out: it wants you in the dark
+
+[[affix]]
+id = "thrice_risen"
+epithet = "the Thrice-Risen"
+rises = 1             # it gets up once more than its kind: burn it
+
+[[affix]]
+id = "plaguebearer"
+epithet = "the Plaguebearer"
+fever = { scratch = 0.15, laceration = 0.4, bite = 0.9 }   # its wounds carry ghoul fever

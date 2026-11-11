@@ -13,10 +13,12 @@ mod items;
 mod legacy;
 mod light;
 mod needs;
+mod rare;
 mod remains;
 mod skills;
 mod tolling;
 
+pub use rare::RaresFile;
 pub use remains::PressureFile;
 pub use tolling::TollingFile;
 
@@ -165,6 +167,9 @@ pub struct Region {
     /// Its event on a calendar, if it has one: the Hushlands' Tolling.
     #[serde(default)]
     pub tolling: Option<TollingFile>,
+    /// Its rare monsters, if a patch has any (`affixes.toml`).
+    #[serde(default)]
+    pub rares: Option<RaresFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -282,6 +287,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     holdout::load(dir, &mut defs, &fixtures)?;
     defs.creatures = creatures;
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
+    defs.affixes = rare::load(dir)?;
     let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
@@ -301,6 +307,18 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     for file in files_in(&dir.join("regions"))? {
         let region: Region = read(&file)?;
         check_region(&file, &region, &prefabs, &defs.creatures)?;
+        let tables: Vec<String> = defs.loot.iter().map(|t| t.id.clone()).collect();
+        if let Some(problem) = region.rares.as_ref().and_then(|r| r.problem(&tables)) {
+            return Err(fail(&file, problem));
+        }
+        if region.rares.as_ref().is_some_and(|r| r.count > 0)
+            && (defs.affixes.is_empty() || defs.rare_names.is_empty())
+        {
+            return Err(fail(
+                &file,
+                "rares: a patch with rares needs affixes.toml and names.toml's rare names",
+            ));
+        }
         regions.push(region);
     }
     check_unique(
@@ -715,6 +733,7 @@ fn to_creatures(
                 blood: c.blood,
                 fever,
                 get_up,
+                douses: 0,
             },
         });
     }

@@ -53,6 +53,7 @@ var _shown_counter := []  # the counter within reach and what it sells, as last 
 
 func _ready() -> void:
 	_pack_panel = _panel(Control.PRESET_BOTTOM_RIGHT)
+	_pack_panel.position.y -= 100.0  # above the controls, as the other panel is
 	_pack = _pack_panel.get_child(0)
 	_reach_panel = _panel(Control.PRESET_BOTTOM_LEFT)
 	_reach_panel.position.y -= 100.0  # above the legend
@@ -248,6 +249,7 @@ func _draw_counter(counter: PackedInt32Array, sells: PackedInt32Array) -> void:
 		for w in wants:
 			short.append(_name(w))
 		_line(_reach, "Short of: %s.  Sell it these to push the dusk back." % ", ".join(short), 13)
+	_draw_bounties(x, y)
 	for line in range(0, sells.size() / 4):
 		var def := sells[line * 4]
 		var price := sells[line * 4 + 1]
@@ -257,6 +259,35 @@ func _draw_counter(counter: PackedInt32Array, sells: PackedInt32Array) -> void:
 			"none left today" if left == 0 else "%d left today" % left]
 		var row := _row(_reach, text)
 		_button(row, "Buy", func() -> void: _buy(x, y, line, can))
+
+
+## The bounties posted at the counter: each rare, where it was last heard of, and a Claim button
+## once it's been put down.
+func _draw_bounties(x: int, y: int) -> void:
+	var bounties: PackedInt32Array = _dusk.counter_bounties(x, y)
+	if bounties.size() == 0:
+		return
+	_line(_reach, "Bounties:", 14)
+	for k in range(0, bounties.size() / 5):
+		var who := bounties[k * 5]
+		var state := bounties[k * 5 + 3]
+		var coin := bounties[k * 5 + 4]
+		var name: String = _dusk.actor_name(who)
+		var more: PackedStringArray = _dusk.rare_affixes(who)
+		var also := ""
+		if more.size() > 1:
+			also = " (" + ", ".join(more.slice(1)) + " too)"
+		var text := "   %s%s  ·  %d coin  ·  " % [name, also, coin]
+		match state:
+			0:
+				text += "last heard of about (%d, %d)" % [bounties[k * 5 + 1], bounties[k * 5 + 2]]
+			1:
+				text += "put down"
+			_:
+				text += "paid"
+		var row := _row(_reach, text)
+		if state == 1:
+			_button(row, "Claim", func() -> void: _dusk.claim(x, y, who))
 
 
 ## "Buy": the core says whether you can, and this says why not.

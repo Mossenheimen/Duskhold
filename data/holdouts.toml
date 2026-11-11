@@ -14,6 +14,9 @@ repair = 1.0          # a full repair costs this share of the weapon's worth
 time = 1.5            # seconds a deal takes
 wants = ["bread", "apple", "jerky", "water", "lamp_oil", "candle"]
 supply = 0.25         # each point of worth of what it wants lowers the pressure this many per cent
+# A bounty on each of the region's rares (regions/*.toml, [rares]): put one down, and claim it
+# over the counter, once. The sisters say where it was last heard of.
+bounty = { coin = 25, xp = 30, pressure = 3.0 }
 sells = [
   { item = "tincture", price = 30, stock = 1 },    # the cure for ghoul fever: one a day
   { item = "bandage", price = 6, stock = 3 },

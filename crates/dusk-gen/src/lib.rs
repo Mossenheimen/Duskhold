@@ -515,6 +515,7 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
         }
     }
     // What the patch began with is what its pressure is measured against.
+    make_rares(&mut world, &layout, data);
     let mut core = region.to_core(&data.defs, dead);
     core.bell = layout.bell();
     core.start = Some(layout.start);
@@ -525,6 +526,46 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     world.grid.track_changes();
     world.grid.index_steps();
     (world, layout)
+}
+
+/// The region's rares (`[rares]`): some of the dead far enough from where you start, each given
+/// affixes, a name and a pack, by the seed. No two share an affix's place, a name, or an actor.
+fn make_rares(world: &mut World, layout: &Layout, data: &Data) {
+    let Some(r) = &layout.region.rares else {
+        return;
+    };
+    let defs = &data.defs;
+    let (seed, far) = (layout.seed, i64::from(r.far).pow(2));
+    let loot = defs
+        .loot
+        .iter()
+        .position(|t| t.id == r.loot)
+        .map(|n| n as u16);
+    let mut candidates: Vec<dusk_core::ActorId> = world
+        .actors()
+        .filter(|(_, a)| !a.kind.is_character() && a.pos.dist2(layout.start) >= far)
+        .map(|(id, _)| id)
+        .collect();
+    let mut names: Vec<u16> = (0..defs.rare_names.len() as u16).collect();
+    for k in 0..i64::from(r.count) {
+        if candidates.is_empty() || names.is_empty() || defs.affixes.is_empty() {
+            break;
+        }
+        let roll = |what: i64| hash(seed, Layer::Rare, k, what);
+        let id = candidates.remove((roll(0) % candidates.len() as u64) as usize);
+        let name = names.remove((roll(1) % names.len() as u64) as usize);
+        let (fewest, most) = r.affixes;
+        let n = fewest + (roll(2) % u64::from(most - fewest + 1)) as u32;
+        let mut pool: Vec<u8> = (0..defs.affixes.len() as u8).collect();
+        let mut affixes = Vec::new();
+        for j in 0..i64::from(n) {
+            if pool.is_empty() {
+                break;
+            }
+            affixes.push(pool.remove((roll(3 + j) % pool.len() as u64) as usize));
+        }
+        world.make_rare(id, &affixes, name, loot);
+    }
 }
 
 /// A patch as a save (`dusk_core::save`): its seed and its region, and what play has changed.

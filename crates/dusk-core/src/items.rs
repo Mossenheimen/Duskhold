@@ -139,6 +139,9 @@ pub struct Defs {
     /// What a character's unburned body rises as, and at what game minute of the day
     /// (`legacy.rs`): None, and it stays down.
     pub revenant: Option<(u16, u32)>,
+    /// Rares' affixes and given names (`rare.rs`).
+    pub affixes: Vec<crate::rare::Affix>,
+    pub rare_names: Vec<String>,
 }
 
 impl Default for Defs {
@@ -167,6 +170,8 @@ impl Default for Defs {
             given: Vec::new(),
             family: Vec::new(),
             revenant: None,
+            affixes: Vec::new(),
+            rare_names: Vec::new(),
         }
     }
 }
@@ -276,7 +281,7 @@ impl World {
     }
 
     /// A container's contents from its loot table: a function of the seed and its place.
-    fn fill(&self, at: TilePos, table: u16) -> Vec<Item> {
+    pub(crate) fn fill(&self, at: TilePos, table: u16) -> Vec<Item> {
         let Some(t) = self.defs.loot.get(usize::from(table)) else {
             return Vec::new();
         };
@@ -378,7 +383,7 @@ impl World {
         let Some(a) = self.actors.get(id) else {
             return c.attack;
         };
-        if let Some(creature) = self.creature(a.kind) {
+        if let Some(creature) = self.stats(id) {
             return creature.attack;
         }
         match a.hands.and_then(|h| self.defs.item(h.def)).map(|d| &d.kind) {

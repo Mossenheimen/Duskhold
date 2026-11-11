@@ -53,6 +53,9 @@ pub struct Creature {
     pub fever: [u32; 3],
     /// Whether its body gets up again, unless it's burned first (`remains.rs`).
     pub get_up: GetUp,
+    /// Lights held up within this many tiles of it go out (0: none). No kind has it; the
+    /// Lantern-Eater affix gives it (`rare.rs`).
+    pub douses: i32,
 }
 
 /// Whether a kind's body gets up after it's put down, and when: the Hushlands' rule, "the
@@ -99,6 +102,7 @@ impl Default for Creature {
             blood: 0,
             fever: [0; 3],
             get_up: GetUp::default(),
+            douses: 0,
         }
     }
 }

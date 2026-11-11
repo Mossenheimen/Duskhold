@@ -571,6 +571,17 @@ pub enum Event {
     },
     /// Dawn: the Tolling's over, and the dead give up as they did.
     TollingEnded,
+    /// A Lantern-Eater put out the light `who` held up (`rare.rs`).
+    LightEaten {
+        by: ActorId,
+        who: ActorId,
+    },
+    /// `who` claimed the bounty on a rare put down, for `coin` (`holdout.rs`).
+    BountyClaimed {
+        who: ActorId,
+        rare: ActorId,
+        coin: u32,
+    },
     /// A character's body rose at midnight as a revenant, in its gear (`legacy.rs`).
     Risen {
         body: ActorId,
@@ -629,6 +640,8 @@ pub struct World {
     pub(crate) sold: BTreeMap<(u16, u16), (u64, u16)>,
     /// The bell's flow field while the Tolling's on (`tolling.rs`): worked out, not saved.
     pub(crate) flow: Option<crate::flow::Flow>,
+    /// The rares whose bounties have been claimed (`holdout.rs`). Ordered, for the hash.
+    pub(crate) claimed: std::collections::BTreeSet<ActorId>,
 }
 
 impl World {
@@ -662,6 +675,7 @@ impl World {
             hallowed: Vec::new(),
             sold: BTreeMap::new(),
             flow: None,
+            claimed: std::collections::BTreeSet::new(),
         }
     }
 
@@ -788,7 +802,12 @@ impl World {
         if a.dead || a.prone_until > 0 {
             return false; // the dead see nothing, and nor does one lying on its back
         }
-        let Some(c) = self.creature(a.kind) else {
+        // Its kind's eyes, read in place: no affix changes them (`rare.rs`), and this runs for
+        // every tile the client shades, so nothing is copied or worked out.
+        let ActorKind::Creature(n) = a.kind else {
+            return false;
+        };
+        let Some(c) = self.defs.creature(n).map(|d| &d.stats) else {
             return false;
         };
         let (range, cone) = (c.sight, c.cone);
@@ -838,6 +857,7 @@ impl World {
         self.stores.hash(&mut h);
         self.pressure.hash(&mut h);
         self.sold.hash(&mut h);
+        self.claimed.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -948,10 +968,8 @@ impl World {
     /// taken as the step starts, so two actors never share a tile. At night the dead are faster.
     fn move_actor(&mut self, id: ActorId, night: bool) -> Option<bool> {
         let rules = self.rules;
-        // Its kind's pace and wits: a creature's own, or the character's.
-        let creature = self.creature(self.actors.get(id)?.kind);
-        let speeds = creature.map_or(rules.character_speed, |c| c.speed);
-        let path_budget = creature.map_or(rules.path_budget, |c| c.path_budget);
+        // Its pace and wits: a creature's own (with its affixes), or the character's.
+        let (speeds, path_budget, night_pace) = self.pace(id)?;
         // Held, a character can't step; and as it steps out of reach of the dead on it, each
         // may grab it as it goes (`grab.rs`). Only characters are held, which keeps this cheap.
         let starting = self
@@ -1000,7 +1018,8 @@ impl World {
             };
             a.facing = dir;
             let to = a.pos.step(dir);
-            let barred = creature.is_some() && crate::holdout::in_hallowed(&self.hallowed, to);
+            // Only creatures have a night pace, and none of them steps onto hallowed ground.
+            let barred = night_pace.is_some() && crate::holdout::in_hallowed(&self.hallowed, to);
             if barred || !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
                 a.blocked += 1;
                 a.carry = 0;
@@ -1043,8 +1062,8 @@ impl World {
         } else {
             speeds.walk
         };
-        if let (true, Some(c)) = (night, creature) {
-            speed = speed * c.night_speed / 1000;
+        if let (true, Some(pace)) = (night, night_pace) {
+            speed = speed * pace / 1000;
         }
         step.progress += speed / TICKS_PER_SECOND;
         if step.progress < step.length {
@@ -1137,16 +1156,24 @@ impl World {
     /// A creature's turn to think: look for prey, give up on old leads, decide where to go.
     fn think(&mut self, id: ActorId) {
         let (tick, seed) = (self.tick, self.seed);
+        // Its beat first, from its kind alone (no affix changes it): most ticks a creature
+        // doesn't think, and then nothing more is worked out.
         let Some(a) = self.actors.get(id) else { return };
-        let Some(kind) = self.creature(a.kind) else {
+        let ActorKind::Creature(n) = a.kind else {
             return; // a character's thoughts are its controller's
         };
-        if !(tick + id.index() as u64).is_multiple_of(kind.think_every.max(1)) {
+        let every = self.defs.creature(n).map_or(1, |c| c.stats.think_every);
+        if !(tick + id.index() as u64).is_multiple_of(every.max(1)) {
             return;
         }
         if a.prone_until > 0 || a.dead {
             return;
         }
+        let Some(kind) = self.stats(id) else { return };
+        if kind.douses > 0 {
+            self.eat_lights(id, kind.douses);
+        }
+        let Some(a) = self.actors.get(id) else { return };
         // Holding on to its prey, it keeps at it.
         if let Some(victim) = a.holding {
             let at = self.actors.get(victim).map_or(a.pos, |v| v.pos);

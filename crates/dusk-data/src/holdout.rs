@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use dusk_core::{Defs, Holdout, Sale};
+use dusk_core::{Bounty, Defs, Holdout, Sale};
 use serde::Deserialize;
 
 use crate::{DataError, Fixture, check_unique, fail, read, ticks};
@@ -34,6 +34,18 @@ struct HoldoutFile {
     #[serde(default)]
     supply: f64,
     sells: Vec<SaleFile>,
+    /// What it pays for each rare put down (left out: it posts no bounties).
+    #[serde(default)]
+    bounty: Option<BountyFile>,
+}
+
+/// A bounty: coin, XP, and how far the pressure falls, in per cent.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BountyFile {
+    coin: u32,
+    xp: f64,
+    pressure: f64,
 }
 
 #[derive(Deserialize)]
@@ -90,6 +102,19 @@ pub(crate) fn load(dir: &Path, defs: &mut Defs, fixtures: &[Fixture]) -> Result<
                 });
             }
             let wants = h.wants.iter().map(|w| item(w)).collect::<Result<_, _>>()?;
+            let bounty = match &h.bounty {
+                Some(b) => {
+                    if !(0.0..=10_000.0).contains(&b.xp) || !(0.0..=100.0).contains(&b.pressure) {
+                        return Err(bad("bounty: xp 0 to 10,000, pressure 0 to 100 per cent"));
+                    }
+                    Bounty {
+                        coin: b.coin,
+                        xp: (b.xp * 1000.0).round() as u32,
+                        pressure: (b.pressure * 10.0).round() as u32,
+                    }
+                }
+                None => Bounty::default(),
+            };
             holdouts.push(Holdout {
                 id: h.id.clone(),
                 name: h.name.clone(),
@@ -100,6 +125,7 @@ pub(crate) fn load(dir: &Path, defs: &mut Defs, fixtures: &[Fixture]) -> Result<
                 // Per cent a point, as thousandths of the pressure's thousandths a point.
                 supply: (h.supply * 10_000.0).round() as u32,
                 time: (ticks(&file, "time", h.time)? as u32).max(1),
+                bounty,
             });
         }
     }

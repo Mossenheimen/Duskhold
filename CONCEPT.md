@@ -376,6 +376,7 @@ One table of how things act on each other, written before the content, so the ga
 ## Monsters beyond the regions
 
 - **Rare monsters** (Diablo's champions): an ordinary creature with 1–3 affixes and a name ("Grimtooth the Lantern-Eater"). Shared affixes: Frenzied, Thrice-Risen (gets up twice), Lantern-Eater (puts out lights near it), Bellwether (calls its whole family when it sees you), Ironhide, Spectral (walks through doors), Plaguebearer (afflicts on a hit), Hunter (tracks you by any sense). Family ones: a goblin Thief-Lord who robs your base, a pack alpha that sends the others around you, a spider that spins over doorways, a Gravecaller that raises corpses. They roam; holdouts post bounties on them. They drop better loot.
+  - *(built 2026-11-11)* A patch of the Hushlands holds three rares, each with one or two of seven affixes (all but the Spectral), a name, and a pack of finds better than a cupboard's: they stand 40 tiles from where you start, and farther. The abbey's counter lists a bounty on each, says roughly where it was last heard of, and pays once it's been put down: 25 coin, 30 XP, and the dusk falls back 3%. They don't roam yet.
 - **Revenants:** your dead characters, risen in their gear, with their class abilities: a named rare haunting the place where they fell. Kill it to get your things back. Stretch goal: it fights the way you did, from a bot trained on your own play.
 - **Bosses:** one per region, in its deepest dungeon, each fought in the region's own terms (the tables above). Bosses drop at least one Very Rare item.
 

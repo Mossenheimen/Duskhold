@@ -40,6 +40,25 @@ var _alert := 0
 var _pop := 0.0
 var _remains := 0
 var _fire: OmniLight3D  # made when it first catches
+var _title: Label3D  # a rare's name, over its head
+
+
+## A rare: its name over its head, in the gold of a named thing, and a little bigger than its
+## kind, so you know it before it knows you.
+func set_title(name: String) -> void:
+	if _title == null:
+		_title = Label3D.new()
+		_title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_title.no_depth_test = true
+		_title.font_size = 40
+		_title.pixel_size = 0.008
+		_title.outline_size = 10
+		_title.outline_modulate = Color(0.05, 0.04, 0.02)
+		_title.modulate = Color(1.0, 0.8, 0.35)
+		_title.position.y = _mark.position.y + 0.45
+		add_child(_title)
+		_body.scale = Vector3.ONE * 1.12
+	_title.text = name
 
 
 ## Kind 0 is the character, 1 + n creature n (DuskWorld.actor_kinds()).

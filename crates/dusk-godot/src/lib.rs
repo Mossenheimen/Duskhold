@@ -110,6 +110,8 @@ const TOLLED: i32 = 58;
 const TOLLING_ENDED: i32 = 59;
 const RISEN: i32 = 60;
 const CAME: i32 = 61;
+const LIGHT_EATEN: i32 = 62;
+const BOUNTY_CLAIMED: i32 = 63;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -337,6 +339,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::TollingEnded => (TOLLING_ENDED, None, None, (-1, -1), 0),
         Event::Risen { body, revenant } => (RISEN, Some(body), Some(revenant), at(revenant), 0),
         Event::Came { who } => (CAME, Some(who), None, at(who), 0),
+        Event::LightEaten { by, who } => (LIGHT_EATEN, Some(by), Some(who), at(who), 0),
+        Event::BountyClaimed { who, rare, coin } => {
+            (BOUNTY_CLAIMED, Some(who), Some(rare), at(who), coin as i32)
+        }
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1026,7 +1032,7 @@ impl DuskWorld {
     /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
-    /// 25 having a weapon mended), how far through its wind-up it is (0 to 1000; 1000 once it
+    /// 25 having a weapon mended, 26 claiming a bounty), how far through its wind-up it is (0 to 1000; 1000 once it
     /// has struck), and the tile it's aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
     #[func]
@@ -1075,6 +1081,7 @@ impl DuskWorld {
                         ActionKind::Buy { .. } => 23,
                         ActionKind::Sell { .. } => 24,
                         ActionKind::Mend { .. } => 25,
+                        ActionKind::Claim { .. } => 26,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1226,6 +1233,85 @@ impl DuskWorld {
             .map(|(id, _)| id);
         id.and_then(|id| world.name_of(id))
             .map_or_else(GString::new, |n| GString::from(n.as_str()))
+    }
+
+    /// Whether each actor is a rare (`rare.rs`): 1 for a rare, else 0.
+    #[func]
+    fn actor_rare(&self) -> PackedInt32Array {
+        self.world
+            .iter()
+            .flat_map(|w| w.actors())
+            .map(|(_, a)| i32::from(!a.affixes.is_empty()))
+            .collect()
+    }
+
+    /// A rare's affixes, by its index in the actor arrays: their epithets, the first first.
+    #[func]
+    fn rare_affixes(&self, index: i32) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let a = usize::try_from(index)
+            .ok()
+            .and_then(|i| world.actors().nth(i))
+            .map(|(_, a)| a);
+        a.iter()
+            .flat_map(|a| a.affixes.iter())
+            .filter_map(|&k| world.defs.affixes.get(usize::from(k)))
+            .map(|x| GString::from(x.epithet.as_str()))
+            .collect()
+    }
+
+    /// The bounties posted at the counter on (x, y), five numbers a rare: its index in the actor
+    /// arrays, where it was last heard of (the middle of the chunk it's in: the sisters hear
+    /// rumours, not places), whether it's still about (0), put down and claimable (1) or claimed
+    /// (2), and the coin it pays.
+    #[func]
+    fn counter_bounties(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let at = TilePos::new(x, y, 0);
+        let Some(h) = world.counter_at(at).and_then(|n| world.defs.holdout(n)) else {
+            return PackedInt32Array::new();
+        };
+        if h.bounty == dusk_core::Bounty::default() {
+            return PackedInt32Array::new();
+        }
+        let mut out = Vec::new();
+        for rare in world.rares() {
+            let Some(a) = world.actor(rare) else { continue };
+            let o = a.pos.chunk().origin(0);
+            let half = CHUNK_SIZE / 2;
+            let state = if world.bounty_claimed(rare) {
+                2
+            } else {
+                i32::from(a.dead)
+            };
+            out.extend([
+                index_of(world, rare),
+                o.x + half,
+                o.y + half,
+                state,
+                h.bounty.coin as i32,
+            ]);
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// Claims the bounty on a rare (by its index in the actor arrays) at the counter on (x, y).
+    #[func]
+    fn claim(&mut self, x: i32, y: i32, index: i32) {
+        let rare = self.world.as_ref().and_then(|w| {
+            let i = usize::try_from(index).ok()?;
+            w.actors().nth(i).map(|(id, _)| id)
+        });
+        if let Some(rare) = rare {
+            self.act(Intent::Claim {
+                at: TilePos::new(x, y, 0),
+                rare,
+            });
+        }
     }
 
     /// How long your character lasted, or has so far, in game minutes.
