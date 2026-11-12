@@ -85,3 +85,14 @@ fn four_turns_or_two_mirrors_change_nothing() {
     // Mirrored, the open door moves from the east side to the west.
     assert_eq!(house.mirrored().west(0, 1), Edge::door(true));
 }
+
+#[test]
+fn a_broken_window_renders_back() {
+    let map = "+-+-+
+|.x.|
++-+-+
+";
+    let grid = stamped(map);
+    assert_eq!(grid.west(TilePos::new(1, 0, 0)), Edge::broken_window());
+    assert_eq!(render(&grid, TilePos::new(0, 0, 0), 2, 1, |_| None), map);
+}

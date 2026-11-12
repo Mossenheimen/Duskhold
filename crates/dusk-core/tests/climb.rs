@@ -60,6 +60,7 @@ fn a_fence_is_climbed_in_its_time_and_for_breath() {
             to: TilePos::new(1, 0, 0),
             window: false,
             fell: false,
+            cut: false,
         }]
     );
     assert!(
@@ -295,4 +296,164 @@ fn wandering_the_dead_stay_on_their_side() {
         .unwrap();
     w.step(600);
     assert_eq!(pos(&w, z), TilePos::new(2, 1, 0));
+}
+
+/// One of the dead (a shambler that climbs and tumbles, after you) west of a window, and you east
+/// of it, seen through the glass.
+fn the_dead_at_a_window(edge: Edge) -> (World, ActorId, TilePos) {
+    let (mut w, _) = World::from_text(
+        1,
+        "\
++-+-+-+-+-+
+|zW. . . @|
++-+-+-+-+-+
+",
+    )
+    .unwrap();
+    {
+        let c = w.creature_mut(0);
+        c.wander = 0;
+        c.climb = 2000;
+        c.tumble = true;
+    }
+    let at = TilePos::new(0, 0, 0);
+    w.grid.set_edge(at, Dir8::E, edge);
+    let z = w
+        .actors()
+        .find(|(_, a)| !a.kind.is_character())
+        .map(|(id, _)| id)
+        .unwrap();
+    w.make_sound(TilePos::new(4, 0, 0), 10, None);
+    (w, z, at)
+}
+
+/// What broke, in order (a board, the glass), and whether `z` climbed through, in `ticks`.
+fn beaten(w: &mut World, z: ActorId, ticks: u32) -> (Vec<&'static str>, bool) {
+    let (mut broke, mut climbed) = (Vec::new(), false);
+    for _ in 0..ticks {
+        w.step(1);
+        for e in w.events() {
+            match e {
+                Event::BoardBroke { .. } => broke.push("board"),
+                Event::WindowBroke { .. } => broke.push("glass"),
+                Event::Climbed { who, window, .. } if who == z && window => climbed = true,
+                _ => {}
+            }
+        }
+    }
+    (broke, climbed)
+}
+
+#[test]
+fn the_dead_beat_the_glass_out_of_a_shut_window_and_climb_in() {
+    let (mut w, z, at) = the_dead_at_a_window(Edge::window(false));
+    let (broke, climbed) = beaten(&mut w, z, 400);
+    assert_eq!(broke, vec!["glass"]);
+    assert_eq!(
+        w.grid.edge(at, Dir8::E),
+        Edge::broken_window(),
+        "broken for good"
+    );
+    assert!(climbed, "and it came in through it");
+}
+
+#[test]
+fn boards_keep_a_window_the_dead_break_them_first() {
+    let (mut w, z, at) = the_dead_at_a_window(Edge::window(false).with_boards(1));
+    let (broke, _) = beaten(&mut w, z, 200);
+    assert!(
+        broke.is_empty(),
+        "two hundred ticks in, the board holds: {broke:?}"
+    );
+    assert_eq!(w.grid.edge(at, Dir8::E).boards(), 1);
+    let (broke, climbed) = beaten(&mut w, z, 1200);
+    assert_eq!(
+        broke,
+        vec!["board", "glass"],
+        "the board first, then the glass"
+    );
+    assert!(climbed);
+}
+
+#[test]
+fn the_dead_that_dont_climb_leave_windows_be() {
+    let (mut w, z, at) = the_dead_at_a_window(Edge::window(false));
+    w.creature_mut(0).climb = 0;
+    let (broke, _) = beaten(&mut w, z, 400);
+    assert!(broke.is_empty());
+    assert_eq!(w.grid.edge(at, Dir8::E), Edge::window(false));
+}
+
+/// You climb east through a broken window, with the glass's chance to cut set: whether it cut,
+/// and the wounds you have.
+fn through_broken_glass(cut: u32) -> (bool, Vec<dusk_core::Part>) {
+    let (mut w, me) = across('x');
+    w.rules.climb.cut = cut;
+    w.intent(
+        me,
+        Intent::Move {
+            dir: Dir8::E,
+            run: false,
+        },
+    );
+    let (_, climbs) = until_x(&mut w, me, 1, 100);
+    let Event::Climbed { window, cut, .. } = climbs[0] else {
+        panic!("{climbs:?}")
+    };
+    assert!(window);
+    let parts = w
+        .actor(me)
+        .unwrap()
+        .body
+        .wounds
+        .iter()
+        .map(|x| x.part)
+        .collect();
+    (cut, parts)
+}
+
+#[test]
+fn a_broken_window_cant_be_shut_and_its_glass_may_cut() {
+    let (mut w, me) = across('x');
+    w.intent(me, Intent::Door);
+    w.step(10);
+    assert_eq!(
+        w.grid.edge(TilePos::new(0, 0, 0), Dir8::E),
+        Edge::broken_window(),
+        "there's nothing left to shut"
+    );
+    use dusk_core::Part::*;
+    let (cut, parts) = through_broken_glass(10_000);
+    assert!(cut);
+    assert_eq!(parts.len(), 1);
+    assert!(
+        [LeftArm, RightArm, LeftHand, RightHand, LeftLeg, RightLeg].contains(&parts[0]),
+        "{parts:?}"
+    );
+    assert_eq!(through_broken_glass(0), (false, Vec::new()));
+}
+
+#[test]
+fn your_blow_breaks_the_glass_with_a_crash_heard_far_off() {
+    let (mut w, me) = across('W');
+    let smash = w.rules.climb.smash;
+    let (mut broke, mut crash) = (false, false);
+    for _ in 0..20 {
+        w.intent(me, Intent::Attack { dir: Some(Dir8::E) });
+        for _ in 0..10 {
+            w.step(1);
+            for e in w.events() {
+                broke |= matches!(e, Event::WindowBroke { .. });
+                crash |= matches!(e, Event::Sound { loudness, .. } if loudness == smash);
+            }
+        }
+        if broke {
+            break;
+        }
+    }
+    assert!(broke && crash);
+    assert_eq!(
+        w.grid.edge(TilePos::new(0, 0, 0), Dir8::E),
+        Edge::broken_window()
+    );
 }

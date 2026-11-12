@@ -96,6 +96,9 @@ const EDGE_DOOR_OPEN := 3
 const EDGE_WINDOW_SHUT := 4
 const EDGE_WINDOW_OPEN := 5
 const EDGE_FENCE := 6
+const EDGE_WINDOW_BROKEN := 7
+## A broken window keeps a rim of glass in its frame, top and bottom: what cuts you climbing.
+const SHARDS := 0.1
 
 var _edges := PackedInt32Array()
 var _materials: Dictionary
@@ -175,6 +178,9 @@ func build_walls(low_walls: bool) -> void:
 				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"], [SILL, WINDOW_TOP, "glass"]]
 			EDGE_WINDOW_OPEN:
 				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"]]
+			EDGE_WINDOW_BROKEN:
+				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"],
+					[SILL, SILL + SHARDS, "glass"], [WINDOW_TOP - SHARDS, WINDOW_TOP, "glass"]]
 			EDGE_FENCE:
 				pieces = [[0.0, FENCE_HEIGHT, "fence"]]
 		for piece in pieces:

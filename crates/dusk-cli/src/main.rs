@@ -793,8 +793,9 @@ fn describe(w: &World, e: Event) -> String {
             to,
             window,
             fell,
+            cut,
         } => format!(
-            "{} climbed {} onto ({}, {}){}",
+            "{} climbed {} onto ({}, {}){}{}",
             name(who),
             if window {
                 "through a window"
@@ -803,8 +804,12 @@ fn describe(w: &World, e: Event) -> String {
             },
             to.x,
             to.y,
-            if fell { " and fell" } else { "" }
+            if fell { " and fell" } else { "" },
+            if cut { ", cut on the glass" } else { "" }
         ),
+        Event::WindowBroke { at, .. } => {
+            format!("the window by ({}, {}) smashed", at.x, at.y)
+        }
     }
 }
 

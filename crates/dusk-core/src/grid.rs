@@ -89,10 +89,12 @@ pub enum Edge {
         boards: u8,
     },
     /// Climbed through when it's open and has no boards on it (`climb.rs`). A boarded one can't
-    /// be seen through.
+    /// be seen through. A broken one (its glass beaten out) is open for good: it can't be shut,
+    /// and what's left in the frame cuts whoever climbs through.
     Window {
         open: bool,
         boards: u8,
+        broken: bool,
     },
     /// Stops walking, but not sight or sound: it's climbed over (`climb.rs`).
     Fence,
@@ -108,7 +110,20 @@ impl Edge {
 
     /// A window with no boards on it.
     pub const fn window(open: bool) -> Edge {
-        Edge::Window { open, boards: 0 }
+        Edge::Window {
+            open,
+            boards: 0,
+            broken: false,
+        }
+    }
+
+    /// A window with its glass beaten out, and no boards on it.
+    pub const fn broken_window() -> Edge {
+        Edge::Window {
+            open: true,
+            boards: 0,
+            broken: true,
+        }
     }
 
     /// Can you walk through it?
@@ -124,7 +139,8 @@ impl Edge {
             Edge::Fence
                 | Edge::Window {
                     open: true,
-                    boards: 0
+                    boards: 0,
+                    ..
                 }
         )
     }
@@ -141,6 +157,16 @@ impl Edge {
         matches!(self, Edge::Door { open: false, .. })
     }
 
+    /// Is something across it that a blow beats on (`World::thump`)? A shut door; a window
+    /// shut on its glass, or with boards across it.
+    pub fn beatable(self) -> bool {
+        match self {
+            Edge::Door { open, .. } => !open,
+            Edge::Window { open, boards, .. } => !open || boards > 0,
+            _ => false,
+        }
+    }
+
     /// The boards across a door or window (0 for anything else).
     pub fn boards(self) -> u8 {
         match self {
@@ -153,7 +179,11 @@ impl Edge {
     pub fn with_boards(self, n: u8) -> Edge {
         match self {
             Edge::Door { open, .. } => Edge::Door { open, boards: n },
-            Edge::Window { open, .. } => Edge::Window { open, boards: n },
+            Edge::Window { open, broken, .. } => Edge::Window {
+                open,
+                boards: n,
+                broken,
+            },
             other => other,
         }
     }

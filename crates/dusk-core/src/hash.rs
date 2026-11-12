@@ -137,6 +137,8 @@ pub enum Purpose {
     Pick = 26,
     PickMore = 27,
     Turn = 28,
+    /// Whether the glass left in a broken window cuts the one climbing through, and where.
+    Glass = 29,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

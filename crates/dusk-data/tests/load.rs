@@ -1784,6 +1784,11 @@ fn climbing_loads_and_the_dead_climb_by_kind_in_the_games_data() {
     let c = data.rules.climb;
     assert_eq!((c.window, c.fence, c.vault), (16, 10, 600));
     assert_eq!((c.noise, c.heavy), (4, 2000));
+    assert_eq!(
+        (c.glass, c.smash, c.cut),
+        (80, 15, 2500),
+        "glass gives in a few blows"
+    );
     let kind = |id: &str| {
         let s = data
             .defs

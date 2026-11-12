@@ -153,6 +153,7 @@ const GLANCED: i32 = 99;
 const WORE: i32 = 100;
 const TOOK_OFF: i32 = 101;
 const CLIMBED: i32 = 102;
+const WINDOW_BROKE: i32 = 103;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -273,11 +274,21 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Grabbed { who, target } => (GRABBED, Some(who), Some(target), at(target), 0),
         Event::Freed { who, from } => (FREED, Some(who), Some(from), at(who), 0),
         Event::StruggledInVain { who } => (STRUGGLED, Some(who), None, at(who), 0),
+        // The side, plus 2 for a window.
         Event::Thumped {
             who,
             at: p,
             side: s,
-        } => (THUMPED, Some(who), None, (p.x, p.y), side(s)),
+        } => {
+            let window = matches!(world.grid.edge(p, s), Edge::Window { .. });
+            (
+                THUMPED,
+                Some(who),
+                None,
+                (p.x, p.y),
+                side(s) + 2 * i32::from(window),
+            )
+        }
         Event::DoorBroke { at: p, side: s } => (DOOR_BROKE, None, None, (p.x, p.y), side(s)),
         Event::DraggedDown { who, holders } => {
             (DRAGGED_DOWN, Some(who), None, at(who), holders as i32)
@@ -526,19 +537,22 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::Wore { who, item } => (WORE, Some(who), None, at(who), i32::from(item)),
         Event::TookOff { who, item } => (TOOK_OFF, Some(who), None, at(who), i32::from(item)),
-        // 1 through a window (else over a fence), plus 2 if it tumbled over and lies there.
+        // 1 through a window (else over a fence), plus 2 if it tumbled over and lies there,
+        // plus 4 if the glass cut it.
         Event::Climbed {
             who,
             to,
             window,
             fell,
+            cut,
         } => (
             CLIMBED,
             Some(who),
             None,
             (to.x, to.y),
-            i32::from(window) + 2 * i32::from(fell),
+            i32::from(window) + 2 * i32::from(fell) + 4 * i32::from(cut),
         ),
+        Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -603,6 +617,7 @@ fn edge_code(edge: Edge) -> i32 {
         Edge::Wall => 1,
         Edge::Door { open: false, .. } => 2,
         Edge::Door { open: true, .. } => 3,
+        Edge::Window { broken: true, .. } => 7,
         Edge::Window { open: false, .. } => 4,
         Edge::Window { open: true, .. } => 5,
         Edge::Fence => 6,

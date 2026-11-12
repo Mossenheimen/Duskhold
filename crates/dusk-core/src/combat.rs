@@ -337,8 +337,10 @@ impl World {
             }
             Intent::Door => {
                 let dir = self.door_beside(a.pos, a.facing)?;
-                // A boarded door (or window) stays as it is until its boards are off.
-                if self.grid.edge(a.pos, dir).boards() > 0 {
+                // A boarded door (or window) stays as it is until its boards are off, and a
+                // broken window can't be shut.
+                let edge = self.grid.edge(a.pos, dir);
+                if edge.boards() > 0 || matches!(edge, Edge::Window { broken: true, .. }) {
                     return None;
                 }
                 (ActionKind::Door, dir, c.door_ticks, 0, 0)
@@ -470,7 +472,7 @@ impl World {
         });
         let at = pos.step(dir);
         let Some(target) = self.target_at(id, at) else {
-            if dir.split().is_none() && self.grid.edge(pos, dir).is_shut_door() {
+            if dir.split().is_none() && self.grid.edge(pos, dir).beatable() {
                 self.thump(id, dir);
             } else {
                 self.events.push(Event::Missed { who: id, at });
@@ -653,9 +655,10 @@ impl World {
         }
     }
 
-    /// A blow on a shut door. Boards across it take it first (`barricade.rs`); beaten past its
-    /// strength, the door gives way for good. A warded door holds against the dead: their blows
-    /// do nothing to it (`faith.rs`).
+    /// A blow on a shut door, or a window. Boards across it take it first (`barricade.rs`);
+    /// beaten past its strength, the door gives way for good, and a window's glass breaks, with a
+    /// crash heard far off (`climb.rs`). A warded door holds against the dead: their blows do
+    /// nothing to it (`faith.rs`).
     fn thump(&mut self, id: ActorId, dir: Dir8) {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
@@ -681,6 +684,10 @@ impl World {
         self.events.push(Event::Thumped { who: id, at, side });
         self.wear(id);
         if self.beat_boards(pos, dir, harm) {
+            return;
+        }
+        if let Edge::Window { .. } = self.grid.edge(pos, dir) {
+            self.beat_glass(id, pos, dir, harm);
             return;
         }
         let taken = self.door_damage.entry((at, side)).or_insert(0);
@@ -767,7 +774,11 @@ impl World {
         };
         let (open, turned) = match self.grid.edge(pos, dir) {
             Edge::Door { open, boards: 0 } => (open, Edge::door(!open)),
-            Edge::Window { open, boards: 0 } => (open, Edge::window(!open)),
+            Edge::Window {
+                open,
+                boards: 0,
+                broken: false,
+            } => (open, Edge::window(!open)),
             _ => return,
         };
         let other = pos.step(dir);

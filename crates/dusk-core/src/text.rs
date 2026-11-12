@@ -5,7 +5,8 @@
 //! - odd rows are cells: vertical edges between cells, so cells sit in the odd columns.
 //!
 //! On an edge, `-` (horizontal) or `|` (vertical) is a wall, `D` a shut door, `d` an open one,
-//! `W` a shut window, `w` an open one, `f` a fence, and a space is open. A cell's character
+//! `W` a shut window, `w` an open one, `x` a broken one, `f` a fence, and a space is open. A
+//! cell's character
 //! comes from the legend.
 //!
 //! ```text
@@ -312,6 +313,7 @@ fn edge_from(ch: char, wall: char) -> Option<Edge> {
         'd' => Edge::door(true),
         'W' => Edge::window(false),
         'w' => Edge::window(true),
+        'x' => Edge::broken_window(),
         'f' => Edge::Fence,
         c if c == wall => Edge::Wall,
         _ => return None,
@@ -325,6 +327,7 @@ fn edge_symbol(edge: Edge, wall: char) -> char {
         // Boards don't show in a text grid.
         Edge::Door { open: false, .. } => 'D',
         Edge::Door { open: true, .. } => 'd',
+        Edge::Window { broken: true, .. } => 'x',
         Edge::Window { open: false, .. } => 'W',
         Edge::Window { open: true, .. } => 'w',
         Edge::Fence => 'f',

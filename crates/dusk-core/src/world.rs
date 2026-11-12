@@ -391,6 +391,8 @@ pub enum Event {
         to: TilePos,
         window: bool,
         fell: bool,
+        /// The glass left in a broken window cut it (a wound on an arm, a hand or a leg).
+        cut: bool,
     },
     /// `who` ran out of breath.
     Exhausted {
@@ -417,6 +419,11 @@ pub enum Event {
         side: Dir8,
     },
     /// A door gave way: the edge is open now, for good.
+    /// A window's glass was beaten out (`climb.rs`): it's open for good, and the crash carries.
+    WindowBroke {
+        at: TilePos,
+        side: Dir8,
+    },
     DoorBroke {
         at: TilePos,
         side: Dir8,
@@ -870,7 +877,8 @@ pub struct World {
     pub(crate) occupied: FastMap<TilePos, ActorId>,
     sounds: Vec<Sound>,
     pub(crate) events: Vec<Event>,
-    /// The harm each beaten door has taken, by (owner tile, side). Ordered, for the hash.
+    /// The harm each beaten door (or window's glass) has taken, by (owner tile, side). Ordered,
+    /// for the hash.
     pub(crate) door_damage: BTreeMap<(TilePos, Dir8), i32>,
     /// What each board nailed across a door or window has left, the last nailed last, by
     /// (owner tile, side) (`barricade.rs`). Ordered, for the hash.
@@ -1462,8 +1470,8 @@ impl World {
             }
         }
         if step.climb {
-            let window = matches!(self.grid.edge(step.from, step.dir), Edge::Window { .. });
-            self.landed(id, window);
+            let edge = self.grid.edge(step.from, step.dir);
+            self.landed(id, edge);
         }
         Some(hard)
     }
@@ -1712,7 +1720,7 @@ impl World {
         if a.no_way.is_some_and(|tried| tried.steps_to(goal) <= 1) {
             // No way round: a shut door straight ahead gets beaten on; a wall, pressed against.
             if let Some(side) = Dir8::nearest(goal.x - pos.x, goal.y - pos.y)
-                .and_then(|d| self.shut_door_toward(pos, d))
+                .and_then(|d| self.in_the_way(pos, d, self.climbs(a.kind)))
             {
                 return Intent::Attack { dir: Some(side) };
             }
@@ -1758,16 +1766,18 @@ impl World {
     }
 
     /// The side of `from` with a shut door the dead may beat on, going `dir` (for a diagonal,
-    /// either of its sides): not one that's warded (`faith.rs`).
-    fn shut_door_toward(&self, from: TilePos, dir: Dir8) -> Option<Dir8> {
+    /// either of its sides): not one that's warded (`faith.rs`). One that `climbs` beats on a
+    /// window in its way too, shut or boarded: once it's broken, it climbs in (`climb.rs`).
+    fn in_the_way(&self, from: TilePos, dir: Dir8, climbs: bool) -> Option<Dir8> {
         let sides = match dir.split() {
             Some((a, b)) => [Some(a), Some(b)],
             None => [Some(dir), None],
         };
-        sides
-            .into_iter()
-            .flatten()
-            .find(|&d| self.grid.edge(from, d).is_shut_door() && !self.is_warded(from, d))
+        sides.into_iter().flatten().find(|&d| {
+            let edge = self.grid.edge(from, d);
+            (edge.is_shut_door() && !self.is_warded(from, d))
+                || (climbs && matches!(edge, Edge::Window { .. }) && edge.beatable())
+        })
     }
 
     /// The heading a shambler lurches in to reach `goal`: straight at it, or an eighth of a turn

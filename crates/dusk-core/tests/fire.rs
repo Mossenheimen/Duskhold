@@ -327,14 +327,8 @@ fn in_the_night_the_dead_that_see_a_fire_come_to_it() {
 #[test]
 fn a_boarded_window_hides_a_fire_and_by_day_nobody_heeds_one() {
     let (mut w, _) = lit_cottage(22);
-    w.grid.set_edge(
-        at(3, 2),
-        Dir8::N,
-        Edge::Window {
-            open: false,
-            boards: 1,
-        },
-    );
+    w.grid
+        .set_edge(at(3, 2), Dir8::N, Edge::window(false).with_boards(1));
     let (_, seen, target) = watcher(&mut w);
     assert!(!seen.iter().any(|e| matches!(e, Event::SawFire { .. })));
     assert_eq!(target, None, "behind the boards, nobody saw it");

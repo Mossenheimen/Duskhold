@@ -308,6 +308,12 @@ fence = 1.0           # seconds over a fence...
 vault = 0.6           # ...and running at one, you vault it in this share of the time
 noise = 4             # tiles: the scrape of a climb
 heavy = 2.0           # weighed down, a climb takes this many times as long
+# One of the dead that climbs beats on a shut or boarded window in its way as on a door, the boards
+# first. Then the glass, quickly: it's broken for good, open and unshuttable, and boards are what
+# keep a window. Your blows break it too.
+glass = 8.0           # health points of beating the glass takes (a door takes [door] strength)
+smash = 15            # tiles: how far the crash of it carries
+cut = 0.25            # the chance the glass left in the frame cuts you climbing through
 
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt

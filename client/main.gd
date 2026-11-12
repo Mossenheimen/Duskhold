@@ -9,7 +9,8 @@ extends Node3D
 ## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
-## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
+## --do=S:ACTION,... press swing (swing_n, _e, _s, _w: one way), shove, door, struggle, drop (the
+## first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
@@ -149,6 +150,7 @@ const GLANCED := 99
 const WORE := 100
 const TOOK_OFF := 101
 const CLIMBED := 102
+const WINDOW_BROKE := 103
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
 const ARMOUR := 11
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
@@ -1025,14 +1027,17 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You couldn't get free.")
 			THUMPED:
-				# Doors are loud: tell of it now and then, not at every blow.
+				# Doors are loud: tell of it now and then, not at every blow (nor of your own).
 				var now: float = dusk.tick() / 10.0
-				if now - last_thump > 6.0:
+				if who != me and now - last_thump > 6.0:
 					last_thump = now
-					hud.say("Something is beating on a door.")
+					hud.say("Something is beating on a %s." % ("window" if extra & 2 else "door"))
 			DOOR_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("A door gave way!")
+			WINDOW_BROKE:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				hud.say("Glass shatters!")
 			DRAGGED_DOWN:
 				if who == me:
 					dragged_by = extra
@@ -1073,6 +1078,9 @@ func _read_events() -> void:
 				if who != me and extra & 2 and _seen(who) and played - tumbled_at > 10.0:
 					tumbled_at = played
 					hud.say("%s tumbles in over the %s. Finish it while it's down!" % [_a(who), "sill" if extra & 1 else "fence"])
+				elif who == me and extra & 4:
+					hud.say("The broken glass cut you as you climbed through. Bandage it!")
+					hud.flash()
 			BANDAGED:
 				if who == me:
 					hud.say("You bandaged your %s." % part_names[extra])
@@ -1855,6 +1863,15 @@ func _run_script() -> void:
 		match scripted.pop_front()[1]:
 			"swing":
 				dusk.attack(0, 0)
+			# A swing one way (at a door or a window, say): north, east, south or west.
+			"swing_n":
+				dusk.attack(0, -1)
+			"swing_e":
+				dusk.attack(1, 0)
+			"swing_s":
+				dusk.attack(0, 1)
+			"swing_w":
+				dusk.attack(-1, 0)
 			"shove":
 				dusk.shove(0, 0)
 			"door":

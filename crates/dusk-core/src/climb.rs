@@ -9,12 +9,20 @@
 //! The dead climb too, if their kind does (`Creature::climb`), but only after something: a
 //! wandering one stays on its side of the fence. Some tumble over (`Creature::tumble`) and lie
 //! on the far side for their `down` time: the window you stand by is where you finish them.
+//!
+//! **Glass:** one that climbs beats on a shut or boarded window in its way as on a door, the
+//! boards first (`barricade.rs`). The glass gives quickly, with a crash heard far off, and the
+//! window is broken for good: it can't be shut, and the glass left in the frame may cut whoever
+//! climbs through. A blow of yours breaks it too. Boards are what keep a window.
 
 use crate::actor::{ActorId, ActorKind, Mind};
-use crate::grid::Edge;
+use crate::body::{Part, WoundKind};
+use crate::geom::{Dir8, TilePos};
+use crate::grid::{Edge, edge_owner};
+use crate::hash::{Purpose, below, roll};
 use crate::path::{ClimbCost, STRAIGHT};
 use crate::skills::Skill;
-use crate::world::{TICKS_PER_SECOND, World};
+use crate::world::{Event, Sound, TICKS_PER_SECOND, World};
 
 /// rules.toml's [climb], in the core's units.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,6 +36,13 @@ pub struct ClimbRules {
     pub noise: i32,
     /// Weighed down, a climb takes this much longer, per mille.
     pub heavy: u32,
+    /// What a window's glass takes before it breaks (out of `body::FULL`, as a door's strength),
+    /// and how far the crash carries (tiles).
+    pub glass: i32,
+    pub smash: i32,
+    /// Out of 10,000: the chance the glass left in a broken window cuts one of the living
+    /// climbing through (a laceration on an arm, a hand or a leg).
+    pub cut: u32,
 }
 
 impl Default for ClimbRules {
@@ -38,6 +53,9 @@ impl Default for ClimbRules {
             vault: 600,
             noise: 4,
             heavy: 2000,
+            glass: 80,
+            smash: 15,
+            cut: 2500,
         }
     }
 }
@@ -127,16 +145,22 @@ impl World {
         }
     }
 
-    /// A climb is over: the scrape is heard (in the step's footsteps), it may teach Athletics,
-    /// and one of a kind that tumbles lands down on the far side.
-    pub(crate) fn landed(&mut self, id: ActorId, window: bool) {
+    /// A climb over `edge` is over: the scrape is heard (in the step's footsteps), it may teach
+    /// Athletics, the glass left in a broken window may cut one of the living, and one of a kind
+    /// that tumbles lands down on the far side.
+    pub(crate) fn landed(&mut self, id: ActorId, edge: Edge) {
         let Some(a) = self.actors.get(id) else {
             return;
         };
         let (kind, to) = (a.kind, a.pos);
+        let window = matches!(edge, Edge::Window { .. });
+        let mut cut = false;
         let fell = match kind {
             ActorKind::Character => {
                 self.train_run(id);
+                if matches!(edge, Edge::Window { broken: true, .. }) {
+                    cut = self.cut_on_glass(id);
+                }
                 None
             }
             ActorKind::Creature(n) => self
@@ -149,11 +173,51 @@ impl World {
         if let (Some(down), Some(a)) = (fell, self.actors.get_mut(id)) {
             a.prone_until = tick + u64::from(down);
         }
-        self.events.push(crate::world::Event::Climbed {
+        self.events.push(Event::Climbed {
             who: id,
             to,
             window,
             fell: fell.is_some(),
+            cut,
         });
+    }
+
+    /// The glass left in a broken window, by its chance: a laceration on an arm, a hand or a
+    /// leg. True if it cut.
+    fn cut_on_glass(&mut self, id: ActorId) -> bool {
+        const PARTS: [Part; 6] = [
+            Part::LeftArm,
+            Part::RightArm,
+            Part::LeftHand,
+            Part::RightHand,
+            Part::LeftLeg,
+            Part::RightLeg,
+        ];
+        let r = roll(self.seed, self.tick, id.index() as u64, Purpose::Glass);
+        if below(r, 10_000) >= self.rules.climb.cut {
+            return false;
+        }
+        let part = PARTS[below(r << 32, PARTS.len() as u32) as usize];
+        self.wound(id, WoundKind::Laceration, part);
+        true
+    }
+
+    /// A blow on a window's glass (its boards gone): past the glass's strength it breaks, for
+    /// good, with a crash heard far off.
+    pub(crate) fn beat_glass(&mut self, id: ActorId, pos: TilePos, dir: Dir8, harm: i32) {
+        let (at, side) = edge_owner(pos, dir);
+        let taken = self.door_damage.entry((at, side)).or_insert(0);
+        *taken += harm;
+        if *taken < self.rules.climb.glass {
+            return;
+        }
+        self.door_damage.remove(&(at, side));
+        self.grid.set_edge(pos, dir, Edge::broken_window());
+        self.emit(Sound {
+            at: pos,
+            loudness: self.rules.climb.smash,
+            by: Some(id),
+        });
+        self.events.push(Event::WindowBroke { at, side });
     }
 }

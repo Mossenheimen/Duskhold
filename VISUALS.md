@@ -216,6 +216,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
   - people and the dead are capsules that lean into a swing (the tell), lie down when knocked down, and darken when dead. Climbing a sill or a fence, one is lifted over and set down on the far side, at most 0.55 m up (`main.gd`, `CLIMB_LIFT`);
   - beasts get four legs and a head at their own height (`actor_view.gd`, `_build_beast`);
   - furniture is boxes with a surface (§6);
+  - walls, doors and windows are boxes on a tile's edge: a shut window is a pane between the sill and the lintel, an open one the empty frame, and a broken one keeps a 0.1 m rim of glass top and bottom, the shards that cut (`chunk_view.gd`, `SHARDS`);
   - trees are a trunk and a sphere crown, a little different from tile to tile;
   - plants are low clumps, the herbs with a disc of flowers on top.
 - **Size bands**, so a scene reads at a glance:
