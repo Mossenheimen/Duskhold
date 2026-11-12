@@ -10,24 +10,16 @@ const SILL := 0.9
 const WINDOW_TOP := 1.65
 const FENCE_HEIGHT := 0.9
 
-## Ground colours by the core's ground code (DuskWorld.chunk_tiles()), picked by eye in sRGB.
-const GROUND := [
-	Color(0.07, 0.08, 0.1),  # nothing
-	Color(0.37, 0.42, 0.31),  # grass: the Hushlands' grey-green
-	Color(0.43, 0.35, 0.25),  # dirt
-	Color(0.52, 0.48, 0.4),  # road
-	Color(0.2, 0.3, 0.38),  # water
-	Color(0.47, 0.35, 0.24),  # a floor: planks
-	Color(0.3, 0.42, 0.47),  # shallows: water you can wade
-	Color(0.4, 0.29, 0.18),  # a bridge: darker planks over the water
-]
-const WALL := Color(0.66, 0.63, 0.57)
-const DOOR := Color(0.38, 0.25, 0.15)
-const BOARD := Color(0.62, 0.48, 0.3)
+const Look = preload("res://look.gd")
+## Ground colours by the core's ground code (DuskWorld.chunk_tiles()): Look's.
+const GROUND := Look.GROUND
+const WALL := Look.WALL
+const DOOR := Look.DOOR
+const BOARD := Look.BOARD
 ## Room across an opening for this many boards; each one tilts a little, nailed by hand.
 const BOARD_SLOTS := 4
 const BOARD_TILT := 9.0
-const FENCE := Color(0.45, 0.38, 0.3)
+const FENCE := Look.FENCE
 ## What things are made of, for their look (shaders/wall.gdshader draws each, as a code over 16 in
 ## an instance's custom data): 0 plain colour.
 const PLAIN := 0
@@ -46,8 +38,8 @@ const SURFACES := {
 	"altar": STONE, "forge": STONE, "hearth": STONE, "well": STONE, "grave": STONE, "tomb": STONE,
 	"wheat": STRAW, "hay": STRAW,
 }
-const TRUNK := Color(0.3, 0.23, 0.17)
-const LEAVES := Color(0.24, 0.33, 0.21)
+const TRUNK := Look.TRUNK
+const LEAVES := Look.LEAVES
 
 ## Wild plants (fixtures.toml's forage), by fixture id: a low clump of leaves (how wide, how tall,
 ## its green) and, on the herbs in flower, a flat cap of flowers (its colour, or null).

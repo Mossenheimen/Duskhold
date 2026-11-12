@@ -1277,6 +1277,27 @@ Game first: every step ends with something to look at or play.
          - in the game: seed 1 at 10:00, walking from the abbey to the pond east of its wall: "Chamomile grows here: steeped at a fire, its tea calms. Y to pick it.", and two picks, "You pick it: chamomile flowers ×2." each. The picture shows the stalks left of one, the pack's "chamomile flowers ×4", and chamomile round about. They read as pale pebbles (small, the flowers hiding the leaves), so the plants are now larger with a narrower disc of flowers (not pictured again);
          - found on the way: a first test put two plants either side of x = 0, which are different 8-tile spots for skill repeats, so the second picking paid in full (the test now picks in one spot); and the first shore was any land within 0.02 of the pond line, which grew chamomile in dry hollows 6 to 8 tiles from any water (now a pond must be within two steps);
        - **measured:** about 173k to 176k ticks a second (from 170k to 174k: nothing to see; `regrow` is an hourly look, and only once something's picked); a patch is still made in about 60 ms.
+     - **The look in one place, and a GUI that scales** (2026-11-12; the first visual slice of `VISUALS.md` §16, with parts of the next ones; 296 tests, nothing in the core changed):
+       - **tokens** (`client/look.gd`):
+         - every colour the client draws with, named as `VISUALS.md` §4 names it (`Look.CALM` for `signal.calm`), merged where the guide said: six reds into `DANGER` and `DANGER_TEXT`, the ambers into `ALERT`, the golds into `GOLD`;
+         - the type sizes of §8: 18, 20, 24, 32 and 48 px at the base screen;
+         - the GUI's parts: `panel_style`, `text`, `bar`.
+
+         Shaders take their colours as uniforms set from it: the sight tints, the noise ring, dread's edge. The furniture and plant tables are left for the slice that moves looks into data;
+       - **a GUI that scales** (`project.godot`): the base screen is 1920 × 1080 with `canvas_items` and `expand`, so the GUI scales with the window and 3D still renders at the screen's own size.
+         - The player's own game opens maximised. A trial run keeps 1600 × 900, so its pictures stay alike.
+         - `-` and `=` step the GUI's size from 75% to 200% (`content_scale_factor`). Only the player's game keeps it, in `user://settings.cfg`;
+       - **the layout** (§10):
+         - the status and body down the top left, in one column;
+         - the news down the top right, 620 px wide, its text left-aligned, with room kept for six lines so the moodles under it stay put;
+         - the banners in sentence case ("Three of them have hold of you");
+         - the act under way just under you;
+         - the keys behind F1, in four columns over the middle while open. For a world's first game hour, "F1: every key" shows at the bottom centre instead;
+         - making (T) on the left middle where skills (K) open, one at a time;
+       - **checked:**
+         - headless through the new paths: F1, skills and making in turn, a picking;
+         - two pictures by the pond east of the abbey. The first showed the scaled GUI with the act's bar under you, and the keys in three columns at the bottom: twelve rows, over both bottom panels and nearly the bar. So the keys went to four columns over the middle, on F1 only, with the one-line reminder in their place. The second shows them so, and the news column;
+       - **not yet:** the fonts, moodle tiles, prompts under you, Esc closing panels, a settings screen.
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

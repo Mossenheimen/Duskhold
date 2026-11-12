@@ -12,7 +12,8 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `crates/dusk-godot/`: the Godot extension (gdext). Its `DuskWorld` node makes a patch, ticks it, and hands GDScript the map a chunk at a time, the actors, what the dead can see, noises and events. It takes intents back.
 - `data/`: the game's numbers and content in TOML: `rules.toml` (with `[faith]`, the Cleric's, and `[foraging]`), `creatures/`, `fixtures.toml` (an altar is a `shrine`; a wild plant has `forage`), `holdouts.toml` (the holdouts' trade, and which item is coin), `recipes.toml` (what can be made), `names.toml` (characters' and rares' names), `affixes.toml` (rares' affixes), `properties.toml` (magic items' properties and curses), `classes.toml` and `talents.toml` (the Fighter and the Cleric, their kits and talents), `items/`, `loot/`, `prefabs/` (buildings as text grids; `town.toml` the shops, `farm.toml` the farmsteads, `graveyard.toml` the graveyard and its skeletons, `barrow.toml` the barrows and their wights, `abbey.toml` the holdout; the chapel, with its fonts of holy water, is in `hamlet.toml`), `regions/`.
 - `client/`: the Godot 4.7 project, built in code. It draws what the core says and decides nothing:
-  - `main.gd`: input, the camera and the loop;
+  - `main.gd`: input, the camera and the loop; the window (the player's game maximised, a trial run 1600 × 900) and the GUI's size (`-`, `=`);
+  - `look.gd`: the look's tokens, `VISUALS.md` in code: every colour, the text sizes, and the GUI's parts (`panel_style`, `text`, `bar`). Every script that draws preloads it, and uses a token, never a colour of its own;
   - `map_view.gd`: streams chunks round the camera, and draws the fog of war and the sight-cone overlay;
   - `chunk_view.gd`: one chunk's ground, trees, furniture and walls;
   - `actor_view.gd` (poses: the lean of a wind-up, lying down, dead), `tells.gd` (a swing's tell on the ground), `threats.gd` (engagement lines), `bag.gd` (the pack and "within reach" panels), `skills.gd` (the skills panel), `craft.gd` (the crafting panel), `litter.gd` (what lies on the floor), `noise_rings.gd`, `hud.gd` (clock, body panel, moodle column, news, the sleep veil, death screen);
@@ -27,7 +28,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 ```powershell
 .\play.cmd                                 # build and play: carries on from the saved game (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
-.\play.cmd -- --seed=7 --walk=4,5          # a trial run, not saved. Flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --class=NAME (a trial run asks for no class: the first, else), --do=S:ACTION (swing, shove, door, struggle, drop, sleep, drink, light, skills, save, board, unboard, burn, turn, pray, consecrate, ward, mend, pick, next), --news, --hour=H, --save=FILE, --shot=PNG --shot-after=S
+.\play.cmd -- --seed=7 --walk=4,5          # a trial run, not saved. Flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --class=NAME (a trial run asks for no class: the first, else), --do=S:ACTION (swing, shove, door, struggle, drop, sleep, drink, light, skills, save, board, unboard, burn, turn, pray, consecrate, ward, mend, pick, keys, next), --news, --hour=H, --save=FILE, --shot=PNG --shot-after=S
 cargo test --workspace                     # 296 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns

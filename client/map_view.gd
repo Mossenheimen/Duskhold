@@ -5,6 +5,7 @@ extends Node3D
 ## what the dead you see can see: their sight cones, tile by tile.
 
 const ChunkView = preload("res://chunk_view.gd")
+const Look = preload("res://look.gd")
 
 ## Chunks within this many of the one the camera looks at are drawn; past UNLOAD_RADIUS they go.
 const LOAD_RADIUS := 3
@@ -43,6 +44,9 @@ func _init() -> void:
 	plain.roughness = 0.95
 	_materials = {"cut_away": cut_away, "solid": solid, "glass": glass, "plain": plain}
 	_watched_material.shader = preload("res://shaders/watched.gdshader")
+	_watched_material.set_shader_parameter("unaware", Look.CALM)
+	_watched_material.set_shader_parameter("curious", Look.ALERT)
+	_watched_material.set_shader_parameter("hunting", Look.DANGER)
 	_fog_material.shader = preload("res://shaders/fog_of_war.gdshader")
 	_fog_material.render_priority = Material.RENDER_PRIORITY_MIN  # before the cones and rings
 

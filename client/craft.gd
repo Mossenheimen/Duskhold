@@ -3,8 +3,10 @@ extends CanvasLayer
 ## else what's missing. And the furniture beside you, if it breaks down for planks. The core
 ## decides what can be made and does the making; this only shows it and asks.
 
-const READY := Color(0.75, 0.9, 0.6)
-const SHORT := Color(1, 1, 1, 0.55)
+const Look = preload("res://look.gd")
+
+const READY := Look.GOOD
+const SHORT := Look.TEXT_DIM
 
 var _dusk: Node
 var _panel: PanelContainer
@@ -16,19 +18,14 @@ var _shown := []  # the checks and the furniture beside you, as last drawn
 
 func _ready() -> void:
 	_panel = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
-	style.set_content_margin_all(10)
-	style.set_corner_radius_all(4)
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.add_theme_stylebox_override("panel", Look.panel_style())
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 3)
 	_panel.add_child(_list)
 	add_child(_panel)
-	# Top right, under the news and above the pack: clear of the loot panel at the bottom left.
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
-	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_panel.offset_top = 60
+	# Zone J, the left middle, where skills open too: one book panel at a time.
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_panel.visible = false
 
 
@@ -38,6 +35,11 @@ func start(dusk: Node) -> void:
 	_texts = dusk.recipe_texts()
 	_items = dusk.item_names()
 	_shown = []
+
+
+## Closed as the other book panel opens: one at a time (VISUALS.md §10, zone J).
+func close() -> void:
+	_panel.visible = false
 
 
 func toggle() -> void:
@@ -67,7 +69,7 @@ func refresh(dead: bool) -> void:
 func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 	for child in _list.get_children():
 		child.queue_free()
-	_list.add_child(_label("Make  ·  from what you carry", 17))
+	_list.add_child(_label("Make  ·  from what you carry", Look.HEADING))
 	for r in range(_texts.size() / 2):
 		var code := checks[r * 2] if r * 2 < checks.size() else -3
 		var row := HBoxContainer.new()
@@ -81,16 +83,16 @@ func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", 10)
 		lines.add_child(top)
-		var called := _label(_texts[r * 2], 15)
+		var called := _label(_texts[r * 2], Look.BODY)
 		called.add_theme_color_override("font_color", READY if code == 0 else Color.WHITE)
 		top.add_child(called)
-		var takes := _label(_texts[r * 2 + 1], 12)
+		var takes := _label(_texts[r * 2 + 1], Look.SMALL)
 		takes.modulate = SHORT
 		lines.add_child(takes)
 		if code == 0:
 			row.add_child(_button("Make", func() -> void: _dusk.craft(r)))
 		else:
-			var why := _label(_why(code, checks[r * 2 + 1]), 12)
+			var why := _label(_why(code, checks[r * 2 + 1]), Look.SMALL)
 			why.modulate = SHORT
 			why.size_flags_vertical = Control.SIZE_SHRINK_END
 			top.add_child(why)
@@ -99,14 +101,14 @@ func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
-		var line := _label("Break it down: %d plank%s (loud)" % [furniture[2], "" if furniture[2] == 1 else "s"], 14)
+		var line := _label("Break it down: %d plank%s (loud)" % [furniture[2], "" if furniture[2] == 1 else "s"], Look.SMALL)
 		line.custom_minimum_size = Vector2(300, 0)
 		row.add_child(line)
 		row.add_child(_button("Break", func() -> void: _dusk.break_down()))
 	elif furniture.size() >= 1 and furniture[0] == -2:
-		_list.add_child(_label("A hammer or an axe would break the furniture here down for planks.", 12))
+		_list.add_child(_label("A hammer or an axe would break the furniture here down for planks.", Look.SMALL))
 	else:
-		var hint := _label("Stand by a table, a chair, a bed or a pew to break it down for planks.", 12)
+		var hint := _label("Stand by a table, a chair, a bed or a pew to break it down for planks.", Look.SMALL)
 		hint.modulate = SHORT
 		_list.add_child(hint)
 
@@ -126,7 +128,7 @@ func _why(code: int, item: int) -> String:
 func _button(text: String, pressed: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", Look.SMALL)
 	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game
 	button.pressed.connect(pressed)
 	return button

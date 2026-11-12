@@ -91,9 +91,9 @@ Light here is a rule, not just a mood: the dead see by it (`light.rs`). So the p
 
 ## 4. Colour
 
-Colours are named tokens, and code uses the names (§14).
+Colours are named tokens, and code uses the names (§14). In code each token is a constant in `client/look.gd`, named by its last word in capitals: `signal.calm` is `Look.CALM`, `moodle.mild` is `Look.MILD`, `ui.panel` is `Look.PANEL`. The ground is `Look.GROUND[code]`, and `moodle.good` is `Look.REST`.
 
-**Today:** about 120 colours are written inline across ten client files. The values below are those colours, gathered and named. Near-duplicates are merged where the target column says so.
+**Today** (2026-11-12): every colour the client draws with is a token in `look.gd`, merged as the tables below say. The one exception is the tables of furniture and plants (`chunk_view.gd`'s `FURNITURE` and `PLANTS`), which move to data with the looks of things (§14, §16).
 
 ### The world (the Hushlands)
 
@@ -113,6 +113,9 @@ Colours are named tokens, and code uses the names (§14).
 | `build.fence` | `#73614D` | fences and railings |
 | `tree.trunk` | `#4D3B2B` | trunks |
 | `tree.leaves` | `#3D5436` | crowns, lightened a little per tree |
+| `world.litter` | `#9E855C` | a bundle dropped on a floor |
+| `light.rain` | `#B3C7E6`, 35% | a streak of rain past the camera |
+| `light.shot` | `#D9CCA6` | an arrow's flight |
 
 **Should:** world colours keep a saturation under about 35% and stay in the middle values, so actors and signals stand forward (pillar 2).
 
@@ -130,26 +133,30 @@ Each look is a colour, a height and a stoop. The colour is the second cue; the s
 | `actor.wight` | `#384057` | 1.8 m, leaning back | night-blue, the tallest: the dark's own |
 | `actor.deer` | `#8C613D` | 1.2 m, on four legs | brown, head up |
 | `actor.wolf` | `#66666B` | 0.95 m, on four legs | grey, head low and forward |
+| `actor.scut` | `#EBE6D9` | | a deer's white tail, flashing as it bolts |
+| `actor.ash` | `#211F1C` | | a body burnt to ash |
 
 Ghouls and skeletons are close in colour on purpose. Their posture tells them apart: low and crouched against tall and upright. A new kind must pass the silhouette test (§5) before it gets a colour.
 
 ### Signals: the same meaning everywhere
 
-| Token | Hex (target) | Means | Today |
+| Token | Hex | Means | Merged from (2026-11-12) |
 |---|---|---|---|
-| `signal.calm` | `#F5E699` | one of the dead that isn't after you (its sight on the ground) | same |
-| `signal.alert` | `#FFA733` | heard something: "?" | `#FFBF40` mark, `#FF9E2E` sight: merge |
-| `signal.danger` | `#FF3B2B` | sees you or is after you: "!"; its tell; the lines of the dead on you | six reds, `#FF291A` to `#FF594D`: merge |
-| `signal.danger_text` | `#FF6A5C` | danger written as text on a panel (it keeps 4.5:1 contrast) | `#FF594D` |
-| `signal.grip` | `#BF0D0D` | a hold on you: a thick dark line | same |
-| `signal.sound` | `#E6F2FF` | a noise ring, at 80% | same |
-| `signal.holy` | `#FFF2B3` | turned ("+"), consecrated, hallowed | same |
-| `signal.rest` | `#99B8FF` | asleep ("z"), restful moodles | same |
-| `signal.yours` | `#F2EBCC` | your own tell and progress | same |
-| `signal.good` | `#BFE699` | can be made now, healed | same |
-| `signal.gold` | `#FFC74D` | XP, a level, a mastery, a find's worth | `#FFD98C` level text, `#FFCC4D` flash: merge |
-| `magic.uncommon` | `#8CBFFF` | an uncommon magic item's name | same |
-| `magic.rare` | `#FFCC59` | a rare magic item's name | same |
+| `signal.calm` | `#F5E699` | one of the dead that isn't after you (its sight on the ground) | |
+| `signal.alert` | `#FFA733` | heard something: "?" | `#FFBF40` mark, `#FF9E2E` sight, `#FFBF4D` out of breath |
+| `signal.danger` | `#FF3B2B` | sees you or is after you: "!"; its tell; the lines of the dead on you | six reds, `#FF291A` to `#FF594D` |
+| `signal.danger_text` | `#FF6A5C` | danger written as text: the held banner (it keeps 4.5:1 contrast) | `#FF594D` |
+| `signal.grip` | `#BF0D0D` | a hold on you: a thick dark line | |
+| `signal.sound` | `#E6F2FF` | a noise ring, at 80% | |
+| `signal.holy` | `#FFF2B3` | turned ("+"), consecrated, hallowed; the abbey's counter | `#D9E6FF` counter header |
+| `signal.rest` | `#99B8FF` | asleep ("z"), restful moodles | |
+| `signal.yours` | `#F2EBCC` | your own tell, and the bar of the act under way | `#D9D9BF` act bar |
+| `signal.good` | `#BFE699` | can be made now, healed | |
+| `signal.gold` | `#FFC74D` | XP, a level, a mastery, a find's worth, your stash | `#FFD98C` level, `#FFCC4D` flash, `#FFD173` stash |
+| `signal.lore` | `#BFCCE6` | what a known magic item's properties do | |
+| `signal.dread` | `#05000A` | the screen's edges darkening with dread | |
+| `magic.uncommon` | `#8CBFFF` | an uncommon magic item's name | |
+| `magic.rare` | `#FFCC59` | a rare magic item's name, and a rare monster's | |
 
 ### Bars and moodles
 
@@ -164,13 +171,14 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `moodle.bad` | `#FF9940` | the second |
 | `moodle.worst` | `#FF4D40` | the third |
 | `moodle.good` | `#99B8FF` | a restful or good moodle (= `signal.rest`) |
+| `ui.hurt_text` | `#FFD1C7` | your wounds, listed under the bars |
 
 ### The GUI
 
 | Token | Value | Used for |
 |---|---|---|
 | `ui.panel` | `#0D0F14`, 72% | every panel's ground (95% in high contrast, §13) |
-| `ui.edge` | white, 10% | a panel's 1 px edge (Default; today, none) |
+| `ui.edge` | white, 10% | a panel's 1 px edge (Default) |
 | `ui.text` | `#FFFFFF` | text |
 | `ui.text_dim` | white, 70% | hints, secondary lines, what can't be done yet |
 | `ui.outline` | black, 85% | a 6 px outline on any text drawn straight on the world |
@@ -293,11 +301,11 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | `type.banner` | 32 | held, paused, asleep |
 | `type.title` | 48 (serif) | the class choice, the death screen, the title screen |
 
-  **Today:** 12 to 20 px on a 1600 × 900 window, which is 14 to 24 px at the base. The 12 and 14 px text goes up.
+  **Today** (2026-11-12): these sizes are in (`Look.SMALL` to `Look.TITLE`). Before, the GUI used 12 to 20 px on a 1600 × 900 window that didn't scale.
 - **Text over the world** (no panel behind it) always has the 6 px `ui.outline`.
 - **Sentence case**, never whole lines in capitals; a one- or two-word label may be.
 
-  **Today:** the held banner is in capitals. It becomes "Three of them have hold of you" in `type.banner`, `signal.danger_text`.
+  So the held banner says "Three of them have hold of you", in `type.banner` and `signal.danger_text`.
 - **Left-aligned** in its box, even when the box sits on the right edge. Centred only for one-line banners and titles.
 - **Lines of 80 characters at most** (news, tooltips, descriptions).
 - **Numbers:** counts as "×2", weights as "0.6 kg", times as "3h 50m", and a percentage only for condition.
@@ -327,7 +335,10 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - Every panel keeps 24 px from the screen's edges.
 - Nothing persistent sits in the middle half of the screen.
 
-**Today:** the window is 1600 × 900 with no stretch, so the GUI doesn't scale.
+**Today** (2026-11-12): as here.
+
+- The player's own game opens maximised, filling the screen. A trial run keeps a 1600 × 900 window, so its pictures stay alike.
+- `-` and `=` make the GUI a step smaller or larger (§13).
 
 ```
  1920 × 1080: the base. Everything scales with it.
@@ -359,14 +370,14 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 |---|---|---|---|---|
 | **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here |
 | **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; 380 wide | always (faith only for a class that has it) | no body diagram; wounds as text |
-| **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here, but in capitals |
-| **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | right-aligned text |
+| **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
+| **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names | while any is on | text only, no icons |
-| **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | the bar is 140 px from the bottom; prompts come only through the news |
+| **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | the bar is here; prompts come only through the news |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, then the pack; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
-| **I** Keys | every key, with the legend of the drawn senses | an overlay, on F1 | F1, and for the first game hour | always on: two lines of legend and three of keys |
-| **J** Book panels | skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | making sits top right, over the news |
+| **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
+| **J** Book panels | skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
 
 **Rules:**
 
@@ -456,6 +467,8 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbox Accessibility Guidelines. Every setting is saved.
 
 - **GUI scale:** 75% to 200% (`content_scale_factor`), and **text size** up to 200% on its own.
+
+  **Today** (2026-11-12): `-` and `=` step the GUI's size from 75% to 200%, and the player's own game keeps it in `user://settings.cfg`. Text size on its own, and the rest of this list, wait for a settings screen.
 - **Colour-blind mode:** off, or the Okabe–Ito set for the alert states (§4).
 - **High contrast:** panels at 95%, and every text outlined.
 - **Reduce flashes and motion:** no screen flashes and no vignette breathing; marks and moodles change without popping.
@@ -470,7 +483,12 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
 
 ### One place for every value
 
-- **Tokens:** `client/look.gd` (Default; the first visual slice makes it) holds every token in §4 and §8 as named constants, and builds the GUI's Theme (panels, fonts, sizes) in code, as the client builds everything. **Must:** code uses a token, never a new inline colour; a new colour is a new token in this guide and in `look.gd`.
+- **Tokens:** `client/look.gd` holds every token in §4 and §8 as named constants, and the GUI's parts as functions:
+  - `panel_style()`, a panel's ground;
+  - `text()`, a label's size and colour, outlined when it's drawn on the world;
+  - `bar()`, a bar's fill on its track.
+
+  Each script that draws preloads it (`const Look = preload("res://look.gd")`), as the client's scripts are. **Must:** code uses a token, never a new inline colour. A new colour is a new token in this guide and in `look.gd`.
 - **Looks of things:** `data/looks.toml` (Default) moves the creature, furniture and plant looks out of GDScript (`LOOKS`, `FURNITURE`, `PLANTS`, `SURFACES`). A person can then tune them without code, and a mod can add its own:
 
 ```toml
@@ -546,11 +564,11 @@ Each region shifts the world's colours (ground, foliage, sky and night tint) and
 
 These are the visual slices, in order. Each one ends with a picture or two and this guide brought up to date. All are Defaults.
 
-1. **Tokens and the Theme:** `client/look.gd` takes every inline colour; the 1920 × 1080 base with `canvas_items` and `expand`; a GUI scale setting. Nothing should look different except that the GUI now scales.
-2. **Type:** the fonts in, the sizes of §8, the held banner in sentence case.
+1. *(Done 2026-11-12.)* **Tokens, and a GUI that scales:** `client/look.gd` took every inline colour; the 1920 × 1080 base with `canvas_items` and `expand`; the GUI's size on `-` and `=`.
+2. **Type:** the fonts in. *(The sizes of §8, and the held banner in sentence case: done 2026-11-12.)*
 3. **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
-4. **Here and now:** prompts under you (zone F), the act's bar moved up to them, and the keys behind F1.
-5. **Book panels:** making moves to the left, one book panel at a time, and Esc closes panels first.
+4. **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1: done 2026-11-12.)*
+5. **Book panels:** Esc closes panels first. *(Making on the left, one book panel at a time: done 2026-11-12.)*
 6. **The body diagram** in zone B.
 7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
 8. **Looks as data:** `data/looks.toml`.

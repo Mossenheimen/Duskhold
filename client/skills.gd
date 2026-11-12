@@ -8,9 +8,11 @@ const AT_CAP := 1
 const MASTERED := 2
 const TOP := 3
 
-const BAR := Color(0.55, 0.72, 0.9)
-const CAPPED := Color(0.95, 0.85, 0.45)
-const GOLD := Color(1.0, 0.78, 0.3)
+const Look = preload("res://look.gd")
+
+const BAR := Look.SKILL
+const CAPPED := Look.CAPPED
+const GOLD := Look.GOLD
 
 var _dusk: Node
 var _names := PackedStringArray()
@@ -24,16 +26,12 @@ var _texts := PackedStringArray()  # every talent's name and line (DuskWorld.tal
 
 func _ready() -> void:
 	_panel = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
-	style.set_content_margin_all(10)
-	style.set_corner_radius_all(4)
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.add_theme_stylebox_override("panel", Look.panel_style())
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 3)
 	_panel.add_child(_list)
 	add_child(_panel)
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, 16)
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_panel.visible = false
 
@@ -46,6 +44,11 @@ func start(dusk: Node) -> void:
 	_shown_left = -1
 	_shown_talents = []
 	_texts = dusk.talent_texts()
+
+
+## Closed as the other book panel opens: one at a time (VISUALS.md §10, zone J).
+func close() -> void:
+	_panel.visible = false
 
 
 func toggle() -> void:
@@ -79,29 +82,29 @@ func _draw_talents(taken: PackedInt32Array, offer: PackedInt32Array) -> void:
 	if class_name_ == "":
 		return
 	_list.add_child(_label(" ", 8))
-	_list.add_child(_label("%s  ·  talents" % class_name_, 17))
+	_list.add_child(_label("%s  ·  talents" % class_name_, Look.HEADING))
 	for t in taken:
-		_list.add_child(_label("%s: %s" % [_text(t, 0), _text(t, 1)], 13))
+		_list.add_child(_label("%s: %s" % [_text(t, 0), _text(t, 1)], Look.SMALL))
 	if offer.size() == 0:
 		if taken.size() == 0:
-			var hint := _label("Each level from 2 offers three to choose from.", 12)
-			hint.modulate = Color(1, 1, 1, 0.7)
+			var hint := _label("Each level from 2 offers three to choose from.", Look.SMALL)
+			hint.modulate = Look.TEXT_DIM
 			_list.add_child(hint)
 		return
-	var choose := _label("Choose one:", 14)
+	var choose := _label("Choose one:", Look.SMALL)
 	choose.add_theme_color_override("font_color", GOLD)
 	_list.add_child(choose)
 	for t in offer:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
-		var line := _label("%s: %s" % [_text(t, 0), _text(t, 1)], 13)
+		var line := _label("%s: %s" % [_text(t, 0), _text(t, 1)], Look.SMALL)
 		line.custom_minimum_size = Vector2(330, 0)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(line)
 		var button := Button.new()
 		button.text = "Choose"
-		button.add_theme_font_size_override("font_size", 13)
+		button.add_theme_font_size_override("font_size", Look.SMALL)
 		button.focus_mode = Control.FOCUS_NONE  # keys stay with the game
 		button.pressed.connect(func() -> void: _dusk.choose_talent(t))
 		row.add_child(button)
@@ -116,10 +119,10 @@ func _text(talent: int, which: int) -> String:
 func _draw(skills: PackedInt32Array, left: int) -> void:
 	for child in _list.get_children():
 		child.queue_free()
-	var title := _label("Skills  ·  masteries left: %d" % left, 17)
+	var title := _label("Skills  ·  masteries left: %d" % left, Look.HEADING)
 	_list.add_child(title)
-	var hint := _label("They grow by real use under real risk.", 12)
-	hint.modulate = Color(1, 1, 1, 0.7)
+	var hint := _label("They grow by real use under real risk.", Look.SMALL)
+	hint.modulate = Look.TEXT_DIM
 	_list.add_child(hint)
 	for i in range(0, skills.size() - 2, 3):
 		var skill := floori(i / 3.0)
@@ -129,10 +132,10 @@ func _draw(skills: PackedInt32Array, left: int) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
-		var called := _label(_names[skill] if skill < _names.size() else "?", 15)
+		var called := _label(_names[skill] if skill < _names.size() else "?", Look.BODY)
 		called.custom_minimum_size = Vector2(90, 0)
 		row.add_child(called)
-		var number := _label(str(level), 15)
+		var number := _label(str(level), Look.BODY)
 		number.custom_minimum_size = Vector2(22, 0)
 		row.add_child(number)
 		var colour := CAPPED if state == AT_CAP else (GOLD if state in [MASTERED, TOP] else BAR)
@@ -142,16 +145,16 @@ func _draw(skills: PackedInt32Array, left: int) -> void:
 				if left > 0:
 					var button := Button.new()
 					button.text = "Master"
-					button.add_theme_font_size_override("font_size", 13)
+					button.add_theme_font_size_override("font_size", Look.SMALL)
 					button.focus_mode = Control.FOCUS_NONE  # keys stay with the game
 					button.pressed.connect(func() -> void: _dusk.master(skill))
 					row.add_child(button)
 				else:
-					row.add_child(_label("at the cap", 12))
+					row.add_child(_label("at the cap", Look.SMALL))
 			MASTERED:
-				row.add_child(_label("mastered", 12))
+				row.add_child(_label("mastered", Look.SMALL))
 			TOP:
-				row.add_child(_label("mastered, at the top", 12))
+				row.add_child(_label("mastered, at the top", Look.SMALL))
 		if state != RISING:
 			called.add_theme_color_override("font_color", colour)
 
@@ -165,16 +168,8 @@ func _label(text: String, size: int) -> Label:
 
 func _bar(value: float, colour: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
-	bar.custom_minimum_size = Vector2(120, 10)
+	bar.custom_minimum_size = Vector2(150, Look.SMALL)
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.show_percentage = false
 	bar.max_value = 1.0
 	bar.value = value
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = colour
-	var back := StyleBoxFlat.new()
-	back.bg_color = Color(0, 0, 0, 0.5)
-	bar.add_theme_stylebox_override("fill", fill)
-	bar.add_theme_stylebox_override("background", back)
-	return bar
+	return Look.bar(bar, colour)

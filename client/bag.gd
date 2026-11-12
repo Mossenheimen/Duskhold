@@ -13,6 +13,8 @@ extends CanvasLayer
 ## of; the pack's lines then have a Sell button (a find sold pays its XP too), and the weapon in
 ## your hand a Mend button.
 
+const Look = preload("res://look.gd")
+
 const WEAPON := 1
 const BANDAGE := 2
 const FOOD := 3
@@ -59,10 +61,8 @@ var _shown_fire := PackedInt32Array()  # the fire beside you (DuskWorld.fire_bes
 
 func _ready() -> void:
 	_pack_panel = _panel(Control.PRESET_BOTTOM_RIGHT)
-	_pack_panel.position.y -= 125.0  # above the legend and the controls, as the other panel is
 	_pack = _pack_panel.get_child(0)
 	_reach_panel = _panel(Control.PRESET_BOTTOM_LEFT)
-	_reach_panel.position.y -= 125.0  # above the legend and the controls
 	_reach_panel.visible = false  # until something's within reach
 	_reach = _reach_panel.get_child(0)
 
@@ -161,9 +161,9 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		return
 	var heavy := carried[0] > carried[1]
 	var title := _line(_pack, "Pack  ·  %.1f / %.1f kg  ·  %d coin%s" % [carried[0] / 1000.0,
-		carried[1] / 1000.0, coins, "  ·  too heavy to run" if heavy else ""], 17)
+		carried[1] / 1000.0, coins, "  ·  too heavy to run" if heavy else ""], Look.HEADING)
 	if heavy:
-		title.add_theme_color_override("font_color", Color(1.0, 0.55, 0.4))
+		title.add_theme_color_override("font_color", Look.BAD)
 	var trading := counter.size() >= 3
 	var labels: PackedStringArray = _dusk.character_labels()
 	var rarity: PackedInt32Array = _dusk.character_rarity()
@@ -183,7 +183,7 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Lift the curse", func() -> void: _uncurse(counter[0], counter[1]))
 		_show_lines(0)
 	else:
-		_line(_pack, "In hand: nothing (bare fists)", 15)
+		_line(_pack, "In hand: nothing (bare fists)", Look.BODY)
 	if light.size() >= 2:
 		var row := _row(_pack, "Held up: %s, lit (%d%% left)" % [_name(light[0]), roundi(light[1] / 10.0)])
 		_button(row, "Put out", func() -> void: _dusk.douse())
@@ -243,7 +243,7 @@ func _tint(row: HBoxContainer, rarity: PackedInt32Array, place: int) -> void:
 	if place >= rarity.size() or rarity[place] == 0:
 		return
 	var known := rarity[place] < 10
-	var colour := Color(0.55, 0.75, 1.0) if rarity[place] % 10 == 1 else Color(1.0, 0.8, 0.35)
+	var colour := Look.UNCOMMON if rarity[place] % 10 == 1 else Look.RARE
 	if not known:
 		colour = colour.darkened(0.25)
 	row.get_child(0).add_theme_color_override("font_color", colour)
@@ -253,8 +253,8 @@ func _tint(row: HBoxContainer, rarity: PackedInt32Array, place: int) -> void:
 func _show_lines(place: int) -> void:
 	var lines: PackedStringArray = _dusk.character_lines(place)
 	for k in range(1, lines.size()):
-		var line := _line(_pack, "      " + lines[k], 13)
-		line.add_theme_color_override("font_color", Color(0.75, 0.8, 0.9))
+		var line := _line(_pack, "      " + lines[k], Look.SMALL)
+		line.add_theme_color_override("font_color", Look.LORE)
 
 
 ## At a counter: "Read" for a magic thing you don't know yet (`slot` -1: what's in hand).
@@ -322,7 +322,7 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 			place += "  ·  your stash"
 		var header := _row(_reach, place + ("  (empty)" if n == 0 else "") + _fire_line(x, y))
 		if mine:
-			header.get_child(0).add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
+			header.get_child(0).add_theme_color_override("font_color", Look.GOLD)
 			_button(header, "Stash all finds", func() -> void: _stash_finds(x, y))
 		elif fixture != 0:
 			_button(header, "Make it your stash", func() -> void: _mark_stash(x, y))
@@ -352,14 +352,14 @@ func _draw_counter(counter: PackedInt32Array, sells: PackedInt32Array) -> void:
 	var name: String = _dusk.holdout_name(counter[2])
 	# "The abbey on the hill": only the first letter raised (capitalize() raises every word).
 	var title := name.left(1).to_upper() + name.substr(1)
-	var header := _line(_reach, title + "  ·  the counter", 16)
-	header.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
+	var header := _line(_reach, title + "  ·  the counter", Look.HEADING)
+	header.add_theme_color_override("font_color", Look.HOLY)
 	var wants: PackedInt32Array = _dusk.counter_wants(x, y)
 	if wants.size() > 0:
 		var short := []
 		for w in wants:
 			short.append(_name(w))
-		_line(_reach, "Short of: %s.  Sell it these to push the dusk back." % ", ".join(short), 13)
+		_line(_reach, "Short of: %s.  Sell it these to push the dusk back." % ", ".join(short), Look.SMALL)
 	_draw_bounties(x, y)
 	for line in range(0, sells.size() / 4):
 		var def := sells[line * 4]
@@ -378,7 +378,7 @@ func _draw_bounties(x: int, y: int) -> void:
 	var bounties: PackedInt32Array = _dusk.counter_bounties(x, y)
 	if bounties.size() == 0:
 		return
-	_line(_reach, "Bounties:", 14)
+	_line(_reach, "Bounties:", Look.SMALL)
 	for k in range(0, bounties.size() / 5):
 		var who := bounties[k * 5]
 		var state := bounties[k * 5 + 3]
@@ -491,16 +491,12 @@ func _fixture_name(fixture: int) -> String:
 
 func _panel(preset: Control.LayoutPreset) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
-	style.set_content_margin_all(10)
-	style.set_corner_radius_all(4)
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", Look.panel_style())
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 2)
 	panel.add_child(list)
 	add_child(panel)
-	panel.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, 16)
+	panel.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN if preset == Control.PRESET_BOTTOM_RIGHT \
 		else Control.GROW_DIRECTION_END
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -519,16 +515,16 @@ func _row(parent: Control, text: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	parent.add_child(row)
-	var label := _line(row, text, 15)
+	var label := _line(row, text, Look.BODY)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.custom_minimum_size = Vector2(250, 0)
+	label.custom_minimum_size = Vector2(300, 0)
 	return row
 
 
 func _button(row: HBoxContainer, text: String, pressed: Callable) -> void:
 	var button := Button.new()
 	button.text = text
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", Look.SMALL)
 	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game (Space, WASD)
 	button.pressed.connect(pressed)
 	row.add_child(button)

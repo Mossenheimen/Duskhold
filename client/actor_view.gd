@@ -4,7 +4,8 @@ extends Node3D
 ## winds up a swing (the tell), lies down when knocked down or asleep ("z"), and stays down,
 ## darker, when dead. A body set alight glows and lights the ground round it; burnt, it's ash.
 
-const CHARACTER := Color(0.75, 0.32, 0.2)
+const Look = preload("res://look.gd")
+const CHARACTER := Look.YOU
 ## Each kind's look, by DuskWorld.actor_kinds() (0 the character, 1 + n creature n): its colour,
 ## its height, and how far it stoops. The shambler is grey-green and stooped; the ghoul pale,
 ## lower and crouched, so a glance tells them apart; the revenant tall, upright and dark, the
@@ -12,26 +13,26 @@ const CHARACTER := Color(0.75, 0.32, 0.2)
 ## borrows the last.
 const LOOKS := [
 	[CHARACTER, 1.55, 0.0],
-	[Color(0.56, 0.6, 0.5), 1.45, -14.0],
-	[Color(0.82, 0.78, 0.7), 1.3, -28.0],
-	[Color(0.45, 0.24, 0.2), 1.6, -6.0],  # a revenant: you, in your gear, gone dark
-	[Color(0.88, 0.86, 0.78), 1.6, -3.0],  # a skeleton: bone white, tall and upright
-	[Color(0.22, 0.25, 0.34), 1.8, 4.0],  # a wight: night-blue, the tallest, leaning back
-	[Color(0.55, 0.38, 0.24), 1.2, 0.0, true],  # a deer: brown, on four legs (a beast)
-	[Color(0.4, 0.4, 0.42), 0.95, -0.3, true],  # a wolf: grey, smaller, its head low and forward
+	[Look.SHAMBLER, 1.45, -14.0],
+	[Look.GHOUL, 1.3, -28.0],
+	[Look.REVENANT, 1.6, -6.0],  # a revenant: you, in your gear, gone dark
+	[Look.SKELETON, 1.6, -3.0],  # a skeleton: bone white, tall and upright
+	[Look.WIGHT, 1.8, 4.0],  # a wight: night-blue, the tallest, leaning back
+	[Look.DEER, 1.2, 0.0, true],  # a deer: brown, on four legs (a beast)
+	[Look.WOLF, 0.95, -0.3, true],  # a wolf: grey, smaller, its head low and forward
 ]
-const CURIOUS := Color(1.0, 0.75, 0.25)
-const HUNTING := Color(1.0, 0.22, 0.15)
-const SLEEPING := Color(0.6, 0.72, 1.0)
+const CURIOUS := Look.ALERT
+const HUNTING := Look.DANGER
+const SLEEPING := Look.REST
 ## Turned by the holy symbol (DuskWorld.actor_alert() 3): it flees you.
-const TURNED := Color(1.0, 0.95, 0.7)
+const TURNED := Look.HOLY
 const ASLEEP := 3
 ## A body burning (DuskWorld.actor_remains() 1), burnt (2), and consecrated (4).
 const BURNING := 1
 const ASH := 2
 const HALLOWED := 4
-const FIRE := Color(1.0, 0.5, 0.18)
-const CINDERS := Color(0.13, 0.12, 0.11)
+const FIRE := Look.EMBER
+const CINDERS := Look.ASH
 ## How far a burning body's light reaches, in tiles: rules.toml's [burning] light, plus a tile
 ## for the falloff (as the torch is drawn).
 const FIRE_REACH := 5.0
@@ -62,8 +63,8 @@ func set_title(name: String) -> void:
 		_title.font_size = 40
 		_title.pixel_size = 0.008
 		_title.outline_size = 10
-		_title.outline_modulate = Color(0.05, 0.04, 0.02)
-		_title.modulate = Color(1.0, 0.8, 0.35)
+		_title.outline_modulate = Look.OUTLINE
+		_title.modulate = Look.RARE
 		_title.position.y = _mark.position.y + 0.45
 		add_child(_title)
 		_body.scale = Vector3.ONE * 1.12
@@ -109,7 +110,7 @@ func setup(kind: int) -> void:
 	_mark.font_size = 72
 	_mark.pixel_size = 0.008
 	_mark.outline_size = 16
-	_mark.outline_modulate = Color(0.05, 0.05, 0.05)
+	_mark.outline_modulate = Look.OUTLINE
 	_mark.position.y = tall + 0.45
 	add_child(_mark)
 
@@ -242,7 +243,7 @@ func _build_beast(colour: Color, size: float, lift: float) -> void:
 	var scut := MeshInstance3D.new()
 	scut.mesh = tail
 	scut.position = Vector3(0.0, 0.8, 0.52)
-	scut.material_override = _material(Color(0.92, 0.9, 0.85))  # the white scut
+	scut.material_override = _material(Look.SCUT)  # the white scut
 	body.add_child(scut)
 	_mark = Label3D.new()
 	_mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -250,6 +251,6 @@ func _build_beast(colour: Color, size: float, lift: float) -> void:
 	_mark.font_size = 72
 	_mark.pixel_size = 0.008
 	_mark.outline_size = 16
-	_mark.outline_modulate = Color(0.05, 0.05, 0.05)
+	_mark.outline_modulate = Look.OUTLINE
 	_mark.position.y = 1.6 * size
 	add_child(_mark)

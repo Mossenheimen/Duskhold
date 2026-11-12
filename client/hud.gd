@@ -1,16 +1,36 @@
 extends CanvasLayer
-## What's drawn over the world: the state of play and the clock, your body (health, endurance,
-## a Cleric's faith, wounds), Zomboid's moodle column, the controls, what just happened, a red
-## flash when the dead hurt you, a dark veil while you sleep, how you died, and who comes next.
+## What's drawn over the world (VISUALS.md §10): the status and your body down the top left
+## (zones A and B); the news, and Zomboid's moodle column under it, down the top right (D, E);
+## the one thing you must answer now at the top centre (C: held, paused, asleep); the act under
+## way just under you (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
+## dark veil while you sleep, how you died, and who comes next. Every colour and size is a
+## Look token.
+
+const Look = preload("res://look.gd")
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
+const NEWS_LINES := 6
+const NEWS_WIDTH := 620.0
+const LINE_HEIGHT := 28.0  # a line of BODY text, for the news's room
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  right-click shoot (bow)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G butcher a beast or burn a body  ·  O consecrate a body (at a shut door: ward it)  ·  P pray at an altar  ·  C second wind  ·  U turn the dead  ·  M mend  ·  Y pick a plant\nTab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
-const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
+## Every key, for the F1 panel (zone I): the key, and what it does.
+const KEYS := [
+	["WASD", "walk"], ["Shift", "run"], ["Ctrl", "sneak"], ["Alt", "brace (shield)"],
+	["click", "walk there; beside one of the dead, swing"], ["right-click", "shoot (bow)"],
+	["F", "swing"], ["Q", "shove"], ["E", "door"], ["B", "board up"], ["N", "pry a board off"],
+	["H", "tend a fire"], ["J", "put it out"], ["G", "butcher a beast, or burn a body"],
+	["O", "consecrate a body; at a shut door, ward it"], ["P", "pray at an altar"],
+	["C", "second wind"], ["U", "turn the dead"], ["M", "mend"], ["Y", "pick a plant"],
+	["Tab", "your pack"], ["K", "skills and talents"], ["T", "make things"], ["Z", "sleep"],
+	["X", "drink water"], ["L", "light"], ["Space", "pause"], ["1 2 3", "speed"],
+	["wheel", "zoom"], ["V", "low walls"], ["- =", "smaller or larger GUI"], ["F5", "save"],
+	["R", "new world (dead: the next survivor)"], ["Esc", "save and quit"], ["F1", "these keys"],
+]
+const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  amber, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
-## you, and how bad its first level already is (0 mild, 1 bad, 2 dire; the colour).
+## you, and how bad its first level already is (0 mild, 1 bad, 2 dire; -1 a restful one).
 const MOODLES := [
 	[["Peckish", "Hungry", "Starving"],
 		["eat something soon", "your breath comes back slower", "losing health"], 0],
@@ -48,8 +68,8 @@ const MOODLES := [
 	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1],
 	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1],
 ]
-const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
-const RESTFUL := Color(0.6, 0.72, 1.0)
+## How many of the dead have hold of you, in words, for the held banner.
+const HOW_MANY := ["", "One", "Two", "Three", "Four", "Five"]
 
 ## When set (--news), every line of news is printed too: for runs with no window.
 var echo := false
@@ -80,6 +100,8 @@ var _doing: Label
 var _doing_bar: ProgressBar
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
+var _keys: PanelContainer  # every key, on F1 (zone I)
+var _keys_hint: Label  # "F1: every key", for a world's first game hour
 
 
 func _ready() -> void:
@@ -88,48 +110,37 @@ func _ready() -> void:
 	_dread.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shade := ShaderMaterial.new()
 	shade.shader = preload("res://shaders/dread.gdshader")
+	shade.set_shader_parameter("tint", Look.DREAD)
 	_dread.material = shade
 	add_child(_dread)
 	_dread.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_flash = ColorRect.new()
-	_flash.color = Color(0.7, 0.0, 0.0, 0.0)
+	_flash.color = Color(Look.HURT, 0.0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flash)
 	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_veil = ColorRect.new()
-	_veil.color = Color(0.02, 0.03, 0.08, 0.6)
+	_veil.color = Look.VEIL
 	_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_veil.visible = false
 	add_child(_veil)
 	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_asleep = _label(30, Control.PRESET_CENTER_TOP)  # above the sleeper, not on it
-	_asleep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_asleep.position.y += 110.0
-	_asleep.add_theme_color_override("font_color", RESTFUL)
-	_state = _label(20, Control.PRESET_TOP_LEFT)
-	var legend := _label(14, Control.PRESET_BOTTOM_LEFT)
-	legend.text = LEGEND + "\n" + CONTROLS
-	legend.modulate = Color(1, 1, 1, 0.8)
-	_news = _label(18, Control.PRESET_TOP_RIGHT)
-	_news.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_paused = _label(40, Control.PRESET_CENTER_TOP)
-	_paused.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_paused.text = "PAUSED"
-	_paused.position.y += 60.0
+	_build_left_column()
+	_build_right_column()
+	# Zone C: the one thing you must answer now, at the top centre.
+	_paused = _label(Look.BANNER, Control.PRESET_CENTER_TOP)
+	_paused.text = "Paused"
+	_paused.position.y += 110.0
 	_paused.visible = false
-	_problem = _label(26, Control.PRESET_CENTER)
-	_problem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_death = _label(30, Control.PRESET_CENTER)
-	_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_held = _label(30, Control.PRESET_CENTER_TOP)
-	_held.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_held.position.y += 120.0
-	_held.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
-	_choice = _label(24, Control.PRESET_CENTER)
-	_choice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_asleep = _label(Look.BANNER, Control.PRESET_CENTER_TOP, Look.REST)  # above the sleeper
+	_asleep.position.y += 150.0
+	_held = _label(Look.BANNER, Control.PRESET_CENTER_TOP, Look.DANGER_TEXT)
+	_held.position.y += 190.0
+	_problem = _label(Look.HEADING, Control.PRESET_CENTER)
+	_death = _label(Look.HEADING, Control.PRESET_CENTER)
+	_choice = _label(Look.HEADING, Control.PRESET_CENTER)
 	_build_action_bar()
-	_build_body_panel()
-	_build_moodle_column()
+	_build_keys()
 
 
 func _process(delta: float) -> void:
@@ -142,9 +153,9 @@ func _process(delta: float) -> void:
 	_flash_left = maxf(0.0, _flash_left - delta)
 	_gold_left = maxf(0.0, _gold_left - delta)
 	if _gold_left > 0.0:
-		_flash.color = Color(1.0, 0.8, 0.3, 0.25 * _gold_left / FLASH_LIFE)
+		_flash.color = Color(Look.GOLD, 0.25 * _gold_left / FLASH_LIFE)
 	else:
-		_flash.color = Color(0.7, 0.0, 0.0, 0.35 * _flash_left / FLASH_LIFE)
+		_flash.color = Color(Look.HURT, 0.35 * _flash_left / FLASH_LIFE)
 
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
@@ -160,7 +171,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: herbs and foraging\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: a GUI that scales\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
@@ -192,7 +203,7 @@ func say(line: String) -> void:
 		print(line)
 	_lines.append(line)
 	_ages.append(0.0)
-	if _lines.size() > 6:
+	if _lines.size() > NEWS_LINES:
 		_lines.remove_at(0)
 		_ages.remove_at(0)
 
@@ -235,22 +246,29 @@ func show_problem(text: String) -> void:
 	_problem.text = text
 
 
-func _label(size: int, preset: Control.LayoutPreset) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+## Every key, on F1 (zone I), or not; and for a world's first game hour, a line saying so.
+func show_keys(shown: bool, hint: bool) -> void:
+	_keys.visible = shown
+	_keys_hint.visible = hint and not shown
+
+
+func keys_shown() -> bool:
+	return _keys.visible
+
+
+## Outlined text straight on the world, pinned to a corner or the middle of the screen and
+## growing away from it as its text changes. Centred ones are centred line by line.
+func _label(size: int, preset: Control.LayoutPreset, colour := Look.TEXT) -> Label:
+	var label := Look.text(Label.new(), size, colour, true)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
-	label.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, 16)
-	# Grow away from the corner it's pinned to as the text changes.
-	var right := preset in [Control.PRESET_TOP_RIGHT, Control.PRESET_BOTTOM_RIGHT]
-	var bottom := preset in [Control.PRESET_BOTTOM_LEFT, Control.PRESET_BOTTOM_RIGHT]
+	label.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
 	var centre := preset in [Control.PRESET_CENTER, Control.PRESET_CENTER_TOP]
-	label.grow_horizontal = Control.GROW_DIRECTION_BOTH if centre else (
-		Control.GROW_DIRECTION_BEGIN if right else Control.GROW_DIRECTION_END)
-	label.grow_vertical = Control.GROW_DIRECTION_BOTH if preset == Control.PRESET_CENTER else (
-		Control.GROW_DIRECTION_BEGIN if bottom else Control.GROW_DIRECTION_END)
+	if centre:
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.grow_horizontal = Control.GROW_DIRECTION_BOTH if centre else Control.GROW_DIRECTION_END
+	label.grow_vertical = Control.GROW_DIRECTION_BOTH if preset == Control.PRESET_CENTER \
+		else Control.GROW_DIRECTION_END
 	return label
 
 
@@ -271,9 +289,11 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray, can_shove := t
 		0:
 			_held.text = ""
 		1:
-			_held.text = "IT HAS HOLD OF YOU\nF struggle  ·  %s" % shove
+			_held.text = "It has hold of you\nF struggle  ·  %s" % shove
 		_:
-			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  %s  ·  three drag you down" % [holding, shove]
+			var many: String = HOW_MANY[holding] if holding < HOW_MANY.size() else str(holding)
+			_held.text = "%s of them have hold of you\nF struggle  ·  %s  ·  three drag you down" % [
+				many, shove]
 
 
 ## Your faith (DuskWorld.faith(): [now, the most], in points): a bar under endurance, for a class
@@ -305,35 +325,33 @@ func show_moodles(moodles: PackedInt32Array) -> void:
 		var moodle: Array = MOODLES[code]
 		var names: Array = moodle[0]
 		var level := clampi(moodles[i + 1], 1, names.size())
-		var colour := RESTFUL if moodle[2] < 0 else SEVERITY[mini(level - 1 + moodle[2], 2)]
+		var colour := Look.REST if moodle[2] < 0 else Look.SEVERITY[mini(level - 1 + moodle[2], 2)]
 		_moodle(names[level - 1], moodle[1][level - 1], colour)
 
 
+## One moodle: a panel edged in its severity's colour, its name in that colour, what it does
+## under it. (Icons on tinted tiles come later: VISUALS.md §11.)
 func _moodle(heading: String, effect: String, colour: Color) -> void:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
+	var style := Look.panel_style()
 	style.border_color = colour
+	style.set_border_width_all(0)
 	style.border_width_left = 4
-	style.content_margin_left = 10.0
-	style.content_margin_right = 8.0
-	style.content_margin_top = 3.0
-	style.content_margin_bottom = 4.0
+	style.content_margin_top = 4.0
+	style.content_margin_bottom = 5.0
 	panel.add_theme_stylebox_override("panel", style)
 	var lines := VBoxContainer.new()
 	lines.add_theme_constant_override("separation", 0)
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(lines)
-	var title := Label.new()
+	var title := Look.text(Label.new(), Look.BODY, colour)
 	title.text = heading
-	title.add_theme_font_size_override("font_size", 17)
-	title.add_theme_color_override("font_color", colour)
 	lines.add_child(title)
-	var what := Label.new()
+	var what := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 	what.text = effect
-	what.add_theme_font_size_override("font_size", 12)
-	what.modulate = Color(1, 1, 1, 0.8)
+	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	what.custom_minimum_size = Vector2(320, 0)
 	lines.add_child(what)
 	_moodles.add_child(panel)
 
@@ -378,69 +396,61 @@ func hide_death() -> void:
 	_death.text = ""
 
 
-func _build_body_panel() -> void:
-	var panel := VBoxContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.position = Vector2(16, 76)
-	add_child(panel)
-	_level = Label.new()
-	_level.add_theme_font_size_override("font_size", 15)
-	_level.add_theme_color_override("font_color", Color(1.0, 0.85, 0.55))
-	_level.add_theme_constant_override("outline_size", 6)
-	_level.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	panel.add_child(_level)
-	_health = _bar(panel, "Health", Color(0.75, 0.16, 0.14))
-	_endurance = _bar(panel, "Endurance", Color(0.85, 0.68, 0.22))
-	_faith = _bar(panel, "Faith", Color(0.82, 0.84, 1.0))
+## Zones A and B, down the top left: the status, then your level, body bars, breath and wounds.
+func _build_left_column() -> void:
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", 4)
+	column.position = Vector2(Look.MARGIN, Look.MARGIN)
+	add_child(column)
+	_state = Look.text(Label.new(), Look.HEADING, Look.TEXT, true)
+	column.add_child(_state)
+	_level = Look.text(Label.new(), Look.BODY, Look.GOLD, true)
+	column.add_child(_level)
+	_health = _bar(column, "Health", Look.HEALTH)
+	_endurance = _bar(column, "Endurance", Look.ENDURANCE)
+	_faith = _bar(column, "Faith", Look.FAITH)
 	_faith.get_parent().visible = false
-	_breath = Label.new()
-	_breath.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
-	_breath.add_theme_constant_override("outline_size", 6)
-	_breath.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	panel.add_child(_breath)
-	_wounds = Label.new()
-	_wounds.add_theme_font_size_override("font_size", 15)
-	_wounds.add_theme_color_override("font_color", Color(1.0, 0.82, 0.78))
-	_wounds.add_theme_constant_override("outline_size", 6)
-	_wounds.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	panel.add_child(_wounds)
+	_breath = Look.text(Label.new(), Look.BODY, Look.ALERT, true)
+	column.add_child(_breath)
+	_wounds = Look.text(Label.new(), Look.SMALL, Look.HURT_TEXT, true)
+	column.add_child(_wounds)
 
 
-## Zomboid's column: down the right side, under the news.
-func _build_moodle_column() -> void:
+## Zones D and E, down the top right: the news, with room kept for its lines so the moodles
+## under it stay put (Zomboid's column), the text left-aligned in its box.
+func _build_right_column() -> void:
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", 12)
+	add_child(column)
+	column.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
+	column.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_news = Look.text(Label.new(), Look.BODY, Look.TEXT, true)
+	_news.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_news.custom_minimum_size = Vector2(NEWS_WIDTH, NEWS_LINES * LINE_HEIGHT)
+	_news.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_news)
 	_moodles = VBoxContainer.new()
 	_moodles.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_moodles.add_theme_constant_override("separation", 4)
-	add_child(_moodles)
-	_moodles.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
-	_moodles.position.y += 180.0
-	_moodles.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_moodles.custom_minimum_size = Vector2(200, 0)
+	_moodles.size_flags_horizontal = Control.SIZE_SHRINK_END
+	column.add_child(_moodles)
 
 
 func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(row)
-	var label := Label.new()
+	var label := Look.text(Label.new(), Look.BODY, Look.TEXT, true)
 	label.text = name
-	label.custom_minimum_size = Vector2(96, 0)
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	label.custom_minimum_size = Vector2(110, 0)
 	row.add_child(label)
-	var bar := ProgressBar.new()
-	bar.custom_minimum_size = Vector2(220, 16)
+	var bar := Look.bar(ProgressBar.new(), colour)
+	bar.custom_minimum_size = Vector2(240, 18)
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.show_percentage = false
 	bar.max_value = 100.0
 	bar.value = 100.0
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = colour
-	var back := StyleBoxFlat.new()
-	back.bg_color = Color(0, 0, 0, 0.5)
-	bar.add_theme_stylebox_override("fill", fill)
-	bar.add_theme_stylebox_override("background", back)
 	row.add_child(bar)
 	return bar
 
@@ -452,27 +462,54 @@ func show_action(label: String, progress: float) -> void:
 	_doing_bar.value = progress * 100.0
 
 
+## Zone F: just under you, where your eyes already are.
 func _build_action_bar() -> void:
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(box)
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 140)
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	box.position.y += 90.0
 	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_doing = Label.new()
+	box.grow_vertical = Control.GROW_DIRECTION_END
+	_doing = Look.text(Label.new(), Look.BODY, Look.TEXT, true)
 	_doing.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_doing.add_theme_constant_override("outline_size", 6)
-	_doing.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	box.add_child(_doing)
-	_doing_bar = ProgressBar.new()
-	_doing_bar.custom_minimum_size = Vector2(200, 10)
-	_doing_bar.show_percentage = false
-	_doing_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_doing_bar = Look.bar(ProgressBar.new(), Look.YOURS)
+	_doing_bar.custom_minimum_size = Vector2(240, 10)
 	_doing_bar.visible = false
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = Color(0.85, 0.85, 0.75)
-	var back := StyleBoxFlat.new()
-	back.bg_color = Color(0, 0, 0, 0.5)
-	_doing_bar.add_theme_stylebox_override("fill", fill)
-	_doing_bar.add_theme_stylebox_override("background", back)
 	box.add_child(_doing_bar)
+
+
+## Zone I: every key in four columns, with what's drawn on the ground above them, over the
+## middle of the screen while F1 has it open; and the line that says it's there.
+func _build_keys() -> void:
+	_keys_hint = _label(Look.SMALL, Control.PRESET_CENTER_BOTTOM, Look.TEXT_DIM)
+	_keys_hint.text = "F1: every key"
+	_keys_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_keys_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_keys_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_keys_hint.visible = false
+	_keys = PanelContainer.new()
+	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_keys.add_theme_stylebox_override("panel", Look.panel_style())
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", 8)
+	_keys.add_child(lines)
+	var legend := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
+	legend.text = LEGEND
+	lines.add_child(legend)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
+	lines.add_child(grid)
+	for key: Array in KEYS:
+		var cell := Look.text(Label.new(), Look.SMALL)
+		cell.text = "[%s]  %s" % [key[0], key[1]]
+		cell.custom_minimum_size = Vector2(300, 0)
+		grid.add_child(cell)
+	add_child(_keys)
+	_keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	_keys.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_keys.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_keys.visible = false

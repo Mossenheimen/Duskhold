@@ -14,7 +14,7 @@ extends Node3D
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
 ## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
-## pick (the wild plant beside you: Y) S real seconds in;
+## pick (the wild plant beside you: Y), keys (F1) S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
@@ -34,6 +34,10 @@ const Litter = preload("res://litter.gd")
 const Skills = preload("res://skills.gd")
 const Craft = preload("res://craft.gd")
 const ChunkView = preload("res://chunk_view.gd")
+const Look = preload("res://look.gd")
+## The GUI sizes - and = step through, and where the player's own game keeps its choice.
+const GUI_SCALES := [0.75, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0]
+const SETTINGS := "user://settings.cfg"
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -245,6 +249,8 @@ var save_path := ""  # where the game is saved; "" for a trial run, which isn't
 var saved_hour := -1  # the game hour of the last autosave
 var restart_asked := -100.0  # when R last asked "abandon this world?", in seconds played
 var class_wanted := ""  # --class: the class a trial run's survivors take up
+var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 shown, 2 hidden
+var gui_scale := 1.0  # the GUI's size over the screen's own (- and =)
 var choosing_class := false  # the game waits, paused, for a class to be chosen
 var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
 var plants_told := {}  # the wild plants the news has named, by fixture number
@@ -256,6 +262,7 @@ func _ready() -> void:
 	_read_args()
 	_add_input_actions()
 	_build_stage()
+	_settle_window()
 	hud = Hud.new()
 	hud.echo = print_news
 	add_child(hud)
@@ -408,6 +415,7 @@ func _process(delta: float) -> void:
 	var asleep := _moodle(ASLEEP) > 0
 	_sleep_speed(asleep)
 	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain(), dusk.place())
+	_mind_the_keys(clock)
 	hud.show_moodles(moodles)
 	hud.show_dread(0 if dead else dusk.character_dread(), delta)
 	hud.show_asleep(asleep, clock)
@@ -526,8 +534,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		bag.toggle()
 	elif event.is_action_pressed("skills"):
 		skills.toggle()
+		craft.close()
 	elif event.is_action_pressed("craft") and not dead:
 		craft.toggle()
+		skills.close()
+	elif event.is_action_pressed("keys"):
+		_toggle_keys()
+	elif event.is_action_pressed("gui_smaller"):
+		_scale_gui(-1)
+	elif event.is_action_pressed("gui_larger"):
+		_scale_gui(1)
 	elif event.is_action_pressed("sneak") and not dead:
 		dusk.set_sneaking(not dusk.is_sneaking())
 	elif event.is_action_pressed("brace") and not dead:
@@ -1310,7 +1326,7 @@ func _streak(from: Vector2i, to: Vector2i) -> void:
 	var streak := MeshInstance3D.new()
 	streak.mesh = box
 	var paint := StandardMaterial3D.new()
-	paint.albedo_color = Color(0.85, 0.8, 0.65)
+	paint.albedo_color = Look.SHOT
 	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	streak.material_override = paint
@@ -1511,7 +1527,7 @@ func _build_stage() -> void:
 	_light_the_sky(100)
 
 	torch = OmniLight3D.new()
-	torch.light_color = Color(1.0, 0.72, 0.42)
+	torch.light_color = Look.TORCH
 	torch.shadow_enabled = true
 	torch.omni_attenuation = 1.2
 	torch.visible = false
@@ -1535,11 +1551,10 @@ func _light_the_sky(daylight: int) -> void:
 	var t := clampf(daylight / 100.0, 0.0, 1.0)
 	var warm := clampf(1.0 - absf(t - 0.6) / 0.3, 0.0, 1.0)  # dusk and dawn
 	sun.light_energy = lerpf(0.06, 1.1, t * t)
-	sun.light_color = Color(0.55, 0.62, 0.95).lerp(Color(1.0, 0.94, 0.84), t).lerp(
-		Color(1.0, 0.62, 0.36), warm * 0.55)
+	sun.light_color = Look.SUN_NIGHT.lerp(Look.SUN_DAY, t).lerp(Look.SUN_DUSK, warm * 0.55)
 	sky.ambient_light_energy = lerpf(0.16, 0.6, t)
-	sky.ambient_light_color = Color(0.28, 0.33, 0.55).lerp(Color(0.58, 0.63, 0.72), t)
-	sky.background_color = Color(0.01, 0.012, 0.025).lerp(Color(0.07, 0.08, 0.1), t)
+	sky.ambient_light_color = Look.AMBIENT_NIGHT.lerp(Look.AMBIENT_DAY, t)
+	sky.background_color = Look.SKY_NIGHT.lerp(Look.SKY_DAY, t)
 
 
 ## The light you hold up (DuskWorld.character_light()): a real light over your head, reaching
@@ -1583,7 +1598,7 @@ func _make_fire(at: Vector2i, fixture: int) -> OmniLight3D:
 	var id: String = fixture_names[fixture] if fixture < fixture_names.size() else ""
 	var height: float = ChunkView.FURNITURE[id][0].y if ChunkView.FURNITURE.has(id) else 1.0
 	var fire := OmniLight3D.new()
-	fire.light_color = Color(1.0, 0.56, 0.24)
+	fire.light_color = Look.FIRE
 	fire.shadow_enabled = true
 	fire.omni_attenuation = 1.3
 	# Above the fixture, so its own box doesn't shut the light in.
@@ -1593,9 +1608,9 @@ func _make_fire(at: Vector2i, fixture: int) -> OmniLight3D:
 	box.size = Vector3(0.5, 0.12, 0.45)
 	embers.mesh = box
 	var glow := StandardMaterial3D.new()
-	glow.albedo_color = Color(1.0, 0.42, 0.1)
+	glow.albedo_color = Look.EMBER
 	glow.emission_enabled = true
-	glow.emission = Color(1.0, 0.42, 0.1)
+	glow.emission = Look.EMBER
 	glow.emission_energy_multiplier = 4.0
 	embers.material_override = glow
 	embers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1625,7 +1640,7 @@ func _let_it_rain() -> void:
 		var wet := StandardMaterial3D.new()
 		wet.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		wet.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		wet.albedo_color = Color(0.7, 0.78, 0.9, 0.35)
+		wet.albedo_color = Look.RAIN
 		streak.material = wet
 		rain_fall.draw_pass_1 = streak
 		rain_fall.lifetime = 0.9
@@ -1658,6 +1673,47 @@ func _seen(i: int) -> bool:
 
 
 ## The controls, as input actions on physical keys (so WASD is WASD on any keyboard layout).
+
+## The player's own game fills the screen, at the GUI size it was left at (VISUALS.md §13). A
+## trial run keeps the 1600 x 900 window and the defaults, so its pictures stay alike.
+func _settle_window() -> void:
+	if not OS.get_cmdline_user_args().is_empty():
+		keys_mode = 2
+		return
+	get_window().mode = Window.MODE_MAXIMIZED
+	var settings := ConfigFile.new()
+	if settings.load(SETTINGS) == OK:
+		gui_scale = float(settings.get_value("gui", "scale", 1.0))
+		get_window().content_scale_factor = gui_scale
+
+
+## - and =: the GUI a step smaller or larger, over the screen's own scale; the player's own game
+## keeps it.
+func _scale_gui(step: int) -> void:
+	var at := GUI_SCALES.find(gui_scale)
+	if at < 0:
+		at = GUI_SCALES.find(1.0)
+	gui_scale = GUI_SCALES[clampi(at + step, 0, GUI_SCALES.size() - 1)]
+	get_window().content_scale_factor = gui_scale
+	hud.say("GUI size %d%%." % roundi(gui_scale * 100.0))
+	if OS.get_cmdline_user_args().is_empty():
+		var settings := ConfigFile.new()
+		settings.load(SETTINGS)  # whatever else is kept there
+		settings.set_value("gui", "scale", gui_scale)
+		settings.save(SETTINGS)
+
+
+## F1's keys (zone I): open while F1 has them; for a world's first game hour in the player's own
+## game, until F1 is first pressed, a line saying they're there.
+func _mind_the_keys(clock: PackedInt32Array) -> void:
+	var first_hour := clock.size() > 3 and clock[3] < 60
+	hud.show_keys(keys_mode == 1, keys_mode == 0 and first_hour)
+
+
+func _toggle_keys() -> void:
+	keys_mode = 2 if hud.keys_shown() else 1
+
+
 func _add_input_actions() -> void:
 	var keys := {
 		"walk_up": [KEY_W, KEY_UP],
@@ -1686,6 +1742,9 @@ func _add_input_actions() -> void:
 		"hallow": [KEY_O],
 		"mend": [KEY_M],
 		"pick": [KEY_Y],
+		"keys": [KEY_F1],
+		"gui_smaller": [KEY_MINUS],
+		"gui_larger": [KEY_EQUAL],
 		"unboard": [KEY_N],
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
@@ -1776,8 +1835,12 @@ func _run_script() -> void:
 				_light_or_douse()
 			"skills":
 				skills.toggle()
+				craft.close()
 			"craft":
 				craft.toggle()
+				skills.close()
+			"keys":  # F1: the keys panel
+				_toggle_keys()
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
 				var texts: PackedStringArray = dusk.recipe_texts()

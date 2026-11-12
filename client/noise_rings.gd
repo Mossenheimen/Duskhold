@@ -4,6 +4,8 @@ extends Node3D
 
 const LIFE := 0.9  # seconds of game time
 
+const Look = preload("res://look.gd")
+
 var _material := ShaderMaterial.new()
 var _rings: Array[MeshInstance3D] = []
 var _ages: Array[float] = []
@@ -11,6 +13,7 @@ var _ages: Array[float] = []
 
 func _init() -> void:
 	_material.shader = preload("res://shaders/noise_ring.gdshader")
+	_material.set_shader_parameter("color", Color(Look.SOUND, 0.8))
 
 
 ## A sound at tile (x, y) that carries `reach` tiles.

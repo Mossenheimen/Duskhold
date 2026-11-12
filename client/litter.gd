@@ -2,6 +2,8 @@ extends Node3D
 ## What lies on the floor: a small bundle on each tile with something dropped there, so you can
 ## find it again. From DuskWorld.floor_items(); what it is, the pack's "within reach" panel says.
 
+const Look = preload("res://look.gd")
+
 var _shown := PackedInt32Array()
 var _bundles: Array[MeshInstance3D] = []
 var _material := StandardMaterial3D.new()
@@ -9,7 +11,7 @@ var _mesh := BoxMesh.new()
 
 
 func _init() -> void:
-	_material.albedo_color = Color(0.62, 0.52, 0.36)
+	_material.albedo_color = Look.LITTER
 	_material.roughness = 0.9
 	_mesh.size = Vector3(0.32, 0.14, 0.24)
 

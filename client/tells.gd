@@ -2,8 +2,9 @@ extends Node3D
 ## The tells: for every swing or shove winding up, the tile it will land on, filling in as the
 ## blow nears. Red for the dead's, pale for yours. From DuskWorld.actor_actions().
 
-const THEIRS := Color(1.0, 0.18, 0.1)
-const YOURS := Color(0.95, 0.92, 0.8)
+const Look = preload("res://look.gd")
+const THEIRS := Look.DANGER
+const YOURS := Look.YOURS
 
 var _material := ShaderMaterial.new()
 var _marks: Array[MeshInstance3D] = []

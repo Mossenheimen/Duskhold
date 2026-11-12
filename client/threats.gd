@@ -3,8 +3,9 @@ extends Node3D
 ## you, thin while it's beside you and after you, thick while it has hold of you. Doorways
 ## matter because they cap the number of lines. From DuskWorld.character_threats().
 
-const ENGAGED := Color(0.95, 0.25, 0.18, 0.55)
-const HOLDING := Color(0.75, 0.05, 0.05, 0.9)
+const Look = preload("res://look.gd")
+const ENGAGED := Color(Look.DANGER, 0.55)
+const HOLDING := Color(Look.GRIP, 0.9)
 
 var _engaged := StandardMaterial3D.new()
 var _holding := StandardMaterial3D.new()
