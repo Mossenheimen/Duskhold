@@ -760,7 +760,7 @@ func _mend() -> void:
 		-3:
 			hud.say("Not enough faith to mend it. Pray at an altar (P).")
 		_:
-			hud.say("Mending is a Cleric's talent.")
+			hud.say("No mending: it takes the talent (a Cleric's, K).")
 
 
 ## H: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
@@ -1130,7 +1130,13 @@ func _read_events() -> void:
 					if turned + fell == 0:
 						hud.say("You hold up the holy symbol, but none of the dead near you see it.")
 					else:
-						hud.say("You hold up the holy symbol! %d of the dead turn and flee%s." % [turned, ", and %d fall" % fell if fell > 0 else ""])
+						# One or many; with Sunder, the weakest fall instead.
+						var flee := "One of the dead turns and flees" if turned == 1 else "%d of the dead turn and flee" % turned
+						var fall := "one falls" if fell == 1 else "%d fall" % fell
+						if turned == 0:
+							hud.say("You hold up the holy symbol! %s." % ("One of the dead falls" if fell == 1 else "%d of the dead fall" % fell))
+						else:
+							hud.say("You hold up the holy symbol! %s%s." % [flee, ", and %s" % fall if fell > 0 else ""])
 						hud.flash_good()
 			PRAYED:
 				if who == me:

@@ -283,12 +283,19 @@ impl World {
         });
         self.spend_faith(id, f.turn);
         let sunder = self.talents_of(id).map(|t| t.sunder).max().unwrap_or(0);
-        let (mut turned, mut sundered) = (0u16, 0u16);
-        for other in self.turnable(id) {
-            let health = self.actors.get(other).map_or(0, |o| o.body.health);
-            if health <= sunder {
+        let foes = self.turnable(id);
+        let falls = |w: &World, o: ActorId| w.actors.get(o).map_or(0, |a| a.body.health) <= sunder;
+        let sundered = foes.iter().filter(|&&o| falls(self, o)).count();
+        // The news first, then what it does (who falls, who turns, what it teaches), so the
+        // turning is told before the falls and the skill it raises, as a blow is.
+        self.events.push(Event::Turned {
+            who: id,
+            turned: u16::try_from(foes.len() - sundered).unwrap_or(u16::MAX),
+            sundered: u16::try_from(sundered).unwrap_or(u16::MAX),
+        });
+        for other in foes {
+            if falls(self, other) {
                 self.kill(other);
-                sundered = sundered.saturating_add(1);
             } else {
                 let share = self.stats(other).map_or(0, |c| c.turned);
                 let until = self.tick + self.turn_ticks(id, share);
@@ -301,15 +308,9 @@ impl World {
                     o.path.clear();
                     o.path_goal = None;
                 }
-                turned = turned.saturating_add(1);
             }
             self.train(id, Skill::Devotion, self.rules.skills.turn, On::Foe(other));
         }
-        self.events.push(Event::Turned {
-            who: id,
-            turned,
-            sundered,
-        });
     }
 
     /// Whether `id` is turned now.
