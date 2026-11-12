@@ -82,6 +82,8 @@ var _walls: Node3D
 var _dusk: Node
 var _chunk := Vector2i.ZERO
 var _low_walls := false
+var _fixtures: Node3D  # the furniture and trees, rebuilt when a piece is broken up
+var _names := PackedStringArray()
 
 
 ## Builds the chunk (cx, cy) from the core. `names` are the fixtures' ids by number;
@@ -96,10 +98,22 @@ func build(dusk: Node, cx: int, cy: int, names: PackedStringArray, materials: Di
 	var tiles: PackedInt32Array = dusk.chunk_tiles(cx, cy)
 	_edges = dusk.chunk_edges(cx, cy)
 	_build_ground(tiles, origin, size)
+	_names = names
+	_fixtures = Node3D.new()
+	add_child(_fixtures)
 	_build_fixtures(tiles, origin, size, names)
 	_walls = Node3D.new()
 	add_child(_walls)
 	build_walls(low_walls)
+
+
+## A tile changed in the core (furniture broken up): its furniture is drawn again.
+func refresh_fixtures() -> void:
+	for child in _fixtures.get_children():
+		child.queue_free()
+	var size: int = _dusk.chunk_size()
+	var tiles: PackedInt32Array = _dusk.chunk_tiles(_chunk.x, _chunk.y)
+	_build_fixtures(tiles, Vector2i(_chunk.x * size, _chunk.y * size), size, _names)
 
 
 ## The chunk's edges changed in the core (a door opened, shut or gave way): fetch them again.
@@ -245,15 +259,15 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 		trunk.height = 1.4
 		trunk.radial_segments = 6
 		trunk.rings = 1
-		add_child(_instances(trunk, trunks, trunk_colours, _materials["plain"]))
+		_fixtures.add_child(_instances(trunk, trunks, trunk_colours, _materials["plain"]))
 		var leaves := SphereMesh.new()
 		leaves.radius = 0.85
 		leaves.height = 1.5
 		leaves.radial_segments = 7
 		leaves.rings = 4
-		_add_cut_away(self, leaves, crowns, crown_colours)
+		_add_cut_away(_fixtures, leaves, crowns, crown_colours)
 	if not boxes.is_empty():
-		_add_cut_away(self, BoxMesh.new(), boxes, box_colours)
+		_add_cut_away(_fixtures, BoxMesh.new(), boxes, box_colours)
 
 
 ## Instances drawn with the cut-away material, plus a shadow-only copy: a hole cut for the

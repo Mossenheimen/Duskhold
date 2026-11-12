@@ -122,6 +122,11 @@ pub struct Defs {
     /// longest-burning first.
     pub hearths: Vec<i32>,
     pub fuel: Vec<(u16, u32)>,
+    /// What can be made (`craft.rs`), and breaking furniture down: what it takes, and by
+    /// fixture number, the planks each gives (0: it doesn't break down).
+    pub recipes: Vec<crate::craft::Recipe>,
+    pub breaking: Option<crate::craft::Breaking>,
+    pub planks: Vec<u16>,
     /// What a character starts with: in hand, and carried.
     pub wield: Option<u16>,
     pub kit: Vec<Item>,
@@ -174,6 +179,9 @@ impl Default for Defs {
             wells: Vec::new(),
             hearths: Vec::new(),
             fuel: Vec::new(),
+            recipes: Vec::new(),
+            breaking: None,
+            planks: Vec::new(),
             wield: None,
             kit: Vec::new(),
             carry: 0,

@@ -19,8 +19,8 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
-    Intent, Item, ItemKind, NoBoard, NoBurn, NoDeal, NoFire, NoSleep, NoStash, Part, Remains, Rise,
-    Skill, Tend, TilePos, View, World, WoundKind, demo,
+    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCraft, NoDeal, NoFire, NoSleep, NoStash,
+    Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -128,6 +128,8 @@ const SAW_FIRE: i32 = 76;
 const DREAD: i32 = 77;
 const BALKED: i32 = 78;
 const RESISTED: i32 = 79;
+const CRAFTED: i32 = 80;
+const BROKE_DOWN: i32 = 81;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -380,6 +382,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::SawFire { who, at: p } => (SAW_FIRE, Some(who), None, (p.x, p.y), 0),
         Event::Dread { who, level } => (DREAD, Some(who), None, at(who), i32::from(level)),
         Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
+        Event::Crafted { who, recipe } => (CRAFTED, Some(who), None, at(who), i32::from(recipe)),
+        Event::BrokeDown { who, at: p, planks } => {
+            (BROKE_DOWN, Some(who), None, (p.x, p.y), i32::from(planks))
+        }
         Event::Resisted { who, target, weak } => (
             RESISTED,
             Some(who),
@@ -1126,7 +1132,8 @@ impl DuskWorld {
     /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
     /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
-    /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out),
+    /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out, 33 making
+    /// something, 34 breaking furniture down),
     /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
     /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
@@ -1188,6 +1195,8 @@ impl DuskWorld {
                             tend: Tend::Light, ..
                         } => 31,
                         ActionKind::Smother { .. } => 32,
+                        ActionKind::Craft { .. } => 33,
+                        ActionKind::BreakDown { .. } => 34,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -2035,6 +2044,107 @@ impl DuskWorld {
     #[func]
     fn unboard(&mut self) {
         self.act(Intent::Unboard);
+    }
+
+    /// The recipes, two lines each, in the order `craft_checks` and `craft` use: what it makes
+    /// ("spiked club"), and what it takes ("a cudgel, 6 nails  ·  with a hammer").
+    #[func]
+    fn recipe_texts(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let defs = &world.defs;
+        let name = |def: u16| defs.item(def).map_or("something", |d| d.name.as_str());
+        let mut out = Vec::new();
+        for r in &defs.recipes {
+            let (made, count) = r.makes;
+            let makes = if count > 1 {
+                format!("{} \u{d7}{count}", name(made))
+            } else {
+                name(made).to_string()
+            };
+            let uses: Vec<String> = r
+                .uses
+                .iter()
+                .map(|&(def, n)| {
+                    if n > 1 {
+                        format!("{n} {}", name(def))
+                    } else {
+                        name(def).to_string()
+                    }
+                })
+                .collect();
+            let mut takes = uses.join(", ");
+            if !r.tools.is_empty() {
+                let tools: Vec<&str> = r.tools.iter().map(|&t| name(t)).collect();
+                takes += &format!("  \u{b7}  with a {}", tools.join(" or a "));
+            }
+            out.push(GString::from(&makes));
+            out.push(GString::from(&takes));
+        }
+        out.into_iter().collect()
+    }
+
+    /// Whether you can make each recipe now, two numbers each: 0 yes; -1 none of its tools to
+    /// hand; -2 short of an item (the second number, its definition).
+    #[func]
+    fn craft_checks(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for n in 0..world.defs.recipes.len() {
+            out.extend(match world.can_craft(me, n as u16) {
+                Ok(()) => [0, 0],
+                Err(NoCraft::NoTool) => [-1, 0],
+                Err(NoCraft::Lacks(item)) => [-2, i32::from(item)],
+                Err(NoCraft::NoRecipe) => [-3, 0],
+            });
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// Makes what recipe `recipe` makes (see `craft_checks`).
+    #[func]
+    fn craft(&mut self, recipe: i32) {
+        self.act(Intent::Craft {
+            recipe: recipe as u16,
+        });
+    }
+
+    /// The furniture beside you that breaks down: [x, y, the planks it gives, its fixture
+    /// number], or why not: [-1] nothing beside you, [-2] no hammer or axe to hand.
+    #[func]
+    fn break_check(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::from(&[-1]);
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::from(&[-1]);
+        };
+        match world.can_break(me) {
+            Ok(at) => {
+                let fixture = world.grid.tile(at).fixture;
+                let planks = world
+                    .defs
+                    .planks
+                    .get(usize::from(fixture))
+                    .copied()
+                    .unwrap_or(0);
+                PackedInt32Array::from(&[at.x, at.y, i32::from(planks), i32::from(fixture)])
+            }
+            Err(NoBreak::Nothing) => PackedInt32Array::from(&[-1]),
+            Err(NoBreak::NoTool) => PackedInt32Array::from(&[-2]),
+        }
+    }
+
+    /// Breaks the furniture beside you down for planks (see `break_check`).
+    #[func]
+    fn break_down(&mut self) {
+        self.act(Intent::BreakDown);
     }
 
     /// Whether you can tend the fire beside you now: 1 to lay a piece of fuel on, 2 to light it,

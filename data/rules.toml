@@ -247,6 +247,16 @@ calm = 3.0            # asleep or on hallowed ground: down to nothing at this pa
 levels = [25, 50, 75] # uneasy, afraid, frightened
 aim = [0.9, 0.8, 0.7] # what's left of your chance to hit at each
 
+[crafting]
+# Breaking furniture down (fixtures.toml's planks): a table, a chair, a bed, a pew, with any of
+# these to hand. It's loud from the first blow to the last, and Carpentry learns from it and
+# makes it quicker. What you can make is in recipes.toml.
+plank = "plank"
+tools = ["hammer", "hand_axe", "wood_axe"]
+time = 8.0            # seconds
+noise = 14           # tiles it's heard, as the work starts and as it's done
+xp = 1.0             # Carpentry's
+
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt
 # is the pain of the wounds on it ([pain]: by kind, half dressed, less as they heal), the arms

@@ -7,6 +7,7 @@
 
 mod barricade;
 mod class;
+mod craft;
 mod dread;
 mod farm;
 mod fever;
@@ -101,6 +102,10 @@ pub struct Fixture {
     /// (0: it takes none).
     #[serde(default)]
     pub fire: i32,
+    /// Furniture that breaks down (`recipes.toml`'s crafting): the planks it gives (0: it
+    /// doesn't).
+    #[serde(default)]
+    pub planks: u16,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -329,6 +334,13 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         defs.boarding = Some(barricade::to_boarding(&rules_file, b, &defs.items)?);
     }
     holdout::load(dir, &mut defs, &fixtures)?;
+    craft::load(
+        dir,
+        &rules_file,
+        raw.crafting.as_ref(),
+        &fixtures,
+        &mut defs,
+    )?;
     defs.creatures = creatures;
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
@@ -445,6 +457,9 @@ struct RulesFile {
     pain: Option<dread::PainFile>,
     #[serde(default)]
     dread: Option<dread::DreadFile>,
+    /// Optional: with no [crafting], nothing breaks down.
+    #[serde(default)]
+    crafting: Option<craft::CraftingFile>,
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,

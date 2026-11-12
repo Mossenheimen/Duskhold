@@ -12,6 +12,7 @@ pub mod barricade;
 pub mod body;
 pub mod class;
 mod combat;
+pub mod craft;
 pub mod creature;
 pub mod demo;
 pub mod dread;
@@ -48,6 +49,7 @@ pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mi
 pub use barricade::NoBoard;
 pub use body::{Body, Group, Part, Wound, WoundKind};
 pub use class::{Class, Talent};
+pub use craft::{NoBreak, NoCraft, Recipe};
 pub use creature::{Creature, CreatureDef, GetUp};
 pub use fire::{Hearth, NoFire, Tend};
 pub use geom::{ChunkPos, Dir8, TilePos};

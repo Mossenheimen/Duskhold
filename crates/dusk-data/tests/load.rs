@@ -1183,3 +1183,64 @@ fn a_buildings_own_dead_must_be_a_creature_and_a_resistance_must_make_sense() {
     let err = load(&folder("resist", &files)).unwrap_err();
     assert!(err.message.contains("resist"), "{err}");
 }
+
+#[test]
+fn the_games_recipes_and_furniture_that_breaks_down_load() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let recipe = |id: &str| d.recipes.iter().find(|r| r.id == id).unwrap();
+    let torch = recipe("torch");
+    assert_eq!(torch.makes, (item("torch"), 1));
+    assert!(torch.uses.contains(&(item("firewood"), 1)) && torch.tools.is_empty());
+    let club = recipe("spiked_club");
+    assert!(club.uses.contains(&(item("cudgel"), 1)) && club.tools == vec![item("hammer")]);
+    assert_eq!(club.skill, Some(dusk_core::Skill::Carpentry));
+    // The spiked club is blunt, and better than the cudgel it was.
+    let swing = |id: &str| match &d.items[usize::from(item(id))].kind {
+        dusk_core::ItemKind::Weapon { swing, skill, .. } => (swing.damage, *skill),
+        _ => panic!("{id} isn't a weapon"),
+    };
+    let ((club_dmg, club_skill), (cudgel_dmg, _)) = (swing("spiked_club"), swing("cudgel"));
+    assert_eq!(club_skill, Some(dusk_core::Skill::Blunt));
+    assert!(club_dmg.0 > cudgel_dmg.0 && club_dmg.1 > cudgel_dmg.1);
+    // Tables and chairs break down; a cupboard (a container) and a stove don't.
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    assert_eq!(
+        (d.planks[fixture("table")], d.planks[fixture("chair")]),
+        (2, 1)
+    );
+    assert_eq!(
+        (d.planks[fixture("cupboard")], d.planks[fixture("stove")]),
+        (0, 0)
+    );
+    let b = d.breaking.as_ref().expect("[crafting]");
+    assert_eq!(b.plank, item("plank"));
+    assert!(b.tools.contains(&item("hammer")) && b.tools.contains(&item("wood_axe")));
+}
+
+#[test]
+fn a_recipe_naming_no_item_and_a_container_that_breaks_down_are_refused() {
+    let mut files = test_files(PREFABS);
+    files.push((
+        "recipes.toml",
+        "[[recipe]]\nid = \"x\"\nmakes = \"gold\"\nuses = { lead = 1 }\ntime = 1.0\n",
+    ));
+    let err = load(&folder("recipe", &files)).unwrap_err();
+    assert!(err.message.contains("no item called"), "{err}");
+
+    let fixtures = format!("{FIXTURES}[[fixture]]\nid = \"chest\"\nloot = \"chest\"\nplanks = 2\n");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "fixtures.toml");
+    files.push(("fixtures.toml", &fixtures));
+    files.push((
+        "items/rags.toml",
+        "[[item]]\nid = \"rag\"\nname = \"rag\"\nweight = 0.1\n",
+    ));
+    files.push((
+        "loot/chest.toml",
+        "[[loot]]\nid = \"chest\"\nrolls = [1, 1]\nitems = [{ item = \"rag\", weight = 1 }]\n",
+    ));
+    let err = load(&folder("planks", &files)).unwrap_err();
+    assert!(err.message.contains("doesn't break down"), "{err}");
+}

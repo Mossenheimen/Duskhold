@@ -100,6 +100,10 @@ pub enum Intent {
     Tend,
     /// Put out the fire beside you: what fuel's left stays in it.
     Smother,
+    /// Make what recipe `recipe` makes (`craft.rs`), from what you carry.
+    Craft { recipe: u16 },
+    /// Break the furniture beside you down for planks, with a hammer or an axe.
+    BreakDown,
 }
 
 impl Intent {
@@ -166,6 +170,13 @@ pub enum ActionKind {
         tend: crate::fire::Tend,
     },
     Smother {
+        at: TilePos,
+    },
+    /// Making something, and breaking the furniture on `at` down.
+    Craft {
+        recipe: u16,
+    },
+    BreakDown {
         at: TilePos,
     },
     /// Deals over a holdout's counter.

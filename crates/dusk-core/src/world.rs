@@ -598,6 +598,17 @@ pub enum Event {
         who: ActorId,
         level: u8,
     },
+    /// `who` made what recipe `recipe` makes (`craft.rs`).
+    Crafted {
+        who: ActorId,
+        recipe: u16,
+    },
+    /// `who` broke the furniture on `at` down into `planks` planks.
+    BrokeDown {
+        who: ActorId,
+        at: TilePos,
+        planks: u16,
+    },
     /// `who`, frightened, couldn't make itself step nearer the dead.
     Balked {
         who: ActorId,

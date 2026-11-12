@@ -2,7 +2,8 @@
 # A tile's fixture number is its place in this list, from 1. The client draws each by its id.
 # loot: it's a container, filled from that loot table (loot/*.toml). bed: you sleep best beside one.
 # fire: it takes a fire (a hearth, a stove, a forge: rules.toml's [fire]), which lights this many
-# tiles round it. Each keeps a few logs by it.
+# tiles round it. Each keeps a few logs by it. planks: it breaks down into so many (with a hammer or
+# an axe: rules.toml's [crafting]); a container never does.
 
 [[fixture]]
 id = "tree"
@@ -13,6 +14,7 @@ opaque = true
 id = "bed"
 solid = true
 bed = true
+planks = 2
 
 [[fixture]]
 id = "wardrobe"
@@ -28,10 +30,12 @@ loot = "kitchen"
 [[fixture]]
 id = "table"
 solid = true
+planks = 2
 
 [[fixture]]
 id = "chair"
 solid = true
+planks = 1
 
 [[fixture]]
 id = "stove"
@@ -58,6 +62,7 @@ loot = "shelf"
 [[fixture]]
 id = "pew"
 solid = true
+planks = 2
 
 [[fixture]]
 id = "altar"

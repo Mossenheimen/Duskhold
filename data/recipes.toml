@@ -1,0 +1,29 @@
+# What you can make from what you carry (the crafting panel, T). makes: the item, and count how
+# many (1 if left out); uses: what it uses up, by item and how many (from your pack first, then
+# your hand); tools: any one of them to hand, kept (none if left out); time: seconds; skill and
+# xp: what it teaches (rules.toml's [skills.xp] for the scale). What you make is yours, not a find:
+# it brings no XP home. Carpentry makes its own recipes quicker, as it does boarding up.
+
+[[recipe]]
+id = "torch"          # a split log, its end bound in a rag: an hour's light
+makes = "torch"
+uses = { firewood = 1, rag = 1 }
+time = 4.0
+
+[[recipe]]
+id = "stake"          # a plank whittled to a point: a spear, of a kind, that won't last
+makes = "stake"
+uses = { plank = 1 }
+tools = ["kitchen_knife", "hand_axe", "wood_axe"]
+time = 10.0
+skill = "carpentry"
+xp = 1.5
+
+[[recipe]]
+id = "spiked_club"    # nails hammered through a cudgel's head: blunt, and it bites
+makes = "spiked_club"
+uses = { cudgel = 1, nails = 6 }
+tools = ["hammer"]
+time = 12.0
+skill = "carpentry"
+xp = 2.0

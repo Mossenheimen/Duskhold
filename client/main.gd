@@ -28,6 +28,7 @@ const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
 const Skills = preload("res://skills.gd")
+const Craft = preload("res://craft.gd")
 const ChunkView = preload("res://chunk_view.gd")
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
@@ -119,6 +120,8 @@ const SAW_FIRE := 76
 const DREAD := 77
 const BALKED := 78
 const RESISTED := 79
+const CRAFTED := 80
+const BROKE_DOWN := 81
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -129,7 +132,7 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
 	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
-	32: "Putting the fire out"}
+	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -174,6 +177,8 @@ var fires := {}  # the fires alight in hearths, stoves and forges: Vector2i -> O
 var fixture_names := PackedStringArray()  # by fixture number (DuskWorld.fixture_names())
 var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire, in seconds played
 var dread_was := 0  # your dread's level, as the core last said
+var craft: Node  # the crafting panel (T)
+var recipe_texts := PackedStringArray()  # two lines a recipe (DuskWorld.recipe_texts())
 var dread_told := {}  # when the news last told each level of dread, in seconds played
 var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
@@ -248,6 +253,8 @@ func _ready() -> void:
 	add_child(litter)
 	skills = Skills.new()
 	add_child(skills)
+	craft = Craft.new()
+	add_child(craft)
 	_start(true)
 
 
@@ -295,6 +302,8 @@ func _start(carry_on := false) -> void:
 	bag.start(dusk)
 	skill_names = dusk.skill_names()
 	skills.start(dusk)
+	craft.start(dusk)
+	recipe_texts = dusk.recipe_texts()
 	part_names = dusk.part_names()
 	last_hurt = ""
 	last_hurt_at = -100
@@ -372,6 +381,7 @@ func _process(delta: float) -> void:
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
+	craft.refresh(dead)
 	litter.show_floors(dusk.floor_items())
 	hud.show_action(DOING.get(doing.x, ""), doing.y / 1000.0)
 	played += delta
@@ -455,6 +465,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		bag.toggle()
 	elif event.is_action_pressed("skills"):
 		skills.toggle()
+	elif event.is_action_pressed("craft") and not dead:
+		craft.toggle()
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -970,6 +982,13 @@ func _read_events() -> void:
 			RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
+			CRAFTED:
+				if who == me and extra * 2 < recipe_texts.size():
+					hud.say("You made a %s." % recipe_texts[extra * 2])
+			BROKE_DOWN:
+				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
+				if who == me:
+					hud.say("You break it down: %d plank%s." % [extra, "" if extra == 1 else "s"])
 			BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
@@ -1124,6 +1143,7 @@ func _next_survivor() -> void:
 	hud.hide_death()
 	bag.start(dusk)
 	skills.start(dusk)
+	craft.start(dusk)
 	hud.say("%s comes to the abbey. Somewhere out there, the last one's body lies in its gear." % dusk.actor_name(me))
 	_save("")
 
@@ -1353,6 +1373,7 @@ func _add_input_actions() -> void:
 		"unboard": [KEY_N],
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
+		"craft": [KEY_T],
 		"restart": [KEY_R],
 		"save": [KEY_F5],
 		"quit": [KEY_ESCAPE],
@@ -1435,6 +1456,10 @@ func _run_script() -> void:
 				_light_or_douse()
 			"skills":
 				skills.toggle()
+			"craft":
+				craft.toggle()
+			"breakdown":
+				dusk.break_down()
 			"save":
 				_save("Saved.")
 			"board":

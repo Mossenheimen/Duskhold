@@ -81,6 +81,8 @@ impl World {
                 ActionKind::Burn { body } => self.kindle(id, body),
                 ActionKind::Tend { at, tend } => self.tend(id, at, tend),
                 ActionKind::Smother { at } => self.smother(id, at),
+                ActionKind::Craft { recipe } => self.craft(id, recipe),
+                ActionKind::BreakDown { at } => self.break_down(id, at),
                 ActionKind::Buy { at, line } => self.buy(id, at, line),
                 ActionKind::Sell { at, slot, def } => self.sell(id, at, slot, def),
                 ActionKind::Mend { at } => self.mend(id, at),
@@ -218,6 +220,14 @@ impl World {
             }
             Intent::Tend => {
                 let (kind, dir, ticks) = self.tend_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Craft { recipe } => {
+                let (kind, ticks) = self.craft_action(id, recipe)?;
+                (kind, a.facing, ticks, 0, 0)
+            }
+            Intent::BreakDown => {
+                let (kind, dir, ticks) = self.break_action(id)?;
                 (kind, dir, ticks, 0, 0)
             }
             Intent::Smother => {

@@ -103,6 +103,13 @@ func refresh_edge(tile: Vector2i) -> void:
 		_chunks[at].refresh_walls()
 
 
+## A tile changed in the core (furniture broken up): its chunk draws its furniture again.
+func refresh_tile(tile: Vector2i) -> void:
+	var at := Vector2i(floori(tile.x / float(_chunk_size)), floori(tile.y / float(_chunk_size)))
+	if _chunks.has(at):
+		_chunks[at].refresh_fixtures()
+
+
 ## Where the character is: walls, furniture and trees between it and the camera are cut away
 ## round it.
 func set_focus(at: Vector3) -> void:

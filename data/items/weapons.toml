@@ -94,3 +94,21 @@ weight = 3.0
 worth = 8
 # Slow and tiring, but it cuts deep: a blade for those without a sword.
 weapon = { wind_up = 0.7, recovery = 0.9, endurance = 15, hit = 0.8, damage = [12, 20], noise = 6, wear = 1.0, skill = "blade" }
+
+# Made, not found (recipes.toml): worth no XP home.
+
+[[item]]
+id = "stake"
+name = "sharpened stake"
+weight = 1.5
+stack = 1
+# A plank whittled to a point: a spear's reach and sting, but it splinters.
+weapon = { wind_up = 0.5, recovery = 0.6, endurance = 10, hit = 0.8, damage = [9, 14], noise = 4, wear = 3.0, skill = "spear" }
+
+[[item]]
+id = "spiked_club"
+name = "spiked club"
+weight = 1.4
+stack = 1
+# A cudgel with nails through its head: between the cudgel and the mace, and blunt for bone.
+weapon = { wind_up = 0.45, recovery = 0.65, endurance = 10, hit = 0.85, damage = [11, 16], noise = 6, wear = 1.0, skill = "blunt" }

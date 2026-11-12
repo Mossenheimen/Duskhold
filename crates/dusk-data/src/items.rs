@@ -446,6 +446,10 @@ pub(crate) fn load_defs(
         douse_time: (ticks(rules_file, "items.douse", times.douse)? as u32).max(1),
         // Filled in by the loader, from rules.toml's [barricade] and holdouts.toml.
         boarding: None,
+        // Filled in by the loader, from recipes.toml, rules.toml's [crafting] and the fixtures.
+        recipes: Vec::new(),
+        breaking: None,
+        planks: Vec::new(),
         holdouts: Vec::new(),
         counters: Vec::new(),
         coin: None,
