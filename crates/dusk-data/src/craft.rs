@@ -33,6 +33,9 @@ struct RecipeFile {
     /// Any one of these to hand, kept (none: it wants no tool).
     #[serde(default)]
     tools: Vec<String>,
+    /// Cooked: it wants a lit fire beside you.
+    #[serde(default)]
+    fire: bool,
     /// Seconds it takes.
     time: f64,
     /// The skill it teaches, and the XP it gives.
@@ -141,6 +144,7 @@ pub(crate) fn load(
                 .iter()
                 .map(|t| item(&file, defs, &what, t))
                 .collect::<Result<_, _>>()?,
+            fire: r.fire,
             time: (ticks(&file, &format!("{what}: time"), r.time)? as u32).max(1),
             skill,
             xp: (r.xp * 1000.0).round() as u32,

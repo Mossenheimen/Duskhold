@@ -136,6 +136,7 @@ const SNEAK_ATTACK: i32 = 83;
 const BRACING: i32 = 84;
 const BLOCKED: i32 = 85;
 const SHOT: i32 = 86;
+const SPOILED: i32 = 87;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -399,6 +400,7 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             (SNEAK_ATTACK, Some(who), Some(target), at(target), 0)
         }
         Event::Crafted { who, recipe } => (CRAFTED, Some(who), None, at(who), i32::from(recipe)),
+        Event::Spoiled { who, item } => (SPOILED, Some(who), None, at(who), i32::from(item)),
         Event::BrokeDown { who, at: p, planks } => {
             (BROKE_DOWN, Some(who), None, (p.x, p.y), i32::from(planks))
         }
@@ -2098,6 +2100,9 @@ impl DuskWorld {
                 let tools: Vec<&str> = r.tools.iter().map(|&t| name(t)).collect();
                 takes += &format!("  \u{b7}  with a {}", tools.join(" or a "));
             }
+            if r.fire {
+                takes += "  \u{b7}  at a fire";
+            }
             out.push(GString::from(&makes));
             out.push(GString::from(&takes));
         }
@@ -2105,7 +2110,8 @@ impl DuskWorld {
     }
 
     /// Whether you can make each recipe now, two numbers each: 0 yes; -1 none of its tools to
-    /// hand; -2 short of an item (the second number, its definition).
+    /// hand; -2 short of an item (the second number, its definition); -4 it's cooked, and
+    /// there's no lit fire beside you.
     #[func]
     fn craft_checks(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -2121,6 +2127,7 @@ impl DuskWorld {
                 Err(NoCraft::NoTool) => [-1, 0],
                 Err(NoCraft::Lacks(item)) => [-2, i32::from(item)],
                 Err(NoCraft::NoRecipe) => [-3, 0],
+                Err(NoCraft::NoFire) => [-4, 0],
             });
         }
         PackedInt32Array::from(&out[..])

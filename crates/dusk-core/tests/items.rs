@@ -52,6 +52,8 @@ fn defs() -> Defs {
                 ItemKind::Food {
                     nutrition: 30_000,
                     time: 30,
+                    comfort: 0,
+                    spoils: 0,
                 },
             ),
             item("anvil", 30_000, 1, ItemKind::Other),

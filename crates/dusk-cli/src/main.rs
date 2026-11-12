@@ -493,6 +493,7 @@ fn describe(w: &World, e: Event) -> String {
             format!("{} struck {} unawares", name(who), name(target))
         }
         Event::Crafted { who, recipe } => format!("{} made recipe {recipe}", name(who)),
+        Event::Spoiled { who, item } => format!("{}'s item {item} went off", name(who)),
         Event::BrokeDown { who, at, planks } => format!(
             "{} broke the furniture at ({}, {}) down into {planks} planks",
             name(who),

@@ -25,8 +25,10 @@ func _ready() -> void:
 	_list.add_theme_constant_override("separation", 3)
 	_panel.add_child(_list)
 	add_child(_panel)
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, 16)
-	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	# Top right, under the news and above the pack: clear of the loot panel at the bottom left.
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_panel.offset_top = 60
 	_panel.visible = false
 
 
@@ -75,9 +77,13 @@ func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 		lines.add_theme_constant_override("separation", 0)
 		lines.custom_minimum_size = Vector2(300, 0)
 		row.add_child(lines)
+		# Its name, and beside it why it can't be made yet: the line under it can run long.
+		var top := HBoxContainer.new()
+		top.add_theme_constant_override("separation", 10)
+		lines.add_child(top)
 		var called := _label(_texts[r * 2], 15)
 		called.add_theme_color_override("font_color", READY if code == 0 else Color.WHITE)
-		lines.add_child(called)
+		top.add_child(called)
 		var takes := _label(_texts[r * 2 + 1], 12)
 		takes.modulate = SHORT
 		lines.add_child(takes)
@@ -86,7 +92,8 @@ func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 		else:
 			var why := _label(_why(code, checks[r * 2 + 1]), 12)
 			why.modulate = SHORT
-			row.add_child(why)
+			why.size_flags_vertical = Control.SIZE_SHRINK_END
+			top.add_child(why)
 	_list.add_child(_label(" ", 6))
 	if furniture.size() >= 4:
 		var row := HBoxContainer.new()
@@ -104,13 +111,15 @@ func _draw(checks: PackedInt32Array, furniture: PackedInt32Array) -> void:
 		_list.add_child(hint)
 
 
-## Why a recipe can't be made: none of its tools, or short of an item.
+## Why a recipe can't be made: none of its tools, short of an item, or no fire to cook on.
 func _why(code: int, item: int) -> String:
 	match code:
 		-1:
 			return "no tool for it"
 		-2:
 			return "needs more %s" % (_items[item] if item < _items.size() else "of something")
+		-4:
+			return "needs a lit fire beside you"
 	return ""
 
 

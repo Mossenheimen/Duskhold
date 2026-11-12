@@ -10,6 +10,38 @@ makes = "torch"
 uses = { firewood = 1, rag = 1 }
 time = 4.0
 
+# Cooking: made only beside a lit hearth, stove or forge (fire = true). Cooking, the skill, makes
+# it quicker. Cooked food fills you more than raw, eases dread, and keeps longer.
+
+[[recipe]]
+id = "roast_mutton"   # a joint over the fire
+makes = "roast_mutton"
+uses = { raw_mutton = 1 }
+fire = true
+time = 20.0
+skill = "cooking"
+xp = 1.0
+
+[[recipe]]
+id = "roast_turnip"   # in the embers till it's soft
+makes = "roast_turnip"
+uses = { turnip = 1 }
+fire = true
+time = 10.0
+skill = "cooking"
+xp = 0.5
+
+[[recipe]]
+id = "stew"           # mutton and turnips in water, in a pot, slowly: two bowls
+makes = "stew"
+count = 2
+uses = { raw_mutton = 1, turnip = 2, water = 1 }
+tools = ["cooking_pot"]
+fire = true
+time = 40.0
+skill = "cooking"
+xp = 2.0
+
 [[recipe]]
 id = "stake"          # a plank whittled to a point: a spear, of a kind, that won't last
 makes = "stake"

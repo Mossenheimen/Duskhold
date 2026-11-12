@@ -69,6 +69,9 @@ struct LevelFile {
     /// Shield: a shield's chance to block, added (left out: none).
     #[serde(default)]
     shield_block: f64,
+    /// Cooking: cooking takes less time (left out: no quicker).
+    #[serde(default)]
+    cook_time: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -177,5 +180,6 @@ pub(crate) fn to_skills(
         sneak_harm: mille(l.sneak_harm.clamp(0.0, 1.0)),
         shield: xp(x.shield.max(0.0)),
         shield_block: (l.shield_block.clamp(0.0, 0.1) * 10_000.0).round() as u32,
+        cook_time: mille(l.cook_time.clamp(0.0, 0.1)),
     })
 }

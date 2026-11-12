@@ -13,6 +13,7 @@ pub mod barricade;
 pub mod body;
 pub mod class;
 mod combat;
+pub mod cooking;
 pub mod craft;
 pub mod creature;
 pub mod demo;

@@ -58,6 +58,7 @@ fn defs(kit: Vec<Item>, wield: Option<u16>) -> Defs {
         makes: (makes, 1),
         uses,
         tools,
+        fire: false,
         time: 20,
         skill,
         xp: 2000,

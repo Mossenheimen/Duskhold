@@ -198,6 +198,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			label = labels[2 + slot] + label.substr(_name(def).length())  # magic: what you know of it
 		if _kind(def) == LIGHT and items[i + 2] < 1000:
 			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
+		if _kind(def) == FOOD and items[i + 2] < 1000:
+			label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
 		var row := _row(_pack, label)
 		_tint(row, rarity, 2 + slot)
 		match _kind(def):
@@ -525,3 +527,12 @@ func _button(row: HBoxContainer, text: String, pressed: Callable) -> void:
 	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game (Space, WASD)
 	button.pressed.connect(pressed)
 	row.add_child(button)
+
+
+## How fresh food is, from its condition (out of 1000): it's gone at none (the core's `cooking.rs`).
+func _freshness(condition: int) -> String:
+	if condition > 660:
+		return "fresh"
+	if condition > 330:
+		return "stale"
+	return "going off"

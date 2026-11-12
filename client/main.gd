@@ -11,7 +11,8 @@ extends Node3D
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
-## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see) S real seconds in;
+## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
+## that can be made) S real seconds in;
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -125,6 +126,7 @@ const BROKE_DOWN := 81
 const SNEAK_ATTACK := 83
 const BLOCKED := 85
 const SHOT := 86
+const SPOILED := 87
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -1010,6 +1012,9 @@ func _read_events() -> void:
 			SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
+			SPOILED:
+				if who == me:
+					hud.say("Your %s has gone off. You throw it away." % _item_name(extra))
 			CRAFTED:
 				if who == me and extra * 2 < recipe_texts.size():
 					hud.say("You made a %s." % recipe_texts[extra * 2])
@@ -1537,6 +1542,13 @@ func _run_script() -> void:
 				skills.toggle()
 			"craft":
 				craft.toggle()
+			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
+				var checks: PackedInt32Array = dusk.craft_checks()
+				var texts: PackedStringArray = dusk.recipe_texts()
+				for r in range(checks.size() / 2 - 1, -1, -1):
+					if checks[r * 2] == 0 and texts[r * 2 + 1].ends_with("at a fire"):
+						dusk.craft(r)
+						break
 			"breakdown":
 				dusk.break_down()
 			"sneak":

@@ -500,9 +500,11 @@ fn the_games_items_and_loot_load() {
         d.items[usize::from(id("bread"))].kind,
         dusk_core::ItemKind::Food {
             nutrition: 40_000,
-            time: 40
+            time: 40,
+            comfort: 0,
+            spoils: 8
         },
-        "40 points of hunger off, in 4 seconds"
+        "40 points of hunger off, in 4 seconds, keeping 5 days"
     );
     assert_eq!(
         d.items[usize::from(id("torch"))].kind,
@@ -1347,4 +1349,33 @@ fn the_hunting_bow_shoots_arrows_in_the_games_data() {
         dusk_core::Skill::from_id("archery"),
         Some(dusk_core::Skill::Archery)
     );
+}
+
+#[test]
+fn meals_are_cooked_at_a_fire_and_meat_goes_off_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let food = |id: &str| match d.items[usize::from(item(id))].kind {
+        dusk_core::ItemKind::Food {
+            nutrition,
+            comfort,
+            spoils,
+            ..
+        } => (nutrition, comfort, spoils),
+        _ => panic!("{id} isn't food"),
+    };
+    let (raw, roast) = (food("raw_mutton"), food("roast_mutton"));
+    assert!(roast.0 > raw.0, "cooked fills you more");
+    assert!(raw.1 < 0 && roast.1 > 0, "raw sits ill, cooked comforts");
+    assert!(raw.2 > roast.2 && roast.2 > 0, "both go off, raw sooner");
+    assert_eq!(food("jerky").2, 0, "dried meat keeps");
+    for id in ["roast_mutton", "roast_turnip", "stew"] {
+        let r = d.recipes.iter().find(|r| r.id == id).unwrap();
+        assert!(r.fire, "{id} is cooked at a fire");
+        assert_eq!(r.skill, Some(dusk_core::Skill::Cooking));
+    }
+    let stew = d.recipes.iter().find(|r| r.id == "stew").unwrap();
+    assert_eq!(stew.tools, vec![item("cooking_pot")]);
+    assert_eq!(data.rules.skills.cook_time, 50, "Cooking quickens it");
 }

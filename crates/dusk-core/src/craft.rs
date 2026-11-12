@@ -17,13 +17,15 @@ use crate::skills::{On, Skill};
 use crate::world::{Event, Sound, World};
 
 /// A recipe: what it makes and how many, what it uses up, the tools it wants to hand (any one;
-/// none if empty), the ticks it takes, and the skill it teaches with its XP (thousandths).
+/// none if empty), whether it wants a lit fire beside you (cooking: `cooking.rs`), the ticks it
+/// takes, and the skill it teaches with its XP (thousandths).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Recipe {
     pub id: String,
     pub makes: (u16, u16),
     pub uses: Vec<(u16, u16)>,
     pub tools: Vec<u16>,
+    pub fire: bool,
     pub time: u32,
     pub skill: Option<Skill>,
     pub xp: u32,
@@ -49,6 +51,8 @@ pub enum NoCraft {
     NoTool,
     /// Short of this item.
     Lacks(u16),
+    /// It's cooked, and there's no lit fire beside you.
+    NoFire,
 }
 
 /// Why you can't break furniture down here and now.
@@ -102,17 +106,22 @@ impl World {
             .find(|&&(item, n)| self.carried(id, item) < u32::from(n))
         {
             Some(&(item, _)) => Err(NoCraft::Lacks(item)),
+            None if r.fire && !self.by_a_fire(id) => Err(NoCraft::NoFire),
             None => Ok(()),
         }
     }
 
     /// Ticks a job of `ticks` takes `id` with `skill`: Carpentry makes it quicker, as it does
-    /// boarding up.
+    /// boarding up, and Cooking a meal.
     fn job_ticks(&self, id: ActorId, ticks: u32, skill: Option<Skill>) -> u32 {
         match skill {
             Some(Skill::Carpentry) => {
                 let level = self.skill_level(id, Skill::Carpentry);
                 self.rules.skills.board_ticks(ticks, level)
+            }
+            Some(Skill::Cooking) => {
+                let level = self.skill_level(id, Skill::Cooking);
+                self.rules.skills.cook_ticks(ticks, level)
             }
             _ => ticks.max(1),
         }

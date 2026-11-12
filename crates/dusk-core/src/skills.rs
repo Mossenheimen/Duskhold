@@ -16,7 +16,7 @@
 //! - **What a level does,** a little each: a weapon skill's blows land more often and harder, for
 //!   less breath and less wear on the weapon; Athletics runs faster for less breath; First Aid
 //!   bandages faster; Carpentry boards up faster, with stronger boards; Stealth sneaks faster,
-//!   and its sneak attacks do more harm (`stealth.rs`).
+//!   and its sneak attacks do more harm (`stealth.rs`); Cooking cooks faster (`cooking.rs`).
 
 use crate::actor::{ActorId, ActorKind};
 use crate::geom::{Dir8, TilePos};
@@ -40,10 +40,12 @@ pub enum Skill {
     Shield,
     /// Shooting a bow (`archery.rs`).
     Archery,
+    /// Cooking at a fire (`cooking.rs`).
+    Cooking,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 10;
+pub const SKILLS: usize = 11;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -57,6 +59,7 @@ impl Skill {
         Skill::Stealth,
         Skill::Shield,
         Skill::Archery,
+        Skill::Cooking,
     ];
 
     pub fn name(self) -> &'static str {
@@ -71,6 +74,7 @@ impl Skill {
             Skill::Stealth => "Stealth",
             Skill::Shield => "Shield",
             Skill::Archery => "Archery",
+            Skill::Cooking => "Cooking",
         }
     }
 
@@ -87,6 +91,7 @@ impl Skill {
             Skill::Stealth => "stealth",
             Skill::Shield => "shield",
             Skill::Archery => "archery",
+            Skill::Cooking => "cooking",
         }
     }
 
@@ -157,6 +162,8 @@ pub struct SkillRules {
     /// shield's chance to block (out of 10,000).
     pub shield: u32,
     pub shield_block: u32,
+    /// Cooking (`cooking.rs`): a level takes `cook_time` per mille off a meal's time.
+    pub cook_time: u32,
 }
 
 impl Default for SkillRules {
@@ -195,6 +202,7 @@ impl Default for SkillRules {
             sneak_harm: 100,
             shield: 1500,
             shield_block: 300,
+            cook_time: 50,
         }
     }
 }
@@ -537,6 +545,11 @@ impl SkillRules {
     /// The endurance a tick of running costs at a level of Athletics.
     pub fn run_cost(&self, cost: i32, level: u8) -> i32 {
         by_level(i64::from(cost), self.run_endurance, level, false) as i32
+    }
+
+    /// The ticks to cook a meal at a level of Cooking.
+    pub fn cook_ticks(&self, ticks: u32, level: u8) -> u32 {
+        (by_level(i64::from(ticks), self.cook_time, level, false) as u32).max(1)
     }
 
     /// The ticks to nail a board on at a level of Carpentry.

@@ -43,7 +43,7 @@ name = "loaf of bread"
 weight = 0.5
 worth = 2
 stack = 4
-food = { nutrition = 40, time = 4.0 }   # hunger it takes away, seconds to eat
+food = { nutrition = 40, time = 4.0, keeps = 5 }   # hunger it takes away, seconds to eat, days it keeps (left out: for ever)
 
 [[item]]
 id = "apple"
@@ -51,7 +51,7 @@ name = "apple"
 weight = 0.15
 worth = 1
 stack = 10
-food = { nutrition = 10, time = 1.5 }
+food = { nutrition = 10, time = 1.5, keeps = 10 }
 
 [[item]]
 id = "jerky"
@@ -131,7 +131,7 @@ name = "wedge of cheese"
 weight = 0.3
 worth = 3
 stack = 4
-food = { nutrition = 30, time = 3.0 }
+food = { nutrition = 30, time = 3.0, keeps = 14 }
 
 # The farms' (loot/farm.toml).
 
@@ -141,7 +141,49 @@ name = "turnip"
 weight = 0.25
 worth = 1
 stack = 10
-food = { nutrition = 12, time = 2.0 }
+food = { nutrition = 12, time = 2.0, keeps = 20 }
+
+# Cooking's (recipes.toml: cooked at a lit hearth, stove or forge). Meat goes off in days, cooked
+# a little slower; a hot meal eases dread (comfort), raw meat adds to it.
+
+[[item]]
+id = "raw_mutton"
+name = "raw mutton"
+weight = 0.4
+worth = 1
+stack = 4
+food = { nutrition = 8, time = 4.0, comfort = -5, keeps = 2 }
+
+[[item]]
+id = "roast_mutton"
+name = "roast mutton"
+weight = 0.3
+worth = 0
+stack = 4
+food = { nutrition = 35, time = 4.0, comfort = 10, keeps = 4 }
+
+[[item]]
+id = "roast_turnip"
+name = "roast turnip"
+weight = 0.2
+worth = 0
+stack = 10
+food = { nutrition = 18, time = 2.0, comfort = 5, keeps = 5 }
+
+[[item]]
+id = "stew"
+name = "bowl of stew"
+weight = 0.5
+worth = 0
+stack = 4
+food = { nutrition = 40, time = 5.0, comfort = 20, keeps = 3 }
+
+[[item]]
+id = "cooking_pot"
+name = "cooking pot"
+weight = 1.5
+worth = 2
+stack = 1
 
 # Bows' (items/weapons.toml).
 

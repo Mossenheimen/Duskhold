@@ -58,8 +58,15 @@ pub enum ItemKind {
     },
     /// Put on a bleeding wound, it stops the bleeding: `time` ticks to put on.
     Bandage { time: u32 },
-    /// Eaten: hunger falls by `nutrition` (thousandths of a point); `time` ticks to eat.
-    Food { nutrition: i32, time: u32 },
+    /// Eaten: hunger falls by `nutrition` (thousandths of a point), and dread by `comfort`
+    /// (less than none: it rises); `time` ticks to eat. It loses `spoils` of its condition a
+    /// game hour, and at none it's gone (0: it keeps: `cooking.rs`).
+    Food {
+        nutrition: i32,
+        time: u32,
+        comfort: i32,
+        spoils: u16,
+    },
     /// Drunk: thirst falls by `water`; `time` ticks to drink.
     Drink { water: i32, time: u32 },
     /// Taken with ghoul fever, it cures it, at any stage (`fever.rs`): `time` ticks to take.
@@ -345,6 +352,7 @@ impl World {
         if total == 0 {
             return out;
         }
+        let hours = self.hours();
         for k in 1..=u64::from(draws) {
             let mut pick = below(r(k, Purpose::Loot), total);
             let Some(entry) = t.entries.iter().find(|e| {
@@ -357,8 +365,13 @@ impl World {
             let (clo, chi) = entry.count;
             let span = u32::from(chi.saturating_sub(clo)) + 1;
             let count = clo + below(r(k, Purpose::LootCount), span) as u16;
+            // Food has aged as if it had lain there from the first hour (`cooking.rs`).
+            let Some(condition) = self.defs.aged(entry.item, hours) else {
+                continue;
+            };
             if count > 0 {
                 let mut item = Item::found(entry.item, count);
+                item.condition = condition;
                 // Now and then, what's drawn is magic (`magic.rs`).
                 if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
                     item.magic = self.defs.roll_magic(&item, self.magic_roll(key, k));
@@ -642,8 +655,11 @@ impl World {
                     part: wound.part,
                 }
             }
-            Some(ItemKind::Food { nutrition, .. }) => {
+            Some(ItemKind::Food {
+                nutrition, comfort, ..
+            }) => {
                 a.body.hunger = (a.body.hunger - nutrition).max(0);
+                a.body.dread = (a.body.dread - comfort).clamp(0, 100_000);
                 Event::Ate { who: id, item: def }
             }
             Some(ItemKind::Drink { water, .. }) => {

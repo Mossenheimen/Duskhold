@@ -10,6 +10,8 @@ items = [
   { item = "bread", weight = 4 },
   { item = "apple", weight = 4, count = [1, 4] },
   { item = "water", weight = 3 },
+  { item = "raw_mutton", weight = 2, count = [1, 2] },
+  { item = "cooking_pot", weight = 1 },
   { item = "kitchen_knife", weight = 2, magic = 0.1 },
   { item = "rag", weight = 2, count = [1, 2] },
   { item = "candle", weight = 1, count = [1, 3] },

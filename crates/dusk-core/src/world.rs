@@ -610,6 +610,11 @@ pub enum Event {
         who: ActorId,
         recipe: u16,
     },
+    /// Food in `who`'s pack went off, and is gone (`cooking.rs`).
+    Spoiled {
+        who: ActorId,
+        item: u16,
+    },
     /// `who` broke the furniture on `at` down into `planks` planks.
     BrokeDown {
         who: ActorId,
@@ -1128,6 +1133,7 @@ impl World {
         self.weather();
         self.burn_lights();
         self.burn_fires();
+        self.spoil();
         self.drag_downs();
     }
 

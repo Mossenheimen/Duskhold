@@ -183,6 +183,7 @@ board_strength = 0.1  # ...and the boards take more beating
 sneak_pace = 0.03     # Stealth: quicker sneaking...
 sneak_harm = 0.1      # ...and sneak attacks that do more harm
 shield_block = 0.03   # Shield: a shield blocks this much more often
+cook_time = 0.05      # Cooking: cooking takes less time
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where

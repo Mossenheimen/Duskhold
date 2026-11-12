@@ -30,6 +30,8 @@ fn defs() -> Defs {
                 ItemKind::Food {
                     nutrition: 40_000,
                     time: 30,
+                    comfort: 0,
+                    spoils: 0,
                 },
             ),
             item(

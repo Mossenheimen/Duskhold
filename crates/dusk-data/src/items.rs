@@ -168,12 +168,18 @@ struct CureFile {
     time: f64,
 }
 
-/// Food: the hunger it takes away (points, out of 100) and seconds to eat it.
+/// Food: the hunger it takes away (points, out of 100) and seconds to eat it; the dread it
+/// takes away (points; less than none adds to it); and the game days it keeps (left out: it
+/// keeps).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FoodFile {
     nutrition: f64,
     time: f64,
+    #[serde(default)]
+    comfort: f64,
+    #[serde(default)]
+    keeps: f64,
 }
 
 /// Drink: the thirst it takes away and seconds to drink it.
@@ -383,7 +389,27 @@ pub(crate) fn load_defs(
                 }
             } else if let Some(f) = &i.food {
                 let (nutrition, time) = eaten(&file, &i.id, "food", f.nutrition, f.time)?;
-                ItemKind::Food { nutrition, time }
+                if !(-100.0..=100.0).contains(&f.comfort) || !(0.0..=1000.0).contains(&f.keeps) {
+                    return Err(fail(
+                        &file,
+                        format!(
+                            "item {:?}: food.comfort is points from -100 to 100, food.keeps game days from 0 (left out: it keeps)",
+                            i.id
+                        ),
+                    ));
+                }
+                // Its condition a game hour, from the days it keeps.
+                let spoils = if f.keeps > 0.0 {
+                    (1000.0 / (f.keeps * 24.0)).round().clamp(1.0, 1000.0) as u16
+                } else {
+                    0
+                };
+                ItemKind::Food {
+                    nutrition,
+                    time,
+                    comfort: (f.comfort * 1000.0).round() as i32,
+                    spoils,
+                }
             } else if let Some(d) = &i.drink {
                 let (water, time) = eaten(&file, &i.id, "drink", d.water, d.time)?;
                 ItemKind::Drink { water, time }
