@@ -16,9 +16,9 @@ const LINE_HEIGHT := 28.0  # a line of BODY text, for the news's room
 
 ## Every key, for the F1 panel (zone I): the key, and what it does.
 const KEYS := [
-	["WASD", "walk"], ["Shift", "run"], ["Ctrl", "sneak"], ["Alt", "brace (shield)"],
+	["WASD", "walk (into an open window or a fence: climb it)"], ["Shift", "run"], ["Ctrl", "sneak"], ["Alt", "brace (shield)"],
 	["click", "walk there; beside one of the dead, swing"], ["right-click", "shoot (bow)"],
-	["F", "swing"], ["Q", "shove"], ["E", "door"], ["B", "board up"], ["N", "pry a board off"],
+	["F", "swing"], ["Q", "shove"], ["E", "door or window"], ["B", "board up"], ["N", "pry a board off"],
 	["H", "tend a fire"], ["J", "put it out"], ["G", "butcher a beast, or burn a body"],
 	["O", "consecrate a body; at a shut door, ward it"], ["P", "pray at an altar"],
 	["C", "second wind"], ["U", "turn the dead"], ["M", "mend"], ["Y", "pick a plant"],
@@ -171,7 +171,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: armour\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: climbing\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

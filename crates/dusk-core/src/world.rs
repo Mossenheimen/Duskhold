@@ -12,14 +12,14 @@ use crate::dread::{Dread, Pain};
 use crate::fever::Fever;
 use crate::fire::{Fire, Hearth};
 use crate::geom::{ChunkPos, Dir8, TilePos};
-use crate::grid::Grid;
+use crate::grid::{Edge, Grid};
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::home::Deeds;
 use crate::injury::Injury;
 use crate::items::{Defs, Item};
 use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
-use crate::path::find_path;
+use crate::path::{ClimbCost, find_way};
 use crate::pressure::Region;
 use crate::remains::Burning;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
@@ -87,6 +87,8 @@ pub struct Rules {
     /// Armour: what a turned blow still does, what it weighs worn, what gets through it
     /// (`armour.rs`).
     pub armour: crate::armour::ArmourRules,
+    /// Climbing through windows and over fences (`climb.rs`).
+    pub climb: crate::climb::ClimbRules,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -317,6 +319,7 @@ impl Default for Rules {
             faith: crate::faith::Faith::default(),
             forage: crate::forage::Foraging::default(),
             armour: crate::armour::ArmourRules::default(),
+            climb: crate::climb::ClimbRules::default(),
         }
     }
 }
@@ -380,6 +383,14 @@ pub enum Event {
         at: TilePos,
         side: Dir8,
         open: bool,
+    },
+    /// `who` climbed through a window (or over a fence) onto `to`, and `fell`: tumbled over,
+    /// it lies there for its kind's `down` time (`climb.rs`).
+    Climbed {
+        who: ActorId,
+        to: TilePos,
+        window: bool,
+        fell: bool,
     },
     /// `who` ran out of breath.
     Exhausted {
@@ -1275,6 +1286,20 @@ impl World {
         } else {
             Vec::new()
         };
+        // How it climbs, if it can (`climb.rs`): worked out only as a step may start for one
+        // going somewhere, and what a climb is worth to its search for a way, at its pace.
+        let going = self.actors.get(id).and_then(|a| match a.intent {
+            Intent::Move { run, .. } | Intent::WalkTo { run, .. } if a.step.is_none() => Some(run),
+            _ => None,
+        });
+        let climber = going.and_then(|_| self.climber(id));
+        let climb_cost: Option<ClimbCost> = climber.map(|c| {
+            c.costs(if going == Some(true) {
+                speeds.run
+            } else {
+                speeds.walk
+            })
+        });
         let a = self.actors.get_mut(id)?;
         if a.step.is_none() {
             // Holding on to its prey, or held, nobody steps.
@@ -1282,7 +1307,8 @@ impl World {
                 a.carry = 0;
                 return None;
             }
-            let (dir, run) = match next_heading(a, &self.grid, rules.repath_after, path_budget) {
+            let heading = next_heading(a, &self.grid, rules.repath_after, path_budget, climb_cost);
+            let (dir, run) = match heading {
                 // Out of breath or weighed down, nobody runs.
                 // Sneaking, nobody runs either.
                 Heading::Go(dir, run) => (
@@ -1309,7 +1335,11 @@ impl World {
                 self.events.push(Event::Balked { who: id });
                 return None;
             }
-            if barred || !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
+            // Not a step but a climb, for one that climbs: through an open window or over a
+            // fence (`climb.rs`).
+            let walk = self.grid.can_step(a.pos, dir);
+            let climb = climber.filter(|_| !walk && self.grid.can_climb(a.pos, dir));
+            if barred || !(walk || climb.is_some()) || self.occupied.contains_key(&to) {
                 a.blocked += 1;
                 a.carry = 0;
                 return None;
@@ -1335,41 +1365,59 @@ impl World {
                 STRAIGHT
             };
             let wade = self.grid.tile(to).ground == crate::grid::Ground::Shallows;
+            // A climb takes its own ticks, whatever the pace, and carries nothing over.
+            let (length, progress) = match climb {
+                Some(c) => (c.ticks(self.grid.edge(a.pos, dir), run), 0),
+                None => (length, a.carry),
+            };
             a.step = Some(Step {
                 from: a.pos,
                 to,
                 dir,
-                progress: a.carry,
+                progress,
                 length,
                 run,
                 wade,
+                climb: climb.is_some(),
             });
             a.carry = 0;
             self.occupied.insert(to, id);
         }
         let mut step = a.step?;
-        let mut speed = if step.run {
-            rules.skills.run_speed(speeds.run, athletics)
-        } else {
-            speeds.walk
-        };
-        if let (true, Some(pace)) = (night, night_pace) {
-            speed = speed * pace / 1000;
-        }
-        // Wading is slow going, for everyone.
         let wading = step.wade;
-        if wading {
-            speed = speed * rules.shallows.pace / 1000;
+        if step.climb {
+            step.progress += 1;
+        } else {
+            let mut speed = if step.run {
+                rules.skills.run_speed(speeds.run, athletics)
+            } else {
+                speeds.walk
+            };
+            if let (true, Some(pace)) = (night, night_pace) {
+                speed = speed * pace / 1000;
+            }
+            // Wading is slow going, for everyone.
+            if wading {
+                speed = speed * rules.shallows.pace / 1000;
+            }
+            step.progress += speed / TICKS_PER_SECOND;
         }
-        step.progress += speed / TICKS_PER_SECOND;
+        // A climb costs breath as a run does.
+        let hard = step.run || step.climb;
         if step.progress < step.length {
             a.step = Some(step);
-            return Some(step.run);
+            return Some(hard);
         }
         a.step = None;
         a.pos = step.to;
-        a.carry = step.progress - step.length;
-        let footsteps = (a.kind == ActorKind::Character).then_some(if step.run {
+        a.carry = if step.climb {
+            0
+        } else {
+            step.progress - step.length
+        };
+        let footsteps = (a.kind == ActorKind::Character).then_some(if step.climb {
+            rules.climb.noise
+        } else if step.run {
             rules.run_noise
         } else {
             rules.walk_noise
@@ -1406,14 +1454,18 @@ impl World {
                 loudness,
                 by: Some(id),
             });
-            // A character's run, a tile at a time, may teach it something.
-            if step.run {
+            // A character's run, a tile at a time, may teach it something (a climb, as it lands).
+            if step.run && !step.climb {
                 self.train_run(id);
-            } else if sneaking {
+            } else if sneaking && !step.climb {
                 self.train_sneak(id);
             }
         }
-        Some(step.run)
+        if step.climb {
+            let window = matches!(self.grid.edge(step.from, step.dir), Edge::Window { .. });
+            self.landed(id, window);
+        }
+        Some(hard)
     }
 
     /// Creatures hear this tick's sounds: each goes after the nearest one it heard.
@@ -1653,7 +1705,7 @@ impl World {
         // (From the tile it's leaving, its own reserved tile would look like someone in the way.)
         let pos = a.step.map_or(a.pos, |s| s.to);
         if line_of_sight(&self.grid, pos, goal)
-            && let Some(dir) = self.open_step_toward(pos, goal)
+            && let Some(dir) = self.open_step_toward(pos, goal, self.climbs(a.kind))
         {
             return Intent::Move { dir, run: true };
         }
@@ -1681,9 +1733,10 @@ impl World {
     /// round needs a path: a step to one side would only look closer). Someone standing in that
     /// tile is gone round by an eighth of a turn if that's free, else waited behind. When that
     /// tile is the goal itself, the step stands: it turns to what's there (and so can see it).
-    fn open_step_toward(&self, from: TilePos, goal: TilePos) -> Option<Dir8> {
+    /// One that `climbs` takes a window or a fence straight ahead as open (`climb.rs`).
+    fn open_step_toward(&self, from: TilePos, goal: TilePos, climbs: bool) -> Option<Dir8> {
         let dir = Dir8::nearest(goal.x - from.x, goal.y - from.y)?;
-        if !self.grid.can_step(from, dir) {
+        if !self.grid.can_step(from, dir) && !(climbs && self.grid.can_climb(from, dir)) {
             return None;
         }
         let ahead = from.step(dir);
@@ -1803,7 +1856,13 @@ enum Heading {
 
 /// The heading an actor's intent asks for now. Plans (and re-plans) the path of a `WalkTo`: when
 /// the goal changed, when the next tile isn't next to it any more, or after waiting too long.
-fn next_heading(a: &mut Actor, grid: &Grid, repath_after: u32, budget: usize) -> Heading {
+fn next_heading(
+    a: &mut Actor,
+    grid: &Grid,
+    repath_after: u32,
+    budget: usize,
+    climb: Option<ClimbCost>,
+) -> Heading {
     match a.intent {
         Intent::Move { dir, run } => Heading::Go(dir, run),
         Intent::WalkTo { to, run } => {
@@ -1819,15 +1878,16 @@ fn next_heading(a: &mut Actor, grid: &Grid, repath_after: u32, budget: usize) ->
             // it (a door shut). Barred only by someone standing there, a search would find the
             // very same way (it doesn't count actors), so it waits on.
             let barred = a.path.last().is_none_or(|&next| {
-                Dir8::toward(next.x - a.pos.x, next.y - a.pos.y)
-                    .is_none_or(|d| !grid.can_step(a.pos, d))
+                Dir8::toward(next.x - a.pos.x, next.y - a.pos.y).is_none_or(|d| {
+                    !grid.can_step(a.pos, d) && !(climb.is_some() && grid.can_climb(a.pos, d))
+                })
             });
             if a.blocked >= repath_after && !barred && !stale {
                 a.blocked = 0;
             }
             if stale || a.blocked >= repath_after {
                 a.blocked = 0;
-                match find_path(grid, a.pos, to, budget) {
+                match find_way(grid, a.pos, to, budget, climb) {
                     Some(mut path) => {
                         path.reverse();
                         a.path = path;

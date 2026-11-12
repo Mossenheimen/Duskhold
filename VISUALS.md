@@ -213,7 +213,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
   - Run the test before a new kind gets a colour.
   - Today the kinds part by height (0.95 to 1.8 m), stoop (28° forward to leaning back) and legs.
 - **Built in code from primitives**, which is the toy-diorama look:
-  - people and the dead are capsules that lean into a swing (the tell), lie down when knocked down, and darken when dead;
+  - people and the dead are capsules that lean into a swing (the tell), lie down when knocked down, and darken when dead. Climbing a sill or a fence, one is lifted over and set down on the far side, at most 0.55 m up (`main.gd`, `CLIMB_LIFT`);
   - beasts get four legs and a head at their own height (`actor_view.gd`, `_build_beast`);
   - furniture is boxes with a surface (§6);
   - trees are a trunk and a sphere crown, a little different from tile to tile;

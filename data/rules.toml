@@ -298,6 +298,17 @@ off = 0.5             # taking a piece off takes this much of the time putting i
 # your revenant in yours), by its kind: points go through mail, and blades skid off it.
 pierce = { blade = 1.0, blunt = 0.6, axe = 0.8, spear = 0.4 }
 
+[climb]
+# Walking straight into an open window or a fence climbs it: a step, only slower, whatever your
+# pace, its seconds costing breath as running does. Shut windows open with the door key (E); a
+# boarded one can't be climbed. The dead climb too, by their kind's `climb` (creatures/), but only
+# after something.
+window = 1.6          # seconds through an open window
+fence = 1.0           # seconds over a fence...
+vault = 0.6           # ...and running at one, you vault it in this share of the time
+noise = 4             # tiles: the scrape of a climb
+heavy = 2.0           # weighed down, a climb takes this many times as long
+
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt
 # is the pain of the wounds on it ([pain]: by kind, half dressed, less as they heal), the arms

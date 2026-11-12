@@ -1777,3 +1777,49 @@ fn armour_that_makes_no_sense_is_refused() {
     let err = run("armour-none", "", "wears = \"coat\"\n").unwrap_err();
     assert!(err.message.contains("no armour called"), "{err}");
 }
+
+#[test]
+fn climbing_loads_and_the_dead_climb_by_kind_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let c = data.rules.climb;
+    assert_eq!((c.window, c.fence, c.vault), (16, 10, 600));
+    assert_eq!((c.noise, c.heavy), (4, 2000));
+    let kind = |id: &str| {
+        let s = data
+            .defs
+            .creatures
+            .iter()
+            .find(|c| c.id == id)
+            .unwrap()
+            .stats;
+        (s.climb, s.tumble)
+    };
+    assert_eq!(kind("shambler"), (2500, true), "slow, and it falls over");
+    assert_eq!(kind("skeleton"), (2000, true));
+    assert_eq!(kind("ghoul"), (1000, false), "as quick as you, on its feet");
+    assert!(!kind("wight").1, "the wight lands on its feet");
+    assert_eq!(kind("wolf"), (0, false), "wolves and deer don't climb");
+    assert_eq!(kind("deer").0, 0);
+}
+
+#[test]
+fn climbing_that_makes_no_sense_is_refused() {
+    let run = |name: &str, creature: &str| {
+        let files = test_files(PREFABS);
+        let creature = format!("{SHAMBLER}{creature}");
+        let mut owned = files
+            .into_iter()
+            .filter(|(path, _)| *path != "creatures/dead.toml")
+            .map(|(p, t)| (p, t.to_string()))
+            .collect::<Vec<_>>();
+        owned.push(("creatures/dead.toml", creature));
+        let borrowed: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        load(&folder(name, &borrowed))
+    };
+    let data = run("climb-good", "climb = 2.0\ntumble = true\n").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(data.defs.creatures[0].stats.climb, 2000);
+    let err = run("climb-tumble", "tumble = true\n").unwrap_err();
+    assert!(err.message.contains("climb"), "{err}");
+    let err = run("climb-zero", "climb = 0.0\n").unwrap_err();
+    assert!(err.message.contains("climb"), "{err}");
+}

@@ -52,18 +52,32 @@ fn worked_out(grid: &dusk_core::Grid, p: TilePos) -> u8 {
         .fold(0, |bits, &d| bits | d.bit())
 }
 
+/// A tile's climbs, worked out the slow way.
+fn climbs_worked_out(grid: &dusk_core::Grid, p: TilePos) -> u8 {
+    if !grid.tile(p).walkable() {
+        return 0;
+    }
+    Dir8::ALL
+        .iter()
+        .filter(|&&d| !grid.can_step(p, d) && grid.can_climb(p, d))
+        .fold(0, |bits, &d| bits | d.bit())
+}
+
 #[test]
 fn the_kept_steps_stay_true_to_the_map_through_every_change() {
     use dusk_core::hash::{Purpose, below, roll};
     use dusk_core::{ChunkPos, Edge, Grid, Tile};
-    // A map across four chunks, a fifth of it rock, with walls, doors and windows about.
+    // A map across four chunks, a fifth of it rock, with walls, doors, windows and fences about.
     let edges = [
         Edge::Open,
         Edge::Wall,
         Edge::door(false),
         Edge::door(true),
         Edge::window(false),
+        Edge::window(true),
+        Edge::Fence,
     ];
+    let kinds = edges.len() as u32;
     let r = |n: u64, k: u32| below(roll(7, n, 0, Purpose::Map), k);
     let mut grid = Grid::new();
     for y in -32..32 {
@@ -80,10 +94,10 @@ fn the_kept_steps_stay_true_to_the_map_through_every_change() {
                 },
             );
             if r(n + 100_000, 6) == 0 {
-                grid.set_north(at, edges[r(n + 200_000, 5) as usize]);
+                grid.set_north(at, edges[r(n + 200_000, kinds) as usize]);
             }
             if r(n + 300_000, 6) == 0 {
-                grid.set_west(at, edges[r(n + 400_000, 5) as usize]);
+                grid.set_west(at, edges[r(n + 400_000, kinds) as usize]);
             }
         }
     }
@@ -93,6 +107,11 @@ fn the_kept_steps_stay_true_to_the_map_through_every_change() {
             for x in -33..33 {
                 let p = TilePos::new(x, y, 0);
                 assert_eq!(grid.steps_from(p), worked_out(grid, p), "{when}: at {p:?}");
+                assert_eq!(
+                    grid.climbs_from(p),
+                    climbs_worked_out(grid, p),
+                    "{when}: climbs at {p:?}"
+                );
             }
         }
     };
@@ -112,8 +131,8 @@ fn the_kept_steps_stay_true_to_the_map_through_every_change() {
                     },
                 );
             }
-            1 => grid.set_north(at, edges[r(k + 36_000, 5) as usize]),
-            _ => grid.set_west(at, edges[r(k + 45_000, 5) as usize]),
+            1 => grid.set_north(at, edges[r(k + 36_000, kinds) as usize]),
+            _ => grid.set_west(at, edges[r(k + 45_000, kinds) as usize]),
         }
         if k % 50 == 49 {
             check(&grid, "edited");

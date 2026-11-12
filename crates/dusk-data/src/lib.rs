@@ -8,6 +8,7 @@
 mod armour;
 mod barricade;
 mod class;
+mod climb;
 mod craft;
 mod dread;
 mod faith;
@@ -562,6 +563,9 @@ struct RulesFile {
     /// Optional: with no [armour], armour uses the core's defaults.
     #[serde(default)]
     armour: Option<armour::ArmourRulesFile>,
+    /// Optional: with no [climb], climbing uses the core's defaults.
+    #[serde(default)]
+    climb: Option<climb::ClimbFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -796,6 +800,14 @@ struct CreatureFile {
     /// The armour one wears, by item id (left out: none). It's left where it falls.
     #[serde(default)]
     wears: Option<String>,
+    /// How long one takes to climb through an open window or over a fence, as a multiple of a
+    /// character's time (rules.toml's [climb]); left out, it never climbs. It climbs only after
+    /// something.
+    #[serde(default)]
+    climb: Option<f64>,
+    /// It tumbles over what it climbs and lies on the far side for its `down` time.
+    #[serde(default)]
+    tumble: bool,
 }
 
 #[derive(Deserialize)]
@@ -995,6 +1007,12 @@ fn to_creatures(
         if !(0.0..=4.0).contains(&c.turned) {
             return Err(bad("turned is a share of the turning's time, from 0 to 4"));
         }
+        if c.climb.is_some_and(|x| !(0.1..=10.0).contains(&x)) || (c.tumble && c.climb.is_none()) {
+            return Err(bad(
+                "climb is a multiple of a character's time, from 0.1 to 10, and only one that \
+                 climbs can tumble",
+            ));
+        }
         if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
             return Err(bad("health must be above 0, and thump is [least, most]"));
         }
@@ -1052,6 +1070,8 @@ fn to_creatures(
                 },
                 // So is its armour's.
                 wears: None,
+                climb: c.climb.map_or(0, |x| (x * 1000.0).round() as u32),
+                tumble: c.tumble,
             },
         });
     }
@@ -1245,6 +1265,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(a) = &r.armour {
         rules.armour = armour::to_armour_rules(file, a)?;
+    }
+    if let Some(c) = &r.climb {
+        rules.climb = climb::to_climb(file, c)?;
     }
     Ok(rules)
 }

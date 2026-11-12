@@ -148,6 +148,7 @@ const REGREW := 98
 const GLANCED := 99
 const WORE := 100
 const TOOK_OFF := 101
+const CLIMBED := 102
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
 const ARMOUR := 11
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
@@ -171,6 +172,8 @@ const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it stau
 	"feverfew": "Feverfew grows here, where the dead lie: brewed at a fire, it cures the fever"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
+## How high one climbing is lifted halfway over, in metres (a window's sill is 0.9).
+const CLIMB_LIFT := 0.55
 ## A light, by DuskWorld.item_kinds().
 const LIGHT_KIND := 5
 ## Moodles (DuskWorld.character_moodles()) the client acts on.
@@ -220,6 +223,7 @@ var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
 var blocked_at := -100.0  # when the news last told of a block, in seconds played
 var glanced_at := -100.0  # when the news last told of a blow glancing off your armour
+var tumbled_at := -100.0  # when it last told of one of the dead tumbling over a sill or a fence
 var skidded_at := -100.0  # ...and of your blow glancing off theirs
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
@@ -929,11 +933,14 @@ func _draw_actors(delta: float) -> void:
 		_mark_rares()
 	var remains: PackedInt32Array = dusk.actor_remains()
 	var actions: PackedInt32Array = dusk.actor_actions()
+	var climbs: PackedFloat32Array = dusk.actor_climbs()
 	seen = dusk.actor_seen()
 	for i in actors.size():
 		# What you don't see isn't drawn (CONCEPT.md: never a live monster you can't see).
 		actors[i].visible = _seen(i) and remains[i] != RISEN_BODY
-		actors[i].position = Vector3(where[i].x + 0.5, 0.0, where[i].y + 0.5)
+		# Climbing, it's lifted over the sill or the fence and down again.
+		var lift := sin(climbs[i] * PI) * CLIMB_LIFT if climbs[i] >= 0.0 else 0.0
+		actors[i].position = Vector3(where[i].x + 0.5, lift, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
 		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
@@ -1002,7 +1009,8 @@ func _read_events() -> void:
 			DOOR:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
-					hud.say("You opened the door." if extra == 1 else "You shut the door.")
+					var what := "window" if extra & 2 else "door"
+					hud.say(("You opened the %s." if extra & 1 else "You shut the %s.") % what)
 			EXHAUSTED:
 				if who == me:
 					hud.say("You're out of breath.")
@@ -1059,6 +1067,12 @@ func _read_events() -> void:
 			TOOK_OFF:
 				if who == me:
 					hud.say("You take off the %s." % _item_name(extra))
+			CLIMBED:
+				# One of the dead that tumbles over is a free blow while it's down: say so when
+				# you see it, now and then.
+				if who != me and extra & 2 and _seen(who) and played - tumbled_at > 10.0:
+					tumbled_at = played
+					hud.say("%s tumbles in over the %s. Finish it while it's down!" % [_a(who), "sill" if extra & 1 else "fence"])
 			BANDAGED:
 				if who == me:
 					hud.say("You bandaged your %s." % part_names[extra])

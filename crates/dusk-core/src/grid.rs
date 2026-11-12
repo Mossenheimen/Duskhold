@@ -88,12 +88,13 @@ pub enum Edge {
         open: bool,
         boards: u8,
     },
-    /// Nobody climbs through a window yet. A boarded one can't be seen through.
+    /// Climbed through when it's open and has no boards on it (`climb.rs`). A boarded one can't
+    /// be seen through.
     Window {
         open: bool,
         boards: u8,
     },
-    /// Stops walking (climbing comes later), but not sight or sound.
+    /// Stops walking, but not sight or sound: it's climbed over (`climb.rs`).
     Fence,
 }
 
@@ -113,6 +114,19 @@ impl Edge {
     /// Can you walk through it?
     pub fn walkable(self) -> bool {
         matches!(self, Edge::Open | Edge::Door { open: true, .. })
+    }
+
+    /// Can you climb through it or over it (`climb.rs`)? An open window with no boards across
+    /// it, and a fence.
+    pub fn climbable(self) -> bool {
+        matches!(
+            self,
+            Edge::Fence
+                | Edge::Window {
+                    open: true,
+                    boards: 0
+                }
+        )
     }
 
     /// Does it stop sight? Walls, shut doors and boards do; glass doesn't.
@@ -202,8 +216,9 @@ pub struct Grid {
     /// Which chunk is where, over the box the chunks cover.
     dense: Dense,
     /// From `index_steps` on: for each chunk (by its place in `store`), each tile's open steps,
-    /// a bit for each of `Dir8::ALL` (`steps_from`). Kept up to date as the grid changes.
-    steps: Option<Vec<Vec<u8>>>,
+    /// a bit for each of `Dir8::ALL` (`steps_from`), and above them its climbs (`climbs_from`).
+    /// Kept up to date as the grid changes.
+    steps: Option<Vec<Vec<u16>>>,
     /// Whether changes are being tracked (from `track_changes` on), and the chunks changed
     /// since: what a save keeps, the rest coming back from the seed.
     tracking: bool,
@@ -423,22 +438,40 @@ impl Grid {
         }
     }
 
-    /// A tile's open steps, worked out from the tiles and edges round it.
-    fn work_out_steps(&self, p: TilePos) -> u8 {
+    /// A tile's open steps, and its climbs a byte above, worked out from the tiles and edges
+    /// round it.
+    fn work_out_steps(&self, p: TilePos) -> u16 {
         if !self.tile(p).walkable() {
             return 0;
         }
-        Dir8::ALL
-            .iter()
-            .enumerate()
-            .filter(|&(_, &d)| self.can_step(p, d))
-            .fold(0, |bits, (k, _)| bits | 1 << k)
+        Dir8::ALL.iter().enumerate().fold(0, |bits, (k, &d)| {
+            if self.can_step(p, d) {
+                bits | 1 << k
+            } else if self.can_climb(p, d) {
+                bits | 1 << (k + 8)
+            } else {
+                bits
+            }
+        })
     }
 
     /// Which steps from a tile are open: bit k for `Dir8::ALL[k]`, as `can_step` answers for
     /// each. Nothing from a tile nobody can stand on.
     #[inline]
     pub fn steps_from(&self, p: TilePos) -> u8 {
+        self.ways_from(p) as u8
+    }
+
+    /// Which steps from a tile are climbs, as `can_climb` answers for each: bit k for
+    /// `Dir8::ALL[k]` (only the four straight ones ever are).
+    #[inline]
+    pub fn climbs_from(&self, p: TilePos) -> u8 {
+        (self.ways_from(p) >> 8) as u8
+    }
+
+    /// The steps from a tile, and its climbs a byte above: from the cache, else worked out.
+    #[inline]
+    pub(crate) fn ways_from(&self, p: TilePos) -> u16 {
         if let Some(steps) = &self.steps {
             return match (self.slot(p.chunk()), index(p)) {
                 (Some(slot), Some(i)) => steps[slot][i],
@@ -549,6 +582,12 @@ impl Grid {
                     && self.edge(via_b, a).walkable()
             }
         }
+    }
+
+    /// Can an actor climb from `pos` to its neighbour in `dir` (`climb.rs`): through an open
+    /// window, or over a fence? Only straight across: nobody climbs a corner.
+    pub fn can_climb(&self, pos: TilePos, dir: Dir8) -> bool {
+        !dir.is_diagonal() && self.edge(pos, dir).climbable() && self.tile(pos.step(dir)).walkable()
     }
 
     /// How many chunks exist.

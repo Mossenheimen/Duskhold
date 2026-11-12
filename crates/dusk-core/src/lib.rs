@@ -13,6 +13,7 @@ pub mod armour;
 pub mod barricade;
 pub mod body;
 pub mod class;
+pub mod climb;
 mod combat;
 pub mod cooking;
 pub mod craft;

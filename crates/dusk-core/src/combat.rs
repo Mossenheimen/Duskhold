@@ -337,7 +337,7 @@ impl World {
             }
             Intent::Door => {
                 let dir = self.door_beside(a.pos, a.facing)?;
-                // A boarded door stays shut until its boards are off.
+                // A boarded door (or window) stays as it is until its boards are off.
                 if self.grid.edge(a.pos, dir).boards() > 0 {
                     return None;
                 }
@@ -426,8 +426,8 @@ impl World {
             .then_some(other)
     }
 
-    /// The side of a tile with a door: the one faced (or, facing a diagonal, either of its
-    /// sides), else the first of north, east, south and west.
+    /// The side of a tile with a door or a window: the one faced (or, facing a diagonal, either
+    /// of its sides), else the first of north, east, south and west.
     fn door_beside(&self, pos: TilePos, facing: Dir8) -> Option<Dir8> {
         let faced = match facing.split() {
             Some((a, b)) => [Some(a), Some(b)],
@@ -437,7 +437,12 @@ impl World {
             .into_iter()
             .flatten()
             .chain([Dir8::N, Dir8::E, Dir8::S, Dir8::W])
-            .find(|&d| matches!(self.grid.edge(pos, d), Edge::Door { .. }))
+            .find(|&d| {
+                matches!(
+                    self.grid.edge(pos, d),
+                    Edge::Door { .. } | Edge::Window { .. }
+                )
+            })
     }
 
     /// A blow during the wind-up breaks it off.
@@ -753,15 +758,17 @@ impl World {
         });
     }
 
-    /// Opens or shuts the door on that side. It won't shut on someone stepping through, and a
-    /// boarded one doesn't open.
+    /// Opens or shuts the door (or the window) on that side. It won't shut on someone stepping
+    /// or climbing through, and a boarded one stays as it is.
     fn toggle_door(&mut self, id: ActorId, dir: Dir8) {
         let c = self.rules.combat;
         let Some(pos) = self.actors.get(id).map(|a| a.pos) else {
             return;
         };
-        let Edge::Door { open, boards: 0 } = self.grid.edge(pos, dir) else {
-            return;
+        let (open, turned) = match self.grid.edge(pos, dir) {
+            Edge::Door { open, boards: 0 } => (open, Edge::door(!open)),
+            Edge::Window { open, boards: 0 } => (open, Edge::window(!open)),
+            _ => return,
         };
         let other = pos.step(dir);
         let crossing = self.actors.iter().any(|(_, a)| {
@@ -772,7 +779,7 @@ impl World {
         if open && crossing {
             return;
         }
-        self.grid.set_edge(pos, dir, Edge::door(!open));
+        self.grid.set_edge(pos, dir, turned);
         self.emit(Sound {
             at: pos,
             loudness: c.door_noise,

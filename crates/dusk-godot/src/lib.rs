@@ -152,6 +152,7 @@ const REGREW: i32 = 98;
 const GLANCED: i32 = 99;
 const WORE: i32 = 100;
 const TOOK_OFF: i32 = 101;
+const CLIMBED: i32 = 102;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -252,9 +253,22 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             (SHOVED, Some(who), Some(target), at(target), i32::from(down))
         }
         Event::Died { who } => (DIED, Some(who), None, at(who), 0),
+        // 1 if it's open now, plus 2 for a window.
         Event::Door {
-            who, at: p, open, ..
-        } => (DOOR, Some(who), None, (p.x, p.y), i32::from(open)),
+            who,
+            at: p,
+            side: s,
+            open,
+        } => {
+            let window = matches!(world.grid.edge(p, s), Edge::Window { .. });
+            (
+                DOOR,
+                Some(who),
+                None,
+                (p.x, p.y),
+                i32::from(open) + 2 * i32::from(window),
+            )
+        }
         Event::Exhausted { who } => (EXHAUSTED, Some(who), None, at(who), 0),
         Event::Grabbed { who, target } => (GRABBED, Some(who), Some(target), at(target), 0),
         Event::Freed { who, from } => (FREED, Some(who), Some(from), at(who), 0),
@@ -512,6 +526,19 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::Wore { who, item } => (WORE, Some(who), None, at(who), i32::from(item)),
         Event::TookOff { who, item } => (TOOK_OFF, Some(who), None, at(who), i32::from(item)),
+        // 1 through a window (else over a fence), plus 2 if it tumbled over and lies there.
+        Event::Climbed {
+            who,
+            to,
+            window,
+            fell,
+        } => (
+            CLIMBED,
+            Some(who),
+            None,
+            (to.x, to.y),
+            i32::from(window) + 2 * i32::from(fell),
+        ),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -909,6 +936,20 @@ impl DuskWorld {
             .iter()
             .flat_map(|w| w.actors())
             .map(|(_, a)| a.facing as i32)
+            .collect()
+    }
+
+    /// How far each actor is through a climb (`climb.rs`), from 0 to 1, or -1 when it isn't
+    /// climbing: the client lifts it over the sill or the fence.
+    #[func]
+    fn actor_climbs(&self) -> PackedFloat32Array {
+        self.world
+            .iter()
+            .flat_map(|w| w.actors())
+            .map(|(_, a)| match a.step {
+                Some(s) if s.climb => (s.progress as f32 / s.length.max(1) as f32).min(1.0),
+                _ => -1.0,
+            })
             .collect()
     }
 

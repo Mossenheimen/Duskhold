@@ -304,6 +304,9 @@ pub struct Step {
     pub run: bool,
     /// Into shallows: slow going, and a splash (`Rules::shallows`). Settled as the step starts.
     pub wade: bool,
+    /// Through a window or over a fence (`climb.rs`): `progress` counts ticks, and `length` is
+    /// the climb's.
+    pub climb: bool,
 }
 
 /// A creature's thoughts.

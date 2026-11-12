@@ -83,6 +83,12 @@ pub struct Creature {
     /// The armour one of its kind wears (`armour.rs`), by item number: a wight's barrow mail.
     /// It turns blows as yours does, and it's left where it falls, a find.
     pub wears: Option<u16>,
+    /// How long one of its kind takes to climb through an open window or over a fence
+    /// (`climb.rs`), per mille of a character's time (0: it never climbs). It climbs only after
+    /// something.
+    pub climb: u32,
+    /// It tumbles over what it climbs and lies on the far side for its `down` time.
+    pub tumble: bool,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -151,6 +157,8 @@ impl Default for Creature {
             wild: false,
             turned: 1000,
             wears: None,
+            climb: 0,
+            tumble: false,
         }
     }
 }

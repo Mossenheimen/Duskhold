@@ -477,10 +477,20 @@ fn describe(w: &World, e: Event) -> String {
             if down { " down" } else { "" }
         ),
         Event::Died { who } => format!("{} died", name(who)),
-        Event::Door { who, open, .. } => format!(
-            "{} {} a door",
+        Event::Door {
+            who,
+            at,
+            side,
+            open,
+        } => format!(
+            "{} {} a {}",
             name(who),
-            if open { "opened" } else { "shut" }
+            if open { "opened" } else { "shut" },
+            if matches!(w.grid.edge(at, side), Edge::Window { .. }) {
+                "window"
+            } else {
+                "door"
+            }
         ),
         Event::Exhausted { who } => format!("{} ran out of breath", name(who)),
         Event::Grabbed { who, target } => format!("{} took hold of {}", name(who), name(target)),
@@ -778,6 +788,23 @@ fn describe(w: &World, e: Event) -> String {
         ),
         Event::Wore { who, item } => format!("{} put on item {item}", name(who)),
         Event::TookOff { who, item } => format!("{} took off item {item}", name(who)),
+        Event::Climbed {
+            who,
+            to,
+            window,
+            fell,
+        } => format!(
+            "{} climbed {} onto ({}, {}){}",
+            name(who),
+            if window {
+                "through a window"
+            } else {
+                "over a fence"
+            },
+            to.x,
+            to.y,
+            if fell { " and fell" } else { "" }
+        ),
     }
 }
 

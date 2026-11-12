@@ -312,6 +312,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 - **Movement:**
   - walk, run, sneak;
   - climb fences, windows and low walls (a timed action that costs endurance);
+    - *(built 2026-11-12)* **Climbing:** walk straight into an open window or a fence and you climb it: 1.6 seconds through a window, 1 over a fence, a vault in 0.6 running at one, each second costing breath as running does and ending in a scrape the dead can hear. E opens and shuts a window as it does a door; a boarded one can't be climbed. The dead climb too, but only after something: a shambler takes two and a half times as long and tumbles in, lying there long enough to finish, while a ghoul comes over as quick as you, on its feet. Wolves and deer don't climb. So an open window is a way out of a house the dead are beating in, and a way in for them: shut it behind you;
   - vault;
   - later, swim.
 - **The ground matters:**
