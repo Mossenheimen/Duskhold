@@ -70,6 +70,7 @@ impl World {
                 ActionKind::Use { slot, def } => self.use_item(id, slot, def),
                 ActionKind::Wield { slot, def } => self.wield(id, slot, def),
                 ActionKind::Unwield => self.unwield(id),
+                ActionKind::Unshield => self.unshield(id),
                 ActionKind::Sleep => self.fall_asleep(id),
                 ActionKind::DrinkWater => self.drink_water(id),
                 ActionKind::Light { slot, def } => self.hold_light(id, slot, def),
@@ -143,6 +144,10 @@ impl World {
             Intent::Unwield => {
                 a.hands?;
                 (ActionKind::Unwield, a.facing, self.defs.unwield_time, 0, 0)
+            }
+            Intent::Unshield => {
+                a.shield?;
+                (ActionKind::Unshield, a.facing, self.defs.unwield_time, 0, 0)
             }
             Intent::Light { slot, def } => {
                 let ticks = self.light_ticks(id, slot, def)?;
@@ -427,6 +432,11 @@ impl World {
             self.events.push(Event::Missed { who: id, at });
             return;
         }
+        // Braced behind a shield, the living may block a blow from ahead (`shield.rs`).
+        if matches!(kind, ActorKind::Creature(_)) && self.blocks(target, id) {
+            self.block(target, id);
+            return;
+        }
         let (damage, wound) = match kind {
             ActorKind::Character => {
                 let (lo, hi) = swing.damage;
@@ -622,7 +632,17 @@ impl World {
         let down = below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,
-        ) < (c.knock_down as i32 + self.knock_down_bonus(id)).max(0) as u32;
+        ) < (c.knock_down as i32 + self.knock_down_bonus(id) + self.bash_bonus(id))
+            .max(0) as u32;
+        // With a shield on the arm it's a bash, and it teaches Shield (`shield.rs`).
+        if self.guard(id).is_some() {
+            self.train(
+                id,
+                Skill::Shield,
+                self.rules.skills.shield,
+                crate::skills::On::Foe(target),
+            );
+        }
         // A shove breaks a hold.
         self.release(target);
         // How long one of its kind stays down.

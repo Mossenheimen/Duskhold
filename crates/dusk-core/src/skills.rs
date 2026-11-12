@@ -36,10 +36,12 @@ pub enum Skill {
     Carpentry,
     /// Sneaking, and the sneak attack (`stealth.rs`).
     Stealth,
+    /// Blocking and bashing with a shield (`shield.rs`).
+    Shield,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 8;
+pub const SKILLS: usize = 9;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -51,6 +53,7 @@ impl Skill {
         Skill::FirstAid,
         Skill::Carpentry,
         Skill::Stealth,
+        Skill::Shield,
     ];
 
     pub fn name(self) -> &'static str {
@@ -63,6 +66,7 @@ impl Skill {
             Skill::FirstAid => "First Aid",
             Skill::Carpentry => "Carpentry",
             Skill::Stealth => "Stealth",
+            Skill::Shield => "Shield",
         }
     }
 
@@ -77,6 +81,7 @@ impl Skill {
             Skill::FirstAid => "first_aid",
             Skill::Carpentry => "carpentry",
             Skill::Stealth => "stealth",
+            Skill::Shield => "shield",
         }
     }
 
@@ -143,6 +148,10 @@ pub struct SkillRules {
     pub sneak_attack: u32,
     pub sneak_pace: u32,
     pub sneak_harm: u32,
+    /// Shield (`shield.rs`): XP for a block or a bash, and a level adds `shield_block` to a
+    /// shield's chance to block (out of 10,000).
+    pub shield: u32,
+    pub shield_block: u32,
 }
 
 impl Default for SkillRules {
@@ -179,6 +188,8 @@ impl Default for SkillRules {
             sneak_attack: 3000,
             sneak_pace: 30,
             sneak_harm: 100,
+            shield: 1500,
+            shield_block: 300,
         }
     }
 }

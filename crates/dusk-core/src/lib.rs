@@ -38,6 +38,7 @@ pub mod remains;
 #[cfg(feature = "save")]
 pub mod save;
 pub mod senses;
+pub mod shield;
 pub mod skills;
 pub mod stealth;
 pub mod text;

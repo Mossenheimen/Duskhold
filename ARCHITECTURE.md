@@ -1193,6 +1193,18 @@ Game first: every step ends with something to look at or play.
          - by tests: sneaking is slower, quieter and never a run; at 6 tiles a shambler sees you standing and not sneaking; a blow from behind on one unaware does 300 and teaches Stealth, while the same blow on one that sees all round does 100 and teaches nothing; sneaking past the dead unseen teaches Stealth and walking doesn't; the data's numbers;
          - on screen: a picture by day outside the abbey shows the Sneaking moodle, the crouch, Ctrl in the controls and the new title, with the cobbled road, patchy grass and leafy crowns of the last slice in daylight;
        - **measured:** about 215k ticks a second (from about 217k).
+     - **Shields** (2026-11-11; 244 tests pass):
+       - **a new kind of item** (`ItemKind::Shield(Guard)`, `shield.rs`; an item's `shield = { block, endurance, wear, bash }`), carried on the off arm (`Actor::shield`), where a light would be held up. Taking one up puts out the light you held, into the pack; holding up a light puts the shield in the pack (`Intent::Unshield` puts it away). It weighs in your load and falls with your gear;
+       - **bracing** (`World::brace`, `Actor::bracing`; Alt, held) is a stance: 60% of your pace (`rules.toml`'s `[shield]`) and no running. A blow from the half you face may be blocked by the shield's chance, more with Shield (`blocks`, its own roll, `Purpose::Block`). A blocked blow does nothing, no wound and no hold, but costs the shield's breath and wears it, and at nothing it breaks (`Event::Blocked`, `WeaponBroke`). Held, nothing's blocked;
+       - **a bash:** a shove with a shield on your arm adds the shield's `bash` to its chance to knock down;
+       - **Shield** (`Skill::Shield`, the ninth skill): learnt from blocks and bashes, and a level adds 3% to a shield's chance to block;
+       - **the shields:** a wooden buckler (blocks half, wears 4 a block, bashes +15%), made from 2 planks and 8 nails with a hammer, or found in sheds; and a heater shield (70%, wears 1.5, +25%), iron-rimmed oak from the tombs' grave goods. It isn't on the smithy's racks: they're promised a weapon, and the test that holds them to it would have caught a shield;
+       - **the save format** is version 19 (the arm's shield, the stance, and a skill more);
+       - **the client:** "Take up" in the pack for a shield, its line on your arm with "Put away", Alt held to brace (and a word if there's no shield), a Bracing moodle, news of a block (at most every 3 seconds) and of taking one up; `--do` learns `shield` and `brace`;
+       - **checked:**
+         - by tests: a shield and a light share the arm, each putting the other away; braced, blows from ahead are all blocked, for breath (the least of it while blocking, since it comes back between blows) and wear, while unbraced, or facing away, they land; a shield blocking its last block breaks; a shove that never knocks down does with a shield's bash; bracing is slower and never a run; the data's shields, the buckler's recipe and the numbers;
+         - on screen, with a buckler added to the kit in a scratch copy of the data: a picture by day on the road outside the abbey shows the Bracing moodle and the buckler on the arm in the pack panel. It caught the news saying "in hand" for a shield, now "on your arm";
+       - **measured:** about 217k ticks a second, as before.
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

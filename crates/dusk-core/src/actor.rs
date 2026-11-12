@@ -100,6 +100,8 @@ pub enum Intent {
     Tend,
     /// Put out the fire beside you: what fuel's left stays in it.
     Smother,
+    /// Put the shield on your arm into your pack (`shield.rs`).
+    Unshield,
     /// Make what recipe `recipe` makes (`craft.rs`), from what you carry.
     Craft { recipe: u16 },
     /// Break the furniture beside you down for planks, with a hammer or an axe.
@@ -172,6 +174,8 @@ pub enum ActionKind {
     Smother {
         at: TilePos,
     },
+    /// Putting the shield away.
+    Unshield,
     /// Making something, and breaking the furniture on `at` down.
     Craft {
         recipe: u16,
@@ -356,6 +360,9 @@ pub struct Actor {
     pub winded: bool,
     /// Sneaking: a stance (`stealth.rs`).
     pub sneaking: bool,
+    /// The shield on the off arm, and bracing behind it: a stance (`shield.rs`).
+    pub shield: Option<Item>,
+    pub bracing: bool,
 }
 
 impl Actor {
@@ -403,6 +410,8 @@ impl Actor {
             talents: Vec::new(),
             winded: false,
             sneaking: false,
+            shield: None,
+            bracing: false,
         }
     }
 

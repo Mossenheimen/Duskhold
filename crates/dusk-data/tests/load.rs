@@ -1299,3 +1299,34 @@ fn sneaking_and_stealth_load_in_the_cores_units() {
         .unwrap();
     assert_eq!(shambler.stats.sight * s.seen as i32 / 1000, 4);
 }
+
+#[test]
+fn shields_load_and_a_buckler_can_be_made_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let guard = |id: &str| match d.items.iter().find(|i| i.id == id).unwrap().kind {
+        dusk_core::ItemKind::Shield(g) => g,
+        _ => panic!("{id} isn't a shield"),
+    };
+    let (buckler, heater) = (guard("buckler"), guard("heater_shield"));
+    assert_eq!(
+        (buckler.block, buckler.endurance, buckler.wear, buckler.bash),
+        (5000, 60, 40, 1500)
+    );
+    assert!(
+        heater.block > buckler.block && heater.wear < buckler.wear,
+        "the old shield's better"
+    );
+    let recipe = d.recipes.iter().find(|r| r.id == "buckler").unwrap();
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    assert!(recipe.uses.contains(&(item("plank"), 2)) && recipe.tools == vec![item("hammer")]);
+    assert_eq!(data.rules.shield_pace, 600);
+    assert_eq!(
+        (data.rules.skills.shield, data.rules.skills.shield_block),
+        (1500, 300)
+    );
+    assert_eq!(
+        dusk_core::Skill::from_id("shield"),
+        Some(dusk_core::Skill::Shield)
+    );
+}

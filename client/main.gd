@@ -11,7 +11,7 @@ extends Node3D
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
-## water), light, skills (the panel), board or unboard S real seconds in;
+## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace S real seconds in;
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -123,6 +123,7 @@ const RESISTED := 79
 const CRAFTED := 80
 const BROKE_DOWN := 81
 const SNEAK_ATTACK := 83
+const BLOCKED := 85
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -183,6 +184,7 @@ var recipe_texts := PackedStringArray()  # two lines a recipe (DuskWorld.recipe_
 var dread_told := {}  # when the news last told each level of dread, in seconds played
 var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
+var blocked_at := -100.0  # when the news last told of a block, in seconds played
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
@@ -473,6 +475,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		craft.toggle()
 	elif event.is_action_pressed("sneak") and not dead:
 		dusk.set_sneaking(not dusk.is_sneaking())
+	elif event.is_action_pressed("brace") and not dead:
+		_brace(true)
+	elif event.is_action_released("brace"):
+		_brace(false)
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -824,7 +830,10 @@ func _read_events() -> void:
 					hud.say("You dropped %s." % _items(extra))
 			WIELDED:
 				if who == me:
-					hud.say("You took the %s in hand." % _item_name(extra))
+					var kinds: PackedInt32Array = dusk.item_kinds()
+					var shield := extra < kinds.size() and kinds[extra] == 8
+					hud.say(("You took up the %s on your arm. Hold Alt to brace behind it." if shield
+						else "You took the %s in hand.") % _item_name(extra))
 			WEAPON_BROKE:
 				if who == me:
 					hud.say("Your %s broke!" % _item_name(extra))
@@ -988,6 +997,10 @@ func _read_events() -> void:
 			RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
+			BLOCKED:
+				if who == me and played - blocked_at > 3.0:
+					blocked_at = played
+					hud.say("You take the blow on your shield.")
 			SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
@@ -1043,6 +1056,14 @@ func _read_events() -> void:
 						hud.say("The blow shatters bone!")
 					else:
 						hud.say("Your blow glances off the bones. Something blunt would shatter them.")
+
+
+## Alt, held: brace behind your shield (none on your arm, and the news says so).
+func _brace(on: bool) -> void:
+	if on and dusk.character_shield().size() < 2:
+		hud.say("You've no shield on your arm to brace behind. Take one up (Tab).")
+		return
+	dusk.set_bracing(on)
 
 
 ## Your dread reached a new level (the core's DREAD news): told as it rises, and when it lets go.
@@ -1384,6 +1405,7 @@ func _add_input_actions() -> void:
 		"smother_fire": [KEY_J],
 		"craft": [KEY_T],
 		"sneak": [KEY_CTRL],
+		"brace": [KEY_ALT],
 		"restart": [KEY_R],
 		"save": [KEY_F5],
 		"quit": [KEY_ESCAPE],
@@ -1472,6 +1494,15 @@ func _run_script() -> void:
 				dusk.break_down()
 			"sneak":
 				dusk.set_sneaking(not dusk.is_sneaking())
+			"shield":  # take up the first shield in the pack
+				var items: PackedInt32Array = dusk.character_items()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(0, items.size() - 3, 4):
+					if items[k] < kinds.size() and kinds[items[k]] == 8:
+						dusk.wield(k / 4, items[k])
+						break
+			"brace":
+				_brace(true)
 			"save":
 				_save("Saved.")
 			"board":

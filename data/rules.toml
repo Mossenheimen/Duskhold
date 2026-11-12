@@ -167,6 +167,7 @@ bandage = 3.0         # a bandage on a wound that's bleeding (First Aid)
 board = 2.0           # a board nailed across a door or window (Carpentry); the same one pays less
 sneak = 0.3           # a tile sneaked with the dead near and none after you (Stealth)
 sneak_attack = 3.0    # a sneak attack that lands (Stealth)
+shield = 1.5          # a blow blocked, or a shove with a shield on your arm (Shield)
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -181,6 +182,7 @@ board_time = 0.05     # Carpentry: boarding up takes less time...
 board_strength = 0.1  # ...and the boards take more beating
 sneak_pace = 0.03     # Stealth: quicker sneaking...
 sneak_harm = 0.1      # ...and sneak attacks that do more harm
+shield_block = 0.03   # Shield: a shield blocks this much more often
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where
@@ -271,6 +273,12 @@ noise = 0.4           # of your footsteps' reach
 seen = 0.5            # of how far off the dead see you
 harm = 3.0            # a sneak attack's harm, times a blow's
 near = 8              # tiles: a sneaked tile teaches Stealth with the dead this near
+
+[shield]
+# A shield (items/weapons.toml) is carried on the off arm, where a light would be. Holding Alt you
+# brace behind it: slower, no running, and a blow from ahead may be blocked (no wound, no hold), for
+# breath and wear. A shove with a shield on your arm is a bash: it knocks down more often.
+pace = 0.6            # what's left of your pace, bracing
 
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt

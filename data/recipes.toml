@@ -20,6 +20,15 @@ skill = "carpentry"
 xp = 1.5
 
 [[recipe]]
+id = "buckler"        # two planks nailed in a round: a shield of a kind
+makes = "buckler"
+uses = { plank = 2, nails = 8 }
+tools = ["hammer"]
+time = 15.0
+skill = "carpentry"
+xp = 2.0
+
+[[recipe]]
 id = "spiked_club"    # nails hammered through a cudgel's head: blunt, and it bites
 makes = "spiked_club"
 uses = { cudgel = 1, nails = 6 }

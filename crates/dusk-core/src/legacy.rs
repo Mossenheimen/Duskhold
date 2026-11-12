@@ -92,6 +92,7 @@ impl World {
         };
         let mut gear: Vec<Item> = a.hands.take().into_iter().collect();
         gear.extend(a.light.take());
+        gear.extend(a.shield.take());
         gear.append(&mut a.items);
         gear
     }

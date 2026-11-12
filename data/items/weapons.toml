@@ -112,3 +112,23 @@ weight = 1.4
 stack = 1
 # A cudgel with nails through its head: between the cudgel and the mace, and blunt for bone.
 weapon = { wind_up = 0.45, recovery = 0.65, endurance = 10, hit = 0.85, damage = [11, 16], noise = 6, wear = 1.0, skill = "blunt" }
+
+# Shields, on the off arm where a light would be (shield.rs in the core): block is the chance a blow
+# from ahead is blocked while you brace (Alt), endurance the breath a block costs, wear what a block
+# takes off it (out of 100), bash what it adds to a shove's chance to knock down.
+
+[[item]]
+id = "buckler"
+name = "wooden buckler"
+weight = 2.5
+worth = 3
+stack = 1
+shield = { block = 0.5, endurance = 6, wear = 4.0, bash = 0.15 }
+
+[[item]]
+id = "heater_shield"
+name = "heater shield"
+weight = 4.5
+worth = 15
+stack = 1
+shield = { block = 0.7, endurance = 5, wear = 1.5, bash = 0.25 }   # iron-rimmed oak, from the tombs

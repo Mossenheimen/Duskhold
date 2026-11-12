@@ -467,9 +467,19 @@ struct RulesFile {
     /// Optional: with no [sneak], sneaking uses the core's defaults.
     #[serde(default)]
     sneak: Option<stealth::SneakFile>,
+    /// Optional: with no [shield], bracing uses the core's default pace.
+    #[serde(default)]
+    shield: Option<ShieldRulesFile>,
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,
+}
+
+/// rules.toml's [shield]: what's left of your pace bracing behind one.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShieldRulesFile {
+    pace: f64,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -1029,6 +1039,12 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(d) = &r.dread {
         rules.dread = dread::to_dread(file, d)?;
+    }
+    if let Some(s) = &r.shield {
+        if !(s.pace > 0.0 && s.pace <= 1.0) {
+            return Err(fail(file, "shield.pace is a share above 0 and at most 1"));
+        }
+        rules.shield_pace = (s.pace * 1000.0).round() as u32;
     }
     if let Some(s) = &r.sneak {
         rules.sneak = stealth::to_sneak(file, s)?;

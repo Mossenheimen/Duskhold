@@ -45,6 +45,9 @@ struct ItemFile {
     light: Option<LightFile>,
     #[serde(default)]
     cure: Option<CureFile>,
+    /// A shield, carried on the off arm (`shield.rs` in the core).
+    #[serde(default)]
+    shield: Option<ShieldFile>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -70,6 +73,33 @@ struct WeaponFile {
     noise: i32,
     wear: f64,
     skill: String,
+}
+
+/// A shield: the chance it blocks a blow from ahead while you brace, the breath a block costs
+/// (points), the condition a block takes off it (out of 100), and what it adds to a shove's
+/// chance to knock down.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShieldFile {
+    block: f64,
+    endurance: f64,
+    wear: f64,
+    bash: f64,
+}
+
+fn shield(file: &Path, id: &str, s: &ShieldFile) -> Result<ItemKind, DataError> {
+    if s.endurance < 0.0 || !(0.0..=100.0).contains(&s.wear) {
+        return Err(fail(
+            file,
+            format!("item {id:?}: a shield's endurance is 0 or more, and its wear out of 100"),
+        ));
+    }
+    Ok(ItemKind::Shield(dusk_core::shield::Guard {
+        block: chance(file, &format!("item {id:?}: shield.block"), s.block)?,
+        endurance: points(s.endurance),
+        wear: (s.wear * 10.0).round() as u16,
+        bash: chance(file, &format!("item {id:?}: shield.bash"), s.bash)?,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -264,12 +294,13 @@ pub(crate) fn load_defs(
                 i.light.is_some(),
                 i.cure.is_some(),
                 i.oil,
+                i.shield.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure and oil",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil and shield",
                         i.id
                     ),
                 ));
@@ -307,6 +338,8 @@ pub(crate) fn load_defs(
                 ItemKind::Cure {
                     time: (time as u32).max(1),
                 }
+            } else if let Some(s) = &i.shield {
+                shield(&file, &i.id, s)?
             } else if i.oil {
                 ItemKind::Oil
             } else {

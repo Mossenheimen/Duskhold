@@ -180,6 +180,11 @@ impl World {
             a.items.insert(slot, rest);
             item.count = 1;
         }
+        // The off arm holds a light or a shield: the shield goes in the pack (`shield.rs`).
+        if let Some(s) = a.shield.take() {
+            defs.stow(&mut a.items, s);
+            a.bracing = false;
+        }
         if let Some(was) = a.light.replace(item) {
             defs.stow(&mut a.items, was);
         }

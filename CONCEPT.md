@@ -572,6 +572,7 @@ The first playable:
   - *(built 2026-11-11)* **the graveyard and its skeletons:** a fenced graveyard beside the chapel holds 3 to 6 skeletons, the town's old dead, and two tombs of grave goods. Blades glance off bone (a sword does 40%, a spear 30%) and blunt weapons shatter it (150%), so the mace and the hammer have their place. Skeletons see best in the dark of all the dead, but they have no bite, no fever and no groan, and once shattered they stay down;
 - one class (Fighter), perhaps two (+ Cleric);
 - combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;
+  - *(built 2026-11-11)* **shields:** a shield is carried on the off arm, where a light would be, so it's a shield or a torch. Hold Alt to brace: slower, no running, and blows from ahead may be blocked, for breath and wear. A shove with one is a bash that knocks down more often. A wooden buckler can be made from planks and nails; the better heater shield lies in the tombs. Shield, the ninth skill, blocks more often;
   - *(built 2026-11-11)* **sneaking:** Ctrl to sneak: half pace, no running, footsteps carrying less than half as far, and the dead see you only from half as far. A blow on one of the dead that's after nothing, from behind it, is a sneak attack: it always lands, for three times the harm. Stealth, the eighth skill, grows by both and makes both better;
 - the senses drawn: noise rings, sight cones and alert states, your light's reach;
 - loot: mostly mundane, a few magic items, identification, weight, containers;

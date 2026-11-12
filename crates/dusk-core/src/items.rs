@@ -69,6 +69,8 @@ pub enum ItemKind {
     Light { radius: i32, wane: u16 },
     /// Poured on a body and set alight, it burns it (`remains.rs`): one a body.
     Oil,
+    /// Carried on the off arm, it blocks blows while you brace, and bashes (`shield.rs`).
+    Shield(crate::shield::Guard),
     /// Everything else: materials, junk.
     Other,
 }
@@ -415,6 +417,7 @@ impl World {
                 .iter()
                 .chain(&a.hands)
                 .chain(&a.light)
+                .chain(&a.shield)
                 .map(|i| self.defs.weight(i))
                 .sum()
         })
@@ -560,12 +563,34 @@ impl World {
             a.items.insert(slot, rest);
             item.count = 1;
         }
+        // A shield goes on the off arm, and the light held there goes out, into the pack.
+        if matches!(defs.item(def).map(|d| &d.kind), Some(ItemKind::Shield(_))) {
+            if let Some(was) = a.shield.replace(item) {
+                defs.stow(&mut a.items, was);
+            }
+            if let Some(lit) = a.light.take() {
+                defs.stow(&mut a.items, lit);
+            }
+            self.events.push(Event::Wielded { who: id, item: def });
+            return;
+        }
         if let Some(was) = a.hands.replace(item) {
             defs.stow(&mut a.items, was);
         }
         self.events.push(Event::Wielded { who: id, item: def });
         // A curse shows itself now, and the weapon clings.
         self.cling(id);
+    }
+
+    /// Puts the shield on `id`'s arm into the pack.
+    pub(crate) fn unshield(&mut self, id: ActorId) {
+        let defs = self.defs.clone();
+        if let Some(a) = self.actors.get_mut(id)
+            && let Some(s) = a.shield.take()
+        {
+            defs.stow(&mut a.items, s);
+            a.bracing = false;
+        }
     }
 
     /// Puts what's in hand into the pack.
@@ -650,7 +675,7 @@ impl World {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         match (using, &self.defs.item(def)?.kind) {
-            (false, ItemKind::Weapon { .. }) => Some(self.defs.wield_time),
+            (false, ItemKind::Weapon { .. } | ItemKind::Shield(_)) => Some(self.defs.wield_time),
             (true, ItemKind::Bandage { time }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
                 let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
                 Some(self.rules.skills.bandage(*time, level))

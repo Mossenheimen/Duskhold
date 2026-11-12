@@ -43,6 +43,9 @@ struct XpFile {
     sneak: f64,
     #[serde(default)]
     sneak_attack: f64,
+    /// Shield's: a block or a bash (left out: none).
+    #[serde(default)]
+    shield: f64,
 }
 
 /// What a level does, as a share a level.
@@ -63,6 +66,9 @@ struct LevelFile {
     sneak_pace: f64,
     #[serde(default)]
     sneak_harm: f64,
+    /// Shield: a shield's chance to block, added (left out: none).
+    #[serde(default)]
+    shield_block: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -169,5 +175,7 @@ pub(crate) fn to_skills(
         sneak_attack: xp(x.sneak_attack.max(0.0)),
         sneak_pace: mille(l.sneak_pace.clamp(0.0, 0.1)),
         sneak_harm: mille(l.sneak_harm.clamp(0.0, 1.0)),
+        shield: xp(x.shield.max(0.0)),
+        shield_block: (l.shield_block.clamp(0.0, 0.1) * 10_000.0).round() as u32,
     })
 }

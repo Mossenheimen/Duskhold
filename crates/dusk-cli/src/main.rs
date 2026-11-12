@@ -473,6 +473,14 @@ fn describe(w: &World, e: Event) -> String {
         Event::Sneaking { who, on } => {
             format!("{} {}", name(who), if on { "sneaks" } else { "stands up" })
         }
+        Event::Bracing { who, on } => {
+            format!(
+                "{} {}",
+                name(who),
+                if on { "braces" } else { "stops bracing" }
+            )
+        }
+        Event::Blocked { who, by } => format!("{} blocked {}'s blow", name(who), name(by)),
         Event::SneakAttack { who, target } => {
             format!("{} struck {} unawares", name(who), name(target))
         }

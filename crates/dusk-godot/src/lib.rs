@@ -132,6 +132,8 @@ const CRAFTED: i32 = 80;
 const BROKE_DOWN: i32 = 81;
 const SNEAKING: i32 = 82;
 const SNEAK_ATTACK: i32 = 83;
+const BRACING: i32 = 84;
+const BLOCKED: i32 = 85;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -385,6 +387,8 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Dread { who, level } => (DREAD, Some(who), None, at(who), i32::from(level)),
         Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
         Event::Sneaking { who, on } => (SNEAKING, Some(who), None, at(who), i32::from(on)),
+        Event::Bracing { who, on } => (BRACING, Some(who), None, at(who), i32::from(on)),
+        Event::Blocked { who, by } => (BLOCKED, Some(who), Some(by), at(who), 0),
         Event::SneakAttack { who, target } => {
             (SNEAK_ATTACK, Some(who), Some(target), at(target), 0)
         }
@@ -945,6 +949,7 @@ impl DuskWorld {
                 ItemKind::Light { .. } => 5,
                 ItemKind::Cure { .. } => 6,
                 ItemKind::Oil => 7,
+                ItemKind::Shield(_) => 8,
             })
             .collect()
     }
@@ -1176,7 +1181,7 @@ impl DuskWorld {
                             }
                         }
                         ActionKind::Wield { .. } => 9,
-                        ActionKind::Unwield => 10,
+                        ActionKind::Unwield | ActionKind::Unshield => 10,
                         ActionKind::Light { .. } => 15,
                         ActionKind::Douse => 16,
                         ActionKind::Sleep => 11,
@@ -2151,6 +2156,38 @@ impl DuskWorld {
     #[func]
     fn break_down(&mut self) {
         self.act(Intent::BreakDown);
+    }
+
+    /// The shield on your arm: [its definition number, its condition (out of 1000)], or nothing.
+    #[func]
+    fn character_shield(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let shield = world
+            .character()
+            .and_then(|id| world.actor(id))
+            .and_then(|a| a.shield);
+        match shield {
+            Some(s) => PackedInt32Array::from(&[i32::from(s.def), i32::from(s.condition)]),
+            None => PackedInt32Array::new(),
+        }
+    }
+
+    /// Braces behind your shield, or stops (`shield.rs`).
+    #[func]
+    fn set_bracing(&mut self, on: bool) {
+        if let Some(world) = self.world.as_mut()
+            && let Some(me) = world.character()
+        {
+            world.brace(me, on);
+        }
+    }
+
+    /// Puts the shield on your arm into your pack.
+    #[func]
+    fn unshield(&mut self) {
+        self.act(Intent::Unshield);
     }
 
     /// Takes up sneaking, or leaves it (`stealth.rs`).

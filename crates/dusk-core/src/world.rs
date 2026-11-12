@@ -78,6 +78,8 @@ pub struct Rules {
     pub injury: Injury,
     /// Sneaking (`stealth.rs`).
     pub sneak: Sneak,
+    /// Bracing behind a shield: what's left of your pace, per mille (`shield.rs`).
+    pub shield_pace: u32,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -304,6 +306,7 @@ impl Default for Rules {
             dread: Dread::default(),
             injury: Injury::default(),
             sneak: Sneak::default(),
+            shield_pace: 600,
         }
     }
 }
@@ -617,6 +620,16 @@ pub enum Event {
     Sneaking {
         who: ActorId,
         on: bool,
+    },
+    /// `who` braced behind its shield (`on`), or stopped (`shield.rs`).
+    Bracing {
+        who: ActorId,
+        on: bool,
+    },
+    /// `who` blocked a blow from `by` with its shield.
+    Blocked {
+        who: ActorId,
+        by: ActorId,
     },
     /// `who` struck `target` unawares: a sneak attack.
     SneakAttack {
@@ -1156,7 +1169,10 @@ impl World {
             let (dir, run) = match next_heading(a, &self.grid, rules.repath_after, path_budget) {
                 // Out of breath or weighed down, nobody runs.
                 // Sneaking, nobody runs either.
-                Heading::Go(dir, run) => (dir, run && !a.body.exhausted && !heavy && !a.sneaking),
+                Heading::Go(dir, run) => (
+                    dir,
+                    run && !a.body.exhausted && !heavy && !a.sneaking && !a.bracing,
+                ),
                 Heading::Stand => {
                     a.carry = 0;
                     return None;

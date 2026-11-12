@@ -20,6 +20,7 @@ const DRINK := 4
 const LIGHT := 5
 const CURE := 6
 const OIL := 7
+const SHIELD := 8
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
@@ -102,7 +103,8 @@ func refresh(busy: bool, dead: bool) -> void:
 	var coins: int = _dusk.coins()
 	var labels: PackedStringArray = _dusk.character_labels()
 	var rarity: PackedInt32Array = _dusk.character_rarity()
-	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity]
+	var shield: PackedInt32Array = _dusk.character_shield()
+	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -181,6 +183,10 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 	if light.size() >= 2:
 		var row := _row(_pack, "Held up: %s, lit (%d%% left)" % [_name(light[0]), roundi(light[1] / 10.0)])
 		_button(row, "Put out", func() -> void: _dusk.douse())
+	var shield: PackedInt32Array = _dusk.character_shield()
+	if shield.size() >= 2:
+		var row := _row(_pack, "On your arm: %s (%d%%)  ·  Alt to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
+		_button(row, "Put away", func() -> void: _dusk.unshield())
 	var slot := -1
 	for i in range(0, items.size(), STACK):
 		slot += 1
@@ -196,6 +202,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		match _kind(def):
 			WEAPON:
 				_button(row, "Wield", func() -> void: _wield(slot, def))
+			SHIELD:
+				_button(row, "Take up", func() -> void: _dusk.wield(slot, def))
 			BANDAGE:
 				_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
 			FOOD:

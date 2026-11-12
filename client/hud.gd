@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G burn a body  ·  C second wind  ·  Tab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G burn a body  ·  C second wind  ·  Tab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -46,6 +46,7 @@ const MOODLES := [
 		["your aim, and how far you see, a little worse  ·  dress it: Tab",
 			"your aim and how far you see, worse  ·  dress it: Tab"], 0],
 	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1],
+	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1],
 ]
 const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
 const RESTFUL := Color(0.6, 0.72, 1.0)
@@ -155,7 +156,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: sneaking\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: shields\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
