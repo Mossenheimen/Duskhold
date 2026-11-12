@@ -1104,6 +1104,31 @@ Game first: every step ends with something to look at or play.
          - by tests: laying the longest-burning fuel first, lighting from a light held up, the fire's reasons why not, what it holds, burning down a minute at a time and going out, putting it out with its fuel kept, lighting its room at night but not through a wall, the dead at night coming to a fire they see through a window (to the tile in front of it), none behind boards and none by day, a Lantern-Eater putting it out; the game's data (fireplaces, logs, fuel, `[fire]`) and nonsense refused; a stove lit in seed 1's patch saved, loaded and burning down the same;
          - in the game: a scripted run in seed 1's farmhouse took three logs from the stove, laid two, lit the torch, lit the fire, put it out and lit it again. A picture at night (21:46, in heavy rain) shows the stove's embers and the kitchen lit round it, its light falling through the doorway. That picture caught the first fire-status line overprinting the level line under the clock, so the status moved to the loot panel. The panel line itself isn't in a picture;
        - **measured:** no change to a tick (about 245k ticks a second with 49 chunks awake); at the Tolling, 47 to 56 of the 56 to 62 dead in reach gather within 15 tiles of the bell (seeds 1 to 3), as before.
+     - **Pain and dread** (2026-11-11; 210 tests pass), the last of the first playable's slices:
+       - **pain** (`dread.rs`, `World::pain`) is worked out from the wounds when asked, so nothing new is kept. A fresh scratch hurts 10 points, a laceration 20, a bite 30 (`rules.toml`'s `[pain]`). A dressed wound hurts half, and each hurts less the nearer it is to closing: its healing still to come over its whole healing time (all of it while it bleeds);
+       - **its moodle:** sore (10) is a warning; in pain (30), everything you do costs a quarter more breath (`endurance_rate`, so swings, shoves and running alike); in agony (60), half as much again, and you can't sleep (`NoSleep::Pain`);
+       - **its treatment is the bandage:** a bandage now goes on the worst wound that's bleeding, else the worst not yet dressed, a scratch that never bled among them. First Aid still learns only from a wound that was bleeding;
+       - **dread** (`Body::dread`, out of 100) moves each game minute toward what the moment is worth (`dread_due`):
+         - 30 for the dark (your tile lit below 25);
+         - 20 for each of the dead within 8 tiles that you see or that's after something, up to three. Seen means a line of sight, lit or not: you know what's there;
+         - 10 for each level of pain;
+         - 10 for each level of hunger past peckish.
+
+         It rises 6 points a game minute and falls 1. Asleep, or on hallowed ground, it ebbs to nothing at 3. So alone in the dark you're uneasy and no worse. A torch or a fire takes the dark's share away, which is how a light steadies you;
+       - **its moodle:**
+         - uneasy (25): your aim shakes, 90% of your chance to hit (`shaken`, in `swing_of`, so the swing the HUD and the bot read is the shaken one);
+         - afraid (50): 80%;
+         - frightened (75): 70%, and you can't step nearer the nearest of the dead you dread (`World::fear`, checked as a character's step starts; `Event::Balked`). You can still back away, go round, and fight what's beside you. It takes three of the dead, or two and your pain, in the dark;
+       - **news:** `Event::Dread` when its level changes;
+       - **the save format** is version 14 (a body's dread);
+       - **the client:**
+         - the two moodles, with what each level does;
+         - dread darkening the screen's edges (`shaders/dread.gdshader`, eased from `DuskWorld::character_dread`), with a throb that quickens as it grows;
+         - the news as dread rises, at most once in 30 seconds for each level, since it hovers at a level's edge as the dead come and go from sight; balking, and pain stopping sleep;
+       - **checked:**
+         - by tests: pain by a wound's kind, halved dressed, fading as it heals; bandages dressing a wound that's stopped bleeding (with no First Aid for it); breath costing a quarter and a half more; no sleep in agony until dressed; dread reaching uneasy alone in the dark and no further, falling under a torch, ebbing asleep and on hallowed ground, fed by hunger; aim at 90% and 80%; frightened among three of the dead at night, balking toward them and backing away; the game's numbers and nonsense refused;
+         - in the game: a night walk from the abbey into the town grew uneasy off hallowed ground, then afraid near the dead. A picture of it at 22:22, in heavy rain, shows the "afraid" news, the uneasy moodle (dread had slipped back under the line) and the new title. Seeing the edges darkened in a night that's already dark isn't something a picture shows well, so the vignette was only seen to load and draw;
+       - **measured:** about 240k ticks a second (from about 245k: each character's dread is a sweep of the actors once a game minute); at the Tolling, 47 to 56 of the 56 to 62 dead in reach still gather within 15 tiles of the bell (seeds 1 to 3).
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

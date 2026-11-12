@@ -8,6 +8,7 @@ use crate::actor::{Actor, ActorId, ActorKind, Intent, Mind, Speeds, Step};
 use crate::arena::Arena;
 use crate::barricade::Barricade;
 use crate::body::{Body, Part, WoundKind};
+use crate::dread::{Dread, Pain};
 use crate::fever::Fever;
 use crate::fire::{Fire, Hearth};
 use crate::geom::{ChunkPos, Dir8, TilePos};
@@ -68,6 +69,9 @@ pub struct Rules {
     pub shallows: Shallows,
     /// A fire in a hearth, a stove or a forge (`fire.rs`).
     pub fire: Fire,
+    /// Pain from wounds, and dread (`dread.rs`).
+    pub pain: Pain,
+    pub dread: Dread,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -290,6 +294,8 @@ impl Default for Rules {
             burning: Burning::default(),
             shallows: Shallows::default(),
             fire: Fire::default(),
+            pain: Pain::default(),
+            dread: Dread::default(),
         }
     }
 }
@@ -582,6 +588,15 @@ pub enum Event {
     SawFire {
         who: ActorId,
         at: TilePos,
+    },
+    /// `who`'s dread reached a new level (`dread.rs`): 0 calm, 1 uneasy, 2 afraid, 3 frightened.
+    Dread {
+        who: ActorId,
+        level: u8,
+    },
+    /// `who`, frightened, couldn't make itself step nearer the dead.
+    Balked {
+        who: ActorId,
     },
     /// `who` bought one of an item at a holdout, for `price` coin (`holdout.rs`).
     Bought {
@@ -1051,6 +1066,7 @@ impl World {
         self.grips();
         self.bodies(&strides);
         self.needs();
+        self.minds();
         self.remains();
         self.press();
         self.toll();
@@ -1074,6 +1090,8 @@ impl World {
             .is_some_and(|a| a.kind == ActorKind::Character && a.step.is_none());
         let held = starting && self.is_held(id);
         let heavy = starting && self.weighed_down(id);
+        // Frightened, a character won't step nearer what it's frightened of (`dread.rs`).
+        let fear = if starting { self.fear(id) } else { None };
         let athletics = self
             .actors
             .get(id)
@@ -1116,6 +1134,12 @@ impl World {
             let to = a.pos.step(dir);
             // Only creatures have a night pace, and none of them steps onto hallowed ground.
             let barred = night_pace.is_some() && crate::holdout::in_hallowed(&self.hallowed, to);
+            if fear.is_some_and(|f| to.dist2(f) < a.pos.dist2(f)) {
+                a.blocked += 1;
+                a.carry = 0;
+                self.events.push(Event::Balked { who: id });
+                return None;
+            }
             if barred || !self.grid.can_step(a.pos, dir) || self.occupied.contains_key(&to) {
                 a.blocked += 1;
                 a.carry = 0;

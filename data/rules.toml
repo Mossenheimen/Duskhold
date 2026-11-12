@@ -218,6 +218,35 @@ lay = 2.0             # seconds to put a piece on
 light = 3.0           # seconds to light it
 smother = 2.0         # seconds to put it out
 
+[pain]
+# Pain comes from wounds: what a fresh one of each kind hurts (points out of 100), less once it's
+# dressed (a bandage on it, bleeding or not), and less the nearer it is to closing ([healing]).
+# In pain, everything you do costs more breath; in agony, more again, and you can't sleep.
+scratch = 10
+laceration = 20
+bite = 30
+dressed = 0.5         # the share a dressed wound still hurts
+levels = [10, 30, 60] # sore, in pain, agony
+cost = [1.25, 1.5]    # in pain, in agony: what endurance costs come to
+
+[dread]
+# Dread, out of 100, moves each game minute toward what the moment is worth: the dark, the dead
+# near you, your pain and your hunger. It rises fast and falls slowly; asleep, or on hallowed
+# ground, it ebbs away. Uneasy, your aim shakes; afraid, more; frightened, most, and you can't
+# make yourself step nearer the dead. A light takes the dark's share away: a torch steadies you.
+dark = 30             # with your tile lit below dark_below (out of 100): alone in the dark, uneasy
+dark_below = 25
+per_dead = 20         # each of the dead within `near` tiles that you see, or that's after something,
+near = 8
+most = 3              # up to this many
+per_pain = 10         # each level of pain
+hungry = 10           # each level of hunger past peckish
+rise = 6.0            # points a game minute up toward it,
+fall = 1.0            # and down from it
+calm = 3.0            # asleep or on hallowed ground: down to nothing at this pace
+levels = [25, 50, 75] # uneasy, afraid, frightened
+aim = [0.9, 0.8, 0.7] # what's left of your chance to hit at each
+
 [shallows]
 # Wading (a river's banks and fords, regions/*.toml [river]): slow going for everyone, the dead
 # too, and a splash carries farther than a footstep. You can drink from it.

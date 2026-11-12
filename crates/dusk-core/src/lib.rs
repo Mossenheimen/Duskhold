@@ -14,6 +14,7 @@ pub mod class;
 mod combat;
 pub mod creature;
 pub mod demo;
+pub mod dread;
 pub mod fever;
 pub mod fire;
 pub mod flow;

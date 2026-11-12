@@ -572,6 +572,7 @@ The first playable:
 - the senses drawn: noise rings, sight cones and alert states, your light's reach;
 - loot: mostly mundane, a few magic items, identification, weight, containers;
 - wounds with clear effects, bandages, a few moodles (hungry, thirsty, tired, bleeding, pain, dread, heavy load), needs that make plans, ghoul fever;
+  - *(built 2026-11-11)* **pain and dread:** pain comes from your wounds (a bite most, a scratch least). It hurts half as much once a bandage is on, bleeding or not, and fades as the wound closes. In pain, everything costs more breath; in agony, more again, and no sleep. Dread rises in the dark, near the dead and with pain and hunger, fast, and falls slowly. A light takes the dark's share away, and sleep or the abbey's hallowed ground let it ebb. Uneasy, then afraid, your aim shakes; frightened, you can't make yourself step nearer the dead, only back away. It darkens the edges of the screen;
 - skills that grow by real use; scavenge by day, hold by night, bring it home for XP; death and the revenant.
 
 Then the Warren Hills, to prove the first pillar (enemies that see and think instead of hear), then classes and spells, holdout quests and events, more regions, dungeons, co-op and PvP.

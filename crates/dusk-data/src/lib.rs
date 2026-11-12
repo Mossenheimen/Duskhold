@@ -7,6 +7,7 @@
 
 mod barricade;
 mod class;
+mod dread;
 mod farm;
 mod fever;
 mod fire;
@@ -421,6 +422,11 @@ struct RulesFile {
     /// Optional: with no [fire], fires use the core's defaults.
     #[serde(default)]
     fire: Option<fire::FireFile>,
+    /// Optional: with no [pain] or [dread], they use the core's defaults.
+    #[serde(default)]
+    pain: Option<dread::PainFile>,
+    #[serde(default)]
+    dread: Option<dread::DreadFile>,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -919,6 +925,12 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(f) = &r.fire {
         rules.fire = fire::to_fire(file, f)?;
+    }
+    if let Some(p) = &r.pain {
+        rules.pain = dread::to_pain(file, p)?;
+    }
+    if let Some(d) = &r.dread {
+        rules.dread = dread::to_dread(file, d)?;
     }
     Ok(rules)
 }

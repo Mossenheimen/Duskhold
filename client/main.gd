@@ -116,6 +116,8 @@ const FIRE_LIT := 73
 const SMOTHERED := 74
 const FIRE_OUT := 75
 const SAW_FIRE := 76
+const DREAD := 77
+const BALKED := 78
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -138,6 +140,8 @@ const ASLEEP := 8
 const FEVER := 9
 ## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
 const SLEEP_SPEED := 60.0
+## Seconds played before the news tells of the same level of dread again.
+const DREAD_TOLD_EVERY := 30.0
 ## Why you woke, by WOKE's extra.
 const WOKE_BY := ["You woke, rested.", "You got up.", "You woke to pain!", "A noise woke you."]
 ## Numbers an event takes.
@@ -168,6 +172,9 @@ var torch: OmniLight3D  # the light you hold up, drawn as a real light with shad
 var fires := {}  # the fires alight in hearths, stoves and forges: Vector2i -> OmniLight3D
 var fixture_names := PackedStringArray()  # by fixture number (DuskWorld.fixture_names())
 var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire, in seconds played
+var dread_was := 0  # your dread's level, as the core last said
+var dread_told := {}  # when the news last told each level of dread, in seconds played
+var balked_at := -100.0  # when the news last said you balked, in seconds played
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
@@ -353,6 +360,7 @@ func _process(delta: float) -> void:
 	_sleep_speed(asleep)
 	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain(), dusk.place())
 	hud.show_moodles(moodles)
+	hud.show_dread(0 if dead else dusk.character_dread(), delta)
 	hud.show_asleep(asleep, clock)
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
@@ -533,6 +541,8 @@ func _sleep_or_wake() -> void:
 			hud.say("You can't sleep with the dead after you.")
 		-3:
 			hud.say("Not with it holding you!")
+		-4:
+			hud.say("You're in too much pain to sleep. Dress your wounds first: a bandage (Tab).")
 		_:
 			dusk.sleep()
 
@@ -988,6 +998,37 @@ func _read_events() -> void:
 						hud.say("%s has seen the firelight, and comes to it." % _a(who))
 					else:
 						hud.say("Something out in the dark has seen the firelight.")
+			DREAD:
+				if who == me:
+					_tell_dread(extra)
+			BALKED:
+				if who == me and played - balked_at > 4.0:
+					balked_at = played
+					hud.say("You can't make yourself go nearer the dead.")
+
+
+## Your dread reached a new level (the core's DREAD news): told as it rises, and when it lets go.
+## It hovers at a level's edge as the dead come and go from sight, so each level is told at most
+## once in DREAD_TOLD_EVERY seconds.
+func _tell_dread(level: int) -> void:
+	var told: float = dread_told.get(level, -100.0)
+	var again := played - told > DREAD_TOLD_EVERY
+	if level != dread_was and again:
+		dread_told[level] = played
+	if level > dread_was and again:
+		match level:
+			1:
+				hud.say("Your nerve slips, and your aim with it. Light, food and rest ease dread.")
+			2:
+				hud.say("You're afraid, and your hands shake. Get into the light.")
+			3:
+				hud.say("You're frightened! You can't make yourself go nearer the dead.")
+				hud.flash()
+	elif level == 0 and again:
+		hud.say("Your nerve steadies.")
+	elif level < dread_was and dread_was == 3 and again:
+		hud.say("The worst of the fear passes.")
+	dread_was = level
 
 
 ## "A shambler", "A ghoul", or a rare's own name: what actor `i` is, for the news.
@@ -1013,6 +1054,7 @@ func _beside(i: int) -> bool:
 ## thirst (the moodles of the frame before).
 func _die() -> void:
 	dead = true
+	dread_was = 0  # the next survivor starts calm
 	var how := last_hurt
 	var starving := _moodle(HUNGRY) >= 3
 	var parched := _moodle(THIRSTY) >= 3

@@ -11,6 +11,7 @@
 //! - **Healing:** fed, watered and not bleeding, health comes back slowly (three times as fast
 //!   asleep), and wounds close once they've had their time.
 //! - **Moodles** say all of this at a glance: Zomboid's column, for the client and later the bot.
+//!   Pain and dread have theirs too (`dread.rs`); in agony, there's no sleep.
 
 use crate::actor::{ActorId, ActorKind, Alert, Intent};
 use crate::geom::{Dir8, TilePos};
@@ -83,8 +84,11 @@ pub enum Moodle {
     HeavyLoad,
     Held,
     Asleep,
-    /// Ghoul fever, by its stage (`fever.rs`). Last, so the others keep their numbers.
+    /// Ghoul fever, by its stage (`fever.rs`). After the others, so they keep their numbers.
     Fever,
+    /// Pain from wounds, and dread (`dread.rs`): after the fever, for the same reason.
+    Pain,
+    Dread,
 }
 
 /// Why someone woke.
@@ -102,6 +106,8 @@ pub enum NoSleep {
     NotTired,
     DeadAbout,
     Held,
+    /// In agony (`dread.rs`): dress the wounds first.
+    Pain,
 }
 
 /// How many of a need's levels a value has reached: 0 to 3.
@@ -142,7 +148,9 @@ impl World {
             (Moodle::Tired, level(b.fatigue, n.fatigue.levels)),
             (Moodle::Injured, hurt),
             (Moodle::Bleeding, bleeding),
+            (Moodle::Pain, self.pain_level(id)),
             (Moodle::Fever, self.fever_stage(id)),
+            (Moodle::Dread, self.dread_level(id)),
             (Moodle::OutOfBreath, u8::from(b.exhausted)),
             (Moodle::HeavyLoad, u8::from(self.weighed_down(id))),
             (Moodle::Held, holders),
@@ -197,6 +205,9 @@ impl World {
         }
         if a.body.fatigue < n.fatigue.levels[0] {
             return Err(NoSleep::NotTired);
+        }
+        if self.pain_level(id) >= 3 {
+            return Err(NoSleep::Pain);
         }
         // On hallowed ground the dead outside can't come in, so they don't keep you awake.
         if self.dead_after(id, n.sleep_clear) && !self.is_hallowed(a.pos) {

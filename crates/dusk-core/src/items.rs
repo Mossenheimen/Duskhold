@@ -426,9 +426,16 @@ impl World {
         self.swing_of(id)
     }
 
-    /// The swing an actor makes: its weapon's, as its skill with it makes it, else bare hands
-    /// (for a creature, its own).
+    /// The swing an actor makes, and a character's as its dread shakes its aim (`dread.rs`).
     pub(crate) fn swing_of(&self, id: ActorId) -> Swing {
+        let mut swing = self.steady_swing(id);
+        swing.hit = self.shaken(id, swing.hit);
+        swing
+    }
+
+    /// The swing an actor makes, steady: its weapon's, as its skill with it makes it, else
+    /// bare hands (for a creature, its own).
+    fn steady_swing(&self, id: ActorId) -> Swing {
         let c = self.rules.combat;
         let Some(a) = self.actors.get(id) else {
             return c.attack;
@@ -562,8 +569,9 @@ impl World {
         }
     }
 
-    /// Uses the item at `slot`: a bandage goes on the worst wound that's bleeding; food is eaten
-    /// and drink drunk; the cure is taken for a fever. One of the stack is used up.
+    /// Uses the item at `slot`: a bandage goes on the worst wound that's bleeding, else the worst
+    /// not yet dressed (a dressed wound hurts less: `dread.rs`); food is eaten and drink drunk;
+    /// the cure is taken for a fever. One of the stack is used up.
     pub(crate) fn use_item(&mut self, id: ActorId, slot: u16, def: u16) {
         let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
@@ -573,17 +581,23 @@ impl World {
         if a.items.get(slot).is_none_or(|i| i.def != def) {
             return;
         }
+        let mut bled = false;
         let event = match defs.item(def).map(|d| &d.kind) {
             Some(ItemKind::Bandage { .. }) => {
-                let Some(wound) = a
-                    .body
-                    .wounds
-                    .iter_mut()
-                    .filter(|w| w.bleeding > 0)
-                    .max_by_key(|w| (w.kind, w.bleeding))
-                else {
+                let wounds = &mut a.body.wounds;
+                let worst = |bleeding: bool| {
+                    wounds
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, w)| !w.bandaged && (w.bleeding > 0) == bleeding)
+                        .max_by_key(|(_, w)| (w.kind, w.bleeding, w.heal_left))
+                        .map(|(i, _)| i)
+                };
+                let Some(i) = worst(true).or_else(|| worst(false)) else {
                     return;
                 };
+                let wound = &mut wounds[i];
+                bled = wound.bleeding > 0;
                 wound.bleeding = 0;
                 wound.bandaged = true;
                 Event::Bandaged {
@@ -614,20 +628,20 @@ impl World {
         let bandaged = matches!(event, Event::Bandaged { .. });
         self.events.push(event);
         // A wound that was really bleeding: First Aid learns from every one.
-        if bandaged {
+        if bandaged && bled {
             self.train(id, Skill::FirstAid, self.rules.skills.bandage, On::Once);
         }
     }
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
-    /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound bleeding,
+    /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound to dress,
     /// food or drink, or the cure with a fever.
     pub(crate) fn item_ticks(&self, id: ActorId, slot: u16, def: u16, using: bool) -> Option<u32> {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         match (using, &self.defs.item(def)?.kind) {
             (false, ItemKind::Weapon { .. }) => Some(self.defs.wield_time),
-            (true, ItemKind::Bandage { time }) if a.body.bleeding() => {
+            (true, ItemKind::Bandage { time }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
                 let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
                 Some(self.rules.skills.bandage(*time, level))
             }

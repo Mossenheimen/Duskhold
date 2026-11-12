@@ -119,6 +119,8 @@ pub struct Body {
     pub in_bed: bool,
     /// Ghoul fever: the game minute it was caught (`fever.rs`).
     pub fever: Option<u64>,
+    /// Dread, out of 100 points in thousandths (0 is calm: `dread.rs`).
+    pub dread: i32,
 }
 
 impl Body {
@@ -134,6 +136,7 @@ impl Body {
             asleep: false,
             in_bed: false,
             fever: None,
+            dread: 0,
         }
     }
 

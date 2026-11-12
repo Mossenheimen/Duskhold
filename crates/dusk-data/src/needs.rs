@@ -79,7 +79,7 @@ fn per_minute(file: &Path, what: &str, per_hour: f64) -> Result<i32, DataError> 
 }
 
 /// Three levels out of 100, rising, as thousandths of a point.
-fn levels(file: &Path, what: &str, l: [f64; 3]) -> Result<[i32; 3], DataError> {
+pub(crate) fn levels(file: &Path, what: &str, l: [f64; 3]) -> Result<[i32; 3], DataError> {
     if !(0.0 < l[0] && l[0] < l[1] && l[1] < l[2] && l[2] <= 100.0) {
         return Err(fail(
             file,
@@ -90,7 +90,7 @@ fn levels(file: &Path, what: &str, l: [f64; 3]) -> Result<[i32; 3], DataError> {
 }
 
 /// A pace from 0 to 1, per mille.
-fn pace(file: &Path, what: &str, p: f64) -> Result<u32, DataError> {
+pub(crate) fn pace(file: &Path, what: &str, p: f64) -> Result<u32, DataError> {
     if !(0.0..=1.0).contains(&p) {
         return Err(fail(file, format!("{what} is a pace, from 0 to 1")));
     }

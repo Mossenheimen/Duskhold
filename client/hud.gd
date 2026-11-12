@@ -30,6 +30,12 @@ const MOODLES := [
 	[["Ghoul fever", "Weak with fever", "Dying of fever"],
 		["thirstier, and nothing heals  ·  find a cure", "your breath comes back slowly  ·  find a cure",
 			"the cure, today, or death"], 1],
+	[["Sore", "In pain", "Agony"],
+		["a bandage on the wound eases it: Tab", "everything costs more breath  ·  dress your wounds: Tab",
+			"everything costs far more breath, and no sleep  ·  dress your wounds: Tab"], 0],
+	[["Uneasy", "Afraid", "Frightened"],
+		["your aim shakes  ·  light, food and rest ease it", "your aim shakes more  ·  get into the light",
+			"you can't step nearer the dead  ·  back away, get to the light"], 0],
 ]
 const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
 const RESTFUL := Color(0.6, 0.72, 1.0)
@@ -43,6 +49,8 @@ var _paused: Label
 var _problem: Label
 var _flash: ColorRect
 var _veil: ColorRect
+var _dread: ColorRect  # dread darkening the screen's edges
+var _dread_shown := 0.0  # how much it shows now, eased toward your dread
 var _asleep: Label
 var _lines: Array[String] = []
 var _ages: Array[float] = []
@@ -62,6 +70,14 @@ var _shown_moodles := PackedInt32Array()
 
 
 func _ready() -> void:
+	# First, so it's under everything else the HUD draws.
+	_dread = ColorRect.new()
+	_dread.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shade := ShaderMaterial.new()
+	shade.shader = preload("res://shaders/dread.gdshader")
+	_dread.material = shade
+	add_child(_dread)
+	_dread.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_flash = ColorRect.new()
 	_flash.color = Color(0.7, 0.0, 0.0, 0.0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -129,7 +145,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  the first playable: a fire\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  the first playable: pain and dread\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
@@ -289,6 +305,13 @@ func _moodle(heading: String, effect: String, colour: Color) -> void:
 	what.modulate = Color(1, 1, 1, 0.8)
 	lines.add_child(what)
 	_moodles.add_child(panel)
+
+
+## Your dread (DuskWorld.character_dread(), per mille) darkens the screen's edges. It's eased
+## toward, so a jump creeps in rather than snaps; dead, it lifts.
+func show_dread(per_mille: int, delta: float) -> void:
+	_dread_shown = move_toward(_dread_shown, per_mille / 1000.0, delta * 0.5)
+	(_dread.material as ShaderMaterial).set_shader_parameter("amount", _dread_shown)
 
 
 ## Asleep, the world is veiled and the clock runs fast; awake, the veil lifts.

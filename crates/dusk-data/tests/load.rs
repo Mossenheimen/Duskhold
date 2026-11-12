@@ -1049,3 +1049,42 @@ fn a_fires_numbers_become_the_cores_and_nonsense_is_refused() {
     let err = load(&folder("fire-fuel", &files)).unwrap_err();
     assert!(err.message.contains("fuel burns above 0"), "{err}");
 }
+
+#[test]
+fn pain_and_dread_load_in_the_cores_units_and_nonsense_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let (p, d) = (data.rules.pain, data.rules.dread);
+    assert_eq!(p.wound, [10_000, 20_000, 30_000]);
+    assert_eq!(
+        (p.dressed, p.levels, p.cost),
+        (500, [10_000, 30_000, 60_000], [1250, 1500])
+    );
+    assert_eq!(
+        (d.dark, d.dark_below, d.per_dead, d.near, d.most),
+        (30_000, 25, 20_000, 8, 3)
+    );
+    assert_eq!((d.rise, d.fall, d.calm), (6_000, 1_000, 3_000));
+    assert_eq!(
+        (d.levels, d.aim),
+        ([25_000, 50_000, 75_000], [900, 800, 700])
+    );
+    // Alone in the dark you're uneasy and no worse; one of the dead near makes you afraid, and
+    // it takes three, or two and your pain, to frighten you.
+    assert!(d.levels[0] <= d.dark && d.dark < d.levels[1]);
+    assert!(d.dark + d.per_dead >= d.levels[1]);
+    assert!(d.dark + 2 * d.per_dead < d.levels[2] && d.dark + 3 * d.per_dead >= d.levels[2]);
+
+    let pain = "[pain]\nscratch = 10\nlaceration = 20\nbite = 30\ndressed = 0.5\n\
+                levels = [30, 10, 60]\ncost = [1.25, 1.5]\n";
+    let dread = "[dread]\ndark = 30\ndark_below = 25\nper_dead = 20\nnear = 8\nmost = 3\n\
+                 per_pain = 10\nhungry = 10\nrise = 0.0\nfall = 1.0\ncalm = 3.0\n\
+                 levels = [25, 50, 75]\naim = [0.9, 0.8, 0.7]\n";
+    for (bad, says) in [(pain, "pain.levels"), (dread, "rise, fall and calm")] {
+        let rules = format!("{RULES}{bad}");
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "rules.toml");
+        files.push(("rules.toml", &rules));
+        let err = load(&folder("dread", &files)).unwrap_err();
+        assert!(err.message.contains(says), "{err}");
+    }
+}

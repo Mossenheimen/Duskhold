@@ -125,6 +125,8 @@ const FIRE_LIT: i32 = 73;
 const SMOTHERED: i32 = 74;
 const FIRE_OUT: i32 = 75;
 const SAW_FIRE: i32 = 76;
+const DREAD: i32 = 77;
+const BALKED: i32 = 78;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -375,6 +377,8 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Smothered { who, at: p } => (SMOTHERED, Some(who), None, (p.x, p.y), 0),
         Event::FireOut { at: p } => (FIRE_OUT, None, None, (p.x, p.y), 0),
         Event::SawFire { who, at: p } => (SAW_FIRE, Some(who), None, (p.x, p.y), 0),
+        Event::Dread { who, level } => (DREAD, Some(who), None, at(who), i32::from(level)),
+        Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
         Event::RainEnded => (RAIN_ENDED, None, None, (-1, -1), 0),
         Event::RainedOut { who, item } => (RAINED_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),
@@ -1283,6 +1287,16 @@ impl DuskWorld {
             .collect()
     }
 
+    /// Your dread, per mille (0 calm, 1000 the most there is): for the dark it draws round the
+    /// screen's edges. Its level is a moodle.
+    #[func]
+    fn character_dread(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        world.character().map_or(0, |me| world.dread(me) / 100)
+    }
+
     /// Your ghoul fever: [its stage (0 none, 1 a fever, 2 weak, 3 dying), the game minutes until
     /// it kills (-1 with none)].
     #[func]
@@ -1864,7 +1878,7 @@ impl DuskWorld {
     }
 
     /// Whether you can lie down to sleep now: 1 beside a bed, 0 on the ground, or why not:
-    /// -1 not tired, -2 the dead are about, -3 something has hold of you.
+    /// -1 not tired, -2 the dead are about, -3 something has hold of you, -4 in agony.
     #[func]
     fn sleep_check(&self) -> i32 {
         let Some(world) = &self.world else {
@@ -1878,6 +1892,7 @@ impl DuskWorld {
             Err(NoSleep::NotTired) => -1,
             Err(NoSleep::DeadAbout) => -2,
             Err(NoSleep::Held) => -3,
+            Err(NoSleep::Pain) => -4,
         }
     }
 
