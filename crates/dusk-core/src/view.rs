@@ -101,15 +101,16 @@ impl World {
         if a.pos == at {
             return true;
         }
-        let s = self.rules.sight;
+        // A hurt head sees less far (`injury.rs`).
+        let (s, range) = (self.rules.sight, self.sight_range(id));
         let d2 = a.pos.dist2(at);
-        if d2 > i64::from(s.range).pow(2) {
+        if d2 > i64::from(range).pow(2) {
             return false;
         }
         let beside = a.pos.steps_to(at) <= s.beside;
         let ahead = || {
             s.cone.contains(a.facing, at.x - a.pos.x, at.y - a.pos.y)
-                && bright_enough(d2, self.light_at(at), s.range)
+                && bright_enough(d2, self.light_at(at), range)
         };
         (beside || ahead()) && line_of_sight(&self.grid, a.pos, at)
     }
@@ -124,7 +125,7 @@ impl World {
         let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
             return;
         };
-        let (pos, r) = (a.pos, self.rules.sight.range);
+        let (pos, r) = (a.pos, self.sight_range(id));
         for y in pos.y - r..=pos.y + r {
             for x in pos.x - r..=pos.x + r {
                 let at = TilePos::new(x, y, pos.z);

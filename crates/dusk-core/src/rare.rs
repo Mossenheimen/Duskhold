@@ -121,7 +121,13 @@ impl World {
         let a = self.actors.get(id)?;
         let c = match a.kind {
             ActorKind::Character => {
-                return Some((self.rules.character_speed, self.rules.path_budget, None));
+                // Hurt legs slow the living (`injury.rs`).
+                let (s, pace) = (self.rules.character_speed, self.leg_pace(id));
+                let speeds = Speeds {
+                    walk: s.walk * pace / 1000,
+                    run: s.run * pace / 1000,
+                };
+                return Some((speeds, self.rules.path_budget, None));
             }
             ActorKind::Creature(n) if a.affixes.is_empty() => self.defs.creature(n)?.stats,
             ActorKind::Creature(_) => self.stats(id)?,

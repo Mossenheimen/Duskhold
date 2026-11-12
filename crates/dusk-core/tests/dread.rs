@@ -113,7 +113,7 @@ fn pain_comes_from_wounds_by_their_kind_and_a_bandage_dresses_even_one_that_has_
     w.wound(me, WoundKind::Scratch, Part::LeftArm);
     assert_eq!(w.pain(me), 10_000, "a fresh scratch");
     assert_eq!(moodle(&w, me, Moodle::Pain), 1, "sore");
-    w.wound(me, WoundKind::Bite, Part::Torso);
+    w.wound(me, WoundKind::Bite, Part::LeftLeg);
     assert_eq!(w.pain(me), 40_000);
     assert_eq!(moodle(&w, me, Moodle::Pain), 2, "in pain");
     w.wound(me, WoundKind::Laceration, Part::RightLeg);

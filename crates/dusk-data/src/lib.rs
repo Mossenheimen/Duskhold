@@ -13,6 +13,7 @@ mod fever;
 mod fire;
 mod holdout;
 mod home;
+mod injury;
 mod items;
 mod legacy;
 mod light;
@@ -427,6 +428,9 @@ struct RulesFile {
     pain: Option<dread::PainFile>,
     #[serde(default)]
     dread: Option<dread::DreadFile>,
+    /// Optional: with no [injury], wounds by where they land use the core's defaults.
+    #[serde(default)]
+    injury: Option<injury::InjuryFile>,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -931,6 +935,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(d) = &r.dread {
         rules.dread = dread::to_dread(file, d)?;
+    }
+    if let Some(i) = &r.injury {
+        rules.injury = injury::to_injury(file, i)?;
     }
     Ok(rules)
 }

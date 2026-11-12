@@ -708,6 +708,8 @@ impl World {
             let held = self.is_held(id);
             let recovery = self.recovery(id) as i32;
             let rate = self.endurance_rate(id);
+            // Hurt legs make running cost more (`injury.rs`).
+            let legs = self.leg_run(id) as i32;
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -722,7 +724,8 @@ impl World {
             match (stride, a.action) {
                 (Some(true), _) => {
                     let athletics = a.skills.level(Skill::Athletics, &s);
-                    a.body.spend(s.run_cost(e.run, athletics) * rate / 1000);
+                    a.body
+                        .spend(s.run_cost(e.run, athletics) * rate / 1000 * legs / 1000);
                 }
                 _ if held => {}
                 (Some(false), _) => a.body.endurance += e.walk * recovery / 1000,

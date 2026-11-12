@@ -14,6 +14,7 @@
 //!   Pain and dread have theirs too (`dread.rs`); in agony, there's no sleep.
 
 use crate::actor::{ActorId, ActorKind, Alert, Intent};
+use crate::body::Group;
 use crate::geom::{Dir8, TilePos};
 use crate::grid::Ground;
 use crate::items::within_reach;
@@ -89,6 +90,10 @@ pub enum Moodle {
     /// Pain from wounds, and dread (`dread.rs`): after the fever, for the same reason.
     Pain,
     Dread,
+    /// A hurt arm, leg or head (`injury.rs`): hurt, then badly hurt.
+    Arm,
+    Leg,
+    Head,
 }
 
 /// Why someone woke.
@@ -149,6 +154,9 @@ impl World {
             (Moodle::Injured, hurt),
             (Moodle::Bleeding, bleeding),
             (Moodle::Pain, self.pain_level(id)),
+            (Moodle::Arm, self.hurt_level(id, Group::Arms)),
+            (Moodle::Leg, self.hurt_level(id, Group::Legs)),
+            (Moodle::Head, self.hurt_level(id, Group::Head)),
             (Moodle::Fever, self.fever_stage(id)),
             (Moodle::Dread, self.dread_level(id)),
             (Moodle::OutOfBreath, u8::from(b.exhausted)),

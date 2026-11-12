@@ -1129,6 +1129,19 @@ Game first: every step ends with something to look at or play.
          - by tests: pain by a wound's kind, halved dressed, fading as it heals; bandages dressing a wound that's stopped bleeding (with no First Aid for it); breath costing a quarter and a half more; no sleep in agony until dressed; dread reaching uneasy alone in the dark and no further, falling under a torch, ebbing asleep and on hallowed ground, fed by hunger; aim at 90% and 80%; frightened among three of the dead at night, balking toward them and backing away; the game's numbers and nonsense refused;
          - in the game: a night walk from the abbey into the town grew uneasy off hallowed ground, then afraid near the dead. A picture of it at 22:22, in heavy rain, shows the "afraid" news, the uneasy moodle (dread had slipped back under the line) and the new title. Seeing the edges darkened in a night that's already dark isn't something a picture shows well, so the vignette was only seen to load and draw;
        - **measured:** about 240k ticks a second (from about 245k: each character's dread is a sweep of the actors once a game minute); at the Tolling, 47 to 56 of the 56 to 62 dead in reach still gather within 15 tiles of the bell (seeds 1 to 3).
+     - **Wounds by where they land** (2026-11-11; 216 tests pass), the rest of the first playable's "wounds with clear effects":
+       - **how hurt a part is** (`injury.rs`, `World::hurt`): the pain of the wounds on it (`World::wound_pain`, the one rule pain uses), with the hands counted with the arms and the feet with the legs (`Part::group`, `Group`). It's worked out from the wounds, so nothing new is kept and the save format doesn't change. There are two levels (`rules.toml`'s `[injury]`): hurt (10, a fresh laceration) and badly hurt (25, a fresh bite);
+       - **what each part does,** to the living only (the dead feel nothing):
+         - arms: a swing takes 15% longer, wind-up and recovery, and lands 10% less often; badly hurt, 30% and 20% (`hampered`, in `swing_of`, before dread's shaking);
+         - legs: 15% slower (`pace`), and running costs 25% more breath; badly hurt, 40% slower and 50% more. That's 1.8 tiles a second at a run, under a ghoul's 2.0: a badly hurt leg can't outrun one. A test holds the data to it, and it caught the first numbers (0.7, so 2.1) saying otherwise;
+         - head: 10% worse aim and 15% less far seen (`sight_range`, in `makes_out` and `look`); badly hurt, 20% and 30%;
+         - torso: a wound there hurts half again as much, so pain, and what pain costs, come sooner;
+       - **its treatment is the bandage,** as pain's is: a dressed wound hurts half, so it hampers half, and it all eases as the wound heals. A dressed laceration stops hampering as soon as it starts to close; a dressed bite eases to hurt;
+       - **the client:** three moodles, hurt arm, limping and head wound, each with two levels and what it does;
+       - **checked:**
+         - by tests: an arm's slower, less sure swings at each level, and whole again once a laceration's dressed and healing; a leg's slower walk and dearer run; a head's worse aim, and a tile 18 tiles off seen whole and not hurt; a torso laceration hurting 30 against a leg's 20; the dead's swings untouched by their wounds; the game's numbers, a badly hurt leg against a ghoul, and nonsense refused;
+         - in the game: a daytime walk into seed 1's tavern was met by its dead, and the news told each wound and where it landed. The one picture caught the death recap after it, listing six wounds (two bites, two lacerations, two scratches) under the new title. The new moodles weren't caught on screen: the column empties on death;
+       - **measured:** about 241k ticks a second, as before; the Tolling as before.
 7. **Later, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

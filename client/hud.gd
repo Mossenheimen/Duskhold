@@ -36,6 +36,15 @@ const MOODLES := [
 	[["Uneasy", "Afraid", "Frightened"],
 		["your aim shakes  ·  light, food and rest ease it", "your aim shakes more  ·  get into the light",
 			"you can't step nearer the dead  ·  back away, get to the light"], 0],
+	[["Hurt arm", "Badly hurt arm"],
+		["swings a little slower and less sure  ·  dress it: Tab",
+			"swings slower and less sure  ·  dress it: Tab"], 0],
+	[["Limping", "Lame"],
+		["slower on your feet, and running costs more  ·  dress it: Tab",
+			"much slower: a ghoul will run you down  ·  dress it: Tab"], 0],
+	[["Head wound", "Bad head wound"],
+		["your aim, and how far you see, a little worse  ·  dress it: Tab",
+			"your aim and how far you see, worse  ·  dress it: Tab"], 0],
 ]
 const SEVERITY: Array[Color] = [Color(0.95, 0.85, 0.45), Color(1.0, 0.6, 0.25), Color(1.0, 0.3, 0.25)]
 const RESTFUL := Color(0.6, 0.72, 1.0)
@@ -145,7 +154,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  the first playable: pain and dread\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  the first playable: wounds where they land\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

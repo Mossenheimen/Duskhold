@@ -13,6 +13,7 @@
 //!   you can't make yourself step nearer the dead (D&D's frightened).
 
 use crate::actor::{ActorId, Alert};
+use crate::body::{Part, Wound};
 use crate::geom::TilePos;
 use crate::needs::level;
 use crate::senses::line_of_sight;
@@ -86,29 +87,33 @@ impl Default for Dread {
 pub const FRIGHTENED: u8 = 3;
 
 impl World {
-    /// `id`'s pain now, in thousandths of a point: each wound's, by its kind, half that dressed,
-    /// and less the nearer it is to closing.
+    /// `id`'s pain now, in thousandths of a point: each of its wounds' (`wound_pain`).
     pub fn pain(&self, id: ActorId) -> i32 {
         let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
             return 0;
         };
+        a.body.wounds.iter().map(|w| self.wound_pain(w)).sum()
+    }
+
+    /// What a wound hurts, in thousandths of a point: by its kind, half that dressed, less the
+    /// nearer it is to closing, and more on the torso (`injury.rs`).
+    pub(crate) fn wound_pain(&self, w: &Wound) -> i32 {
         let (p, heal) = (self.rules.pain, self.rules.needs.wound_heal);
-        a.body
-            .wounds
-            .iter()
-            .map(|w| {
-                let k = w.kind as usize;
-                let fresh = i64::from(p.wound[k]);
-                // How much of its healing is still to come, per mille: all of it while it bleeds.
-                let left = (i64::from(w.heal_left) * 1000 / i64::from(heal[k].max(1))).min(1000);
-                let dressed = if w.bandaged {
-                    i64::from(p.dressed)
-                } else {
-                    1000
-                };
-                (fresh * left / 1000 * dressed / 1000) as i32
-            })
-            .sum()
+        let k = w.kind as usize;
+        let fresh = i64::from(p.wound[k]);
+        // How much of its healing is still to come, per mille: all of it while it bleeds.
+        let left = (i64::from(w.heal_left) * 1000 / i64::from(heal[k].max(1))).min(1000);
+        let dressed = if w.bandaged {
+            i64::from(p.dressed)
+        } else {
+            1000
+        };
+        let torso = if w.part == Part::Torso {
+            i64::from(self.rules.injury.torso)
+        } else {
+            1000
+        };
+        (fresh * left / 1000 * dressed / 1000 * torso / 1000) as i32
     }
 
     /// Pain's moodle level: 0 (none) to 3 (agony).

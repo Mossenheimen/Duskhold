@@ -66,6 +66,26 @@ impl Part {
             Part::RightFoot => "right foot",
         }
     }
+
+    /// Where it is, as far as what a wound there does (`injury.rs`).
+    pub fn group(self) -> Group {
+        match self {
+            Part::Head => Group::Head,
+            Part::Torso => Group::Torso,
+            Part::LeftArm | Part::RightArm | Part::LeftHand | Part::RightHand => Group::Arms,
+            Part::LeftLeg | Part::RightLeg | Part::LeftFoot | Part::RightFoot => Group::Legs,
+        }
+    }
+}
+
+/// The parts of the body by what a wound there does (`injury.rs`): the arms with the hands, the
+/// legs with the feet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Group {
+    Head,
+    Torso,
+    Arms,
+    Legs,
 }
 
 /// What the dead do to you. (Burns, fractures and the rest come with the regions that deal them.)

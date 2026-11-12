@@ -24,6 +24,7 @@ pub mod grid;
 pub mod hash;
 pub mod holdout;
 pub mod home;
+pub mod injury;
 pub mod items;
 pub mod legacy;
 pub mod light;
@@ -45,7 +46,7 @@ pub mod world;
 
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind, Remains};
 pub use barricade::NoBoard;
-pub use body::{Body, Part, Wound, WoundKind};
+pub use body::{Body, Group, Part, Wound, WoundKind};
 pub use class::{Class, Talent};
 pub use creature::{Creature, CreatureDef, GetUp};
 pub use fire::{Hearth, NoFire, Tend};

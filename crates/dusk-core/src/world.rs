@@ -15,6 +15,7 @@ use crate::geom::{ChunkPos, Dir8, TilePos};
 use crate::grid::Grid;
 use crate::hash::{FastMap, Fnv64, Purpose, below, roll};
 use crate::home::Deeds;
+use crate::injury::Injury;
 use crate::items::{Defs, Item};
 use crate::light::{Day, Sight, bright_enough};
 use crate::needs::{Clock, Fatigue, Need, Needs, Woke};
@@ -72,6 +73,8 @@ pub struct Rules {
     /// Pain from wounds, and dread (`dread.rs`).
     pub pain: Pain,
     pub dread: Dread,
+    /// What wounds do where they land (`injury.rs`).
+    pub injury: Injury,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -296,6 +299,7 @@ impl Default for Rules {
             fire: Fire::default(),
             pain: Pain::default(),
             dread: Dread::default(),
+            injury: Injury::default(),
         }
     }
 }

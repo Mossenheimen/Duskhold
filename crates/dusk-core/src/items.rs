@@ -426,9 +426,11 @@ impl World {
         self.swing_of(id)
     }
 
-    /// The swing an actor makes, and a character's as its dread shakes its aim (`dread.rs`).
+    /// The swing an actor makes, and a character's as its dread shakes its aim (`dread.rs`)
+    /// and its wounds hamper it (`injury.rs`).
     pub(crate) fn swing_of(&self, id: ActorId) -> Swing {
-        let mut swing = self.steady_swing(id);
+        // And as its wounds hamper it (`injury.rs`).
+        let mut swing = self.hampered(id, self.steady_swing(id));
         swing.hit = self.shaken(id, swing.hit);
         swing
     }

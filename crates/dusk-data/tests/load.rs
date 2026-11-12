@@ -1088,3 +1088,53 @@ fn pain_and_dread_load_in_the_cores_units_and_nonsense_is_refused() {
         assert!(err.message.contains(says), "{err}");
     }
 }
+
+#[test]
+fn wounds_by_where_they_land_load_in_the_cores_units_and_nonsense_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let i = data.rules.injury;
+    assert_eq!(i.levels, [10_000, 25_000]);
+    assert_eq!((i.swing, i.arm_hit), ([1150, 1300], [900, 800]));
+    assert_eq!((i.pace, i.run), ([850, 600], [1250, 1500]));
+    assert_eq!(
+        (i.head_hit, i.sight, i.torso),
+        ([900, 800], [850, 700], 1500)
+    );
+    // A fresh laceration hurts its part, and a fresh bite hurts it badly ([pain]).
+    let p = data.rules.pain;
+    assert!(p.wound[1] >= i.levels[0] && p.wound[1] < i.levels[1]);
+    assert!(p.wound[2] >= i.levels[1]);
+    // Badly hurt legs can't outrun a ghoul.
+    let ghoul = data
+        .defs
+        .creatures
+        .iter()
+        .find(|c| c.id == "ghoul")
+        .unwrap();
+    let run = data.rules.character_speed.run * i.pace[1] / 1000;
+    assert!(
+        run < ghoul.stats.speed.run,
+        "{run} against {}",
+        ghoul.stats.speed.run
+    );
+
+    for (bad, says) in [
+        ("levels = [25, 10]", "injury.levels"),
+        ("levels = [10, 25]\npace = [0.7, 0.85]", "injury.pace"),
+    ] {
+        let mut section = String::from(
+            "[injury]\nswing = [1.15, 1.3]\narm_hit = [0.9, 0.8]\nrun = [1.25, 1.5]\n\
+             head_hit = [0.9, 0.8]\nsight = [0.85, 0.7]\ntorso = 1.5\n",
+        );
+        section.push_str(bad);
+        if !bad.contains("pace") {
+            section.push_str("\npace = [0.85, 0.7]");
+        }
+        let rules = format!("{RULES}{section}\n");
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "rules.toml");
+        files.push(("rules.toml", &rules));
+        let err = load(&folder("injury", &files)).unwrap_err();
+        assert!(err.message.contains(says), "{err}");
+    }
+}
