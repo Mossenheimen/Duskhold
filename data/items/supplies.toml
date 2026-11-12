@@ -203,6 +203,13 @@ worth = 0
 stack = 6
 food = { nutrition = 40, time = 4.0, comfort = 12, keeps = 4 }
 
+[[item]]
+id = "wolf_pelt"
+name = "wolf pelt"
+weight = 1.5
+worth = 6             # a trophy: brought home, it's worth the risk
+stack = 2
+
 # Bows' (items/weapons.toml).
 
 [[item]]

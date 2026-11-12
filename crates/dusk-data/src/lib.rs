@@ -224,8 +224,23 @@ pub struct Region {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Beasts {
-    pub kinds: Vec<DeadKind>,
+    pub kinds: Vec<WildKind>,
     pub per_chunk: f32,
+}
+
+/// One kind of a region's wildlife: a creature (one that flees, or a wild one), its share, and
+/// how many go together, the fewest and the most (a herd, a pack; left out: one alone).
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WildKind {
+    pub creature: String,
+    pub share: f32,
+    #[serde(default = "alone")]
+    pub pack: (u32, u32),
+}
+
+fn alone() -> (u32, u32) {
+    (1, 1)
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -709,6 +724,10 @@ struct CreatureFile {
     /// it isn't butchered).
     #[serde(default)]
     butcher: Option<ButcherFile>,
+    /// Of the living world, not the dead: the pressure doesn't count it, the bell and fires
+    /// don't draw it, and its body neither gets up nor burns (left out: one of the dead).
+    #[serde(default)]
+    wild: bool,
 }
 
 #[derive(Deserialize)]
@@ -938,6 +957,7 @@ fn to_creatures(
                 dread: (c.dread * 1000.0).round() as i32,
                 lit_harm: (c.lit_harm * 1000.0).round() as u32,
                 flees: c.flees,
+                wild: c.wild,
                 // Its item is found once the items are read (`butchery`).
                 butcher: match &c.butcher {
                     None => None,
@@ -1299,15 +1319,18 @@ fn check_region(
             || b.kinds.iter().any(|k| {
                 k.share.is_nan()
                     || k.share <= 0.0
+                    || k.pack.0 == 0
+                    || k.pack.0 > k.pack.1
+                    || k.pack.1 > 9
                     || !creatures
                         .iter()
-                        .any(|c| c.id == k.creature && c.stats.flees > 0)
+                        .any(|c| c.id == k.creature && (c.stats.flees > 0 || c.stats.wild))
             })
             || (b.kinds.iter().map(|k| k.share).sum::<f32>() - 1.0).abs() > 0.001)
     {
         Some(
-            "beasts: per_chunk can't be negative; kinds are creatures that flee, each share above \
-             0, adding up to 1"
+            "beasts: per_chunk can't be negative; kinds are creatures that flee or are wild, each \
+             share above 0, adding up to 1, and a pack [fewest, most] from 1 to 9"
                 .to_string(),
         )
     } else if let Some(problem) = r.pressure.problem() {

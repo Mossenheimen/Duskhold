@@ -156,3 +156,32 @@ wounds = { scratch = 1.0, laceration = 0.0, bite = 0.0 }
 thump = [0, 0]
 flees = 9             # tiles: one of the living seen nearer than this, and it bolts
 butcher = { item = "raw_venison", count = 3, time = 20.0 }   # seconds kneeling over it
+
+# A wolf: a wild hunter (wild = true), of the living world and not the dead. It hunts you as the
+# dead do, and it's worse: a little faster than your run (3.3 to your 3.0), it sees in the dark,
+# follows blood, and howls on sight to bring the pack. Its bite wounds deep. But the pressure
+# doesn't count wolves, neither the bell nor a fire draws them, and a dead one is skinned, not
+# burned: its pelt is worth bringing home.
+
+[[creature]]
+id = "wolf"
+walk = 1.2
+run = 3.3
+night_speed = 1.0
+sight = 10
+darkvision = 6        # tiles: the night is theirs
+cone = 200
+think_every = 4
+forget_after = 20.0
+wander = 0.05
+path_budget = 300
+health = 20
+down = 2.0
+attack = { wind_up = 0.7, recovery = 0.7, hit = 0.6, noise = 2 }   # a lunge: a shorter tell than the dead's
+groan = 18            # its howl: the pack within this many tiles comes
+wounds = { scratch = 0.3, laceration = 0.5, bite = 0.2 }
+thump = [0, 0]        # it can't beat a door down
+blood = 8             # tiles it smells each bleeding wound from
+dread = 5             # points of dread over any of the dead's
+wild = true
+butcher = { item = "wolf_pelt", count = 1, time = 15.0 }

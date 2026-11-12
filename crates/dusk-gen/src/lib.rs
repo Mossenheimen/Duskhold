@@ -749,9 +749,9 @@ impl Layout {
         kinds.last().map_or("", |k| k.creature.as_str())
     }
 
-    /// Where the region's beasts graze in a chunk at the start: in the open, out of the yards and
-    /// clear of where you start, by the chunk's own rolls; and which kind each is. In reading
-    /// order. None if the region has no wildlife.
+    /// Where the region's wildlife is in a chunk at the start, herd by herd and pack by pack:
+    /// in the open, out of the yards and clear of where you start, by the chunk's own rolls; and
+    /// which kind each is. In reading order. None if the region has no wildlife.
     pub fn beasts_in(&self, chunk: ChunkPos) -> Vec<(TilePos, &str)> {
         let Some(b) = &self.region.beasts else {
             return Vec::new();
@@ -766,27 +766,36 @@ impl Layout {
                 let at = chunk
                     .origin(0)
                     .offset((r % 32) as i32, ((r >> 8) % 32) as i32);
-                let tile = self.tile(at.x, at.y);
-                let outdoors = tile.walkable() && tile.ground != Ground::Floor;
-                if outdoors
-                    && at.dist2(self.start) > clear
-                    && !self.lots.iter().any(|l| l.in_yard(at.x, at.y))
-                {
+                let open = |p: TilePos| {
+                    let tile = self.tile(p.x, p.y);
+                    tile.walkable()
+                        && tile.ground != Ground::Floor
+                        && p.dist2(self.start) > clear
+                        && !self.lots.iter().any(|l| l.in_yard(p.x, p.y))
+                };
+                if open(at) {
                     let mut left = unit(
                         self.seed,
                         Layer::BeastKind,
                         i64::from(at.x),
                         i64::from(at.y),
                     );
-                    let mut kind = b.kinds.last().map_or("", |k| k.creature.as_str());
+                    let mut kind = b.kinds.last().expect("a kind, checked");
                     for k in &b.kinds {
                         if left < k.share {
-                            kind = &k.creature;
+                            kind = k;
                             break;
                         }
                         left -= k.share;
                     }
-                    out.push((at, kind));
+                    // A herd or a pack: the first where it was rolled, the rest round it.
+                    let (fewest, most) = (kind.pack.0, kind.pack.1.max(kind.pack.0));
+                    let n = fewest + (r >> 16) as u32 % (most - fewest + 1);
+                    let round =
+                        std::iter::once(at).chain(dusk_core::Dir8::ALL.iter().map(|&d| at.step(d)));
+                    for p in round.filter(|&p| open(p)).take(n as usize) {
+                        out.push((p, kind.creature.as_str()));
+                    }
                     break;
                 }
             }

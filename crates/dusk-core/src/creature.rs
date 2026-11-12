@@ -72,6 +72,10 @@ pub struct Creature {
     pub flees: i32,
     /// What its carcass gives cut up (`hunting.rs`), if it's worth butchering.
     pub butcher: Option<crate::hunting::Butcher>,
+    /// Of the living world, not the dead (`hunting.rs`): a wolf hunts as the dead do, but the
+    /// pressure doesn't count it, neither the bell nor a fire draws it, and its body neither
+    /// gets up nor burns. (A beast, one that flees, is wild too.)
+    pub wild: bool,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -137,6 +141,7 @@ impl Default for Creature {
             lit_harm: 1000,
             flees: 0,
             butcher: None,
+            wild: false,
         }
     }
 }

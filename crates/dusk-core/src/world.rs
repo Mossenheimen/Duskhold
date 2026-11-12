@@ -1494,7 +1494,9 @@ impl World {
         // Gone past the forgetting, or onto hallowed ground, where it won't follow. On a Tolling
         // night, the dead the bell draws don't forget: what they're after, they keep after.
         let hallowed = target.is_some_and(|t| self.is_hallowed(t));
-        let forgot = tick.saturating_sub(since) > kind.forget_after && !self.drawn_to_bell(pos);
+        // The bell draws the dead, not the wild (`hunting.rs`).
+        let belled = !kind.wild && self.drawn_to_bell(pos);
+        let forgot = tick.saturating_sub(since) > kind.forget_after && !belled;
         if forgot || hallowed {
             target = None;
         }
@@ -1522,7 +1524,7 @@ impl World {
             }
             (None, Some(goal)) => self.chase(a, goal),
             // After nothing, on a Tolling night: to the bell, by its field.
-            (None, None) if self.drawn_to_bell(pos) => self.pulled(id, pos).unwrap_or_default(),
+            (None, None) if belled => self.pulled(id, pos).unwrap_or_default(),
             (None, None) => {
                 let who = id.index() as u64;
                 if below(roll(seed, tick, who, Purpose::Wander), 10_000) < kind.wander {

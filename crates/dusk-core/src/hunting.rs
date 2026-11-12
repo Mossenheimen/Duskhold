@@ -12,6 +12,10 @@
 //!   nothing left of it. A beast's body never gets up and doesn't burn (it's no threat).
 //! - **Beasts aren't the dead:** the region's pressure doesn't count them, the bell doesn't draw
 //!   them, and no rare is made of one.
+//! - **Wild hunters** (a kind that's `wild` and doesn't flee: the wolf) hunt you as the dead
+//!   do, by the same mind, and are just as much a dread. But they're of the living world too:
+//!   the pressure doesn't count them, neither the bell nor a fire draws them, and a body is
+//!   butchered, not burned.
 
 use crate::actor::{ActionKind, ActorId, ActorKind, Intent, Mind, Remains};
 use crate::creature::Creature;
@@ -39,6 +43,11 @@ pub enum NoButcher {
 }
 
 impl World {
+    /// Whether `id` is of the living world, not the dead: a beast, or a wild hunter (a wolf).
+    pub fn is_wild(&self, id: ActorId) -> bool {
+        self.stats(id).is_some_and(|c| c.wild || c.flees > 0)
+    }
+
     /// Whether `id` is a beast (it flees, and is after nobody), alive or dead.
     pub fn is_beast(&self, id: ActorId) -> bool {
         self.stats(id).is_some_and(|c| c.flees > 0)

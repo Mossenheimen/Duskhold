@@ -780,7 +780,13 @@ func _read_events() -> void:
 				if _seen(who):
 					hud.say("%s heard something." % _a(who))
 			SAW:
-				hud.say("%s saw you!" % _a(who) if _seen(who) else "Something has seen you.")
+				# A wolf howls as it sees you, for the pack (DuskWorld.wild_kinds() 2).
+				var wild: PackedInt32Array = dusk.wild_kinds()
+				var n := kinds[who] - 1 if who < kinds.size() else -1
+				if n >= 0 and n < wild.size() and wild[n] == 2:
+					hud.say("%s sees you, and howls for the pack!" % _a(who) if _seen(who) else "A howl: something out there has seen you.")
+				else:
+					hud.say("%s saw you!" % _a(who) if _seen(who) else "Something has seen you.")
 			SMELLED:
 				if target == me:
 					if _seen(who):
@@ -1594,14 +1600,14 @@ func _run_script() -> void:
 				if best >= 0:
 					_shoot(Vector2i(roundi(where[best].x), roundi(where[best].y)))
 			"hunt":  # shoot at the nearest beast within a bow's reach (seen or not: a script can't turn to look)
-				var beasts: PackedInt32Array = dusk.beast_kinds()
+				var beasts: PackedInt32Array = dusk.wild_kinds()
 				var where: PackedVector2Array = dusk.actor_positions()
 				var states: PackedInt32Array = dusk.actor_states()
 				var best := -1
 				for k in where.size():
 					if k == me or k >= kinds.size() or kinds[k] == 0 or where[k].distance_to(where[me]) > 12.0:
 						continue
-					if kinds[k] - 1 >= beasts.size() or beasts[kinds[k] - 1] == 0 or states[k] == 2:
+					if kinds[k] - 1 >= beasts.size() or beasts[kinds[k] - 1] != 1 or states[k] == 2:
 						continue
 					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
 						best = k

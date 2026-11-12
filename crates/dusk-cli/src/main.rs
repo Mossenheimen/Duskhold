@@ -102,14 +102,14 @@ fn gen_patch(args: &[String]) {
             kinds[usize::from(n)] += 1;
         }
     }
-    // Beasts apart from the dead: "77 dead (69 shambler, 8 ghoul), 19 beasts (19 deer)".
-    let tally = |beasts: bool| {
+    // The wild apart from the dead: "77 dead (69 shambler, 8 ghoul), 25 wild (19 deer, 6 wolf)".
+    let tally = |wild: bool| {
         let counted: Vec<(String, usize)> = world
             .defs
             .creatures
             .iter()
             .zip(&kinds)
-            .filter(|&(c, &n)| n > 0 && (c.stats.flees > 0) == beasts)
+            .filter(|&(c, &n)| n > 0 && (c.stats.flees > 0 || c.stats.wild) == wild)
             .map(|(c, &n)| (format!("{n} {}", c.name), n))
             .collect();
         let total: usize = counted.iter().map(|(_, n)| n).sum();
@@ -120,7 +120,7 @@ fn gen_patch(args: &[String]) {
     let mut dead = format!("{dead_n} dead ({dead_kinds})");
     let (beast_n, beast_kinds) = tally(true);
     if beast_n > 0 {
-        dead += &format!(", {beast_n} beasts ({beast_kinds})");
+        dead += &format!(", {beast_n} wild ({beast_kinds})");
     }
     println!(
         "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead}; you start at ({}, {})",
@@ -203,18 +203,22 @@ fn gen_patch(args: &[String]) {
             worth / 1000
         );
     }
-    // The beast nearest where you start: somewhere to go hunting (a scripted run's --walk).
-    let nearest = world
-        .actors()
-        .filter(|&(id, a)| !a.dead && world.is_beast(id))
-        .min_by_key(|(_, a)| a.pos.dist2(layout.start));
-    if let Some((id, a)) = nearest {
-        println!(
-            "  the nearest beast: a {} at ({}, {})",
-            world.name_of(id).unwrap_or_default(),
-            a.pos.x,
-            a.pos.y
-        );
+    // The nearest of each wild kind to where you start: somewhere to go hunting, or to keep
+    // away from (a scripted run's --walk).
+    for n in 0..world.defs.creatures.len() {
+        let kind = ActorKind::Creature(n as u16);
+        let nearest = world
+            .actors()
+            .filter(|&(id, a)| a.kind == kind && !a.dead && world.is_wild(id))
+            .min_by_key(|(_, a)| a.pos.dist2(layout.start));
+        if let Some((id, a)) = nearest {
+            println!(
+                "  the nearest {}: at ({}, {})",
+                world.name_of(id).unwrap_or_default(),
+                a.pos.x,
+                a.pos.y
+            );
+        }
     }
     for lot in &layout.lots {
         let side = if lot.north { "north" } else { "south" };

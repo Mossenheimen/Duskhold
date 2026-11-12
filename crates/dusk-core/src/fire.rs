@@ -247,9 +247,10 @@ impl World {
         let drawn: Vec<(ActorId, TilePos, TilePos)> = self
             .actors
             .iter()
-            .filter(|(_, a)| {
+            .filter(|&(id, a)| {
                 !a.dead
                     && !a.kind.is_character()
+                    && !self.is_wild(id)
                     && matches!(a.mind, Mind::Hunt { target: None, .. })
                     && self.is_awake(a.pos)
             })

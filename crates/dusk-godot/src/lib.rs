@@ -1671,9 +1671,10 @@ impl DuskWorld {
         }
     }
 
-    /// By creature number: 1 for a beast (it flees, and is after nobody: `hunting.rs`), else 0.
+    /// By creature number: 0 one of the dead; 1 a beast (it flees, and is after nobody); 2 a wild
+    /// hunter (a wolf: it hunts you, but isn't the dead). `hunting.rs`.
     #[func]
-    fn beast_kinds(&self) -> PackedInt32Array {
+    fn wild_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
             return PackedInt32Array::new();
         };
@@ -1681,7 +1682,11 @@ impl DuskWorld {
             .defs
             .creatures
             .iter()
-            .map(|c| i32::from(c.stats.flees > 0))
+            .map(|c| match (c.stats.flees > 0, c.stats.wild) {
+                (true, _) => 1,
+                (false, true) => 2,
+                _ => 0,
+            })
             .collect()
     }
 

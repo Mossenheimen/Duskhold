@@ -18,6 +18,7 @@ const LOOKS := [
 	[Color(0.88, 0.86, 0.78), 1.6, -3.0],  # a skeleton: bone white, tall and upright
 	[Color(0.22, 0.25, 0.34), 1.8, 4.0],  # a wight: night-blue, the tallest, leaning back
 	[Color(0.55, 0.38, 0.24), 1.2, 0.0, true],  # a deer: brown, on four legs (a beast)
+	[Color(0.4, 0.4, 0.42), 0.95, -0.3, true],  # a wolf: grey, smaller, its head low and forward
 ]
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
@@ -80,7 +81,7 @@ func setup(kind: int) -> void:
 	var body := _body
 	if look.size() > 3 and look[3]:
 		_beast = true
-		_build_beast(colour)
+		_build_beast(colour, tall / 1.2, look[2])
 		return
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.22
@@ -199,10 +200,12 @@ func show_remains(remains: int, _delta: float) -> void:
 		_skin.emission_energy_multiplier = 1.4 * flicker
 
 
-## A beast's body (a LOOKS entry marked so): four legs, a long body and a raised head, so it
+## A beast's body (a LOOKS entry marked so, at its height over a deer's, its head lifted by the
+## entry's third number): four legs, a long body and a raised head, so it
 ## reads as no person. Knocked down or dead, it rolls onto its side (`show_pose`).
-func _build_beast(colour: Color) -> void:
+func _build_beast(colour: Color, size: float, lift: float) -> void:
 	var body := _body
+	body.scale = Vector3.ONE * size  # a deer's is 1; a wolf's smaller
 	_skin = _material(colour)
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.2
@@ -214,8 +217,8 @@ func _build_beast(colour: Color) -> void:
 	torso.material_override = _skin
 	body.add_child(torso)
 	var parts := [
-		[Vector3(0.12, 0.2, 0.3), Vector3(0.0, 1.05, -0.58)],  # the head, held high
-		[Vector3(0.1, 0.36, 0.12), Vector3(0.0, 0.88, -0.45)],  # the neck
+		[Vector3(0.12, 0.2, 0.3), Vector3(0.0, 1.05 + lift, -0.58 + lift * 0.4)],  # the head (a deer's high)
+		[Vector3(0.1, 0.36, 0.12), Vector3(0.0, 0.88 + lift * 0.5, -0.45)],  # the neck
 		[Vector3(0.07, 0.56, 0.07), Vector3(0.11, 0.28, -0.32)],  # the legs
 		[Vector3(0.07, 0.56, 0.07), Vector3(-0.11, 0.28, -0.32)],
 		[Vector3(0.07, 0.56, 0.07), Vector3(0.11, 0.28, 0.32)],
@@ -243,5 +246,5 @@ func _build_beast(colour: Color) -> void:
 	_mark.pixel_size = 0.008
 	_mark.outline_size = 16
 	_mark.outline_modulate = Color(0.05, 0.05, 0.05)
-	_mark.position.y = 1.6
+	_mark.position.y = 1.6 * size
 	add_child(_mark)

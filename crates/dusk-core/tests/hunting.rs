@@ -16,6 +16,7 @@ use dusk_core::{
 const KNIFE: u16 = 0;
 const MEAT: u16 = 1;
 const DEER: ActorKind = ActorKind::Creature(1);
+const WOLF: ActorKind = ActorKind::Creature(2);
 
 /// A knife that always lands for 50, and meat; the test shambler and a deer: it sees 10 tiles all
 /// round, bolts from anyone within `flees`, thinks every tick, and gives 3 meat cut up.
@@ -59,7 +60,7 @@ fn defs(armed: bool, flees: i32) -> Defs {
         skill: Some(Skill::Blade),
     };
     Defs {
-        creatures: vec![CreatureDef::shambler(), deer],
+        creatures: vec![CreatureDef::shambler(), deer, wolf()],
         items: vec![
             item("knife", knife),
             item(
@@ -76,6 +77,29 @@ fn defs(armed: bool, flees: i32) -> Defs {
         carry: 30_000,
         ..Defs::default()
     }
+}
+
+/// A wolf: wild, it hunts as the dead do; it howls (10 tiles) as it sees you, sees all round,
+/// never lands a blow here, and gives one meat skinned.
+fn wolf() -> CreatureDef {
+    let mut wolf = CreatureDef::shambler();
+    wolf.id = "wolf".into();
+    wolf.name = "wolf".into();
+    let s = &mut wolf.stats;
+    s.wild = true;
+    (s.groan, s.sight, s.cone, s.wander) = (10, 8, Cone { cos: -10_000 }, 0);
+    s.attack.hit = 0;
+    s.health = 40;
+    s.get_up = GetUp {
+        chance: 0,
+        after: (0, 0),
+    };
+    s.butcher = Some(Butcher {
+        item: MEAT,
+        count: 1,
+        time: 10,
+    });
+    wolf
 }
 
 fn at(x: i32, y: i32) -> TilePos {
@@ -202,4 +226,37 @@ fn a_carcass_is_butchered_with_a_blade_and_doesnt_burn() {
         "fists will do, on one this frail"
     );
     assert_eq!(w.can_butcher(me), Err(NoButcher::NoBlade));
+}
+
+#[test]
+fn a_wolf_hunts_and_howls_for_its_pack_but_isnt_the_dead() {
+    let (mut w, me) = field(true, 6);
+    let near = w.spawn(WOLF, at(5, 0)).unwrap();
+    // Out of its sight (8 tiles), within its howl.
+    let far = w.spawn(WOLF, at(14, 0)).unwrap();
+    let seen = run(&mut w, 20);
+    assert!(seen.contains(&Event::Saw {
+        who: near,
+        target: me
+    }));
+    assert_ne!(
+        w.actor(far).unwrap().alert(),
+        Alert::Unaware,
+        "the howl brought it"
+    );
+    assert_eq!(w.dead_about(), 0, "wolves aren't the dead");
+    run(&mut w, 25 * 3);
+    assert!(w.dread(me) > 0, "but they're a dread");
+
+    // Put down, it's skinned, not burned, and it stays down.
+    let (mut w, me) = field(true, 6);
+    w.creature_mut(2).think_every = 100_000;
+    w.creature_mut(2).health = 1;
+    let wolf = w.spawn(WOLF, at(1, 0)).unwrap();
+    w.intent(me, Intent::Attack { dir: Some(Dir8::E) });
+    run(&mut w, 30);
+    assert!(w.actor(wolf).unwrap().dead);
+    assert_eq!(w.actor(wolf).unwrap().remains, Remains::Lying);
+    assert_eq!(w.can_burn(me), Err(NoBurn::Nothing));
+    assert_eq!(w.can_butcher(me), Ok(wolf));
 }

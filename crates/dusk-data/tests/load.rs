@@ -1399,3 +1399,21 @@ fn the_deer_flees_and_gives_venison_in_the_games_data() {
     assert_eq!(beasts.kinds[0].creature, "deer");
     assert!(region.dead.kinds.iter().all(|k| k.creature != "deer"));
 }
+
+#[test]
+fn wolves_hunt_in_packs_and_are_skinned_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let wolf = d.creatures.iter().find(|c| c.id == "wolf").unwrap();
+    assert!(wolf.stats.wild && wolf.stats.flees == 0, "a wild hunter");
+    assert!(wolf.stats.groan > 0, "it howls");
+    assert_eq!(wolf.stats.get_up.chance, 0);
+    let pelt = d.items.iter().position(|i| i.id == "wolf_pelt").unwrap() as u16;
+    assert_eq!(wolf.stats.butcher.map(|b| b.item), Some(pelt));
+    assert!(d.items[usize::from(pelt)].worth > 0, "worth bringing home");
+    let region = data.region("hushlands").unwrap();
+    let wild = &region.beasts.as_ref().unwrap().kinds;
+    let pack = wild.iter().find(|k| k.creature == "wolf").unwrap().pack;
+    assert!(pack.0 >= 2, "wolves go in packs");
+    assert!(region.dead.kinds.iter().all(|k| k.creature != "wolf"));
+}
