@@ -83,11 +83,13 @@ impl World {
         }
     }
 
-    /// Whether a body can burn: not burning yet, nor burnt, nor risen.
+    /// Whether a body can burn: not burning yet, nor burnt, nor risen; and one of the dead's (a
+    /// beast's is butchered: `hunting.rs`).
     fn burnable(&self, id: ActorId) -> bool {
         self.actors
             .get(id)
             .is_some_and(|a| a.dead && matches!(a.remains, Remains::Lying | Remains::GetsUp { .. }))
+            && !self.is_beast(id)
     }
 
     /// The bodies that can burn on a tile, in id order.

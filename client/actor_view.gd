@@ -17,6 +17,7 @@ const LOOKS := [
 	[Color(0.45, 0.24, 0.2), 1.6, -6.0],  # a revenant: you, in your gear, gone dark
 	[Color(0.88, 0.86, 0.78), 1.6, -3.0],  # a skeleton: bone white, tall and upright
 	[Color(0.22, 0.25, 0.34), 1.8, 4.0],  # a wight: night-blue, the tallest, leaning back
+	[Color(0.55, 0.38, 0.24), 1.2, 0.0, true],  # a deer: brown, on four legs (a beast)
 ]
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
@@ -44,6 +45,7 @@ var _pop := 0.0
 var _remains := 0
 var _fire: OmniLight3D  # made when it first catches
 var _title: Label3D  # a rare's name, over its head
+var _beast := false  # on four legs: it falls on its side
 
 
 ## A rare: its name over its head, in the gold of a named thing, and a little bigger than its
@@ -76,6 +78,10 @@ func setup(kind: int) -> void:
 	_pitch = _stoop
 	add_child(_body)
 	var body := _body
+	if look.size() > 3 and look[3]:
+		_beast = true
+		_build_beast(colour)
+		return
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.22
 	capsule.height = tall
@@ -151,6 +157,12 @@ func show_pose(state: int, wind_up: float, delta: float) -> void:
 		target = -88.0  # flat on the ground
 	elif wind_up >= 0.0:
 		target = _stoop - 22.0 * wind_up  # leaning in to strike
+	if _beast:
+		# A beast doesn't lean in or pitch over: down, it rolls onto its side.
+		var roll := 85.0 if state != 0 else 0.0
+		var now := _body.rotation_degrees.z
+		_body.rotation_degrees.z = lerpf(now, roll, 1.0 - exp(-16.0 * delta)) if delta > 0.0 else roll
+		return
 	_pitch = lerpf(_pitch, target, 1.0 - exp(-16.0 * delta)) if delta > 0.0 else target
 	_body.rotation_degrees.x = _pitch
 
@@ -185,3 +197,51 @@ func show_remains(remains: int, _delta: float) -> void:
 		var flicker := 1.0 + 0.12 * sin(now * 11.0) + 0.07 * sin(now * 27.0)
 		_fire.light_energy = 2.2 * flicker
 		_skin.emission_energy_multiplier = 1.4 * flicker
+
+
+## A beast's body (a LOOKS entry marked so): four legs, a long body and a raised head, so it
+## reads as no person. Knocked down or dead, it rolls onto its side (`show_pose`).
+func _build_beast(colour: Color) -> void:
+	var body := _body
+	_skin = _material(colour)
+	var capsule := CapsuleMesh.new()
+	capsule.radius = 0.2
+	capsule.height = 1.0
+	var torso := MeshInstance3D.new()
+	torso.mesh = capsule
+	torso.rotation_degrees.x = 90.0  # lying along its facing (-z)
+	torso.position.y = 0.72
+	torso.material_override = _skin
+	body.add_child(torso)
+	var parts := [
+		[Vector3(0.12, 0.2, 0.3), Vector3(0.0, 1.05, -0.58)],  # the head, held high
+		[Vector3(0.1, 0.36, 0.12), Vector3(0.0, 0.88, -0.45)],  # the neck
+		[Vector3(0.07, 0.56, 0.07), Vector3(0.11, 0.28, -0.32)],  # the legs
+		[Vector3(0.07, 0.56, 0.07), Vector3(-0.11, 0.28, -0.32)],
+		[Vector3(0.07, 0.56, 0.07), Vector3(0.11, 0.28, 0.32)],
+		[Vector3(0.07, 0.56, 0.07), Vector3(-0.11, 0.28, 0.32)],
+	]
+	for part in parts:
+		var box := BoxMesh.new()
+		box.size = part[0]
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = box
+		mesh.position = part[1]
+		mesh.material_override = _skin
+		body.add_child(mesh)
+	var tail := BoxMesh.new()
+	tail.size = Vector3(0.08, 0.1, 0.08)
+	var scut := MeshInstance3D.new()
+	scut.mesh = tail
+	scut.position = Vector3(0.0, 0.8, 0.52)
+	scut.material_override = _material(Color(0.92, 0.9, 0.85))  # the white scut
+	body.add_child(scut)
+	_mark = Label3D.new()
+	_mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_mark.no_depth_test = true
+	_mark.font_size = 72
+	_mark.pixel_size = 0.008
+	_mark.outline_size = 16
+	_mark.outline_modulate = Color(0.05, 0.05, 0.05)
+	_mark.position.y = 1.6
+	add_child(_mark)

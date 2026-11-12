@@ -82,6 +82,8 @@ impl World {
         self.actors
             .iter()
             .filter(|(_, a)| !a.kind.is_character())
+            // Beasts aren't the dead (`hunting.rs`).
+            .filter(|(_, a)| !matches!(a.mind, crate::actor::Mind::Flee { .. }))
             .filter(|(_, a)| !a.dead || matches!(a.remains, crate::actor::Remains::GetsUp { .. }))
             .count() as u32
     }

@@ -67,6 +67,11 @@ pub struct Creature {
     /// What it takes of a blow while it stands in the light (its tile lit at half or more),
     /// per mille: a kind that shuns the light is weak in it.
     pub lit_harm: u32,
+    /// A beast (`hunting.rs`): it runs from the living it sees within this many tiles, and
+    /// from noise and blows, and is after nobody (0: one of the dead).
+    pub flees: i32,
+    /// What its carcass gives cut up (`hunting.rs`), if it's worth butchering.
+    pub butcher: Option<crate::hunting::Butcher>,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -130,6 +135,8 @@ impl Default for Creature {
             nocturnal: false,
             dread: 0,
             lit_harm: 1000,
+            flees: 0,
+            butcher: None,
         }
     }
 }

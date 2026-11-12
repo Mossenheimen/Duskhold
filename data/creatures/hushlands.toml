@@ -130,3 +130,29 @@ nocturnal = true      # only after dark
 douses = 4            # lights and fires within this many tiles go out
 dread = 25            # points of dread it adds near you, over one of the dead's
 lit_harm = 2.0        # what it takes of a blow in the light
+
+# The Hushlands' wildlife (crates/dusk-core/src/hunting.rs): beasts that run from you and are
+# after nobody. A deer outruns you (4.0 to your 3.0), sees far and nearly all round, and bolts
+# from anyone it sees within flees tiles, from your footsteps (rules.toml: walk_noise 3), and from
+# a blow or an arrow. Sneak up from behind, or shoot it from where it hasn't seen you: unaware,
+# an arrow does a sneak attack's harm. Cut up with a knife or an axe, it gives raw venison.
+
+[[creature]]
+id = "deer"
+walk = 1.0
+run = 4.0
+night_speed = 1.0     # the dark doesn't quicken it
+sight = 12
+darkvision = 2
+cone = 300            # only straight behind it is it blind
+think_every = 5
+forget_after = 8.0    # seconds it runs after the last fright
+wander = 0.04         # grazing: a step every few seconds
+path_budget = 50
+health = 12           # most arrows that land drop it (a hunting bow: 10 to 16); one unaware, always
+down = 2.0
+attack = { wind_up = 1.0, recovery = 1.0, hit = 0.0, noise = 0 }   # it never strikes
+wounds = { scratch = 1.0, laceration = 0.0, bite = 0.0 }
+thump = [0, 0]
+flees = 9             # tiles: one of the living seen nearer than this, and it bolts
+butcher = { item = "raw_venison", count = 3, time = 20.0 }   # seconds kneeling over it

@@ -12,7 +12,8 @@ extends Node3D
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
-## that can be made) S real seconds in;
+## that can be made), butcher (G), hunt (shoot the nearest
+## beast within a bow's reach) S real seconds in;
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -127,6 +128,8 @@ const SNEAK_ATTACK := 83
 const BLOCKED := 85
 const SHOT := 86
 const SPOILED := 87
+const STARTLED := 88
+const BUTCHERED := 89
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -137,7 +140,8 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
 	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
-	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow"}
+	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
+	37: "Butchering it"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -613,8 +617,18 @@ func _mind_the_ground() -> void:
 		hud.say("You leave hallowed ground.")
 
 
-## G: pour oil on the body beside you and set it alight from the light you hold up.
+## G: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside
+## you and set it alight from the light you hold up.
 func _burn_body() -> void:
+	match dusk.butcher_check():
+		-1:
+			pass  # no carcass: burning, then
+		-2:
+			hud.say("You need a knife or an axe to butcher it.")
+			return
+		_:
+			dusk.butcher()
+			return
 	match dusk.burn_check():
 		-1:
 			hud.say("There's no body beside you to burn.")
@@ -1012,6 +1026,13 @@ func _read_events() -> void:
 			SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
+			STARTLED:
+				if who < seen.size() and seen[who] == 1:
+					hud.say("%s takes fright and bolts!" % _a(who))
+			BUTCHERED:
+				if who == me:
+					var count := extra / 65536
+					hud.say("You cut it up: %d %s." % [count, _item_name(extra % 65536)])
 			SPOILED:
 				if who == me:
 					hud.say("Your %s has gone off. You throw it away." % _item_name(extra))
@@ -1572,6 +1593,20 @@ func _run_script() -> void:
 						best = k
 				if best >= 0:
 					_shoot(Vector2i(roundi(where[best].x), roundi(where[best].y)))
+			"hunt":  # shoot at the nearest beast within a bow's reach (seen or not: a script can't turn to look)
+				var beasts: PackedInt32Array = dusk.beast_kinds()
+				var where: PackedVector2Array = dusk.actor_positions()
+				var states: PackedInt32Array = dusk.actor_states()
+				var best := -1
+				for k in where.size():
+					if k == me or k >= kinds.size() or kinds[k] == 0 or where[k].distance_to(where[me]) > 12.0:
+						continue
+					if kinds[k] - 1 >= beasts.size() or beasts[kinds[k] - 1] == 0 or states[k] == 2:
+						continue
+					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
+						best = k
+				if best >= 0:
+					_shoot(Vector2i(roundi(where[best].x), roundi(where[best].y)))
 			"bow":  # take up the first bow in the pack
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
@@ -1583,7 +1618,7 @@ func _run_script() -> void:
 				_save("Saved.")
 			"board":
 				_board_up()
-			"burn":
+			"burn", "butcher":  # G: a beast's carcass is cut up, else a body burned
 				_burn_body()
 			"unboard":
 				_pry_board()

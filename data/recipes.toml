@@ -23,6 +23,15 @@ skill = "cooking"
 xp = 1.0
 
 [[recipe]]
+id = "roast_venison"  # a haunch of the deer you shot, over the fire
+makes = "roast_venison"
+uses = { raw_venison = 1 }
+fire = true
+time = 20.0
+skill = "cooking"
+xp = 1.0
+
+[[recipe]]
 id = "roast_turnip"   # in the embers till it's soft
 makes = "roast_turnip"
 uses = { turnip = 1 }

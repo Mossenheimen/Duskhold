@@ -164,6 +164,8 @@ impl World {
             .filter(|(_, o)| {
                 !o.dead
                     && o.kind.hostile_to(kind)
+                    // A beast is no dread (`hunting.rs`).
+                    && !matches!(o.mind, crate::actor::Mind::Flee { .. })
                     && o.pos.z == pos.z
                     && o.pos.dist2(pos) <= r2
                     && (o.alert() != Alert::Unaware || line_of_sight(&self.grid, pos, o.pos))

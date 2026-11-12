@@ -749,6 +749,53 @@ impl Layout {
         kinds.last().map_or("", |k| k.creature.as_str())
     }
 
+    /// Where the region's beasts graze in a chunk at the start: in the open, out of the yards and
+    /// clear of where you start, by the chunk's own rolls; and which kind each is. In reading
+    /// order. None if the region has no wildlife.
+    pub fn beasts_in(&self, chunk: ChunkPos) -> Vec<(TilePos, &str)> {
+        let Some(b) = &self.region.beasts else {
+            return Vec::new();
+        };
+        let clear = i64::from(self.region.dead.clear_start).pow(2);
+        let (cx, cy) = (i64::from(chunk.x), i64::from(chunk.y));
+        let expected = b.per_chunk + unit(self.seed, Layer::Beast, cx, cy);
+        let mut out = Vec::new();
+        for k in 0..expected.floor() as i64 {
+            for attempt in 0..8 {
+                let r = hash(self.seed, Layer::Beast, cx * 4096 + cy, k * 16 + attempt);
+                let at = chunk
+                    .origin(0)
+                    .offset((r % 32) as i32, ((r >> 8) % 32) as i32);
+                let tile = self.tile(at.x, at.y);
+                let outdoors = tile.walkable() && tile.ground != Ground::Floor;
+                if outdoors
+                    && at.dist2(self.start) > clear
+                    && !self.lots.iter().any(|l| l.in_yard(at.x, at.y))
+                {
+                    let mut left = unit(
+                        self.seed,
+                        Layer::BeastKind,
+                        i64::from(at.x),
+                        i64::from(at.y),
+                    );
+                    let mut kind = b.kinds.last().map_or("", |k| k.creature.as_str());
+                    for k in &b.kinds {
+                        if left < k.share {
+                            kind = &k.creature;
+                            break;
+                        }
+                        left -= k.share;
+                    }
+                    out.push((at, kind));
+                    break;
+                }
+            }
+        }
+        out.sort_by_key(|(p, _)| (p.y, p.x));
+        out.dedup_by_key(|(p, _)| *p);
+        out
+    }
+
     /// The patch's chunks, row by row.
     pub fn chunks(&self) -> impl Iterator<Item = ChunkPos> {
         let (w, h) = self.region.patch.chunks;
@@ -776,6 +823,15 @@ pub fn patch(seed: u64, data: &Data, region: &Region) -> (World, Layout) {
     }
     // What the patch began with is what its pressure is measured against.
     make_rares(&mut world, &layout, data);
+    // The beasts after the rares, so none is made one; and they aren't the dead the
+    // pressure is measured against.
+    for chunk in layout.chunks() {
+        for (at, kind) in layout.beasts_in(chunk) {
+            if let Some(kind) = data.defs.creature_kind(kind) {
+                world.spawn(kind, at);
+            }
+        }
+    }
     let mut core = region.to_core(&data.defs, dead);
     core.bell = layout.bell();
     core.start = Some(layout.start);

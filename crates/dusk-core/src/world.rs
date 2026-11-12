@@ -610,6 +610,17 @@ pub enum Event {
         who: ActorId,
         recipe: u16,
     },
+    /// A beast took fright, and runs (`hunting.rs`).
+    Startled {
+        who: ActorId,
+    },
+    /// `who` cut up the carcass `body`, for `count` of `item` (`hunting.rs`).
+    Butchered {
+        who: ActorId,
+        body: ActorId,
+        item: u16,
+        count: u16,
+    },
     /// Food in `who`'s pack went off, and is gone (`cooking.rs`).
     Spoiled {
         who: ActorId,
@@ -876,6 +887,13 @@ impl World {
         };
         let mut actor = Actor::new(kind, pos);
         actor.body = Body::new(health);
+        // A beast is after nobody: it runs (`hunting.rs`).
+        if self.creature(kind).is_some_and(|c| c.flees > 0) {
+            actor.mind = Mind::Flee {
+                from: None,
+                since: 0,
+            };
+        }
         actor.born = self.clock_minutes();
         if kind == ActorKind::Character {
             actor.name = self.roll_name(self.actors.len() as u64);
@@ -1326,6 +1344,23 @@ impl World {
                 }
                 continue;
             }
+            // A beast runs from the nearest noise it hears (`hunting.rs`).
+            if matches!(a.mind, Mind::Flee { .. }) {
+                let pos = a.pos;
+                let heard = self
+                    .sounds
+                    .iter()
+                    .filter(|s| {
+                        let loud = self.carries(s.at, s.loudness);
+                        s.by != Some(id) && hears(&self.grid, s.at, pos, loud, rules.muffling)
+                    })
+                    .map(|s| s.at)
+                    .min_by_key(|at| at.dist2(pos));
+                if let Some(at) = heard {
+                    self.startle(id, at);
+                }
+                continue;
+            }
             let Mind::Hunt {
                 target,
                 touching,
@@ -1384,6 +1419,11 @@ impl World {
             return;
         }
         let Some(kind) = self.stats(id) else { return };
+        // A beast thinks of nothing but getting away (`hunting.rs`).
+        if kind.flees > 0 {
+            self.think_beast(id, kind);
+            return;
+        }
         // Only after dark: by day it lies still where it is, after nothing (`creature.rs`).
         if kind.nocturnal && !self.is_night() {
             if let Some(a) = self.actors.get_mut(id) {
@@ -1591,7 +1631,7 @@ impl World {
     }
 
     /// The nearest character that `who` sees.
-    fn nearest_visible_character(&self, who: ActorId) -> Option<(ActorId, TilePos)> {
+    pub(crate) fn nearest_visible_character(&self, who: ActorId) -> Option<(ActorId, TilePos)> {
         let from = self.actors.get(who)?.pos;
         let mut best: Option<(i64, ActorId, TilePos)> = None;
         for &id in &self.characters {

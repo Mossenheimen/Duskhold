@@ -1379,3 +1379,23 @@ fn meals_are_cooked_at_a_fire_and_meat_goes_off_in_the_games_data() {
     assert_eq!(stew.tools, vec![item("cooking_pot")]);
     assert_eq!(data.rules.skills.cook_time, 50, "Cooking quickens it");
 }
+
+#[test]
+fn the_deer_flees_and_gives_venison_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let deer = d.creatures.iter().find(|c| c.id == "deer").unwrap();
+    assert!(deer.stats.flees > 0, "a beast");
+    assert_eq!(deer.stats.attack.hit, 0, "it never strikes");
+    assert_eq!(deer.stats.get_up.chance, 0, "it stays down");
+    let cut = deer.stats.butcher.expect("it's butchered");
+    assert_eq!((cut.item, cut.count), (item("raw_venison"), 3));
+    let roast = d.recipes.iter().find(|r| r.id == "roast_venison").unwrap();
+    assert!(roast.fire);
+    assert_eq!(roast.uses, vec![(item("raw_venison"), 1)]);
+    let region = data.region("hushlands").unwrap();
+    let beasts = region.beasts.as_ref().expect("the Hushlands have wildlife");
+    assert_eq!(beasts.kinds[0].creature, "deer");
+    assert!(region.dead.kinds.iter().all(|k| k.creature != "deer"));
+}

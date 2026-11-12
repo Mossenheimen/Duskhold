@@ -102,19 +102,26 @@ fn gen_patch(args: &[String]) {
             kinds[usize::from(n)] += 1;
         }
     }
-    let by_kind: Vec<String> = world
-        .defs
-        .creatures
-        .iter()
-        .zip(&kinds)
-        .filter(|&(_, &n)| n > 0)
-        .map(|(c, n)| format!("{n} {}", c.name))
-        .collect();
-    let dead = format!(
-        "{} dead ({})",
-        kinds.iter().sum::<usize>(),
-        by_kind.join(", ")
-    );
+    // Beasts apart from the dead: "77 dead (69 shambler, 8 ghoul), 19 beasts (19 deer)".
+    let tally = |beasts: bool| {
+        let counted: Vec<(String, usize)> = world
+            .defs
+            .creatures
+            .iter()
+            .zip(&kinds)
+            .filter(|&(c, &n)| n > 0 && (c.stats.flees > 0) == beasts)
+            .map(|(c, &n)| (format!("{n} {}", c.name), n))
+            .collect();
+        let total: usize = counted.iter().map(|(_, n)| n).sum();
+        let names: Vec<String> = counted.into_iter().map(|(s, _)| s).collect();
+        (total, names.join(", "))
+    };
+    let (dead_n, dead_kinds) = tally(false);
+    let mut dead = format!("{dead_n} dead ({dead_kinds})");
+    let (beast_n, beast_kinds) = tally(true);
+    if beast_n > 0 {
+        dead += &format!(", {beast_n} beasts ({beast_kinds})");
+    }
     println!(
         "{} from seed {seed}: {} x {} tiles, made in {:.0} ms; {} lots, {dead}; you start at ({}, {})",
         region.name,
@@ -194,6 +201,19 @@ fn gen_patch(args: &[String]) {
             a.pos.x,
             a.pos.y,
             worth / 1000
+        );
+    }
+    // The beast nearest where you start: somewhere to go hunting (a scripted run's --walk).
+    let nearest = world
+        .actors()
+        .filter(|&(id, a)| !a.dead && world.is_beast(id))
+        .min_by_key(|(_, a)| a.pos.dist2(layout.start));
+    if let Some((id, a)) = nearest {
+        println!(
+            "  the nearest beast: a {} at ({}, {})",
+            world.name_of(id).unwrap_or_default(),
+            a.pos.x,
+            a.pos.y
         );
     }
     for lot in &layout.lots {
@@ -493,6 +513,10 @@ fn describe(w: &World, e: Event) -> String {
             format!("{} struck {} unawares", name(who), name(target))
         }
         Event::Crafted { who, recipe } => format!("{} made recipe {recipe}", name(who)),
+        Event::Startled { who } => format!("{} took fright", name(who)),
+        Event::Butchered {
+            who, item, count, ..
+        } => format!("{} butchered a carcass: {count} of item {item}", name(who)),
         Event::Spoiled { who, item } => format!("{}'s item {item} went off", name(who)),
         Event::BrokeDown { who, at, planks } => format!(
             "{} broke the furniture at ({}, {}) down into {planks} planks",

@@ -17,6 +17,7 @@
 
 use dusk_core::archery::NoShot;
 use dusk_core::geom::CHUNK_SIZE;
+use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
@@ -137,6 +138,8 @@ const BRACING: i32 = 84;
 const BLOCKED: i32 = 85;
 const SHOT: i32 = 86;
 const SPOILED: i32 = 87;
+const STARTLED: i32 = 88;
+const BUTCHERED: i32 = 89;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -401,6 +404,20 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         }
         Event::Crafted { who, recipe } => (CRAFTED, Some(who), None, at(who), i32::from(recipe)),
         Event::Spoiled { who, item } => (SPOILED, Some(who), None, at(who), i32::from(item)),
+        Event::Startled { who } => (STARTLED, Some(who), None, at(who), 0),
+        // The item, and how many: count * 65536 + item.
+        Event::Butchered {
+            who,
+            body,
+            item,
+            count,
+        } => (
+            BUTCHERED,
+            Some(who),
+            Some(body),
+            at(body),
+            i32::from(count) * 65536 + i32::from(item),
+        ),
         Event::BrokeDown { who, at: p, planks } => {
             (BROKE_DOWN, Some(who), None, (p.x, p.y), i32::from(planks))
         }
@@ -1218,6 +1235,7 @@ impl DuskWorld {
                         ActionKind::Smother { .. } => 32,
                         ActionKind::Craft { .. } => 33,
                         ActionKind::BreakDown { .. } => 34,
+                        ActionKind::Butcher { .. } => 37,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1350,7 +1368,7 @@ impl DuskWorld {
     }
 
     /// What's become of each body: 0 nothing (the living, and a body lying there), 1 burning,
-    /// 2 ash, 3 risen as a revenant (nothing's left there). Whether a body will get up isn't
+    /// 2 ash, 3 risen as a revenant or butchered (nothing's left there). Whether a body will get up isn't
     /// told: you find out.
     #[func]
     fn actor_remains(&self) -> PackedInt32Array {
@@ -1361,7 +1379,7 @@ impl DuskWorld {
                 Remains::Lying | Remains::GetsUp { .. } => 0,
                 Remains::Burning { .. } => 1,
                 Remains::Ash => 2,
-                Remains::Risen => 3,
+                Remains::Risen | Remains::Butchered => 3,
             })
             .collect()
     }
@@ -1634,6 +1652,43 @@ impl DuskWorld {
             world.dead_about() as i32,
             world.dead_wanted() as i32,
         ])
+    }
+
+    /// Whether you can butcher a carcass now: the carcass's index in the actor arrays, or why
+    /// not: -1 no beast's carcass beside you, -2 no blade or axe.
+    #[func]
+    fn butcher_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_butcher(me) {
+            Ok(body) => index_of(world, body),
+            Err(NoButcher::Nothing) => -1,
+            Err(NoButcher::NoBlade) => -2,
+        }
+    }
+
+    /// By creature number: 1 for a beast (it flees, and is after nobody: `hunting.rs`), else 0.
+    #[func]
+    fn beast_kinds(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .defs
+            .creatures
+            .iter()
+            .map(|c| i32::from(c.stats.flees > 0))
+            .collect()
+    }
+
+    /// Cuts up the beast's carcass beside you (see `butcher_check`).
+    #[func]
+    fn butcher(&mut self) {
+        self.act(Intent::Butcher);
     }
 
     /// Whether you can burn a body now: the body's index in the actor arrays, or why not: -1 no

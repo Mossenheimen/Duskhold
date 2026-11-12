@@ -40,6 +40,12 @@ per_chunk = 1.2       # in the open: the dead in an average chunk
 per_house = [0, 2]    # inside each building: the fewest and the most
 clear_start = 16      # none within this many tiles of where you start
 
+[beasts]
+# Wildlife (creatures/hushlands.toml), out in the open, clear of where you start as the dead are.
+# They aren't the dead: the pressure doesn't count them, the bell doesn't draw them.
+kinds = [{ creature = "deer", share = 1.0 }]
+per_chunk = 0.3       # in an average chunk
+
 [pressure]
 # The Long Dusk, here: how many of the dead the patch holds, in per cent of how many it began
 # with. While it holds fewer, one walks in every so often, into a part of the patch away from you

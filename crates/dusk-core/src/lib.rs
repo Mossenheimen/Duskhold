@@ -27,6 +27,7 @@ pub mod grid;
 pub mod hash;
 pub mod holdout;
 pub mod home;
+pub mod hunting;
 pub mod injury;
 pub mod items;
 pub mod legacy;

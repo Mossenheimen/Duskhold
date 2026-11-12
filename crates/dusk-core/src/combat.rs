@@ -81,6 +81,7 @@ impl World {
                 ActionKind::Stash { at } => self.mark_stash(id, at),
                 ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
                 ActionKind::Burn { body } => self.kindle(id, body),
+                ActionKind::Butcher { body } => self.butcher(id, body),
                 ActionKind::Tend { at, tend } => self.tend(id, at, tend),
                 ActionKind::Smother { at } => self.smother(id, at),
                 ActionKind::Craft { recipe } => self.craft(id, recipe),
@@ -223,6 +224,10 @@ impl World {
             }
             Intent::Burn => {
                 let (kind, dir, ticks) = self.burn_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Butcher => {
+                let (kind, dir, ticks) = self.butcher_action(id)?;
                 (kind, dir, ticks, 0, 0)
             }
             Intent::Tend => {
@@ -529,6 +534,7 @@ impl World {
             }
         }
         self.interrupt(target);
+        self.startle_by(target, id);
         self.wake(target, crate::needs::Woke::Hurt);
         self.events.push(Event::Struck {
             who: id,

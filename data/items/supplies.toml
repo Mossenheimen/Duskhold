@@ -185,6 +185,24 @@ weight = 1.5
 worth = 2
 stack = 1
 
+# Hunting's (creatures/hushlands.toml, the deer): its meat, raw and roast.
+
+[[item]]
+id = "raw_venison"
+name = "raw venison"
+weight = 0.5
+worth = 1
+stack = 6
+food = { nutrition = 10, time = 4.0, comfort = -5, keeps = 2 }
+
+[[item]]
+id = "roast_venison"
+name = "roast venison"
+weight = 0.4
+worth = 0
+stack = 6
+food = { nutrition = 40, time = 4.0, comfort = 12, keeps = 4 }
+
 # Bows' (items/weapons.toml).
 
 [[item]]

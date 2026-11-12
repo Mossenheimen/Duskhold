@@ -179,6 +179,7 @@ impl World {
             t.body.health -= damage;
         }
         self.interrupt(target);
+        self.startle_by(target, id);
         self.events.push(Event::Struck {
             who: id,
             target,

@@ -304,7 +304,7 @@ fn watcher(w: &mut World) -> (ActorId, Vec<Event>, Option<TilePos>) {
     let seen = run(w, 2 * MINUTE);
     let target = match w.actor(z).unwrap().mind {
         Mind::Hunt { target, .. } => target,
-        Mind::None => None,
+        Mind::None | Mind::Flee { .. } => None,
     };
     (z, seen, target)
 }

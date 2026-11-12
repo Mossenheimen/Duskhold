@@ -214,6 +214,18 @@ pub struct Region {
     /// Its barrows out in the wilds, placed as farms are (`[barrows]`, read as `[farms]`).
     #[serde(default)]
     pub barrows: Option<FarmsFile>,
+    /// Its wildlife, if it has any (`hunting.rs`): out in the open, apart from the dead.
+    #[serde(default)]
+    pub beasts: Option<Beasts>,
+}
+
+/// A region's beasts: which creatures (each one that flees), each kind's share, and how many
+/// in an average chunk, in the open and clear of where you start.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Beasts {
+    pub kinds: Vec<DeadKind>,
+    pub per_chunk: f32,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -305,13 +317,13 @@ pub fn default_dir() -> PathBuf {
 pub fn load(dir: &Path) -> Result<Data, DataError> {
     let rules_file = dir.join("rules.toml");
     let raw: RulesFile = read(&rules_file)?;
-    let mut creatures = Vec::new();
+    let mut creature_files = Vec::new();
     for file in files_in(&dir.join("creatures"))? {
         let parsed: CreaturesFile = read(&file)?;
-        creatures.extend(parsed.creature.into_iter().map(|c| (file.clone(), c)));
+        creature_files.extend(parsed.creature.into_iter().map(|c| (file.clone(), c)));
     }
     let rules = to_rules(&rules_file, &raw)?;
-    let creatures = to_creatures(&dir.join("creatures"), &creatures)?;
+    let creatures = to_creatures(&dir.join("creatures"), &creature_files)?;
 
     let fixtures_file = dir.join("fixtures.toml");
     let fixtures = read::<FixturesFile>(&fixtures_file)?.fixture;
@@ -346,6 +358,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         &mut defs,
     )?;
     defs.creatures = creatures;
+    butchery(&creature_files, &mut defs)?;
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
     defs.properties = magic::load(dir)?;
@@ -688,6 +701,22 @@ struct CreatureFile {
     /// Whether its body gets up again, and when (left out: it stays down).
     #[serde(default)]
     get_up: Option<remains::GetUpFile>,
+    /// A beast: it runs from the living it sees within this many tiles, and from noise and
+    /// blows, and is after nobody (0, or left out: one of the dead).
+    #[serde(default)]
+    flees: i32,
+    /// What its carcass gives cut up: an item, how many, and seconds it takes (left out:
+    /// it isn't butchered).
+    #[serde(default)]
+    butcher: Option<ButcherFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ButcherFile {
+    item: String,
+    count: u16,
+    time: f64,
 }
 
 /// What a kind takes of a blow, by the weapon's skill: 1 all of it, under 1 less (bone turns a
@@ -820,6 +849,9 @@ fn to_creatures(
         if !(c.cone > 0.0 && c.cone <= 360.0) {
             return Err(bad("cone must be above 0 and at most 360 degrees"));
         }
+        if c.flees < 0 || c.butcher.as_ref().is_some_and(|b| b.count == 0) {
+            return Err(bad("flees is 0 tiles or more; butcher gives at least one"));
+        }
         if c.sight < 0
             || c.think_every == 0
             || c.path_budget == 0
@@ -905,10 +937,46 @@ fn to_creatures(
                 nocturnal: c.nocturnal,
                 dread: (c.dread * 1000.0).round() as i32,
                 lit_harm: (c.lit_harm * 1000.0).round() as u32,
+                flees: c.flees,
+                // Its item is found once the items are read (`butchery`).
+                butcher: match &c.butcher {
+                    None => None,
+                    Some(b) => Some(dusk_core::hunting::Butcher {
+                        item: u16::MAX,
+                        count: b.count,
+                        time: (ticks(cfile, "butcher.time", b.time)? as u32).max(1),
+                    }),
+                },
             },
         });
     }
     Ok(defs)
+}
+
+/// The items carcasses give, by name, now the items are read.
+fn butchery(files: &[(PathBuf, CreatureFile)], defs: &mut Defs) -> Result<(), DataError> {
+    for (n, (cfile, c)) in files.iter().enumerate() {
+        let Some(b) = &c.butcher else {
+            continue;
+        };
+        let item = defs
+            .items
+            .iter()
+            .position(|i| i.id == b.item)
+            .ok_or_else(|| {
+                fail(
+                    cfile,
+                    format!(
+                        "creature {:?}: butcher.item: no item called {:?}",
+                        c.id, b.item
+                    ),
+                )
+            })?;
+        if let Some(cut) = defs.creatures[n].stats.butcher.as_mut() {
+            cut.item = item as u16;
+        }
+    }
+    Ok(())
 }
 
 fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
@@ -1225,6 +1293,23 @@ fn check_region(
         || (r.dead.kinds.iter().map(|k| k.share).sum::<f32>() - 1.0).abs() > 0.001
     {
         Some("dead.kinds: each share is above 0, and they add up to 1".to_string())
+    } else if let Some(b) = &r.beasts
+        && (b.per_chunk < 0.0
+            || b.kinds.is_empty()
+            || b.kinds.iter().any(|k| {
+                k.share.is_nan()
+                    || k.share <= 0.0
+                    || !creatures
+                        .iter()
+                        .any(|c| c.id == k.creature && c.stats.flees > 0)
+            })
+            || (b.kinds.iter().map(|k| k.share).sum::<f32>() - 1.0).abs() > 0.001)
+    {
+        Some(
+            "beasts: per_chunk can't be negative; kinds are creatures that flee, each share above \
+             0, adding up to 1"
+                .to_string(),
+        )
     } else if let Some(problem) = r.pressure.problem() {
         Some(problem)
     } else if let Some(problem) = r.tolling.as_ref().and_then(TollingFile::problem) {

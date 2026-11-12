@@ -35,7 +35,7 @@ fn field(hour: u32, nocturnal: bool, dread: i32, darkvision: i32) -> (World, Act
 fn after(w: &World, z: ActorId) -> Option<TilePos> {
     match w.actor(z).unwrap().mind {
         Mind::Hunt { target, .. } => target,
-        Mind::None => None,
+        Mind::None | Mind::Flee { .. } => None,
     }
 }
 

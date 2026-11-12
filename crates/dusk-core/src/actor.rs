@@ -95,6 +95,8 @@ pub enum Intent {
     /// Pour oil on a body beside you (or under you) and set it alight from the light you hold
     /// up (`remains.rs`): the one you face, else the one you stand on, else the first round you.
     Burn,
+    /// Cut up the beast's carcass beside you (`hunting.rs`), with a blade or an axe.
+    Butcher,
     /// Tend the hearth, stove or forge beside you (`fire.rs`): light it, if it's laid and you
     /// hold up a light, else put fuel on.
     Tend,
@@ -166,6 +168,10 @@ pub enum ActionKind {
     },
     /// Setting a body alight.
     Burn {
+        body: ActorId,
+    },
+    /// Cutting up a carcass.
+    Butcher {
         body: ActorId,
     },
     /// Laying or lighting the fire on `at`, and putting it out.
@@ -270,6 +276,9 @@ pub enum Mind {
         /// It saw its prey when it last thought.
         sees: bool,
     },
+    /// A beast (`hunting.rs`): after nobody, it runs from where it was last startled, until
+    /// it's forgotten (`since`, the tick of the fright).
+    Flee { from: Option<TilePos>, since: u64 },
 }
 
 /// What a creature knows of its prey: the mark the client draws over its head.
@@ -299,6 +308,8 @@ pub enum Remains {
     Ash,
     /// A character's body that rose as a revenant (`legacy.rs`): nothing's left here.
     Risen,
+    /// A beast's carcass cut up (`hunting.rs`): nothing's left here.
+    Butchered,
 }
 
 /// How fast a kind of actor moves, in thousandths of a tile a second (`Rules::speeds`).
