@@ -133,6 +133,7 @@ pub enum Purpose {
     Weather = 22,
     Talent = 23,
     Block = 24,
+    Arrow = 25,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

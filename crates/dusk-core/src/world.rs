@@ -621,6 +621,12 @@ pub enum Event {
         who: ActorId,
         on: bool,
     },
+    /// `who` loosed an arrow from `from`, and it flew to `to` (`archery.rs`).
+    Shot {
+        who: ActorId,
+        from: TilePos,
+        to: TilePos,
+    },
     /// `who` braced behind its shield (`on`), or stopped (`shield.rs`).
     Bracing {
         who: ActorId,

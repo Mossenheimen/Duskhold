@@ -71,6 +71,7 @@ impl World {
                 ActionKind::Wield { slot, def } => self.wield(id, slot, def),
                 ActionKind::Unwield => self.unwield(id),
                 ActionKind::Unshield => self.unshield(id),
+                ActionKind::Shoot { at } => self.loose(id, at),
                 ActionKind::Sleep => self.fall_asleep(id),
                 ActionKind::DrinkWater => self.drink_water(id),
                 ActionKind::Light { slot, def } => self.hold_light(id, slot, def),
@@ -145,6 +146,7 @@ impl World {
                 a.hands?;
                 (ActionKind::Unwield, a.facing, self.defs.unwield_time, 0, 0)
             }
+            Intent::Shoot { at } => self.shoot_action(id, at)?,
             Intent::Unshield => {
                 a.shield?;
                 (ActionKind::Unshield, a.facing, self.defs.unwield_time, 0, 0)
@@ -384,7 +386,7 @@ impl World {
     }
 
     /// A blow during the wind-up breaks it off.
-    fn interrupt(&mut self, id: ActorId) {
+    pub(crate) fn interrupt(&mut self, id: ActorId) {
         if let Some(a) = self.actors.get_mut(id)
             && a.action.is_some_and(|act| act.winding_up())
         {

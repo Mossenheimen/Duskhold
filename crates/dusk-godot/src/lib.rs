@@ -15,6 +15,7 @@
 //! The core runs on the main thread here: a tick of a patch takes well under a millisecond.
 //! `ARCHITECTURE.md` moves it onto its own thread once the world is big enough to need it.
 
+use dusk_core::archery::NoShot;
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
@@ -134,6 +135,7 @@ const SNEAKING: i32 = 82;
 const SNEAK_ATTACK: i32 = 83;
 const BRACING: i32 = 84;
 const BLOCKED: i32 = 85;
+const SHOT: i32 = 86;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -388,6 +390,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
         Event::Sneaking { who, on } => (SNEAKING, Some(who), None, at(who), i32::from(on)),
         Event::Bracing { who, on } => (BRACING, Some(who), None, at(who), i32::from(on)),
+        // Where it landed, and where it was loosed from as 4096 x + y.
+        Event::Shot { who, from, to } => {
+            (SHOT, Some(who), None, (to.x, to.y), from.x * 4096 + from.y)
+        }
         Event::Blocked { who, by } => (BLOCKED, Some(who), Some(by), at(who), 0),
         Event::SneakAttack { who, target } => {
             (SNEAK_ATTACK, Some(who), Some(target), at(target), 0)
@@ -950,6 +956,7 @@ impl DuskWorld {
                 ItemKind::Cure { .. } => 6,
                 ItemKind::Oil => 7,
                 ItemKind::Shield(_) => 8,
+                ItemKind::Bow(_) => 9,
             })
             .collect()
     }
@@ -1182,6 +1189,7 @@ impl DuskWorld {
                         }
                         ActionKind::Wield { .. } => 9,
                         ActionKind::Unwield | ActionKind::Unshield => 10,
+                        ActionKind::Shoot { .. } => 36,
                         ActionKind::Light { .. } => 15,
                         ActionKind::Douse => 16,
                         ActionKind::Sleep => 11,
@@ -2156,6 +2164,33 @@ impl DuskWorld {
     #[func]
     fn break_down(&mut self) {
         self.act(Intent::BreakDown);
+    }
+
+    /// Whether you can shoot at (x, y) now: 0 yes, else why not: -1 no bow in hand, -2 no arrows,
+    /// -3 a light or a shield in the other hand, -4 out of range.
+    #[func]
+    fn shoot_check(&self, x: i32, y: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_shoot(me, TilePos::new(x, y, 0)) {
+            Ok(()) => 0,
+            Err(NoShot::NoBow) => -1,
+            Err(NoShot::NoArrows) => -2,
+            Err(NoShot::HandsFull) => -3,
+            Err(NoShot::TooFar) => -4,
+        }
+    }
+
+    /// Shoots at (x, y) (see `shoot_check`).
+    #[func]
+    fn shoot(&mut self, x: i32, y: i32) {
+        self.act(Intent::Shoot {
+            at: TilePos::new(x, y, 0),
+        });
     }
 
     /// The shield on your arm: [its definition number, its condition (out of 1000)], or nothing.

@@ -21,6 +21,7 @@ const LIGHT := 5
 const CURE := 6
 const OIL := 7
 const SHIELD := 8
+const BOW := 9
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
@@ -204,6 +205,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Wield", func() -> void: _wield(slot, def))
 			SHIELD:
 				_button(row, "Take up", func() -> void: _dusk.wield(slot, def))
+			BOW:
+				_button(row, "Wield", func() -> void: _wield(slot, def))
 			BANDAGE:
 				_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
 			FOOD:

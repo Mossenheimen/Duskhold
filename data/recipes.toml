@@ -20,6 +20,16 @@ skill = "carpentry"
 xp = 1.5
 
 [[recipe]]
+id = "arrows"         # a plank split and whittled into shafts: rough, but they fly
+makes = "arrow"
+count = 4
+uses = { plank = 1 }
+tools = ["kitchen_knife", "hand_axe", "wood_axe"]
+time = 12.0
+skill = "carpentry"
+xp = 1.0
+
+[[recipe]]
 id = "buckler"        # two planks nailed in a round: a shield of a kind
 makes = "buckler"
 uses = { plank = 2, nails = 8 }

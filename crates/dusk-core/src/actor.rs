@@ -102,6 +102,8 @@ pub enum Intent {
     Smother,
     /// Put the shield on your arm into your pack (`shield.rs`).
     Unshield,
+    /// Shoot the bow in your hand at `at` (`archery.rs`).
+    Shoot { at: TilePos },
     /// Make what recipe `recipe` makes (`craft.rs`), from what you carry.
     Craft { recipe: u16 },
     /// Break the furniture beside you down for planks, with a hammer or an axe.
@@ -176,6 +178,10 @@ pub enum ActionKind {
     },
     /// Putting the shield away.
     Unshield,
+    /// Drawing a bow and loosing at `at`.
+    Shoot {
+        at: TilePos,
+    },
     /// Making something, and breaking the furniture on `at` down.
     Craft {
         recipe: u16,

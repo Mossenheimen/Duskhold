@@ -7,6 +7,7 @@
 //! doors and windows, as in Project Zomboid.
 
 pub mod actor;
+pub mod archery;
 pub mod arena;
 pub mod barricade;
 pub mod body;

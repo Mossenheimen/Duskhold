@@ -142,3 +142,12 @@ weight = 0.25
 worth = 1
 stack = 10
 food = { nutrition = 12, time = 2.0 }
+
+# Bows' (items/weapons.toml).
+
+[[item]]
+id = "arrow"
+name = "arrow"
+weight = 0.05
+worth = 0.2
+stack = 30

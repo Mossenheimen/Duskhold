@@ -1330,3 +1330,21 @@ fn shields_load_and_a_buckler_can_be_made_in_the_games_data() {
         Some(dusk_core::Skill::Shield)
     );
 }
+
+#[test]
+fn the_hunting_bow_shoots_arrows_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let dusk_core::ItemKind::Bow(bow) = d.items[usize::from(item("hunting_bow"))].kind else {
+        panic!("the hunting bow isn't a bow");
+    };
+    assert_eq!((bow.ammo, bow.range), (item("arrow"), 12));
+    assert!(bow.swing.noise < 4, "quieter than a blow");
+    let arrows = d.recipes.iter().find(|r| r.id == "arrows").unwrap();
+    assert_eq!(arrows.makes, (item("arrow"), 4));
+    assert_eq!(
+        dusk_core::Skill::from_id("archery"),
+        Some(dusk_core::Skill::Archery)
+    );
+}

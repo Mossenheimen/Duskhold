@@ -132,3 +132,16 @@ weight = 4.5
 worth = 15
 stack = 1
 shield = { block = 0.7, endurance = 5, wear = 1.5, bash = 0.25 }   # iron-rimmed oak, from the tombs
+
+# Bows (archery.rs in the core): taken in hand as a weapon is, and shot at a tile (right-click) with
+# the other hand free. draw: seconds drawing (the tell); hit: the chance up close, half of it at the
+# bow's range; damage taken as a spear's thrust is; ammo: what it shoots; breaks: the chance an
+# arrow breaks on a hit (else it lies where it fell).
+
+[[item]]
+id = "hunting_bow"
+name = "hunting bow"
+weight = 1.0
+worth = 8
+stack = 1
+bow = { draw = 0.9, recovery = 0.4, endurance = 6, hit = 0.85, damage = [10, 16], noise = 2, range = 12, ammo = "arrow", breaks = 0.35 }

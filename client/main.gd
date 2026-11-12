@@ -11,7 +11,7 @@ extends Node3D
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
 ## --do=S:ACTION,... press swing, shove, door, struggle, drop (the first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
-## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace S real seconds in;
+## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see) S real seconds in;
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -124,6 +124,7 @@ const CRAFTED := 80
 const BROKE_DOWN := 81
 const SNEAK_ATTACK := 83
 const BLOCKED := 85
+const SHOT := 86
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -134,7 +135,7 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
 	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
-	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down"}
+	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -416,6 +417,9 @@ func _unhandled_input(event: InputEvent) -> void:
 						dusk.attack(aim.x, aim.y)
 				else:
 					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
+			MOUSE_BUTTON_RIGHT:
+				if not dead:
+					_shoot(_tile_under(mouse.position))
 			MOUSE_BUTTON_WHEEL_UP:
 				zoom = maxf(ZOOM_MIN, zoom / 1.15)
 			MOUSE_BUTTON_WHEEL_DOWN:
@@ -997,6 +1001,8 @@ func _read_events() -> void:
 			RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
+			SHOT:
+				_streak(Vector2i(extra / 4096, extra % 4096), Vector2i(events[i + 3], events[i + 4]))
 			BLOCKED:
 				if who == me and played - blocked_at > 3.0:
 					blocked_at = played
@@ -1056,6 +1062,47 @@ func _read_events() -> void:
 						hud.say("The blow shatters bone!")
 					else:
 						hud.say("Your blow glances off the bones. Something blunt would shatter them.")
+
+
+## An arrow's flight (the core's SHOT news): a thin streak from the bow to where it landed,
+## fading in a moment. Only the look: where it went is the core's.
+func _streak(from: Vector2i, to: Vector2i) -> void:
+	var a := Vector3(from.x + 0.5, 1.2, from.y + 0.5)
+	var b := Vector3(to.x + 0.5, 0.9, to.y + 0.5)
+	var length := a.distance_to(b)
+	if length < 0.1:
+		return
+	var box := BoxMesh.new()
+	box.size = Vector3(0.04, 0.04, length)
+	var streak := MeshInstance3D.new()
+	streak.mesh = box
+	var paint := StandardMaterial3D.new()
+	paint.albedo_color = Color(0.85, 0.8, 0.65)
+	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	streak.material_override = paint
+	streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(streak)
+	streak.look_at_from_position((a + b) / 2.0, b, Vector3.UP)
+	var fade := create_tween()
+	fade.tween_property(paint, "albedo_color:a", 0.0, 0.35)
+	fade.tween_callback(streak.queue_free)
+
+
+## Right-click: shoot the bow in your hand at the tile under the cursor. The core says whether
+## you can; this says why not.
+func _shoot(tile: Vector2i) -> void:
+	match dusk.shoot_check(tile.x, tile.y):
+		-1:
+			hud.say("Right-click shoots a bow, and there's none in your hand.")
+		-2:
+			hud.say("You have no arrows.")
+		-3:
+			hud.say("A bow takes both hands: put out the light, or put away the shield.")
+		-4:
+			hud.say("Too far for the bow.")
+		_:
+			dusk.shoot(tile.x, tile.y)
 
 
 ## Alt, held: brace behind your shield (none on your arm, and the news says so).
@@ -1503,6 +1550,23 @@ func _run_script() -> void:
 						break
 			"brace":
 				_brace(true)
+			"shoot":  # at the nearest of the dead you see
+				var where: PackedVector2Array = dusk.actor_positions()
+				var best := -1
+				for k in where.size():
+					if k == me or k >= kinds.size() or kinds[k] == 0 or k >= seen.size() or seen[k] == 0:
+						continue
+					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
+						best = k
+				if best >= 0:
+					_shoot(Vector2i(roundi(where[best].x), roundi(where[best].y)))
+			"bow":  # take up the first bow in the pack
+				var items: PackedInt32Array = dusk.character_items()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(0, items.size() - 3, 4):
+					if items[k] < kinds.size() and kinds[items[k]] == 9:
+						dusk.wield(k / 4, items[k])
+						break
 			"save":
 				_save("Saved.")
 			"board":

@@ -71,6 +71,8 @@ pub enum ItemKind {
     Oil,
     /// Carried on the off arm, it blocks blows while you brace, and bashes (`shield.rs`).
     Shield(crate::shield::Guard),
+    /// Taken in hand as a weapon is, it shoots arrows (`archery.rs`).
+    Bow(crate::archery::Ranged),
     /// Everything else: materials, junk.
     Other,
 }
@@ -675,7 +677,9 @@ impl World {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         match (using, &self.defs.item(def)?.kind) {
-            (false, ItemKind::Weapon { .. } | ItemKind::Shield(_)) => Some(self.defs.wield_time),
+            (false, ItemKind::Weapon { .. } | ItemKind::Shield(_) | ItemKind::Bow(_)) => {
+                Some(self.defs.wield_time)
+            }
             (true, ItemKind::Bandage { time }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
                 let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
                 Some(self.rules.skills.bandage(*time, level))

@@ -45,6 +45,9 @@ struct ItemFile {
     light: Option<LightFile>,
     #[serde(default)]
     cure: Option<CureFile>,
+    /// A bow, shooting the item `ammo` names (`archery.rs` in the core).
+    #[serde(default)]
+    bow: Option<BowFile>,
     /// A shield, carried on the off arm (`shield.rs` in the core).
     #[serde(default)]
     shield: Option<ShieldFile>,
@@ -73,6 +76,56 @@ struct WeaponFile {
     noise: i32,
     wear: f64,
     skill: String,
+}
+
+/// A bow: its draw (seconds, the wind-up), its recovery, the breath a shot costs, its chance to
+/// land up close, its harm (points), its noise and range (tiles), the item it shoots, and the
+/// chance an arrow breaks on a hit.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BowFile {
+    draw: f64,
+    recovery: f64,
+    endurance: f64,
+    hit: f64,
+    damage: (f64, f64),
+    noise: i32,
+    range: i32,
+    ammo: String,
+    breaks: f64,
+}
+
+fn bow(file: &Path, id: &str, b: &BowFile) -> Result<ItemKind, DataError> {
+    let what = |part: &str| format!("item {id:?}: bow.{part}");
+    let wind_up = ticks(file, &what("draw"), b.draw)? as u32;
+    if wind_up == 0
+        || b.damage.0 < 0.0
+        || b.damage.0 > b.damage.1
+        || b.noise < 0
+        || !(1..=40).contains(&b.range)
+    {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a bow's draw is at least a tick, its damage [least, most], its noise 0 \
+                 or more and its range 1 to 40 tiles"
+            ),
+        ));
+    }
+    Ok(ItemKind::Bow(dusk_core::archery::Ranged {
+        swing: Swing {
+            wind_up,
+            recovery: ticks(file, &what("recovery"), b.recovery)? as u32,
+            endurance: points(b.endurance),
+            hit: chance(file, &what("hit"), b.hit)?,
+            damage: (points(b.damage.0), points(b.damage.1)),
+            noise: b.noise,
+        },
+        range: b.range,
+        // Filled in once every item is read: its arrows may come later.
+        ammo: u16::MAX,
+        breaks: chance(file, &what("breaks"), b.breaks)?,
+    }))
 }
 
 /// A shield: the chance it blocks a blow from ahead while you brace, the breath a block costs
@@ -282,6 +335,8 @@ pub(crate) fn load_defs(
     fixtures: &[Fixture],
 ) -> Result<Defs, DataError> {
     let mut items: Vec<ItemDef> = Vec::new();
+    // The bows, to give their arrows' numbers once every item is read.
+    let mut bows: Vec<(usize, String, std::path::PathBuf)> = Vec::new();
     // What burns, by item number, and its game minutes.
     let mut fuel: Vec<(u16, u32)> = Vec::new();
     for file in files_maybe(&dir.join("items"))? {
@@ -295,12 +350,13 @@ pub(crate) fn load_defs(
                 i.cure.is_some(),
                 i.oil,
                 i.shield.is_some(),
+                i.bow.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil and shield",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, shield and bow",
                         i.id
                     ),
                 ));
@@ -338,6 +394,9 @@ pub(crate) fn load_defs(
                 ItemKind::Cure {
                     time: (time as u32).max(1),
                 }
+            } else if let Some(b) = &i.bow {
+                bows.push((items.len(), b.ammo.clone(), file.clone()));
+                bow(&file, &i.id, b)?
             } else if let Some(s) = &i.shield {
                 shield(&file, &i.id, s)?
             } else if i.oil {
@@ -368,6 +427,17 @@ pub(crate) fn load_defs(
         }
     }
     check_unique(&dir.join("items"), "item", items.iter().map(|i| &i.id))?;
+    for (n, ammo, file) in bows {
+        let Some(a) = items.iter().position(|i| i.id == ammo) else {
+            return Err(fail(
+                &file,
+                format!("item {:?}: bow.ammo: no item called {ammo:?}", items[n].id),
+            ));
+        };
+        if let ItemKind::Bow(r) = &mut items[n].kind {
+            r.ammo = a as u16;
+        }
+    }
     let item = |file: &Path, name: &str| -> Result<u16, DataError> {
         items
             .iter()

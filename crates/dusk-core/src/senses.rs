@@ -56,7 +56,11 @@ impl Cone {
 
 /// Walks the straight line from `a` to `b` (Bresenham), one step between neighbours at a time.
 /// `visit(from, dir)` returns false to stop; the walk returns whether it got to `b`.
-fn walk_line(a: TilePos, b: TilePos, mut visit: impl FnMut(TilePos, Dir8) -> bool) -> bool {
+pub(crate) fn walk_line(
+    a: TilePos,
+    b: TilePos,
+    mut visit: impl FnMut(TilePos, Dir8) -> bool,
+) -> bool {
     let (dx, dy) = ((b.x - a.x).abs(), -(b.y - a.y).abs());
     let (sx, sy) = ((b.x - a.x).signum(), (b.y - a.y).signum());
     let mut err = dx + dy;

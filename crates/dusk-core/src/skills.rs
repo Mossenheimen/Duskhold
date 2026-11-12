@@ -38,10 +38,12 @@ pub enum Skill {
     Stealth,
     /// Blocking and bashing with a shield (`shield.rs`).
     Shield,
+    /// Shooting a bow (`archery.rs`).
+    Archery,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 9;
+pub const SKILLS: usize = 10;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -54,6 +56,7 @@ impl Skill {
         Skill::Carpentry,
         Skill::Stealth,
         Skill::Shield,
+        Skill::Archery,
     ];
 
     pub fn name(self) -> &'static str {
@@ -67,6 +70,7 @@ impl Skill {
             Skill::Carpentry => "Carpentry",
             Skill::Stealth => "Stealth",
             Skill::Shield => "Shield",
+            Skill::Archery => "Archery",
         }
     }
 
@@ -82,6 +86,7 @@ impl Skill {
             Skill::Carpentry => "carpentry",
             Skill::Stealth => "stealth",
             Skill::Shield => "shield",
+            Skill::Archery => "archery",
         }
     }
 
