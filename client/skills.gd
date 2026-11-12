@@ -1,7 +1,8 @@
 extends CanvasLayer
 ## Your skills (K): each with its level and how far it is toward the next. Skills grow only by
 ## real use under real risk (the core decides; this only shows it). A skill at the free cap waits
-## for a mastery: the "Master" button spends one, and the skill goes on to 10.
+## for a mastery: the "Master" button spends one, and the skill goes on to 10. Above them, your
+## Strength and Fitness, which grow overnight from the day's exertion (`fitness.rs`).
 
 const RISING := 0
 const AT_CAP := 1
@@ -20,6 +21,7 @@ var _panel: PanelContainer
 var _list: VBoxContainer
 var _shown := PackedInt32Array()
 var _shown_left := -1
+var _shown_build := PackedInt32Array()  # Strength and Fitness, as last drawn
 var _shown_talents := []  # your class's talents, taken and offered, as last drawn
 var _texts := PackedStringArray()  # every talent's name and line (DuskWorld.talent_texts())
 
@@ -42,6 +44,7 @@ func start(dusk: Node) -> void:
 	_names = dusk.skill_names()
 	_shown = PackedInt32Array()
 	_shown_left = -1
+	_shown_build = PackedInt32Array()
 	_shown_talents = []
 	_texts = dusk.talent_texts()
 
@@ -67,12 +70,15 @@ func refresh(dead: bool) -> void:
 	var skills: PackedInt32Array = _dusk.character_skills()
 	var left: int = _dusk.masteries_left()
 	var talents := [_dusk.character_talents(), _dusk.talent_offer()]
-	if skills == _shown and left == _shown_left and talents == _shown_talents:
+	# Only the two stats: the day's work toward them changes with every breath.
+	var build: PackedInt32Array = _dusk.character_build().slice(0, 2)
+	if skills == _shown and left == _shown_left and talents == _shown_talents 			and build == _shown_build:
 		return
 	_shown = skills
 	_shown_left = left
 	_shown_talents = talents
-	_draw(skills, left)
+	_shown_build = build
+	_draw(skills, left, build)
 	_draw_talents(talents[0], talents[1])
 
 
@@ -116,9 +122,10 @@ func _text(talent: int, which: int) -> String:
 	return _texts[i] if i < _texts.size() else "?"
 
 
-func _draw(skills: PackedInt32Array, left: int) -> void:
+func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array) -> void:
 	for child in _list.get_children():
 		child.queue_free()
+	_draw_build(build)
 	var title := _label("Skills  ·  masteries left: %d" % left, Look.HEADING)
 	_list.add_child(title)
 	var hint := _label("They grow by real use under real risk.", Look.SMALL)
@@ -157,6 +164,28 @@ func _draw(skills: PackedInt32Array, left: int) -> void:
 				row.add_child(_label("mastered, at the top", Look.SMALL))
 		if state != RISING:
 			called.add_theme_color_override("font_color", colour)
+
+
+## Strength and Fitness, in thousandths of a level: each its level, and how far toward the next.
+func _draw_build(build: PackedInt32Array) -> void:
+	_list.add_child(_label("Body", Look.HEADING))
+	var hint := _label("Strength and Fitness grow overnight from the day's exertion.", Look.SMALL)
+	hint.modulate = Look.TEXT_DIM
+	_list.add_child(hint)
+	for k in 2:
+		var value := build[k] if k < build.size() else 0
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_list.add_child(row)
+		var called := _label(["Strength", "Fitness"][k], Look.BODY)
+		called.custom_minimum_size = Vector2(90, 0)
+		row.add_child(called)
+		var number := _label(str(floori(value / 1000.0)), Look.BODY)
+		number.custom_minimum_size = Vector2(22, 0)
+		row.add_child(number)
+		var top := value >= 10000
+		row.add_child(_bar(1.0 if top else (value % 1000) / 1000.0, GOLD if top else BAR))
+	_list.add_child(_label(" ", 8))
 
 
 func _label(text: String, size: int) -> Label:

@@ -59,6 +59,28 @@ endurance = 6
 knock_down = 0.4      # the chance it knocks down what it pushes
 noise = 2
 
+[fitness]
+# Fitness and Strength grow over days of real exertion, as Zomboid's do. Every point of breath you
+# spend counts toward the day's Fitness. At midnight the day's work turns into Fitness, the more
+# the less each, and the fitter you are the less a day adds: a week of real use beats an hour of
+# jumping on the spot. Everyone starts at 0 (the game's balance) and it rises to 10.
+most = 0.6            # levels a day at the most...
+half = 1500           # ...and half that for this many points of breath spent in a day
+cost = 0.03           # each level: everything costs this share less breath
+recover = 0.05        # each level: breath comes back this share faster
+
+[strength]
+# Strength, the same way, from the day's strain: blows that land (a heavy one counts twice),
+# shoves that find someone, and steps carrying more than half what you can.
+most = 0.6
+half = 100            # points of strain in a day for half the most
+blow = 1.0            # points of strain
+shove = 1.0
+haul = 0.5
+carry = 1.0           # each level: kg more you carry before you're weighed down
+harm = 0.03           # each level: your blows do this share more harm
+knock_down = 0.02     # each level: a shove's chance to knock down rises this much
+
 [heavy]
 # A heavy swing (Shift+F, or Shift-click one of the dead): your weight behind it. Its wind-up is
 # the longer tell, and a blow taken during it breaks it off; it costs more breath and wears the

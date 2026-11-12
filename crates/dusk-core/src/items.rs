@@ -463,7 +463,7 @@ impl World {
         self.actors
             .get(id)
             .is_some_and(|a| a.kind == ActorKind::Character)
-            && self.load(id) > self.defs.carry
+            && self.load(id) > self.carry(id)
     }
 
     /// The swing an actor makes now: its weapon's, as its skill, its weapon's magic and its

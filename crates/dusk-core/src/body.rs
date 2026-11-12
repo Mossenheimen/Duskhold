@@ -141,6 +141,8 @@ pub struct Body {
     pub fever: Option<u64>,
     /// Dread, out of 100 points in thousandths (0 is calm: `dread.rs`).
     pub dread: i32,
+    /// Breath spent since midnight: the day's work toward Fitness (`fitness.rs`).
+    pub spent: u32,
 }
 
 impl Body {
@@ -157,6 +159,7 @@ impl Body {
             in_bed: false,
             fever: None,
             dread: 0,
+            spent: 0,
         }
     }
 
@@ -166,7 +169,11 @@ impl Body {
 
     /// Pays endurance for something; running out leaves you exhausted.
     pub fn spend(&mut self, endurance: i32) {
+        let before = self.endurance;
         self.endurance = (self.endurance - endurance).max(0);
+        self.spent = self
+            .spent
+            .saturating_add((before - self.endurance).max(0) as u32);
         if self.endurance == 0 {
             self.exhausted = true;
         }

@@ -562,7 +562,8 @@ impl World {
                 if self.heavy {
                     damage = damage * self.rules.heavy.harm as i32 / 1000;
                 }
-                (damage, None)
+                // And as Strength makes it (`fitness.rs`).
+                (self.strong_harm(id, damage), None)
             }
             ActorKind::Creature(_) => {
                 let odds = creature.map_or([10_000, 0, 0], |c| c.wounds);
@@ -676,6 +677,9 @@ impl World {
         // shove buys you.
         self.train_blow(id, skill, target, down);
         self.learn_by_use(id);
+        // A character's blow that lands works toward its Strength, a heavy one twice.
+        let work = self.rules.strength.blow * if self.heavy { 2 } else { 1 };
+        self.strain(id, work);
         // A heavy blow may knock down what it hits, and is harder on the weapon.
         if self.heavy && !down {
             self.fell(id, target);
@@ -736,6 +740,9 @@ impl World {
         let mut harm = lo + below(roll(seed, tick, id.index() as u64, Purpose::Thump), span) as i32;
         if tired {
             harm /= 2;
+        }
+        if kind.is_character() {
+            harm = self.strong_harm(id, harm);
         }
         let (at, side) = edge_owner(pos, dir);
         self.emit(Sound {
@@ -808,8 +815,13 @@ impl World {
         let down = below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,
-        ) < (c.knock_down as i32 + self.knock_down_bonus(id) + self.bash_bonus(id))
-            .max(0) as u32;
+        ) < (c.knock_down as i32
+            + self.knock_down_bonus(id)
+            + self.bash_bonus(id)
+            + self.strength_knock_down(id))
+        .max(0) as u32;
+        // A shove that finds someone works toward Strength (`fitness.rs`).
+        self.strain(id, self.rules.strength.shove);
         // With a shield on the arm it's a bash, and it teaches Shield (`shield.rs`).
         if self.guard(id).is_some() {
             self.train(

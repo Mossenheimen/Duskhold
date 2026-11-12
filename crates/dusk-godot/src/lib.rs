@@ -16,6 +16,7 @@
 //! `ARCHITECTURE.md` moves it onto its own thread once the world is big enough to need it.
 
 use dusk_core::archery::NoShot;
+use dusk_core::fitness::Stat;
 use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
@@ -155,6 +156,7 @@ const TOOK_OFF: i32 = 101;
 const CLIMBED: i32 = 102;
 const WINDOW_BROKE: i32 = 103;
 const FELLED: i32 = 104;
+const GREW: i32 = 105;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -555,6 +557,20 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
         Event::Felled { who, target } => (FELLED, Some(who), Some(target), at(target), 0),
+        // The stat (0 Strength, 1 Fitness) × 100, plus the level reached.
+        Event::Grew { who, stat, level } => {
+            let stat = match stat {
+                Stat::Strength => 0,
+                Stat::Fitness => 1,
+            };
+            (
+                GREW,
+                Some(who),
+                None,
+                at(who),
+                stat * 100 + i32::from(level),
+            )
+        }
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1176,7 +1192,7 @@ impl DuskWorld {
         let Some(me) = world.character() else {
             return PackedInt32Array::new();
         };
-        PackedInt32Array::from(&[world.load(me) as i32, world.defs.carry as i32])
+        PackedInt32Array::from(&[world.load(me) as i32, world.carry(me) as i32])
     }
 
     /// The containers and floors within your reach, your own tile first: for each, x, y, its
@@ -2803,6 +2819,25 @@ impl DuskWorld {
             out.extend([at.x, at.y, reach, world.hearth(at).fuel as i32, fixture]);
         }
         PackedInt32Array::from(&out[..])
+    }
+
+    /// Your Strength and Fitness (`fitness.rs`), in thousandths of a level, and the day's work
+    /// toward each so far: strain (thousandths of a point) and breath spent (out of a bar of
+    /// 1000).
+    #[func]
+    fn character_build(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return PackedInt32Array::new();
+        };
+        PackedInt32Array::from(&[
+            a.strength as i32,
+            a.fitness as i32,
+            a.strain.min(i32::MAX as u32) as i32,
+            a.body.spent.min(i32::MAX as u32) as i32,
+        ])
     }
 
     /// The skills' names, in the order `character_skills` and the skill events use.

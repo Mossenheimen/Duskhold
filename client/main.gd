@@ -152,6 +152,7 @@ const TOOK_OFF := 101
 const CLIMBED := 102
 const WINDOW_BROKE := 103
 const FELLED := 104
+const GREW := 105
 ## A heavy swing, by DuskWorld.actor_actions(): it leans in and tells as a swing does.
 const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
@@ -1050,6 +1051,12 @@ func _read_events() -> void:
 			FELLED:
 				if who == me:
 					hud.say("Your heavy blow knocks it down. Finish it!")
+			GREW:
+				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
+				# plus the level).
+				if who == me:
+					var strength := extra < 100
+					hud.say(("You feel stronger: Strength %d." if strength else "You feel fitter: Fitness %d.") % (extra % 100))
 			DRAGGED_DOWN:
 				if who == me:
 					dragged_by = extra

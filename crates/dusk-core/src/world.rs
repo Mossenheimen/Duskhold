@@ -91,6 +91,9 @@ pub struct Rules {
     pub climb: crate::climb::ClimbRules,
     /// A heavy swing (`combat.rs`).
     pub heavy: crate::combat::Heavy,
+    /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
+    pub strength: crate::fitness::StrengthRules,
+    pub fitness: crate::fitness::FitnessRules,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -323,6 +326,8 @@ impl Default for Rules {
             armour: crate::armour::ArmourRules::default(),
             climb: crate::climb::ClimbRules::default(),
             heavy: crate::combat::Heavy::default(),
+            strength: crate::fitness::StrengthRules::default(),
+            fitness: crate::fitness::FitnessRules::default(),
         }
     }
 }
@@ -396,6 +401,12 @@ pub enum Event {
         fell: bool,
         /// The glass left in a broken window cut it (a wound on an arm, a hand or a leg).
         cut: bool,
+    },
+    /// At midnight, `who`'s Strength or Fitness reached a whole `level` (`fitness.rs`).
+    Grew {
+        who: ActorId,
+        stat: crate::fitness::Stat,
+        level: u8,
     },
     /// `who`'s heavy blow knocked `target` down (`combat::Heavy`).
     Felled {
@@ -1479,6 +1490,10 @@ impl World {
             } else if sneaking && !step.climb {
                 self.train_sneak(id);
             }
+        }
+        // A step under a heavy load works toward Strength (`fitness.rs`).
+        if footsteps.is_some() && u64::from(self.load(id)) * 2 > u64::from(self.carry(id)) {
+            self.strain(id, rules.strength.haul);
         }
         if step.climb {
             let edge = self.grid.edge(step.from, step.dir);

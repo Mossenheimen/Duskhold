@@ -23,6 +23,7 @@ pub mod dread;
 pub mod faith;
 pub mod fever;
 pub mod fire;
+pub mod fitness;
 pub mod flow;
 pub mod forage;
 pub mod geom;

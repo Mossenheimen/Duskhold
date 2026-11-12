@@ -527,7 +527,7 @@ impl World {
             return;
         };
         let loaded =
-            u64::from(self.load(id)) * 1000 > u64::from(self.defs.carry) * u64::from(r.loaded);
+            u64::from(self.load(id)) * 1000 > u64::from(self.carry(id)) * u64::from(r.loaded);
         if !loaded && !self.dead_after(id, r.chased) {
             return;
         }

@@ -15,6 +15,7 @@ mod faith;
 mod farm;
 mod fever;
 mod fire;
+mod fitness;
 mod forage;
 mod heavy;
 mod holdout;
@@ -570,6 +571,11 @@ struct RulesFile {
     /// Optional: with no [heavy], a heavy swing uses the core's defaults.
     #[serde(default)]
     heavy: Option<heavy::HeavyFile>,
+    /// Optional: with no [strength] or [fitness], they use the core's defaults.
+    #[serde(default)]
+    strength: Option<fitness::StrengthFile>,
+    #[serde(default)]
+    fitness: Option<fitness::FitnessFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -1272,6 +1278,12 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(h) = &r.heavy {
         rules.heavy = heavy::to_heavy(file, h)?;
+    }
+    if let Some(s) = &r.strength {
+        rules.strength = fitness::to_strength(file, s)?;
+    }
+    if let Some(f) = &r.fitness {
+        rules.fitness = fitness::to_fitness(file, f)?;
     }
     if let Some(c) = &r.climb {
         rules.climb = climb::to_climb(file, c)?;

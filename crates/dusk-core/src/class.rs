@@ -247,12 +247,13 @@ impl World {
     }
 
     /// Per mille: what `id`'s endurance costs come to, by its class and talents, its pain
-    /// (`dread.rs`) and the armour it wears (`armour.rs`).
+    /// (`dread.rs`), the armour it wears (`armour.rs`) and its Fitness (`fitness.rs`).
     pub(crate) fn endurance_rate(&self, id: ActorId) -> i32 {
         let class = self.class_of(id).map_or(1000, |c| c.endurance);
         let rate = self.talents_of(id).fold(class, |r, t| per(r, t.endurance));
         let rate = per(rate, self.pain_cost(id));
-        per(rate, self.armour_endurance(id)) as i32
+        let rate = per(rate, self.armour_endurance(id));
+        per(rate, self.fitness_cost(id)) as i32
     }
 
     /// The chance, out of 10,000, that a creature's hit takes hold of `id`, by its class and

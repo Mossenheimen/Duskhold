@@ -22,7 +22,7 @@ const KEYS := [
 	["H", "tend a fire"], ["J", "put it out"], ["G", "butcher a beast, or burn a body"],
 	["O", "consecrate a body; at a shut door, ward it"], ["P", "pray at an altar"],
 	["C", "second wind"], ["U", "turn the dead"], ["M", "mend"], ["Y", "pick a plant"],
-	["Tab", "your pack"], ["K", "skills and talents"], ["T", "make things"], ["Z", "sleep"],
+	["Tab", "your pack"], ["K", "Strength, Fitness, skills and talents"], ["T", "make things"], ["Z", "sleep"],
 	["X", "drink water"], ["L", "light"], ["Space", "pause"], ["1 2 3", "speed"],
 	["wheel", "zoom"], ["V", "low walls"], ["- =", "smaller or larger GUI"], ["F5", "save"],
 	["R", "new world (dead: the next survivor)"], ["Esc", "save and quit"], ["F1", "these keys"],
@@ -171,7 +171,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: heavy swings\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: Strength and Fitness\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

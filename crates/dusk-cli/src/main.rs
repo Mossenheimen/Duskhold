@@ -807,6 +807,14 @@ fn describe(w: &World, e: Event) -> String {
             if fell { " and fell" } else { "" },
             if cut { ", cut on the glass" } else { "" }
         ),
+        Event::Grew { who, stat, level } => format!(
+            "{}'s {} reached {level}",
+            name(who),
+            match stat {
+                dusk_core::fitness::Stat::Strength => "Strength",
+                dusk_core::fitness::Stat::Fitness => "Fitness",
+            }
+        ),
         Event::Felled { who, target } => {
             format!("{}'s heavy blow knocked {} down", name(who), name(target))
         }

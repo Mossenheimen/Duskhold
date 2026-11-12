@@ -323,6 +323,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 
   Mud and deep water come with the Drowned Mire.
 - **Fitness and Strength grow over days of real exertion,** as Zomboid's do: running while carrying, fighting, hauling. Returns diminish within a day, so a week of real use beats an hour of jumping on the spot.
+  - *(built 2026-11-12)* Every point of breath you spend counts toward Fitness; blows that land, shoves and steps under a heavy load toward Strength. At midnight the day's work turns into growth: a hard day gives about a third of a level, less the higher you are, up to 10. Strength carries a kilo more a level and hits 3% harder; Fitness makes breath 3% cheaper a level and brings it back 5% faster. The skills panel shows both, and the news says when one rises.
 
 ## The world's rules
 

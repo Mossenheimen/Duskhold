@@ -446,6 +446,11 @@ pub struct Actor {
     pub faith: i32,
     /// The armour it wears, a piece to a place on the body at most (`armour.rs`).
     pub worn: Vec<Item>,
+    /// A character's Strength and Fitness, in thousandths of a level (`fitness.rs`), and the
+    /// day's work toward its Strength (its breath spent, toward Fitness, is the body's).
+    pub strength: u32,
+    pub fitness: u32,
+    pub strain: u32,
 }
 
 impl Actor {
@@ -497,6 +502,9 @@ impl Actor {
             bracing: false,
             faith: 0,
             worn: Vec::new(),
+            strength: 0,
+            fitness: 0,
+            strain: 0,
         }
     }
 

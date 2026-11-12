@@ -175,7 +175,8 @@ impl World {
         .collect()
     }
 
-    /// How fast a character gets its breath back, per mille: slower hungry and thirsty.
+    /// How fast a character gets its breath back, per mille: slower hungry and thirsty, faster
+    /// fit.
     pub(crate) fn recovery(&self, id: ActorId) -> u32 {
         let Some(a) = self.actors.get(id) else {
             return 1000;
@@ -191,7 +192,8 @@ impl World {
         if self.fever_stage(id) >= 2 {
             rate = rate * self.rules.fever.recovery / 1000;
         }
-        rate
+        // Fitness brings it back faster (`fitness.rs`).
+        rate * self.fitness_recovery(id) / 1000
     }
 
     /// How much longer a character's wind-ups take for tiredness, per mille.
@@ -381,6 +383,10 @@ impl World {
             } else if rested {
                 self.wake(id, Woke::Rested);
             }
+        }
+        // Midnight: the day's work turns into Strength and Fitness (`fitness.rs`).
+        if self.clock_minutes().is_multiple_of(24 * 60) {
+            self.grow();
         }
     }
 }

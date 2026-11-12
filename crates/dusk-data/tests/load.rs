@@ -1844,3 +1844,25 @@ fn heavy_swings_load_and_nonsense_is_refused() {
     let err = load(&folder("heavy", &files)).unwrap_err();
     assert!(err.message.contains("heavy"), "{err}");
 }
+
+#[test]
+fn strength_and_fitness_load_and_nonsense_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let (s, f) = (data.rules.strength, data.rules.fitness);
+    assert_eq!(
+        (f.growth.most, f.growth.half),
+        (600, 15_000),
+        "1500 points of breath"
+    );
+    assert_eq!((f.cost, f.recover), (30, 50));
+    assert_eq!((s.growth.most, s.growth.half), (600, 100_000));
+    assert_eq!((s.blow, s.shove, s.haul), (1000, 1000, 500));
+    assert_eq!((s.carry, s.harm, s.knock_down), (1000, 30, 200));
+    let greedy = "[fitness]\nmost = 5.0\nhalf = 1500\ncost = 0.03\nrecover = 0.05\n";
+    let rules = format!("{RULES}{greedy}");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    files.push(("rules.toml", &rules));
+    let err = load(&folder("fitness", &files)).unwrap_err();
+    assert!(err.message.contains("fitness"), "{err}");
+}

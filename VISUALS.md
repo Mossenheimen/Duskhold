@@ -378,7 +378,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, then the pack; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
 | **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
-| **J** Book panels | skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
+| **J** Book panels | Strength, Fitness, skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
 
 **Rules:**
 
