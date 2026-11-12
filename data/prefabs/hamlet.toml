@@ -24,6 +24,7 @@
 "e" = { ground = "floor", fixture = "shelf" }
 "p" = { ground = "floor", fixture = "pew" }
 "l" = { ground = "floor", fixture = "altar" }
+"o" = { ground = "floor", fixture = "font" }
 
 [[prefab]]
 id = "cottage"
@@ -95,6 +96,6 @@ Wp p . p pW
 +         +
 |p p . p p|
 +         +
-|. . . . .|
+|o . . . o|
 +-+-+d+-+-+
 """

@@ -219,6 +219,8 @@ impl World {
         let d = self.rules.dread;
         for i in 0..self.characters.len() {
             let id = self.characters[i];
+            // Holding a light up, Steady slows dread's rise (`faith.rs`).
+            let rise = i64::from(d.rise) * i64::from(self.dread_rise(id)) / 1000;
             let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
                 continue;
             };
@@ -227,7 +229,7 @@ impl World {
                 (0, d.calm)
             } else {
                 let due = self.dread_due(id);
-                (due, if due > now { d.rise } else { d.fall })
+                (due, if due > now { rise as i32 } else { d.fall })
             };
             let next = if due > now {
                 (now + rate).min(due)

@@ -76,6 +76,9 @@ pub enum ItemKind {
     Light { radius: i32, wane: u16 },
     /// Poured on a body and set alight, it burns it (`remains.rs`): one a body.
     Oil,
+    /// Holy water: poured on a body, it consecrates it, and it never gets up (`faith.rs`): one a
+    /// body.
+    Holy,
     /// Carried on the off arm, it blocks blows while you brace, and bashes (`shield.rs`).
     Shield(crate::shield::Guard),
     /// Taken in hand as a weapon is, it shoots arrows (`archery.rs`).
@@ -128,6 +131,8 @@ pub struct Defs {
     pub beds: Vec<bool>,
     /// By fixture number: whether it's water to drink from, as a pond is (a well).
     pub wells: Vec<bool>,
+    /// By fixture number: whether it's a shrine to pray at (an altar: `faith.rs`).
+    pub shrines: Vec<bool>,
     /// By fixture number: how far a fire in it lights, in tiles (0: it takes no fire:
     /// `fire.rs`). And what burns in one, with the game minutes each piece burns, the
     /// longest-burning first.
@@ -188,6 +193,7 @@ impl Default for Defs {
             containers: Vec::new(),
             beds: Vec::new(),
             wells: Vec::new(),
+            shrines: Vec::new(),
             hearths: Vec::new(),
             fuel: Vec::new(),
             recipes: Vec::new(),

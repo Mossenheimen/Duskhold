@@ -58,6 +58,7 @@ fn defs(fighter: bool) -> Defs {
                 endurance: 800,
                 grabbed: 500,
                 talents: (0..6).collect(),
+                ..Class::default()
             }]
         } else {
             Vec::new()

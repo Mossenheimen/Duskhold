@@ -291,3 +291,53 @@ fn a_fire_alight_in_a_stove_stays_alight_after_a_load_and_burns_down_the_same() 
     assert_eq!(b.hearth(stove), w.hearth(stove), "burnt down the same");
     assert_eq!(b.state_hash(), w.state_hash());
 }
+
+#[test]
+fn a_clerics_faith_the_turned_and_a_warded_door_stay_so_after_a_load() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(1, &data, region);
+    let me = w.character().unwrap();
+    let talent = |t: u8| data.defs.talents[usize::from(t)].id.as_str();
+    let cleric = data.defs.classes.iter().position(|c| c.id == "cleric");
+    assert!(w.choose_class(me, cleric.unwrap() as u8));
+    // Warding, from the talents offered a level at a time.
+    while !w
+        .actor(me)
+        .unwrap()
+        .talents
+        .iter()
+        .any(|&t| talent(t) == "warding")
+    {
+        let need = w.rules.deeds.levels[usize::from(w.level(me)) - 1];
+        let have = w.actor(me).unwrap().deeds;
+        w.gain_deeds(me, need - have);
+        let offer = w.talent_offer(me);
+        let pick = offer.iter().copied().find(|&t| talent(t) == "warding");
+        assert!(w.choose_talent(me, pick.unwrap_or(offer[0])));
+    }
+    // A shambler near the gate, to turn; and a shut door on your north side, to ward.
+    let at = w.actor(me).unwrap().pos;
+    let shambler = data.defs.creature_kind("shambler").unwrap();
+    let z = (1..4)
+        .flat_map(|r| (-r..=r).flat_map(move |dy| (-r..=r).map(move |dx| (dx, dy))))
+        .find_map(|(dx, dy)| w.spawn(shambler, at.offset(dx, dy)))
+        .expect("room for one");
+    w.grid.set_edge(at, Dir8::N, Edge::door(false));
+    w.intent(me, Intent::Turn);
+    w.step(20);
+    assert!(w.is_turned(z), "turned");
+    w.intent(me, Intent::Ward);
+    w.step(50);
+    assert!(w.is_warded(at, Dir8::N), "warded");
+    assert!(w.faith(me) < w.max_faith(me), "faith spent");
+
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let b = dusk_gen::load(&data, &bytes)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .world;
+    assert_eq!(b.faith(me), w.faith(me));
+    assert!(b.is_turned(z) && b.is_warded(at, Dir8::N));
+    assert_eq!(b.class_of(me).map(|c| c.id.as_str()), Some("cleric"));
+    assert_eq!(b.state_hash(), w.state_hash());
+}

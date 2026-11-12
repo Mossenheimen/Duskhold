@@ -80,6 +80,8 @@ pub struct Rules {
     pub sneak: Sneak,
     /// Bracing behind a shield: what's left of your pace, per mille (`shield.rs`).
     pub shield_pace: u32,
+    /// Faith: prayer, turning the dead, consecration, mending and wards (`faith.rs`).
+    pub faith: crate::faith::Faith,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -307,6 +309,7 @@ impl Default for Rules {
             injury: Injury::default(),
             sneak: Sneak::default(),
             shield_pace: 600,
+            faith: crate::faith::Faith::default(),
         }
     }
 }
@@ -760,6 +763,44 @@ pub enum Event {
         who: ActorId,
         item: u16,
     },
+    /// `who` took up a class before it was under way (`class.rs`).
+    ClassChosen {
+        who: ActorId,
+        class: u8,
+    },
+    /// `who` held up the holy symbol (`faith.rs`): `turned` of the dead turned from it, and
+    /// with Sunder, `sundered` fell.
+    Turned {
+        who: ActorId,
+        turned: u16,
+        sundered: u16,
+    },
+    /// `who` prayed at a shrine: its dread eased, and its faith back (`faith`: it has any).
+    Prayed {
+        who: ActorId,
+        faith: bool,
+    },
+    /// `who` consecrated `body`, with holy water (`water`) or with faith: it never gets up.
+    Consecrated {
+        who: ActorId,
+        body: ActorId,
+        water: bool,
+    },
+    /// `who` mended a wound with faith (Mending).
+    Healed {
+        who: ActorId,
+    },
+    /// `who` warded the door on `at`'s `side` (named as doors are): the dead won't beat on it.
+    Warded {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+    },
+    /// The ward on a door faded.
+    WardFaded {
+        at: TilePos,
+        side: Dir8,
+    },
 }
 
 /// A sound made this tick.
@@ -817,6 +858,9 @@ pub struct World {
     /// A blow carrying on into another foe (Cleave, `class.rs`): only ever true inside a strike,
     /// so one cleave doesn't start another.
     pub(crate) cleaving: bool,
+    /// The doors warded against the dead (`faith.rs`), by (owner tile, side), and the tick each
+    /// ward fades. Ordered, for the hash.
+    pub(crate) wards: BTreeMap<(TilePos, Dir8), u64>,
 }
 
 impl World {
@@ -853,6 +897,7 @@ impl World {
             flow: None,
             claimed: std::collections::BTreeSet::new(),
             cleaving: false,
+            wards: BTreeMap::new(),
         }
     }
 
@@ -897,20 +942,15 @@ impl World {
         actor.born = self.clock_minutes();
         if kind == ActorKind::Character {
             actor.name = self.roll_name(self.actors.len() as u64);
-            // The first class in the data: the only one, for now (`class.rs`).
+            // The first class in the data, until another is chosen (`class.rs`).
             actor.class = (!self.defs.classes.is_empty()).then_some(0);
-        }
-        // A character starts with the kit: something in hand, the rest in its pack.
-        if kind == ActorKind::Character {
-            actor.hands = self.defs.wield.map(|def| Item::new(def, 1));
-            for &item in &self.defs.kit {
-                self.defs.stow(&mut actor.items, item);
-            }
         }
         let id = self.actors.insert(actor);
         self.occupied.insert(pos, id);
         if kind == ActorKind::Character {
             self.characters.push(id);
+            // It starts with its class's kit (or everyone's) and its faith.
+            self.equip(id);
         }
         Some(id)
     }
@@ -1045,6 +1085,7 @@ impl World {
         self.sold.hash(&mut h);
         self.claimed.hash(&mut h);
         self.hearths.hash(&mut h);
+        self.wards.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -1152,6 +1193,7 @@ impl World {
         self.burn_lights();
         self.burn_fires();
         self.spoil();
+        self.lapse_wards();
         self.drag_downs();
     }
 
@@ -1424,6 +1466,10 @@ impl World {
             self.think_beast(id, kind);
             return;
         }
+        // Turned, one of the dead thinks only of getting away from whoever turned it (`faith.rs`).
+        if self.think_turned(id) {
+            return;
+        }
         // Only after dark: by day it lies still where it is, after nothing (`creature.rs`).
         if kind.nocturnal && !self.is_night() {
             if let Some(a) = self.actors.get_mut(id) {
@@ -1606,7 +1652,8 @@ impl World {
         reaches(&self.grid, from, to)
     }
 
-    /// The side of `from` with a shut door, going `dir` (for a diagonal, either of its sides).
+    /// The side of `from` with a shut door the dead may beat on, going `dir` (for a diagonal,
+    /// either of its sides): not one that's warded (`faith.rs`).
     fn shut_door_toward(&self, from: TilePos, dir: Dir8) -> Option<Dir8> {
         let sides = match dir.split() {
             Some((a, b)) => [Some(a), Some(b)],
@@ -1615,7 +1662,7 @@ impl World {
         sides
             .into_iter()
             .flatten()
-            .find(|&d| self.grid.edge(from, d).is_shut_door())
+            .find(|&d| self.grid.edge(from, d).is_shut_door() && !self.is_warded(from, d))
     }
 
     /// The heading a shambler lurches in to reach `goal`: straight at it, or an eighth of a turn

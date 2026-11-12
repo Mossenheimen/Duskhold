@@ -676,6 +676,50 @@ fn describe(w: &World, e: Event) -> String {
         Event::Came { who } => {
             format!("{} came into the world", w.name_of(who).unwrap_or_default())
         }
+        Event::ClassChosen { who, class } => format!(
+            "{} took up the {}",
+            name(who),
+            w.defs
+                .classes
+                .get(usize::from(class))
+                .map_or("?", |c| c.name.as_str())
+        ),
+        Event::Turned {
+            who,
+            turned,
+            sundered,
+        } => format!(
+            "{} held up the holy symbol: {turned} of the dead turned, {sundered} fell",
+            name(who)
+        ),
+        Event::Prayed { who, faith } => format!(
+            "{} prayed at the shrine{}",
+            name(who),
+            if faith {
+                ", and their faith came back"
+            } else {
+                ""
+            }
+        ),
+        Event::Consecrated { who, body, water } => format!(
+            "{} consecrated {} with {}",
+            name(who),
+            name(body),
+            if water { "holy water" } else { "a prayer" }
+        ),
+        Event::Healed { who } => format!("{} mended a wound with faith", name(who)),
+        Event::Warded { who, at, side } => format!(
+            "{} warded the door at ({}, {}) {side:?}",
+            name(who),
+            at.x,
+            at.y
+        ),
+        Event::WardFaded { at, side } => {
+            format!(
+                "the ward on the door at ({}, {}) {side:?} faded",
+                at.x, at.y
+            )
+        }
     }
 }
 

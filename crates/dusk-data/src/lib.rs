@@ -9,6 +9,7 @@ mod barricade;
 mod class;
 mod craft;
 mod dread;
+mod faith;
 mod farm;
 mod fever;
 mod fire;
@@ -107,6 +108,9 @@ pub struct Fixture {
     /// doesn't).
     #[serde(default)]
     pub planks: u16,
+    /// A shrine to pray at (an altar): faith comes back here (`rules.toml`'s [faith]).
+    #[serde(default)]
+    pub shrine: bool,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -377,7 +381,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
     defs.properties = magic::load(dir)?;
-    (defs.classes, defs.talents) = class::load(dir)?;
+    (defs.classes, defs.talents) = class::load(dir, &defs)?;
     if let Some(m) = &raw.magic {
         defs.magic = magic::to_rules(&rules_file, m)?;
     }
@@ -501,6 +505,9 @@ struct RulesFile {
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,
+    /// Optional: with no [faith], prayer, turning and the rest use the core's defaults.
+    #[serde(default)]
+    faith: Option<faith::FaithFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -728,6 +735,10 @@ struct CreatureFile {
     /// don't draw it, and its body neither gets up nor burns (left out: one of the dead).
     #[serde(default)]
     wild: bool,
+    /// How long one is turned (rules.toml's [faith]), as a share of the turning's time: 0, it's
+    /// never turned (left out: 1, all of it). The wild are never turned.
+    #[serde(default = "whole")]
+    turned: f64,
 }
 
 #[derive(Deserialize)]
@@ -913,6 +924,9 @@ fn to_creatures(
                 "douses is 0 or more, dread 0 to 100 points, lit_harm 0 to 4",
             ));
         }
+        if !(0.0..=4.0).contains(&c.turned) {
+            return Err(bad("turned is a share of the turning's time, from 0 to 4"));
+        }
         if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
             return Err(bad("health must be above 0, and thump is [least, most]"));
         }
@@ -958,6 +972,7 @@ fn to_creatures(
                 lit_harm: (c.lit_harm * 1000.0).round() as u32,
                 flees: c.flees,
                 wild: c.wild,
+                turned: (c.turned * 1000.0).round() as u32,
                 // Its item is found once the items are read (`butchery`).
                 butcher: match &c.butcher {
                     None => None,
@@ -1139,6 +1154,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(i) = &r.injury {
         rules.injury = injury::to_injury(file, i)?;
+    }
+    if let Some(f) = &r.faith {
+        rules.faith = faith::to_faith(file, f, rules.clock.ticks_per_minute)?;
     }
     Ok(rules)
 }

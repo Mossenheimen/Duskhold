@@ -4,11 +4,11 @@
 //! the data. The core makes and reads the bytes and never touches a file; whoever calls it does
 //! that.
 //!
-//! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning or ash), sounds
-//!   not yet heard, what containers and floors hold once touched, the harm doors and boards have
-//!   taken, the region's pressure, what the holdouts sold today, the bounties claimed, the fires
-//!   laid in hearths, and the chunks of the map that changed since it was made (a door opened, a
-//!   board nailed on).
+//! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning, ash or hallowed),
+//!   sounds not yet heard, what containers and floors hold once touched, the harm doors and
+//!   boards have taken, the region's pressure, what the holdouts sold today, the bounties
+//!   claimed, the fires laid in hearths, the doors warded, and the chunks of the map that changed
+//!   since it was made (a door opened, a board nailed on).
 //! - **Not saved:** the land (it comes back from the seed), the rules and the definitions (they
 //!   come from `data/`, so a retuned game loads old saves). Items and creatures are saved by
 //!   number, so a save also carries a fingerprint of their ids, and one made with other data is
@@ -33,7 +33,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 22;
+pub const VERSION: u32 = 23;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -66,6 +66,8 @@ struct State {
     claimed: std::collections::BTreeSet<ActorId>,
     /// The fires laid in hearths, stoves and forges.
     hearths: BTreeMap<TilePos, Hearth>,
+    /// The doors warded against the dead, and when each ward fades.
+    wards: BTreeMap<(TilePos, Dir8), u64>,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     memory: Vec<u8>,
@@ -158,6 +160,7 @@ impl World {
             sold: self.sold.clone(),
             claimed: self.claimed.clone(),
             hearths: self.hearths.clone(),
+            wards: self.wards.clone(),
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -189,6 +192,7 @@ impl World {
         self.sold = state.sold;
         self.claimed = state.claimed;
         self.hearths = state.hearths;
+        self.wards = state.wards;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }

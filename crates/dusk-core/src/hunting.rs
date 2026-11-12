@@ -120,7 +120,8 @@ impl World {
     }
 
     /// The open step that takes `id` farthest from `threat` (and never nearer): None, cornered.
-    fn flight(&self, id: ActorId, threat: TilePos) -> Option<Dir8> {
+    /// A beast's flight, and a turned one's (`faith.rs`).
+    pub(crate) fn flight(&self, id: ActorId, threat: TilePos) -> Option<Dir8> {
         let a = self.actors.get(id)?;
         // Mid-step, it plans from the tile it's stepping onto.
         let pos = a.step.map_or(a.pos, |s| s.to);

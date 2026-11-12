@@ -4,8 +4,9 @@
 //! - **What pays:** a blow that lands on a foe trains the skill of the weapon that struck it (half
 //!   on one that's down); running with one of the dead after you, or under a heavy load, trains
 //!   Athletics; a bandage on a wound that's bleeding trains First Aid; a board nailed across a
-//!   door or window trains Carpentry. A swing at the air or at a door, or a run with nothing after
-//!   you, teaches nothing. Bare fists train no skill.
+//!   door or window trains Carpentry; each of the dead turned, and a bleeding wound mended with
+//!   faith, trains Devotion. A swing at the air or at a door, or a run with nothing after you,
+//!   teaches nothing. Bare fists train no skill.
 //! - **Repeats pay less:** the same act on the same foe, or in the same spot, pays `repeat` of
 //!   what it paid the time before, until it's been left alone for `forget` ticks. One of the dead
 //!   stuck in a fence is worth a few blows, not a level; running round in circles, a few laps.
@@ -16,7 +17,8 @@
 //! - **What a level does,** a little each: a weapon skill's blows land more often and harder, for
 //!   less breath and less wear on the weapon; Athletics runs faster for less breath; First Aid
 //!   bandages faster; Carpentry boards up faster, with stronger boards; Stealth sneaks faster,
-//!   and its sneak attacks do more harm (`stealth.rs`); Cooking cooks faster (`cooking.rs`).
+//!   and its sneak attacks do more harm (`stealth.rs`); Cooking cooks faster (`cooking.rs`);
+//!   Devotion turns the dead for longer, and makes faith go further (`faith.rs`).
 
 use crate::actor::{ActorId, ActorKind};
 use crate::geom::{Dir8, TilePos};
@@ -42,10 +44,12 @@ pub enum Skill {
     Archery,
     /// Cooking at a fire (`cooking.rs`).
     Cooking,
+    /// The Cleric's: turning the dead and mending wounds with faith (`faith.rs`).
+    Devotion,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 11;
+pub const SKILLS: usize = 12;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -60,6 +64,7 @@ impl Skill {
         Skill::Shield,
         Skill::Archery,
         Skill::Cooking,
+        Skill::Devotion,
     ];
 
     pub fn name(self) -> &'static str {
@@ -75,6 +80,7 @@ impl Skill {
             Skill::Shield => "Shield",
             Skill::Archery => "Archery",
             Skill::Cooking => "Cooking",
+            Skill::Devotion => "Devotion",
         }
     }
 
@@ -92,6 +98,7 @@ impl Skill {
             Skill::Shield => "shield",
             Skill::Archery => "archery",
             Skill::Cooking => "cooking",
+            Skill::Devotion => "devotion",
         }
     }
 
@@ -164,6 +171,13 @@ pub struct SkillRules {
     pub shield_block: u32,
     /// Cooking (`cooking.rs`): a level takes `cook_time` per mille off a meal's time.
     pub cook_time: u32,
+    /// Devotion (`faith.rs`): XP for each of the dead turned, and for a bleeding wound mended
+    /// with faith; and a level adds `devotion_turn` per mille to how long the dead stay turned,
+    /// and takes `devotion_cost` per mille off what faith costs.
+    pub turn: u32,
+    pub mend: u32,
+    pub devotion_turn: u32,
+    pub devotion_cost: u32,
 }
 
 impl Default for SkillRules {
@@ -203,6 +217,10 @@ impl Default for SkillRules {
             shield: 1500,
             shield_block: 300,
             cook_time: 50,
+            turn: 2000,
+            mend: 3000,
+            devotion_turn: 100,
+            devotion_cost: 40,
         }
     }
 }
@@ -565,5 +583,15 @@ impl SkillRules {
     /// A bandage's ticks at a level of First Aid.
     pub fn bandage(&self, ticks: u32, level: u8) -> u32 {
         (by_level(i64::from(ticks), self.bandage_time, level, false) as u32).max(1)
+    }
+
+    /// How long the dead stay turned at a level of Devotion, from the ticks the rules give.
+    pub fn turned_ticks(&self, ticks: u64, level: u8) -> u64 {
+        by_level(ticks as i64, self.devotion_turn, level, true) as u64
+    }
+
+    /// What an act of faith costs at a level of Devotion (thousandths of a point).
+    pub fn faith_cost(&self, cost: i32, level: u8) -> i32 {
+        by_level(i64::from(cost), self.devotion_cost, level, false) as i32
     }
 }

@@ -21,8 +21,8 @@ use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
-    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCraft, NoDeal, NoFire, NoSleep, NoStash,
-    Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
+    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCraft, NoDeal, NoFaith, NoFire, NoSleep,
+    NoStash, Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -140,6 +140,13 @@ const SHOT: i32 = 86;
 const SPOILED: i32 = 87;
 const STARTLED: i32 = 88;
 const BUTCHERED: i32 = 89;
+const CLASS_CHOSEN: i32 = 90;
+const TURNED: i32 = 91;
+const PRAYED: i32 = 92;
+const CONSECRATED: i32 = 93;
+const HEALED: i32 = 94;
+const WARDED: i32 = 95;
+const WARD_FADED: i32 = 96;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -440,6 +447,36 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::BountyClaimed { who, rare, coin } => {
             (BOUNTY_CLAIMED, Some(who), Some(rare), at(who), coin as i32)
         }
+        Event::ClassChosen { who, class } => {
+            (CLASS_CHOSEN, Some(who), None, at(who), i32::from(class))
+        }
+        // How many turned, and 1000 × how many fell (Sunder).
+        Event::Turned {
+            who,
+            turned,
+            sundered,
+        } => (
+            TURNED,
+            Some(who),
+            None,
+            at(who),
+            i32::from(turned) + 1000 * i32::from(sundered),
+        ),
+        Event::Prayed { who, faith } => (PRAYED, Some(who), None, at(who), i32::from(faith)),
+        Event::Consecrated { who, body, water } => (
+            CONSECRATED,
+            Some(who),
+            Some(body),
+            at(body),
+            i32::from(water),
+        ),
+        Event::Healed { who } => (HEALED, Some(who), None, at(who), 0),
+        Event::Warded {
+            who,
+            at: p,
+            side: s,
+        } => (WARDED, Some(who), None, (p.x, p.y), side(s)),
+        Event::WardFaded { at: p, side: s } => (WARD_FADED, None, None, (p.x, p.y), side(s)),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -812,13 +849,21 @@ impl DuskWorld {
     }
 
     /// What each actor knows of its prey: 0 unaware, 1 curious (heard something: "?"), 2 hunting
-    /// (sees its prey: "!").
+    /// (sees its prey: "!"), 3 turned (it flees the holy symbol: `faith.rs`).
     #[func]
     fn actor_alert(&self) -> PackedInt32Array {
-        self.world
-            .iter()
-            .flat_map(|w| w.actors())
-            .map(|(_, a)| i32::from(alert_level(a.alert())))
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .actors()
+            .map(|(id, a)| {
+                if world.is_turned(id) {
+                    3
+                } else {
+                    i32::from(alert_level(a.alert()))
+                }
+            })
             .collect()
     }
 
@@ -955,7 +1000,8 @@ impl DuskWorld {
     }
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
-    /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead).
+    /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead), 8 a shield,
+    /// 9 a bow, 10 holy water (to consecrate the dead).
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -976,6 +1022,7 @@ impl DuskWorld {
                 ItemKind::Oil => 7,
                 ItemKind::Shield(_) => 8,
                 ItemKind::Bow(_) => 9,
+                ItemKind::Holy => 10,
             })
             .collect()
     }
@@ -1170,7 +1217,8 @@ impl DuskWorld {
     /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
     /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
     /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out, 33 making
-    /// something, 34 breaking furniture down),
+    /// something, 34 breaking furniture down, 36 drawing a bow, 37 butchering, 38 turning the
+    /// dead, 39 praying, 40 consecrating a body, 41 mending a wound, 42 warding a door),
     /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
     /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
@@ -1236,6 +1284,11 @@ impl DuskWorld {
                         ActionKind::Craft { .. } => 33,
                         ActionKind::BreakDown { .. } => 34,
                         ActionKind::Butcher { .. } => 37,
+                        ActionKind::Turn => 38,
+                        ActionKind::Pray { .. } => 39,
+                        ActionKind::Consecrate { .. } => 40,
+                        ActionKind::Heal => 41,
+                        ActionKind::Ward => 42,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1368,8 +1421,8 @@ impl DuskWorld {
     }
 
     /// What's become of each body: 0 nothing (the living, and a body lying there), 1 burning,
-    /// 2 ash, 3 risen as a revenant or butchered (nothing's left there). Whether a body will get up isn't
-    /// told: you find out.
+    /// 2 ash, 3 risen as a revenant or butchered (nothing's left there), 4 consecrated (it won't
+    /// get up). Whether an unconsecrated body will get up isn't told: you find out.
     #[func]
     fn actor_remains(&self) -> PackedInt32Array {
         self.world
@@ -1380,6 +1433,7 @@ impl DuskWorld {
                 Remains::Burning { .. } => 1,
                 Remains::Ash => 2,
                 Remains::Risen | Remains::Butchered => 3,
+                Remains::Hallowed => 4,
             })
             .collect()
     }
@@ -1925,6 +1979,176 @@ impl DuskWorld {
     #[func]
     fn second_wind(&mut self) {
         self.act(Intent::SecondWind);
+    }
+
+    /// Every class's name and its line, by number: two strings each (`classes.toml`).
+    #[func]
+    fn class_texts(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .classes
+            .iter()
+            .flat_map(|c| {
+                [
+                    GString::from(c.name.as_str()),
+                    GString::from(c.line.as_str()),
+                ]
+            })
+            .collect()
+    }
+
+    /// Whether you can still take up a class: not yet under way (`class.rs`).
+    #[func]
+    fn can_choose_class(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world
+            .character()
+            .is_some_and(|me| world.can_choose_class(me))
+    }
+
+    /// Takes up a class, by number (see `class_texts`), before you're under way: its kit
+    /// replaces the one you came with. False if you can't now.
+    #[func]
+    fn choose_class(&mut self, class: i32) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let (Some(me), Ok(c)) = (world.character(), u8::try_from(class)) else {
+            return false;
+        };
+        world.choose_class(me, c)
+    }
+
+    /// Your faith (`faith.rs`), in points: [now, the most you hold]; [0, 0] for a class
+    /// without any.
+    #[func]
+    fn faith(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::from(&[0, 0]);
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::from(&[0, 0]);
+        };
+        PackedInt32Array::from(&[world.faith(me) / 1000, world.max_faith(me) / 1000])
+    }
+
+    /// Whether you can turn the dead now: 1, or why not: -1 your class doesn't, -2 not enough
+    /// faith (pray at a shrine).
+    #[func]
+    fn turn_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_turn(me) {
+            Ok(()) => 1,
+            Err(NoFaith::TooLittle) => -2,
+            Err(_) => -1,
+        }
+    }
+
+    /// Holds up the holy symbol and turns the dead (see `turn_check`).
+    #[func]
+    fn turn(&mut self) {
+        self.act(Intent::Turn);
+    }
+
+    /// Whether you can pray now: 1 at a shrine beside you, or -1 there's none.
+    #[func]
+    fn pray_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let me = world.character();
+        if me.is_some_and(|me| world.can_pray(me).is_ok()) {
+            1
+        } else {
+            -1
+        }
+    }
+
+    /// Kneels and prays at the shrine beside you (see `pray_check`).
+    #[func]
+    fn pray(&mut self) {
+        self.act(Intent::Pray);
+    }
+
+    /// Whether you can consecrate a body now: the body's index in the actor arrays, or why
+    /// not: -1 no body beside you, -2 no holy water (and no faith to do without it).
+    #[func]
+    fn consecrate_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_consecrate(me) {
+            Ok((body, _)) => index_of(world, body),
+            Err(NoFaith::NoWater) => -2,
+            Err(_) => -1,
+        }
+    }
+
+    /// Consecrates the body beside you, with holy water or with faith (see `consecrate_check`).
+    #[func]
+    fn consecrate(&mut self) {
+        self.act(Intent::Consecrate);
+    }
+
+    /// Whether you can mend a wound with faith now: 1, or why not: -1 you haven't Mending,
+    /// -2 nothing to mend, -3 not enough faith.
+    #[func]
+    fn heal_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_heal(me) {
+            Ok(()) => 1,
+            Err(NoFaith::Nothing) => -2,
+            Err(NoFaith::TooLittle) => -3,
+            Err(_) => -1,
+        }
+    }
+
+    /// Mends your worst bleeding wound with faith (see `heal_check`).
+    #[func]
+    fn heal(&mut self) {
+        self.act(Intent::Heal);
+    }
+
+    /// Whether you can ward a door now: 1, or why not: -1 you haven't Warding, -2 no shut door
+    /// beside you, -3 not enough faith.
+    #[func]
+    fn ward_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_ward(me) {
+            Ok(_) => 1,
+            Err(NoFaith::Nothing) => -2,
+            Err(NoFaith::TooLittle) => -3,
+            Err(_) => -1,
+        }
+    }
+
+    /// Wards the shut door beside you against the dead (see `ward_check`).
+    #[func]
+    fn ward(&mut self) {
+        self.act(Intent::Ward);
     }
 
     /// The rain now (`weather.rs`): 0 dry, 1 rain, 2 heavy rain.

@@ -13,7 +13,9 @@ extends Node3D
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
-## beast within a bow's reach) S real seconds in;
+## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M)
+## S real seconds in;
+## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -130,6 +132,13 @@ const SHOT := 86
 const SPOILED := 87
 const STARTLED := 88
 const BUTCHERED := 89
+const CLASS_CHOSEN := 90
+const TURNED := 91
+const PRAYED := 92
+const CONSECRATED := 93
+const HEALED := 94
+const WARDED := 95
+const WARD_FADED := 96
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -141,7 +150,8 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
 	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
-	37: "Butchering it"}
+	37: "Butchering it", 38: "Holding up the holy symbol", 39: "Praying", 40: "Consecrating it",
+	41: "Mending the wound", 42: "Warding the door"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -227,6 +237,9 @@ var scripted: Array = []  # --do: [real seconds, action], soonest first
 var save_path := ""  # where the game is saved; "" for a trial run, which isn't
 var saved_hour := -1  # the game hour of the last autosave
 var restart_asked := -100.0  # when R last asked "abandon this world?", in seconds played
+var class_wanted := ""  # --class: the class a trial run's survivors take up
+var choosing_class := false  # the game waits, paused, for a class to be chosen
+var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
 
 
 func _ready() -> void:
@@ -259,6 +272,7 @@ func _ready() -> void:
 	add_child(bag)
 	bag.say = hud.say
 	bag.burn = _burn_body
+	bag.hallow = _hallow
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -332,6 +346,9 @@ func _start(carry_on := false) -> void:
 	dusk.speed = start_speed
 	var clock: PackedInt32Array = dusk.clock()
 	saved_hour = clock[1]
+	choosing_class = false
+	if not loaded:
+		_offer_classes()
 	if loaded:
 		dead = dusk.character_body()[3] == 1
 		if dead:
@@ -389,6 +406,7 @@ func _process(delta: float) -> void:
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
+	hud.show_faith(dusk.faith())
 	hud.show_deeds(dusk.character_deeds())
 	_mind_the_ground()
 	var doing := _my_action()
@@ -407,6 +425,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		_save("")
 		get_tree().quit()
 	if dusk == null:
+		return
+	# Who comes into the world: a number takes up that class, and nothing else is heeded.
+	if choosing_class:
+		var key := event as InputEventKey
+		if key and key.pressed and not key.echo:
+			var n: int = int(key.physical_keycode) - int(KEY_1)
+			if n >= 0 and n < class_texts.size() / 2:
+				_take_up_class(n)
 		return
 	var mouse := event as InputEventMouseButton
 	if mouse and mouse.pressed:
@@ -454,6 +480,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			dusk.second_wind()
 		else:
 			hud.say("No second wind: it takes the talent, and comes back when you've slept.")
+	elif event.is_action_pressed("turn") and not dead:
+		_turn_the_dead()
+	elif event.is_action_pressed("pray") and not dead:
+		_pray()
+	elif event.is_action_pressed("hallow") and not dead:
+		_hallow()
+	elif event.is_action_pressed("mend") and not dead:
+		_mend()
 	elif event.is_action_pressed("unboard") and not dead:
 		_pry_board()
 	elif event.is_action_pressed("tend_fire") and not dead:
@@ -549,7 +583,7 @@ func _foe_beside(tile: Vector2i) -> Vector2i:
 
 ## WASD, as a heading on screen. The core turns it into a heading on the map.
 func _steer() -> void:
-	if dead:
+	if dead or choosing_class:
 		return
 	var right := int(Input.is_action_pressed("walk_right")) - int(Input.is_action_pressed("walk_left"))
 	var up := int(Input.is_action_pressed("walk_up")) - int(Input.is_action_pressed("walk_down"))
@@ -638,6 +672,95 @@ func _burn_body() -> void:
 			hud.say("You need a flame: hold up a lit torch or candle (L).")
 		_:
 			dusk.burn()
+
+
+## Who comes into the world: a new survivor takes up a class before it's under way. The player's
+## own game asks, paused, each class with its line; a trial run asks nothing (--class says which,
+## else it stays the first), so scripts and pictures run unattended.
+func _offer_classes() -> void:
+	class_texts = dusk.class_texts()
+	var count := class_texts.size() / 2
+	if count < 2 or not dusk.can_choose_class():
+		return
+	if not OS.get_cmdline_user_args().is_empty():
+		for c in count:
+			if class_texts[c * 2].to_lower() == class_wanted.to_lower():
+				_take_up_class(c)
+		return
+	choosing_class = true
+	dusk.paused = true
+	var lines := ["Who comes to the abbey?", ""]
+	for c in count:
+		lines.append("%d   %s: %s" % [c + 1, class_texts[c * 2], class_texts[c * 2 + 1]])
+	lines.append("")
+	lines.append("Press a number.")
+	hud.show_choice("\n".join(lines))
+
+
+## Takes up class `c` (by DuskWorld.class_texts()): its kit in place of the one you came with.
+func _take_up_class(c: int) -> void:
+	if not dusk.choose_class(c):
+		return
+	if choosing_class:
+		choosing_class = false
+		hud.show_choice("")
+		dusk.paused = false
+	bag.start(dusk)
+	skills.start(dusk)
+	_save("")
+
+
+## U: hold up the holy symbol and turn the dead (a Cleric's). The core says whether you can.
+func _turn_the_dead() -> void:
+	match dusk.turn_check():
+		-1:
+			hud.say("Only a Cleric can turn the dead.")
+		-2:
+			hud.say("Your faith is spent. Pray at an altar (P): the abbey's, or the old chapel's in town.")
+		_:
+			dusk.turn()
+
+
+## P: kneel and pray at the altar beside you. Anyone may, for comfort; a Cleric's faith comes back.
+func _pray() -> void:
+	if dusk.pray_check() == 1:
+		dusk.pray()
+	else:
+		hud.say("There's no altar beside you to pray at: the abbey's chapel has one, and so does the old chapel in town.")
+
+
+## O: consecrate the body beside you, with holy water (or a Cleric's faith): it never gets up. With
+## no body beside you, a Cleric with Warding wards the shut door beside you instead.
+func _hallow() -> void:
+	var body: int = dusk.consecrate_check()
+	if body >= 0:
+		dusk.consecrate()
+		return
+	if body == -2:
+		hud.say("You need holy water to consecrate it: the abbey sells it, and the chapel's fonts hold it.")
+		return
+	match dusk.ward_check():
+		1:
+			dusk.ward()
+		-2:
+			hud.say("There's no body beside you to consecrate, nor a shut door to ward.")
+		-3:
+			hud.say("Not enough faith to ward the door. Pray at an altar (P).")
+		_:
+			hud.say("There's no body beside you to consecrate.")
+
+
+## M: mend your worst bleeding wound with faith (Mending, a Cleric's talent).
+func _mend() -> void:
+	match dusk.heal_check():
+		1:
+			dusk.heal()
+		-2:
+			hud.say("There's nothing to mend.")
+		-3:
+			hud.say("Not enough faith to mend it. Pray at an altar (P).")
+		_:
+			hud.say("Mending is a Cleric's talent.")
 
 
 ## H: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
@@ -953,7 +1076,7 @@ func _read_events() -> void:
 				# The first of the dead you see go down: what happens next, and what stops it.
 				if who != me and _seen(who) and not told_get_up:
 					told_get_up = true
-					hud.say("It'll get up again in a day or so, unless you burn it: oil and a flame, G.")
+					hud.say("It'll get up again in a day or so, unless you burn it (oil and a flame, G) or consecrate it (holy water, O).")
 			GOT_UP:
 				if _seen(who):
 					hud.say("%s gets up again!" % _a(who))
@@ -997,6 +1120,35 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You catch your second wind.")
 					hud.flash_good()
+			CLASS_CHOSEN:
+				if who == me and extra * 2 < class_texts.size():
+					hud.say("You take up the %s's way." % class_texts[extra * 2])
+			TURNED:
+				if who == me:
+					var turned := extra % 1000
+					var fell := floori(extra / 1000.0)
+					if turned + fell == 0:
+						hud.say("You hold up the holy symbol, but none of the dead near you see it.")
+					else:
+						hud.say("You hold up the holy symbol! %d of the dead turn and flee%s." % [turned, ", and %d fall" % fell if fell > 0 else ""])
+						hud.flash_good()
+			PRAYED:
+				if who == me:
+					hud.say("You pray. Your faith comes back, and your dread eases." if extra == 1 else "You pray, and your dread eases.")
+					hud.flash_good()
+			CONSECRATED:
+				if who == me:
+					hud.say("You pour the holy water over it. It won't get up again." if extra == 1 else "You say the rites over it. It won't get up again.")
+			HEALED:
+				if who == me:
+					hud.say("Your faith closes the wound.")
+					hud.flash_good()
+			WARDED:
+				if who == me:
+					hud.say("You ward the door. The dead won't beat on it tonight.")
+			WARD_FADED:
+				if _near(events[i + 3], events[i + 4], 16.0):
+					hud.say("The ward on the door has faded.")
 			RAIN_BEGAN:
 				hud.say("It's raining hard. Lights gutter outdoors; sound and blood don't carry far." if extra == 1 else "It starts to rain: lights gutter outdoors, and the dead hear and smell less.")
 			RAIN_ENDED:
@@ -1255,6 +1407,7 @@ func _next_survivor() -> void:
 	craft.start(dusk)
 	hud.say("%s comes to the abbey. Somewhere out there, the last one's body lies in its gear." % dusk.actor_name(me))
 	_save("")
+	_offer_classes()
 
 
 func _move_camera(delta: float) -> void:
@@ -1479,6 +1632,10 @@ func _add_input_actions() -> void:
 		"board": [KEY_B],
 		"burn": [KEY_G],
 		"second_wind": [KEY_C],
+		"turn": [KEY_U],
+		"pray": [KEY_P],
+		"hallow": [KEY_O],
+		"mend": [KEY_M],
 		"unboard": [KEY_N],
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
@@ -1527,6 +1684,8 @@ func _read_args() -> void:
 			save_path = value
 		elif arg.begins_with("--hour="):
 			start_hour = value.to_int()
+		elif arg.begins_with("--class="):
+			class_wanted = value
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
@@ -1634,6 +1793,14 @@ func _run_script() -> void:
 				_tend_fire()
 			"smother":
 				_smother_fire()
+			"turn":
+				_turn_the_dead()
+			"pray":
+				_pray()
+			"consecrate", "ward":  # O: a body beside you consecrated, else a door warded
+				_hallow()
+			"mend":
+				_mend()
 			"next":  # after a death, the next survivor
 				_next_survivor()
 

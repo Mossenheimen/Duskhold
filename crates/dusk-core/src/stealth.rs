@@ -83,12 +83,15 @@ impl World {
     }
 
     /// Whether `id` strikes `target` unawares: one of the dead that's after nothing, `id` outside
-    /// its sight cone.
+    /// its sight cone. One that's turned knows well enough who's there (`faith.rs`).
     pub(crate) fn unawares(&self, id: ActorId, target: ActorId) -> bool {
         let (Some(a), Some(t)) = (self.actors.get(id), self.actors.get(target)) else {
             return false;
         };
         if !a.kind.is_character() || t.kind.is_character() || t.alert() != Alert::Unaware {
+            return false;
+        }
+        if matches!(t.mind, crate::actor::Mind::Turned { .. }) {
             return false;
         }
         let Some(kind) = self.stats(target) else {

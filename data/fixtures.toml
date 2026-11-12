@@ -3,7 +3,8 @@
 # loot: it's a container, filled from that loot table (loot/*.toml). bed: you sleep best beside one.
 # fire: it takes a fire (a hearth, a stove, a forge: rules.toml's [fire]), which lights this many
 # tiles round it. Each keeps a few logs by it. planks: it breaks down into so many (with a hammer or
-# an axe: rules.toml's [crafting]); a container never does.
+# an axe: rules.toml's [crafting]); a container never does. shrine: you pray at it (rules.toml's
+# [faith]).
 
 [[fixture]]
 id = "tree"
@@ -67,6 +68,7 @@ planks = 2
 [[fixture]]
 id = "altar"
 solid = true
+shrine = true
 
 [[fixture]]
 id = "counter"
@@ -156,3 +158,10 @@ solid = true
 id = "tomb"           # an old stone tomb, its grave goods within
 solid = true
 loot = "tomb"
+
+# The chapel's (prefabs/hamlet.toml).
+
+[[fixture]]
+id = "font"           # a stone font by the chapel door, its holy water stoppered in flasks
+solid = true
+loot = "font"

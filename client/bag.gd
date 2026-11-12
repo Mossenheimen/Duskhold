@@ -22,6 +22,7 @@ const CURE := 6
 const OIL := 7
 const SHIELD := 8
 const BOW := 9
+const HOLY := 10
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
@@ -35,6 +36,8 @@ const NO_STASH := {-1: "That's not a container within your reach.",
 var say: Callable
 ## Burns the body beside you, or says why not (main.gd's G).
 var burn: Callable
+## Consecrates the body beside you, or says why not (main.gd's O).
+var hallow: Callable
 
 var _dusk: Node
 var _names := PackedStringArray()
@@ -221,6 +224,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Take", func() -> void: _take_cure(slot, def))
 			OIL:
 				_button(row, "Burn a body", func() -> void: burn.call())
+			HOLY:
+				_button(row, "Consecrate a body", func() -> void: hallow.call())
 		if stash.x >= 0:
 			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
 		if trading:

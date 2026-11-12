@@ -168,6 +168,8 @@ board = 2.0           # a board nailed across a door or window (Carpentry); the 
 sneak = 0.3           # a tile sneaked with the dead near and none after you (Stealth)
 sneak_attack = 3.0    # a sneak attack that lands (Stealth)
 shield = 1.5          # a blow blocked, or a shove with a shield on your arm (Shield)
+turn = 2.0            # each of the dead turned (Devotion); the same one pays less
+mend = 3.0            # a bleeding wound mended with faith (Devotion)
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -184,6 +186,8 @@ sneak_pace = 0.03     # Stealth: quicker sneaking...
 sneak_harm = 0.1      # ...and sneak attacks that do more harm
 shield_block = 0.03   # Shield: a shield blocks this much more often
 cook_time = 0.05      # Cooking: cooking takes less time
+devotion_turn = 0.1   # Devotion: the dead stay turned longer...
+devotion_cost = 0.04  # ...and faith goes further (28% further at the free cap)
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where
@@ -332,3 +336,28 @@ time = 4.0            # seconds to nail one on...
 noise = 12            # ...heard this far, in tiles, as you start and as you finish
 remove = 3.0          # seconds to pry one off
 remove_noise = 6
+
+[faith]
+# The Cleric's (classes.toml: faith, turns; talents.toml). Faith, in points (a Cleric holds 100),
+# is spent on what's below, and comes back only by prayer at a shrine (fixtures.toml's shrine: an
+# altar): the abbey's, or the old chapel's in the heart of town. Anyone may pray, for comfort.
+# The dead you turn flee from you for a while (creatures/*.toml: turned, a kind's share of it),
+# let go of you and strike nobody; a blow ends it. A body consecrated, with holy water
+# (items/supplies.toml) or with a cleric's faith, never gets up, as a body burned doesn't, and
+# nothing burns: it's quiet, and makes no light.
+pray = 10.0           # seconds kneeling at a shrine (P): faith full again
+comfort = 20          # points of dread a prayer takes away, for anyone
+turn = 30             # faith to turn the dead (U)
+turn_time = 1.0       # seconds holding up the holy symbol: the tell
+turn_recovery = 0.5
+reach = 8             # tiles: the dead within it that you see are turned
+turned = 20.0         # seconds they flee from you
+noise = 6             # tiles the holy word carries: the turning is heard
+consecrate = 15       # faith to consecrate a body (O) with no holy water
+consecrate_time = 3.0 # seconds, with holy water or with faith
+mend = 20             # Mending (M): its faith,
+mend_health = 15      # the health it gives back,
+mend_time = 2.0       # and seconds
+ward = 40             # Warding (O, at a shut door): its faith,
+ward_time = 4.0       # seconds,
+ward_hours = 8.0      # and the game hours the ward holds: a night's worth

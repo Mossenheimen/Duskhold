@@ -76,6 +76,10 @@ pub struct Creature {
     /// pressure doesn't count it, neither the bell nor a fire draws it, and its body neither
     /// gets up nor burns. (A beast, one that flees, is wild too.)
     pub wild: bool,
+    /// How long one of its kind stays turned (`faith.rs`), per mille of the turning's time: an old
+    /// dead thing's turning is brief (0: it's never turned). The wild are never turned: they
+    /// aren't the dead.
+    pub turned: u32,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -142,6 +146,7 @@ impl Default for Creature {
             flees: 0,
             butcher: None,
             wild: false,
+            turned: 1000,
         }
     }
 }

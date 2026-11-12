@@ -110,6 +110,19 @@ pub enum Intent {
     Craft { recipe: u16 },
     /// Break the furniture beside you down for planks, with a hammer or an axe.
     BreakDown,
+    /// Hold up the holy symbol and turn the dead (`faith.rs`): a class that turns them, with faith
+    /// enough.
+    Turn,
+    /// Kneel and pray at the shrine beside you (an altar): anyone, for its comfort; the faithful
+    /// get their faith back.
+    Pray,
+    /// Consecrate the body beside you (or under you) with holy water, or with faith: it never gets
+    /// up. The one you face, else the one you stand on, else the first round you.
+    Consecrate,
+    /// Mend your worst bleeding wound with faith (a talent, Mending).
+    Heal,
+    /// Ward the shut door beside you with faith (a talent, Warding): the dead won't beat on it.
+    Ward,
 }
 
 impl Intent {
@@ -220,6 +233,20 @@ pub enum ActionKind {
         at: TilePos,
     },
     SecondWind,
+    /// The holy symbol held up: the dead turn on its strike tick (`faith.rs`).
+    Turn,
+    /// Praying at the shrine on `at`.
+    Pray {
+        at: TilePos,
+    },
+    /// Consecrating a body.
+    Consecrate {
+        body: ActorId,
+    },
+    /// Mending a wound with faith.
+    Heal,
+    /// Warding the door on the action's side.
+    Ward,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -279,6 +306,9 @@ pub enum Mind {
     /// A beast (`hunting.rs`): after nobody, it runs from where it was last startled, until
     /// it's forgotten (`since`, the tick of the fright).
     Flee { from: Option<TilePos>, since: u64 },
+    /// One of the dead, turned (`faith.rs`): it flees from `by` (the cleric who turned it) until
+    /// the tick `until`, then hunts again. It strikes nobody; a blow ends it.
+    Turned { by: ActorId, until: u64 },
 }
 
 /// What a creature knows of its prey: the mark the client draws over its head.
@@ -310,6 +340,8 @@ pub enum Remains {
     Risen,
     /// A beast's carcass cut up (`hunting.rs`): nothing's left here.
     Butchered,
+    /// Consecrated (`faith.rs`): holy water or a prayer on it, and it never gets up.
+    Hallowed,
 }
 
 /// How fast a kind of actor moves, in thousandths of a tile a second (`Rules::speeds`).
@@ -380,6 +412,9 @@ pub struct Actor {
     /// The shield on the off arm, and bracing behind it: a stance (`shield.rs`).
     pub shield: Option<Item>,
     pub bracing: bool,
+    /// A Cleric's faith (`faith.rs`), in thousandths of a point: spent on its acts, and back by
+    /// prayer at a shrine. 0 for a class without it.
+    pub faith: i32,
 }
 
 impl Actor {
@@ -429,6 +464,7 @@ impl Actor {
             sneaking: false,
             shield: None,
             bracing: false,
+            faith: 0,
         }
     }
 

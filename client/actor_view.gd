@@ -23,10 +23,13 @@ const LOOKS := [
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)
 const SLEEPING := Color(0.6, 0.72, 1.0)
+## Turned by the holy symbol (DuskWorld.actor_alert() 3): it flees you.
+const TURNED := Color(1.0, 0.95, 0.7)
 const ASLEEP := 3
-## A body burning (DuskWorld.actor_remains() 1), and burnt (2).
+## A body burning (DuskWorld.actor_remains() 1), burnt (2), and consecrated (4).
 const BURNING := 1
 const ASH := 2
+const HALLOWED := 4
 const FIRE := Color(1.0, 0.5, 0.18)
 const CINDERS := Color(0.13, 0.12, 0.11)
 ## How far a burning body's light reaches, in tiles: rules.toml's [burning] light, plus a tile
@@ -118,7 +121,7 @@ func face(eighths: int, delta: float) -> void:
 	rotation.y = _turn
 
 
-## 0 unaware, 1 curious, 2 hunting (DuskWorld.actor_alert()). A new mark pops.
+## 0 unaware, 1 curious, 2 hunting, 3 turned (DuskWorld.actor_alert()). A new mark pops.
 func show_alert(level: int, delta: float) -> void:
 	if level != _alert:
 		_alert = level
@@ -128,14 +131,14 @@ func show_alert(level: int, delta: float) -> void:
 	_mark.scale = Vector3.ONE * (1.0 + _pop * 0.6)
 
 
-## The mark over its head: "z" asleep, else what it knows of you.
+## The mark over its head: "z" asleep, else what it knows of you ("+" turned: it flees you).
 func _show_mark() -> void:
 	if _state == ASLEEP:
 		_mark.text = "z"
 		_mark.modulate = SLEEPING
 	else:
-		_mark.text = ["", "?", "!"][_alert]
-		_mark.modulate = [Color.WHITE, CURIOUS, HUNTING][_alert]
+		_mark.text = ["", "?", "!", "+"][_alert]
+		_mark.modulate = [Color.WHITE, CURIOUS, HUNTING, TURNED][_alert]
 
 
 func _material(colour: Color) -> StandardMaterial3D:
@@ -168,13 +171,15 @@ func show_pose(state: int, wind_up: float, delta: float) -> void:
 	_body.rotation_degrees.x = _pitch
 
 
-## What's become of its body (DuskWorld.actor_remains(): 0 nothing, 1 burning, 2 ash). Burning,
-## it glows and throws a flickering light, with no shadows (a pile of them would cost too much);
-## burnt, it's a low, dark smear.
+## What's become of its body (DuskWorld.actor_remains(): 0 nothing, 1 burning, 2 ash, 4 hallowed).
+## Burning, it glows and throws a flickering light, with no shadows (a pile of them would cost too
+## much); burnt, it's a low, dark smear; consecrated, it lies pale.
 func show_remains(remains: int, _delta: float) -> void:
 	if remains != _remains:
 		_remains = remains
-		if remains == BURNING:
+		if remains == HALLOWED:
+			_skin.albedo_color = _colour.darkened(0.55).lerp(TURNED, 0.35)
+		elif remains == BURNING:
 			_skin.albedo_color = _colour.darkened(0.7)
 			_skin.emission_enabled = true
 			_skin.emission = FIRE

@@ -1,13 +1,32 @@
 # Classes (CONCEPT.md, character). A class is the skills it learns faster, its endurance, its
-# signature, and the talents it picks from (talents.toml). Every character is the first class here
-# until there's a second to choose from.
+# signature, its starting kit, and the talents it picks from (talents.toml). A character comes into
+# the world as the first class here, and takes up another before it's under way (the client asks).
+# wield and kit: what it starts with, in hand and in the pack (name one twice for two); left out,
+# everyone's kit (rules.toml's [character]).
 
 [[class]]
 id = "fighter"
 name = "Fighter"
+line = "holds doorways: more breath than anyone, and the dead get hold of you less"
 # Holds doorways; engagement and grabs are its part of the system.
 skills = ["blade", "blunt", "axe", "athletics"]
 learn = 1.5           # learns those half as fast again
 endurance = 0.85      # its running, swings and struggles cost this much: more breath than anyone
 grabbed = 0.75        # it shrugs off grabs: the dead get hold of it this often
 talents = ["tough", "tireless", "second_wind", "cleave", "shrug", "bash", "doorwarden", "heavy_hand", "edge", "woodsman"]
+
+[[class]]
+id = "cleric"
+name = "Cleric"
+line = "the dead's natural enemy: faith turns them, lays the fallen to rest, and mends you; it comes back by prayer"
+# The healer, and the dead's natural enemy: dread and the dead are its part of the system.
+skills = ["blunt", "first_aid", "devotion"]
+learn = 1.5
+endurance = 1.0       # no more breath than anyone
+grabbed = 1.0
+faith = 100           # points: spent turning the dead and the rest (rules.toml's [faith]); back by
+                      # prayer at a shrine
+turns = true          # its signature: held up, the holy symbol turns the dead (U)
+wield = "cudgel"
+kit = ["bandage", "bandage", "torch", "holy_water", "holy_water"]
+talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "steady", "rebuke", "sunder", "last_rites"]

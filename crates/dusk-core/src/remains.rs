@@ -9,6 +9,7 @@
 //!   (`pressure.rs`). One waits while someone stands on it.
 //! - **Burning** a body takes oil and a flame: oil from your pack, poured on, and set alight from
 //!   the light you hold up. A body that burns never gets up. Each one lowers the pressure.
+//!   Consecrating one (holy water, or a cleric's faith: `faith.rs`) does the same, quietly.
 //! - **A pyre:** fire goes from a burning body to the bodies on the tiles round it (not through
 //!   walls), one tile a game minute. So the dead you put down at a door, piled up, burn from one
 //!   flask. It doesn't catch on anything else yet: fire as a system comes later.
@@ -83,9 +84,10 @@ impl World {
         }
     }
 
-    /// Whether a body can burn: not burning yet, nor burnt, nor risen; and one of the dead's (a
-    /// wild one's is butchered: `hunting.rs`).
-    fn burnable(&self, id: ActorId) -> bool {
+    /// Whether a body can burn: not burning yet, nor burnt, nor risen, nor hallowed; and one of the
+    /// dead's (a wild one's is butchered: `hunting.rs`). The same bodies can be consecrated
+    /// (`faith.rs`).
+    pub(crate) fn burnable(&self, id: ActorId) -> bool {
         self.actors
             .get(id)
             .is_some_and(|a| a.dead && matches!(a.remains, Remains::Lying | Remains::GetsUp { .. }))

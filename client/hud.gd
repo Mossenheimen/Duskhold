@@ -1,12 +1,12 @@
 extends CanvasLayer
 ## What's drawn over the world: the state of play and the clock, your body (health, endurance,
-## wounds), Zomboid's moodle column, the controls, what just happened, a red flash when the dead
-## hurt you, a dark veil while you sleep, and how you died.
+## a Cleric's faith, wounds), Zomboid's moodle column, the controls, what just happened, a red
+## flash when the dead hurt you, a dark veil while you sleep, how you died, and who comes next.
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  right-click shoot (bow)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G butcher a beast or burn a body  ·  C second wind  ·  Tab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light\nSpace pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  right-click shoot (bow)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G butcher a beast or burn a body  ·  O consecrate a body (at a shut door: ward it)  ·  P pray at an altar  ·  C second wind  ·  U turn the dead  ·  M mend\nTab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -68,6 +68,8 @@ var _ages: Array[float] = []
 var _flash_left := 0.0
 var _health: ProgressBar
 var _endurance: ProgressBar
+var _faith: ProgressBar  # a Cleric's (DuskWorld.faith()): hidden for a class without any
+var _choice: Label  # who comes into the world: the classes to choose from
 var _breath: Label
 var _wounds: Label
 var _level: Label
@@ -123,6 +125,8 @@ func _ready() -> void:
 	_held.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_held.position.y += 120.0
 	_held.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+	_choice = _label(24, Control.PRESET_CENTER)
+	_choice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_build_action_bar()
 	_build_body_panel()
 	_build_moodle_column()
@@ -220,6 +224,7 @@ func reset() -> void:
 	_ages.clear()
 	_flash_left = 0.0
 	_death.text = ""
+	_choice.text = ""
 	_veil.visible = false
 	_asleep.text = ""
 	_shown_moodles = PackedInt32Array()
@@ -269,6 +274,21 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray, can_shove := t
 			_held.text = "IT HAS HOLD OF YOU\nF struggle  ·  %s" % shove
 		_:
 			_held.text = "%d HAVE HOLD OF YOU\nF struggle  ·  %s  ·  three drag you down" % [holding, shove]
+
+
+## Your faith (DuskWorld.faith(): [now, the most], in points): a bar under endurance, for a class
+## that has any.
+func show_faith(faith: PackedInt32Array) -> void:
+	var most := faith[1] if faith.size() > 1 else 0
+	_faith.get_parent().visible = most > 0
+	if most > 0:
+		_faith.max_value = most
+		_faith.value = faith[0]
+
+
+## Who comes into the world: the classes to choose from, or "" once one's chosen.
+func show_choice(text: String) -> void:
+	_choice.text = text
 
 
 ## The moodle column, from DuskWorld.character_moodles(): rebuilt only when it changes.
@@ -371,6 +391,8 @@ func _build_body_panel() -> void:
 	panel.add_child(_level)
 	_health = _bar(panel, "Health", Color(0.75, 0.16, 0.14))
 	_endurance = _bar(panel, "Endurance", Color(0.85, 0.68, 0.22))
+	_faith = _bar(panel, "Faith", Color(0.82, 0.84, 1.0))
+	_faith.get_parent().visible = false
 	_breath = Label.new()
 	_breath.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
 	_breath.add_theme_constant_override("outline_size", 6)

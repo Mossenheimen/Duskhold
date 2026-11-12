@@ -46,6 +46,12 @@ struct XpFile {
     /// Shield's: a block or a bash (left out: none).
     #[serde(default)]
     shield: f64,
+    /// Devotion's: each of the dead turned, and a bleeding wound mended with faith (left out:
+    /// none).
+    #[serde(default)]
+    turn: f64,
+    #[serde(default)]
+    mend: f64,
 }
 
 /// What a level does, as a share a level.
@@ -72,6 +78,11 @@ struct LevelFile {
     /// Cooking: cooking takes less time (left out: no quicker).
     #[serde(default)]
     cook_time: f64,
+    /// Devotion: the dead stay turned longer, and faith costs less (left out: neither).
+    #[serde(default)]
+    devotion_turn: f64,
+    #[serde(default)]
+    devotion_cost: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -181,5 +192,9 @@ pub(crate) fn to_skills(
         shield: xp(x.shield.max(0.0)),
         shield_block: (l.shield_block.clamp(0.0, 0.1) * 10_000.0).round() as u32,
         cook_time: mille(l.cook_time.clamp(0.0, 0.1)),
+        turn: xp(x.turn.max(0.0)),
+        mend: xp(x.mend.max(0.0)),
+        devotion_turn: mille(l.devotion_turn.clamp(0.0, 1.0)),
+        devotion_cost: mille(l.devotion_cost.clamp(0.0, 0.1)),
     })
 }

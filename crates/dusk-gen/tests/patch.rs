@@ -515,3 +515,35 @@ fn barrows_lie_out_in_the_wilds_each_with_its_wight() {
         }
     }
 }
+
+#[test]
+fn the_chapel_and_the_abbey_each_have_a_shrine_and_the_chapels_fonts_hold_holy_water() {
+    let data = data();
+    let holy = data
+        .defs
+        .items
+        .iter()
+        .position(|i| i.id == "holy_water")
+        .unwrap() as u16;
+    for seed in 1..=4 {
+        let (w, layout) = patch(seed, &data, data.region("hushlands").unwrap());
+        for prefab in ["chapel", "abbey"] {
+            let lot = layout.lots.iter().find(|l| l.prefab == prefab).unwrap();
+            let inside = lot.inside();
+            let shrines = (inside.y0..inside.y1)
+                .flat_map(|y| (inside.x0..inside.x1).map(move |x| (x, y)))
+                .filter(|&(x, y)| w.is_shrine(dusk_core::TilePos::new(x, y, 0)))
+                .count();
+            assert_eq!(shrines, 1, "seed {seed}: the {prefab}'s altar");
+        }
+        let chapel = layout.lots.iter().find(|l| l.prefab == "chapel").unwrap();
+        let fonts = stores_in(&w, &data, chapel, "font");
+        assert_eq!(fonts.len(), 2, "seed {seed}: two fonts by the door");
+        for font in fonts {
+            assert!(
+                font.iter().any(|i| i.def == holy && i.count >= 1),
+                "seed {seed}: holy water in each"
+            );
+        }
+    }
+}

@@ -54,6 +54,9 @@ struct ItemFile {
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
+    /// Holy water: poured on a body, it consecrates it, and it never gets up (`holy = true`).
+    #[serde(default)]
+    holy: bool,
     /// Fuel: put on a fire, it burns this many game hours (`fire.rs` in the core). Any kind
     /// of item can burn: a plank is still a plank.
     #[serde(default)]
@@ -355,6 +358,7 @@ pub(crate) fn load_defs(
                 i.light.is_some(),
                 i.cure.is_some(),
                 i.oil,
+                i.holy,
                 i.shield.is_some(),
                 i.bow.is_some(),
             ];
@@ -362,7 +366,7 @@ pub(crate) fn load_defs(
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, shield and bow",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield and bow",
                         i.id
                     ),
                 ));
@@ -427,6 +431,8 @@ pub(crate) fn load_defs(
                 shield(&file, &i.id, s)?
             } else if i.oil {
                 ItemKind::Oil
+            } else if i.holy {
+                ItemKind::Holy
             } else {
                 ItemKind::Other
             };
@@ -554,6 +560,9 @@ pub(crate) fn load_defs(
             .collect(),
         wells: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.water))
+            .collect(),
+        shrines: std::iter::once(false)
+            .chain(fixtures.iter().map(|f| f.shrine))
             .collect(),
         hearths: std::iter::once(0)
             .chain(fixtures.iter().map(|f| f.fire))

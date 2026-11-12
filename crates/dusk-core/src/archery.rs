@@ -180,6 +180,7 @@ impl World {
         }
         self.interrupt(target);
         self.startle_by(target, id);
+        self.unturn(target, id);
         self.events.push(Event::Struck {
             who: id,
             target,
@@ -195,6 +196,10 @@ impl World {
         }
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
+            // With Last Rites, what an arrow puts down stays down too (`faith.rs`).
+            if self.talents_of(id).any(|t| t.last_rites) {
+                self.put_to_rest(id, target);
+            }
         }
     }
 }

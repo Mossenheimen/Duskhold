@@ -67,3 +67,56 @@ name = "Woodsman"
 line = "a quarter more harm with axes"
 skill = "axe"
 damage = 1.25
+
+# The Cleric's (rules.toml's [faith]). faith: points it adds; mending and warding: verbs of faith;
+# steady: how fast dread rises with a light held up; turn_time and turn_reach: how long and how far
+# the dead are turned; sunder: the dead turned with this much health or less fall instead.
+
+[[talent]]
+id = "devout"
+name = "Devout"
+line = "25 more faith"
+faith = 25
+
+[[talent]]
+id = "mending"
+name = "Mending"
+line = "spend faith to stop your worst bleeding wound and get 15 health back (M)"
+mending = true
+
+[[talent]]
+id = "purify"
+name = "Purify"
+line = "a prayer at a shrine cures ghoul fever too"
+purify = true
+
+[[talent]]
+id = "warding"
+name = "Warding"
+line = "spend faith to ward the shut door beside you: the dead won't beat on it for a night (O)"
+warding = true
+
+[[talent]]
+id = "steady"
+name = "Steady"
+line = "with a light held up, your dread rises half as fast"
+steady = 0.5
+
+[[talent]]
+id = "rebuke"
+name = "Rebuke"
+line = "the dead you turn flee twice as long, and from 4 tiles farther off"
+turn_time = 2.0
+turn_reach = 4
+
+[[talent]]
+id = "sunder"
+name = "Sunder"
+line = "the dead you turn with 15 health or less fall instead"
+sunder = 15
+
+[[talent]]
+id = "last_rites"
+name = "Last Rites"
+line = "the dead you put down stay down"
+last_rites = true

@@ -77,6 +77,7 @@ attack = { wind_up = 1.0, recovery = 0.5, hit = 0.65, noise = 3 }
 groan = 0
 wounds = { scratch = 0.4, laceration = 0.45, bite = 0.15 }
 thump = [3, 5]
+turned = 0.5          # your own dead, and stubborn: a holy symbol holds it half as long
 
 # The graveyard's (prefabs/graveyard.toml): the town's old dead, bone and nothing else. A blade
 # finds little to cut and a spear less to pierce, but a blunt weapon shatters them: the reason to
@@ -130,6 +131,7 @@ nocturnal = true      # only after dark
 douses = 4            # lights and fires within this many tiles go out
 dread = 25            # points of dread it adds near you, over one of the dead's
 lit_harm = 2.0        # what it takes of a blow in the light
+turned = 0.5          # old and strong: turned (rules.toml's [faith]) for half as long
 
 # The Hushlands' wildlife (crates/dusk-core/src/hunting.rs): beasts that run from you and are
 # after nobody. A deer outruns you (4.0 to your 3.0), sees far and nearly all round, and bolts

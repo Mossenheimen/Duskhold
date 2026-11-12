@@ -9,7 +9,7 @@
 //!   get no breath back. A hold breaks when the holder is shoved, knocked down or killed, or when
 //!   you're no longer within its reach.
 //! - **The way out:** struggle (endurance, and harder for each other holder) or shove the holder
-//!   off.
+//!   off. A cleric has a third: the dead it turns let go (`faith.rs`).
 //! - **The drag-down:** three holding you at once, or a hold on you with no breath left, and
 //!   they drag you down. Deaths stay readable: "I let three get round me".
 

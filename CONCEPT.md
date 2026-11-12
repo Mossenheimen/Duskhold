@@ -195,7 +195,15 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
   - Shrug and Bash (the harder shove standing in for the shield bash until there are shields);
   - Doorwarden;
   - a weapon focus for each of blunt weapons, blades and axes.
-- **For now,** every character is a Fighter; choosing comes with the second class.
+- *(built 2026-11-12)* **Choosing:** a new survivor (a new world, or the next after a death) is asked who comes to the abbey, each class with its line, and takes one up before it's under way. The class's kit replaces everyone's.
+
+*(built 2026-11-12)* **The Cleric**, the second class (its numbers and its talents are Defaults, not yet played):
+- **Skills:** it learns Blunt, First Aid and Devotion (its own: turning the dead and mending) half as fast again.
+- **Its kit:** a cudgel, two bandages, a torch and two flasks of holy water.
+- **Faith, its resource:** 100 points, spent on what it does, and back only by prayer at a shrine (an altar: the abbey's, or the old chapel's in the heart of town, where the bell is). Anyone may pray there, for its comfort: dread eases.
+- **Its signature, turning the dead** (U): 30 faith. Held up for a second, the holy symbol turns every one of the dead within 8 tiles that sees it, for 20 seconds (an old dead thing, a wight or a revenant, for half that). They let go, strike nobody and flee; a blow ends it. Held, it's a way out. The wild aren't the dead: a wolf isn't turned.
+- **Consecration** (O): holy water on a body, or with none a cleric's 15 faith, and it never gets up. Burning's quiet cousin: no fire, no light, and the dusk falls back as for a body burned. Anyone with holy water can; the chapel's fonts hold it, and the abbey sells it.
+- **Talents:** Tough and Heavy Hand; Devout (more faith); Mending (faith stops the worst bleeding and gives health back: M); Purify (a prayer cures ghoul fever: the cure becomes a pilgrimage); Warding (a shut door warded for the night: the dead won't beat on it); Steady (the steadying light: with a light held up, dread rises half as fast); Rebuke (turned longer, from farther); Sunder (the weakest of the dead it turns fall); Last Rites (what it puts down stays down).
 
 ### Ancestry and traits (Default)
 
@@ -261,6 +269,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
   Cures are quests: a holdout's chapel (at a price), a strong enough cleric, a rare herb from somewhere unpleasant.
 - **The dead get up** (Hushlands): unburned human dead rise after a while. Burn them (oil) or consecrate them (holy water, a cleric), or leave them and maybe meet them again. Zomboid players burn corpse piles against corpse sickness; here it's the corpses themselves that come back.
   - *(built 2026-11-10)* Every shambler and ghoul you put down gets up again 12 to 36 game hours later, once: put down a second time, it stays down. So there are two answers, a second fight or the oil. It gets up from its back, so there's a window to finish it. Burning takes a flask of lamp oil and a lit torch or candle held up. The fire goes from body to body, a tile a game minute, but not through walls, so a pile at your door burns from one flask. A burning body lights the dark round it for 20 game minutes, then it's ash. A patch has 6 to 24 flasks (eight seeds measured). Holy water and consecration come with the cleric.
+  - *(built 2026-11-12)* **Consecration**, the third answer: holy water poured on a body (anyone's), or a cleric's faith, and it never gets up, quietly, with no fire and no light. The chapel's fonts hold a few flasks, and the abbey sells two a day.
 
 ## Senses: how they find you
 
@@ -571,6 +580,7 @@ The first playable:
   - *(built 2026-11-11)* **barrows and their wights:** two old burial mounds out in the wilds, each with a wight lying in it by day and a tomb of grave goods. The wight is the night's own: it walks only after dark, puts out every light and fire near it, and its nearness alone frightens you. In the light it takes twice the harm, so the day, in its own barrow, is when to go after it;
   - *(built 2026-11-11)* **the graveyard and its skeletons:** a fenced graveyard beside the chapel holds 3 to 6 skeletons, the town's old dead, and two tombs of grave goods. Blades glance off bone (a sword does 40%, a spear 30%) and blunt weapons shatter it (150%), so the mace and the hammer have their place. Skeletons see best in the dark of all the dead, but they have no bite, no fever and no groan, and once shattered they stay down;
 - one class (Fighter), perhaps two (+ Cleric);
+  - *(built 2026-11-12)* **the Cleric**, and choosing a class: faith, prayer at shrines, turning the dead, consecration with holy water or faith, and ten talents (Character, above);
 - combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;
   - *(built 2026-11-11)* **wolves:** packs of two to four out in the wilds, of the living world and not the dead. A wolf a little faster than your run, seeing in the dark, following blood, howls when it sees you and the pack comes. It lunges quicker than the dead and bites deep. The bell and fires don't draw them and they don't get up; a dead one is skinned for a pelt worth bringing home;
   - *(built 2026-11-11)* **wildlife and hunting:** deer graze in the open. They're after nobody and nobody dreads them, but they see far and nearly all round, and bolt from anyone near, from footsteps and from a blow, faster than you run. Sneak up, or shoot from where it hasn't seen you; from its blind side an arrow always drops it. A knife or an axe cuts a carcass up for venison, to roast at a fire;

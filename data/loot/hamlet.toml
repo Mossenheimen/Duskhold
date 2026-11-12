@@ -78,3 +78,10 @@ items = [
   { item = "nails", weight = 1, count = [2, 10] },
   { item = "tincture", weight = 1 },
 ]
+
+[[loot]]
+id = "font"           # the chapel's fonts: holy water, a flask or three each
+rolls = [1, 1]
+items = [
+  { item = "holy_water", weight = 1, count = [1, 3] },
+]

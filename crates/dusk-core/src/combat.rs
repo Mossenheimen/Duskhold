@@ -93,14 +93,19 @@ impl World {
                 ActionKind::Identify { at, slot } => self.read_item(id, at, slot),
                 ActionKind::Uncurse { at } => self.lift_curse(id, at),
                 ActionKind::SecondWind => self.second_wind(id),
+                ActionKind::Turn => self.turn_the_dead(id),
+                ActionKind::Pray { at } => self.pray(id, at),
+                ActionKind::Consecrate { body } => self.consecrate(id, body),
+                ActionKind::Heal => self.heal(id),
+                ActionKind::Ward => self.ward(id, action.dir),
             }
         }
         true
     }
 
     /// Starts the action an intent asks for, if it can start here and now. Held, you can only
-    /// struggle or shove; struggling is only for the held. Item actions take all their time
-    /// before they take effect, so a blow breaks them off.
+    /// struggle, shove, or (a cleric) turn the dead; struggling is only for the held. Item actions
+    /// take all their time before they take effect, so a blow breaks them off.
     fn begin(&mut self, id: ActorId, intent: Intent) -> Option<Action> {
         let held = self.is_held(id);
         let a = self.actors.get(id)?;
@@ -109,6 +114,19 @@ impl World {
             Intent::Struggle | Intent::Shove { .. } => {
                 // the two things the held can do: below
                 return self.begin_free(id, intent, held);
+            }
+            // And a cleric's third (`faith.rs`): the dead let go of whoever they turn from. Its
+            // wind-up is a tell, and its word is heard as it lands.
+            Intent::Turn => {
+                self.can_turn(id).ok()?;
+                let f = self.rules.faith;
+                (
+                    ActionKind::Turn,
+                    a.facing,
+                    f.turn_wind_up,
+                    f.turn_recovery,
+                    0,
+                )
             }
             _ if held => return None,
             Intent::Take { at, slot, def } => {
@@ -250,6 +268,23 @@ impl World {
                 let side = self.can_unboard(id).ok()?;
                 let ticks = self.rules.barricade.remove_time.max(1);
                 (ActionKind::Unboard, side, ticks, 0, 0)
+            }
+            // Acts of faith (`faith.rs`): they take all their time before they take effect.
+            Intent::Pray => {
+                let (kind, dir, ticks) = self.pray_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Consecrate => {
+                let (kind, dir, ticks) = self.consecrate_action(id)?;
+                (kind, dir, ticks, 0, 0)
+            }
+            Intent::Heal => {
+                self.can_heal(id).ok()?;
+                (ActionKind::Heal, a.facing, self.rules.faith.mend_time, 0, 0)
+            }
+            Intent::Ward => {
+                let side = self.can_ward(id).ok()?;
+                (ActionKind::Ward, side, self.rules.faith.ward_time, 0, 0)
             }
             _ => return self.begin_free(id, intent, held),
         };
@@ -535,6 +570,8 @@ impl World {
         }
         self.interrupt(target);
         self.startle_by(target, id);
+        // A blow ends a turning: it rounds on whoever struck (`faith.rs`).
+        self.unturn(target, id);
         self.wake(target, crate::needs::Woke::Hurt);
         self.events.push(Event::Struck {
             who: id,
@@ -555,13 +592,9 @@ impl World {
         }
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
-            // Put down with a Hallowed weapon, it stays down (`magic.rs`).
-            if self.hallowed_hand(id)
-                && let Some(t) = self.actors.get_mut(target)
-                && matches!(t.remains, crate::actor::Remains::GetsUp { .. })
-            {
-                t.remains = crate::actor::Remains::Lying;
-            }
+            // Put down with a Hallowed weapon (`magic.rs`), or by one with Last Rites
+            // (`faith.rs`), it stays down.
+            self.put_to_rest(id, target);
             // Cleave: a blow that puts one down carries on into another beside you, once a swing.
             if !self.cleaving
                 && self.cleaves(id)
@@ -584,11 +617,15 @@ impl World {
     }
 
     /// A blow on a shut door. Boards across it take it first (`barricade.rs`); beaten past its
-    /// strength, the door gives way for good.
+    /// strength, the door gives way for good. A warded door holds against the dead: their blows
+    /// do nothing to it (`faith.rs`).
     fn thump(&mut self, id: ActorId, dir: Dir8) {
         let (c, tick, seed) = (self.rules.combat, self.tick, self.seed);
         let Some(a) = self.actors.get(id) else { return };
         let (pos, kind, tired) = (a.pos, a.kind, a.body.exhausted);
+        if !kind.is_character() && self.is_warded(pos, dir) {
+            return;
+        }
         let (lo, hi) = match kind {
             ActorKind::Character => self.swing_of(id).damage,
             ActorKind::Creature(_) => self.stats(id).map_or((0, 0), |c| c.thump),

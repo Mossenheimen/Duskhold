@@ -1,14 +1,18 @@
-//! Classes and talents (`CONCEPT.md`, character): the first class is the Fighter.
+//! Classes and talents (`CONCEPT.md`, character): the Fighter and the Cleric.
 //!
 //! - **A class is data** (`data/classes.toml`): the skills it learns faster, its endurance (a
 //!   Fighter's costs less: "more of it than anyone"), its signature (a Fighter shrugs off
-//!   grabs: the dead get hold of it less often), and the talents it picks from. Every character
-//!   is the first class in the data for now; choosing one waits for a second class.
+//!   grabs: the dead get hold of it less often; a Cleric turns the dead, with faith:
+//!   `faith.rs`), its starting kit, and the talents it picks from.
+//! - **Choosing one:** a character comes into the world as the first class in the data, and
+//!   takes up another before it's under way (`World::choose_class`): in its first game minute,
+//!   with nothing learnt or done. The new class's kit replaces the old.
 //! - **Talents are data too** (`data/talents.toml`): each reads in one line, and most change
 //!   numbers the rules already use: health, endurance, harm with a kind of weapon, a shove's
-//!   knock-down, struggling free, how many it takes to drag you down. Two add something: Cleave
-//!   (a blow that puts one down carries on into another beside you) and Second Wind (a verb:
-//!   once between sleeps, catch your breath). One works only in a doorway (the Doorwarden).
+//!   knock-down, struggling free, how many it takes to drag you down, faith, how long and how far
+//!   the dead are turned. Some add something: Cleave (a blow that puts one down carries on into
+//!   another beside you), Second Wind (a verb: once between sleeps, catch your breath), Mending
+//!   and Warding (verbs of faith). One works only in a doorway (the Doorwarden).
 //! - **Each level from 2 offers three** of the class's talents not yet taken, chosen by the
 //!   seed, and you pick one when you like: a choice, not a timed action, like a mastery. There
 //!   are no trees and no one-point picks: each talent is a thing you'd notice.
@@ -18,14 +22,24 @@ use crate::body::FULL;
 use crate::geom::Dir8;
 use crate::grid::Edge;
 use crate::hash::{Purpose, below, roll};
+use crate::items::Item;
 use crate::skills::Skill;
 use crate::world::{Event, World};
 
+/// What a character starts with: a weapon in hand, and its pack.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Kit {
+    pub wield: Option<u16>,
+    pub pack: Vec<Item>,
+}
+
 /// A class, in the core's units.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Class {
     pub id: String,
     pub name: String,
+    /// What it is, in a line, for whoever chooses.
+    pub line: String,
     /// The skills it learns faster, and how much faster (per mille).
     pub skills: Vec<Skill>,
     pub learn: u32,
@@ -35,6 +49,12 @@ pub struct Class {
     pub grabbed: u32,
     /// Its talents, by their numbers in `Defs::talents`.
     pub talents: Vec<u8>,
+    /// The faith it holds, in thousandths of a point (0: none: `faith.rs`).
+    pub faith: i32,
+    /// It turns the dead (`faith.rs`): the Cleric's signature.
+    pub turns: bool,
+    /// What it starts with; None: the rules' kit, everyone's (`Defs::wield`, `Defs::kit`).
+    pub kit: Option<Kit>,
 }
 
 /// A talent, in the core's units. Per mille is 1000 for none.
@@ -64,6 +84,23 @@ pub struct Talent {
     pub cleave: bool,
     /// Gives the Second Wind: once between sleeps, catch your breath.
     pub second_wind: bool,
+    /// Faith it adds to what the class holds, in thousandths of a point (`faith.rs`).
+    pub faith: i32,
+    /// Gives Mending: faith closes the worst bleeding wound, and gives health back.
+    pub mending: bool,
+    /// Gives Warding: faith wards a shut door against the dead.
+    pub warding: bool,
+    /// Prayer at a shrine cures ghoul fever too.
+    pub purify: bool,
+    /// Per mille: how fast dread rises while you hold a light up.
+    pub steady: u32,
+    /// Per mille: how long the dead you turn stay turned; and tiles added to the turning's reach.
+    pub turn_time: u32,
+    pub turn_reach: i32,
+    /// The dead you turn with this much health or less (out of `body::FULL`) fall instead.
+    pub sunder: i32,
+    /// The dead you put down stay down, as with a Hallowed weapon.
+    pub last_rites: bool,
 }
 
 impl Default for Talent {
@@ -84,6 +121,15 @@ impl Default for Talent {
             doorway: false,
             cleave: false,
             second_wind: false,
+            faith: 0,
+            mending: false,
+            warding: false,
+            purify: false,
+            steady: 1000,
+            turn_time: 1000,
+            turn_reach: 0,
+            sunder: 0,
+            last_rites: false,
         }
     }
 }
@@ -102,6 +148,62 @@ impl World {
     pub fn class_of(&self, id: ActorId) -> Option<&Class> {
         let a = self.actors.get(id)?;
         self.defs.classes.get(usize::from(a.class?))
+    }
+
+    /// Whether `id` can still take up a class: a living character not yet under way, in its first
+    /// game minute, with nothing learnt or done.
+    pub fn can_choose_class(&self, id: ActorId) -> bool {
+        let Some(a) = self.actors.get(id) else {
+            return false;
+        };
+        a.kind.is_character()
+            && !a.dead
+            && a.talents.is_empty()
+            && a.deeds == 0
+            && a.skills.xp.iter().all(|&xp| xp == 0)
+            && self.clock_minutes() == a.born
+    }
+
+    /// `id` takes up a class before it's under way: the class's kit replaces the one it came
+    /// with, and its faith is full. False if it can't choose now, or there's no such class.
+    pub fn choose_class(&mut self, id: ActorId, class: u8) -> bool {
+        if !self.can_choose_class(id) || self.defs.classes.get(usize::from(class)).is_none() {
+            return false;
+        }
+        if let Some(a) = self.actors.get_mut(id) {
+            a.class = Some(class);
+            a.hands = None;
+            a.light = None;
+            a.shield = None;
+            a.bracing = false;
+            a.items.clear();
+        }
+        self.equip(id);
+        self.events.push(Event::ClassChosen { who: id, class });
+        true
+    }
+
+    /// Gives a character its class's kit (or the rules', everyone's: something in hand, the rest
+    /// in its pack) and its class's faith, full.
+    pub(crate) fn equip(&mut self, id: ActorId) {
+        let defs = self.defs.clone();
+        let faith = self.max_faith(id);
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
+        let kit = a
+            .class
+            .and_then(|c| defs.classes.get(usize::from(c)))
+            .and_then(|c| c.kit.as_ref());
+        let (wield, pack) = match kit {
+            Some(k) => (k.wield, k.pack.as_slice()),
+            None => (defs.wield, defs.kit.as_slice()),
+        };
+        a.hands = wield.map(|def| Item::new(def, 1));
+        for &item in pack {
+            defs.stow(&mut a.items, item);
+        }
+        a.faith = faith;
     }
 
     /// An actor's talents, as definitions.

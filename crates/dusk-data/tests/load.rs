@@ -1417,3 +1417,125 @@ fn wolves_hunt_in_packs_and_are_skinned_in_the_games_data() {
     assert!(pack.0 >= 2, "wolves go in packs");
     assert!(region.dead.kinds.iter().all(|k| k.creature != "wolf"));
 }
+
+#[test]
+fn the_cleric_turns_the_dead_with_faith_and_prays_it_back_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let cleric = d.classes.iter().find(|c| c.id == "cleric").unwrap();
+    assert!(cleric.turns && cleric.faith == 100_000);
+    assert!(!cleric.line.is_empty(), "a line for whoever chooses");
+    assert!(cleric.skills.contains(&dusk_core::Skill::Devotion));
+    assert_eq!(cleric.talents.len(), 10);
+    let kit = cleric.kit.as_ref().expect("its own kit");
+    assert_eq!(kit.wield, Some(item("cudgel")));
+    assert!(
+        kit.pack
+            .iter()
+            .any(|i| i.def == item("holy_water") && i.count == 2)
+    );
+    assert!(
+        d.classes[0].kit.is_none(),
+        "the Fighter keeps everyone's kit"
+    );
+    assert!(matches!(
+        d.items[usize::from(item("holy_water"))].kind,
+        dusk_core::ItemKind::Holy
+    ));
+    // The altar is a shrine; the chapel's fonts hold holy water, and the abbey sells it.
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    assert!(d.shrines[fixture("altar")]);
+    let font = d.containers[fixture("font")].expect("a container");
+    assert!(
+        d.loot[usize::from(font)]
+            .entries
+            .iter()
+            .any(|e| e.item == item("holy_water"))
+    );
+    assert!(
+        d.holdouts[0]
+            .sells
+            .iter()
+            .any(|s| s.item == item("holy_water"))
+    );
+    let f = data.rules.faith;
+    assert_eq!(
+        (f.turn, f.reach, f.turned, f.consecrate),
+        (30_000, 8, 200, 15_000)
+    );
+    // Old dead things are turned for less time; the wild aren't turned at all (a rule, not data).
+    let turned = |id: &str| {
+        d.creatures
+            .iter()
+            .find(|c| c.id == id)
+            .unwrap()
+            .stats
+            .turned
+    };
+    assert_eq!(
+        (turned("shambler"), turned("wight"), turned("revenant")),
+        (1000, 500, 500)
+    );
+}
+
+/// rules.toml's [faith], as the game has it.
+const FAITH: &str = "[faith]\npray = 10.0\ncomfort = 20\nturn = 30\nturn_time = 1.0\n\
+turn_recovery = 0.5\nreach = 8\nturned = 20.0\nnoise = 6\nconsecrate = 15\nconsecrate_time = 3.0\n\
+mend = 20\nmend_health = 15\nmend_time = 2.0\nward = 40\nward_time = 4.0\nward_hours = 8.0\n";
+
+#[test]
+fn faith_loads_in_the_cores_units_and_nonsense_is_refused() {
+    let rules = format!("{RULES}{FAITH}");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    files.push(("rules.toml", &rules));
+    let data = load(&folder("faith", &files)).unwrap_or_else(|e| panic!("{e}"));
+    let f = data.rules.faith;
+    assert_eq!((f.pray, f.comfort, f.turn), (100, 20_000, 30_000));
+    assert_eq!((f.turn_wind_up, f.turn_recovery, f.turned), (10, 5, 200));
+    assert_eq!((f.mend_health, f.ward), (150, 40_000));
+    let minute = u64::from(data.rules.clock.ticks_per_minute);
+    assert_eq!(f.ward_lasts, 8 * 60 * minute);
+
+    let rules = format!("{RULES}{}", FAITH.replace("reach = 8", "reach = 0"));
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    files.push(("rules.toml", &rules));
+    let err = load(&folder("faith-reach", &files)).unwrap_err();
+    assert!(err.message.contains("reach is 1 to 40"), "{err}");
+}
+
+#[test]
+fn a_class_must_make_sense_of_its_faith_and_its_kit() {
+    let talents = "[[talent]]\nid = \"a\"\nname = \"a\"\nline = \"a\"\n\n\
+[[talent]]\nid = \"b\"\nname = \"b\"\nline = \"b\"\n\n\
+[[talent]]\nid = \"mend\"\nname = \"m\"\nline = \"m\"\nmending = true\n";
+    let refused = |name: &str, class: &str, said: &str| {
+        let classes = format!(
+            "[[class]]\nid = \"c\"\nname = \"C\"\nskills = []\nlearn = 1.0\nendurance = 1.0\n\
+             grabbed = 1.0\ntalents = [\"a\", \"b\", \"mend\"]\n{class}"
+        );
+        let mut files = test_files(PREFABS);
+        files.push(("talents.toml", talents));
+        files.push(("classes.toml", &classes));
+        files.push((
+            "items/rags.toml",
+            "[[item]]\nid = \"rag\"\nname = \"rag\"\nweight = 0.1\n",
+        ));
+        let err = load(&folder(name, &files)).unwrap_err();
+        assert!(err.message.contains(said), "{err}");
+    };
+    refused("class-turns", "turns = true\n", "needs some");
+    refused("class-faith", "", "spends faith, and this class has none");
+    refused(
+        "class-wield",
+        "faith = 50\nwield = \"rag\"\n",
+        "isn't a weapon",
+    );
+    refused(
+        "class-kit",
+        "faith = 50\nkit = [\"gold\"]\n",
+        "no item called",
+    );
+}

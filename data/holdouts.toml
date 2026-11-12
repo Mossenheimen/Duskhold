@@ -23,6 +23,7 @@ sells = [
   { item = "tincture", price = 30, stock = 1 },    # the cure for ghoul fever: one a day
   { item = "bandage", price = 6, stock = 3 },
   { item = "lamp_oil", price = 5, stock = 3 },
+  { item = "holy_water", price = 6, stock = 2 },   # from the chapel's font: the quiet way to lay the dead
   { item = "bread", price = 5, stock = 2 },
   { item = "water", price = 4, stock = 3 },
   { item = "torch", price = 4, stock = 2 },

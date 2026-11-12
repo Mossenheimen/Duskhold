@@ -101,7 +101,7 @@ pub(crate) fn spend(items: &mut Vec<Item>, def: u16, mut n: u16) {
 impl World {
     /// The sides of a tile to look at for a door or window: the one faced (or, facing a
     /// diagonal, both of its sides), then north, east, south and west.
-    fn sides_from(facing: Dir8) -> impl Iterator<Item = Dir8> {
+    pub(crate) fn sides_from(facing: Dir8) -> impl Iterator<Item = Dir8> {
         let faced = match facing.split() {
             Some((a, b)) => [Some(a), Some(b)],
             None => [Some(facing), None],

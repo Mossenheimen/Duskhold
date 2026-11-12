@@ -38,6 +38,14 @@ stack = 4
 oil = true            # poured on a body and set alight, it burns it, and it won't get up (rules.toml, [burning])
 
 [[item]]
+id = "holy_water"
+name = "flask of holy water"
+weight = 0.5
+worth = 3
+stack = 4
+holy = true           # poured on a body, it consecrates it: it won't get up, and nothing burns (rules.toml, [faith])
+
+[[item]]
 id = "bread"
 name = "loaf of bread"
 weight = 0.5
