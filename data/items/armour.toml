@@ -1,0 +1,78 @@
+# Armour (armour.rs in the core). Worn, a piece covers places on the body: "head", "torso", "arms"
+# (with the hands) and "legs" (with the feet). A blow lands on the arms and hands more than half the
+# time, on the torso about a fifth, the legs and feet a fifth, the head one in sixteen (body.rs).
+#
+# turn: the chance a blow on a covered place glances off, by the wound it would have left. A blow
+#   that glances leaves no wound (no bleeding, no fever, no pain) and does only rules.toml's
+#   [armour] bruise of its harm. A weapon's blow on the dead in armour glances as a laceration
+#   would, as far as the weapon's kind lets it ([armour] pierce: points go through mail).
+# wear: the condition (out of 100) a glancing blow takes off it; at 0 it falls apart.
+# noise: tiles added to every footstep (mail clinks; the dead hear 3 tiles of a walk).
+# endurance: the share more that running, swings and struggles cost while it's worn.
+# sight: the share of your sight a closed helm leaves you.
+# time: seconds to put it on; taking it off is [armour] off of that.
+#
+# Worn, a piece weighs [armour] worn_weight of its weight toward what you carry (15 kg).
+
+[[item]]
+id = "leather_cap"
+name = "leather cap"
+weight = 0.4
+worth = 2
+armour = { covers = ["head"], turn = { scratch = 0.4, laceration = 0.25, bite = 0.15 }, wear = 3.0, time = 1.5 }
+
+[[item]]
+id = "iron_helm"
+name = "iron helm"
+weight = 2.0
+worth = 8
+# Nothing gets at your head, but it narrows what you see: 20 tiles become 17.
+armour = { covers = ["head"], turn = { scratch = 0.8, laceration = 0.7, bite = 0.6 }, wear = 1.0, endurance = 0.03, sight = 0.85, time = 3.0 }
+
+[[item]]
+id = "padded_jerkin"
+name = "padded jerkin"
+weight = 2.5
+worth = 5
+# Quilted linen to the wrists: the cheap way to cover most of where the dead's hands land.
+armour = { covers = ["torso", "arms"], turn = { scratch = 0.35, laceration = 0.2, bite = 0.15 }, wear = 3.0, endurance = 0.05, time = 5.0 }
+
+[[item]]
+id = "leather_jerkin"
+name = "leather jerkin"
+weight = 3.0
+worth = 6
+# Sleeveless: better than padding where it covers, but it covers less.
+armour = { covers = ["torso"], turn = { scratch = 0.55, laceration = 0.4, bite = 0.3 }, wear = 2.0, endurance = 0.03, time = 4.0 }
+
+[[item]]
+id = "leather_bracers"
+name = "leather bracers"
+weight = 0.6
+worth = 3
+armour = { covers = ["arms"], turn = { scratch = 0.4, laceration = 0.25, bite = 0.2 }, wear = 3.0, time = 2.5 }
+
+[[item]]
+id = "boots"
+name = "riding boots"
+weight = 1.4
+worth = 3
+armour = { covers = ["legs"], turn = { scratch = 0.4, laceration = 0.25, bite = 0.2 }, wear = 2.0, time = 4.0 }
+
+[[item]]
+id = "mail_shirt"
+name = "mail shirt"
+weight = 9.0
+worth = 25
+# The smith's: half of what the dead do to your body and arms glances off. But it clinks (a walk
+# carries 5 tiles, not 3), and every swing and every run costs more.
+armour = { covers = ["torso", "arms"], turn = { scratch = 0.7, laceration = 0.55, bite = 0.45 }, wear = 1.0, noise = 2, endurance = 0.15, time = 8.0 }
+
+[[item]]
+id = "barrow_mail"
+name = "barrow mail"
+weight = 13.0
+worth = 30
+# A wight's, from the old kings' barrows: neck to knee. Wear it out of the barrow and you're the
+# loudest thing in the hamlet.
+armour = { covers = ["torso", "arms", "legs"], turn = { scratch = 0.75, laceration = 0.6, bite = 0.5 }, wear = 0.8, noise = 3, endurance = 0.2, time = 12.0 }

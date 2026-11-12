@@ -136,6 +136,7 @@ pub enum Purpose {
     Arrow = 25,
     Pick = 26,
     PickMore = 27,
+    Turn = 28,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

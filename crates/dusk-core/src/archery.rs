@@ -173,10 +173,24 @@ impl World {
         // An arrow pierces as a spear's thrust does: bone turns it.
         let resist = self.resistance(target, Some(Skill::Spear));
         let sneak = if unaware { self.sneak_harm(id) } else { 1000 };
+        // And mail turns it, now and then, as it would a spear's point (`armour.rs`).
+        let turned = if unaware {
+            None
+        } else {
+            self.turns_weapon(target, id, Some(Skill::Spear))
+        };
+        let rolled = if turned.is_some() {
+            self.bruise(rolled)
+        } else {
+            rolled
+        };
         let damage =
             (i64::from(rolled) * i64::from(resist) / 1000 * i64::from(sneak) / 1000) as i32;
         if let Some(t) = self.actors.get_mut(target) {
             t.body.health -= damage;
+        }
+        if let Some((piece, part)) = turned {
+            self.turned(target, id, piece, part);
         }
         self.interrupt(target);
         self.startle_by(target, id);

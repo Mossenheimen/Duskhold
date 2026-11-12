@@ -126,6 +126,11 @@ pub enum Intent {
     /// Pick the wild plant beside you (`forage.rs`): the one you face, else the one you stand
     /// on, else the first round you.
     Pick,
+    /// Put on the armour at `slot` of your pack (`armour.rs`): what covered the same places
+    /// comes off, into the pack.
+    Wear { slot: u16, def: u16 },
+    /// Take off the `piece` of armour you wear (still `def`), into your pack.
+    TakeOff { piece: u16, def: u16 },
 }
 
 impl Intent {
@@ -253,6 +258,15 @@ pub enum ActionKind {
     /// Picking the plant on `at`.
     Pick {
         at: TilePos,
+    },
+    /// Putting on armour from the pack, and taking a piece off (`armour.rs`).
+    Wear {
+        slot: u16,
+        def: u16,
+    },
+    TakeOff {
+        piece: u16,
+        def: u16,
     },
 }
 
@@ -422,6 +436,8 @@ pub struct Actor {
     /// A Cleric's faith (`faith.rs`), in thousandths of a point: spent on its acts, and back by
     /// prayer at a shrine. 0 for a class without it.
     pub faith: i32,
+    /// The armour it wears, a piece to a place on the body at most (`armour.rs`).
+    pub worn: Vec<Item>,
 }
 
 impl Actor {
@@ -472,6 +488,7 @@ impl Actor {
             shield: None,
             bracing: false,
             faith: 0,
+            worn: Vec::new(),
         }
     }
 

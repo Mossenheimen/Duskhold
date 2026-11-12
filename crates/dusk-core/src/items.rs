@@ -86,6 +86,8 @@ pub enum ItemKind {
     Shield(crate::shield::Guard),
     /// Taken in hand as a weapon is, it shoots arrows (`archery.rs`).
     Bow(crate::archery::Ranged),
+    /// Worn, it covers places on the body and may turn the blows that land there (`armour.rs`).
+    Armour(crate::armour::Armour),
     /// Everything else: materials, junk.
     Other,
 }
@@ -441,7 +443,8 @@ impl World {
         self.stores.insert(at, held);
     }
 
-    /// What an actor carries, in hand and in its pack, in grams.
+    /// What an actor carries, in hand, in its pack and worn (worn armour weighs a share of what
+    /// it would in the pack: `armour.rs`), in grams.
     pub fn load(&self, id: ActorId) -> u32 {
         self.actors.get(id).map_or(0, |a| {
             a.items
@@ -450,7 +453,8 @@ impl World {
                 .chain(&a.light)
                 .chain(&a.shield)
                 .map(|i| self.defs.weight(i))
-                .sum()
+                .sum::<u32>()
+                + self.worn_weight(id)
         })
     }
 

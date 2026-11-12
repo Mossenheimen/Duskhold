@@ -2,7 +2,7 @@
 # signature, its starting kit, and the talents it picks from (talents.toml). A character comes into
 # the world as the first class here, and takes up another before it's under way (the client asks).
 # wield and kit: what it starts with, in hand and in the pack (name one twice for two); left out,
-# everyone's kit (rules.toml's [character]).
+# everyone's kit (rules.toml's [character]). wear: the armour it starts in, whatever its kit.
 
 [[class]]
 id = "fighter"
@@ -14,6 +14,7 @@ learn = 1.5           # learns those half as fast again
 endurance = 0.85      # its running, swings and struggles cost this much: more breath than anyone
 grabbed = 0.75        # it shrugs off grabs: the dead get hold of it this often
 talents = ["tough", "tireless", "second_wind", "cleave", "shrug", "bash", "doorwarden", "heavy_hand", "edge", "woodsman"]
+wear = ["padded_jerkin", "leather_cap"]   # it comes in what armour a hamlet has (items/armour.toml)
 
 [[class]]
 id = "cleric"

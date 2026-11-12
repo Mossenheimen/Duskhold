@@ -14,6 +14,15 @@ items = [
 ]
 
 [[loot]]
+id = "anvil"          # the smith's last work, left on the anvil: always a piece of armour
+rolls = [1, 1]
+items = [
+  { item = "mail_shirt", weight = 1 },
+  { item = "iron_helm", weight = 1 },
+  { item = "leather_bracers", weight = 1 },
+]
+
+[[loot]]
 id = "till"           # a shop's till: coin for the abbey's counter
 rolls = [1, 1]
 items = [

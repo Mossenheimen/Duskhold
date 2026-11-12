@@ -84,6 +84,9 @@ pub struct Rules {
     pub faith: crate::faith::Faith,
     /// Foraging: picking wild plants (`forage.rs`).
     pub forage: crate::forage::Foraging,
+    /// Armour: what a turned blow still does, what it weighs worn, what gets through it
+    /// (`armour.rs`).
+    pub armour: crate::armour::ArmourRules,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -313,6 +316,7 @@ impl Default for Rules {
             shield_pace: 600,
             faith: crate::faith::Faith::default(),
             forage: crate::forage::Foraging::default(),
+            armour: crate::armour::ArmourRules::default(),
         }
     }
 }
@@ -815,6 +819,22 @@ pub enum Event {
     Regrew {
         at: TilePos,
     },
+    /// A blow from `by` glanced off `who`'s armour (its `item`), on its `part` (`armour.rs`).
+    Glanced {
+        who: ActorId,
+        by: ActorId,
+        item: u16,
+        part: Part,
+    },
+    /// `who` put on a piece of armour, and took one off.
+    Wore {
+        who: ActorId,
+        item: u16,
+    },
+    TookOff {
+        who: ActorId,
+        item: u16,
+    },
 }
 
 /// A sound made this tick.
@@ -950,6 +970,10 @@ impl World {
         };
         let mut actor = Actor::new(kind, pos);
         actor.body = Body::new(health);
+        // In the armour its kind wears (`armour.rs`): a find, once it's down.
+        if let Some(def) = self.creature(kind).and_then(|c| c.wears) {
+            actor.worn.push(crate::items::Item::found(def, 1));
+        }
         // A beast is after nobody: it runs (`hunting.rs`).
         if self.creature(kind).is_some_and(|c| c.flees > 0) {
             actor.mind = Mind::Flee {
@@ -1350,6 +1374,14 @@ impl World {
         } else {
             rules.walk_noise
         });
+        // Mail clinks: a step carries farther in it (`armour.rs`).
+        let clink = if a.worn.is_empty() {
+            0
+        } else {
+            self.armour_noise(id)
+        };
+        let a = self.actors.get_mut(id)?;
+        let footsteps = footsteps.map(|n| n + clink);
         // Sneaking, a footstep carries a fraction as far (`stealth.rs`).
         let sneaking = a.sneaking;
         let footsteps = footsteps.map(|n| {

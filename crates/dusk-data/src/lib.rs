@@ -5,6 +5,7 @@
 //! exist (fixtures in a legend, prefab tags in a region), and every number must make sense, or
 //! loading fails with the file and what's wrong.
 
+mod armour;
 mod barricade;
 mod class;
 mod craft;
@@ -558,6 +559,9 @@ struct RulesFile {
     /// Needed if any fixture is a plant: picking them, and what one becomes once picked.
     #[serde(default)]
     foraging: Option<forage::ForagingFile>,
+    /// Optional: with no [armour], armour uses the core's defaults.
+    #[serde(default)]
+    armour: Option<armour::ArmourRulesFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -789,6 +793,9 @@ struct CreatureFile {
     /// never turned (left out: 1, all of it). The wild are never turned.
     #[serde(default = "whole")]
     turned: f64,
+    /// The armour one wears, by item id (left out: none). It's left where it falls.
+    #[serde(default)]
+    wears: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1043,15 +1050,29 @@ fn to_creatures(
                         time: (ticks(cfile, "butcher.time", b.time)? as u32).max(1),
                     }),
                 },
+                // So is its armour's.
+                wears: None,
             },
         });
     }
     Ok(defs)
 }
 
-/// The items carcasses give, by name, now the items are read.
+/// The items carcasses give, and the armour each kind wears, by name, now the items are read.
 fn butchery(files: &[(PathBuf, CreatureFile)], defs: &mut Defs) -> Result<(), DataError> {
     for (n, (cfile, c)) in files.iter().enumerate() {
+        if let Some(name) = &c.wears {
+            let piece = defs.items.iter().position(|i| i.id == *name);
+            let Some(piece) =
+                piece.filter(|&p| matches!(defs.items[p].kind, dusk_core::ItemKind::Armour(_)))
+            else {
+                return Err(fail(
+                    cfile,
+                    format!("creature {:?}: wears: no armour called {name:?}", c.id),
+                ));
+            };
+            defs.creatures[n].stats.wears = Some(piece as u16);
+        }
         let Some(b) = &c.butcher else {
             continue;
         };
@@ -1221,6 +1242,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(f) = &r.foraging {
         rules.forage = forage::to_foraging(file, f)?;
+    }
+    if let Some(a) = &r.armour {
+        rules.armour = armour::to_armour_rules(file, a)?;
     }
     Ok(rules)
 }

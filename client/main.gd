@@ -145,6 +145,11 @@ const WARDED := 95
 const WARD_FADED := 96
 const PICKED := 97
 const REGREW := 98
+const GLANCED := 99
+const WORE := 100
+const TOOK_OFF := 101
+## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
+const ARMOUR := 11
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -157,7 +162,8 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
 	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
 	37: "Butchering it", 38: "Holding up the holy symbol", 39: "Praying", 40: "Consecrating it",
-	41: "Mending the wound", 42: "Warding the door", 43: "Picking it"}
+	41: "Mending the wound", 42: "Warding the door", 43: "Picking it", 44: "Putting it on",
+	45: "Taking it off"}
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
 	"chamomile": "Chamomile grows here: steeped at a fire, its tea calms",
@@ -213,6 +219,8 @@ var dread_told := {}  # when the news last told each level of dread, in seconds 
 var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
 var blocked_at := -100.0  # when the news last told of a block, in seconds played
+var glanced_at := -100.0  # when the news last told of a blow glancing off your armour
+var skidded_at := -100.0  # ...and of your blow glancing off theirs
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
@@ -1034,7 +1042,23 @@ func _read_events() -> void:
 						else "You took the %s in hand.") % _item_name(extra))
 			WEAPON_BROKE:
 				if who == me:
-					hud.say("Your %s broke!" % _item_name(extra))
+					var kinds: PackedInt32Array = dusk.item_kinds()
+					var worn := extra < kinds.size() and kinds[extra] == ARMOUR
+					hud.say(("Your %s falls apart!" if worn else "Your %s broke!") % _item_name(extra))
+			GLANCED:
+				# Every blow that glances would fill the news: now and then.
+				if who == me and played - glanced_at > 3.0:
+					glanced_at = played
+					hud.say("The blow glances off your %s." % _item_name(extra % 65536))
+				elif target == me and played - skidded_at > 15.0:
+					skidded_at = played
+					hud.say("Your blow glances off %s's %s. A point would go through." % [_a(who), _item_name(extra % 65536)])
+			WORE:
+				if who == me:
+					hud.say("You put on the %s." % _item_name(extra))
+			TOOK_OFF:
+				if who == me:
+					hud.say("You take off the %s." % _item_name(extra))
 			BANDAGED:
 				if who == me:
 					hud.say("You bandaged your %s." % part_names[extra])
@@ -1858,6 +1882,13 @@ func _run_script() -> void:
 				for k in range(0, items.size() - 3, 4):
 					if items[k] < kinds.size() and kinds[items[k]] == 8:
 						dusk.wield(k / 4, items[k])
+						break
+			"wear":  # put on the first armour in the pack
+				var items: PackedInt32Array = dusk.character_items()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(0, items.size() - 3, 4):
+					if items[k] < kinds.size() and kinds[items[k]] == ARMOUR:
+						dusk.wear(k / 4, items[k])
 						break
 			"brace":
 				_brace(true)

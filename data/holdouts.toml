@@ -28,4 +28,5 @@ sells = [
   { item = "water", price = 4, stock = 3 },
   { item = "torch", price = 4, stock = 2 },
   { item = "candle", price = 2, stock = 4 },
+  { item = "padded_jerkin", price = 12, stock = 1 },   # the sisters sew one a day
 ]

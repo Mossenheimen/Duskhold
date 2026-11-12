@@ -25,6 +25,9 @@ const OIL := 7
 const SHIELD := 8
 const BOW := 9
 const HOLY := 10
+const ARMOUR := 11
+## The places armour covers, by DuskWorld.item_covers()' bits.
+const PLACES := [[1, "head"], [2, "torso"], [4, "arms"], [8, "legs"]]
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
@@ -46,6 +49,7 @@ var _names := PackedStringArray()
 var _kinds := PackedInt32Array()
 var _weights := PackedInt32Array()
 var _worths := PackedInt32Array()
+var _covers := PackedInt32Array()
 var _fixtures := PackedStringArray()
 var _pack: VBoxContainer
 var _reach: VBoxContainer
@@ -74,6 +78,7 @@ func start(dusk: Node) -> void:
 	_kinds = dusk.item_kinds()
 	_weights = dusk.item_weights()
 	_worths = dusk.item_worths()
+	_covers = dusk.item_covers()
 	_fixtures = dusk.fixture_names()
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
@@ -108,7 +113,8 @@ func refresh(busy: bool, dead: bool) -> void:
 	var labels: PackedStringArray = _dusk.character_labels()
 	var rarity: PackedInt32Array = _dusk.character_rarity()
 	var shield: PackedInt32Array = _dusk.character_shield()
-	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield]
+	var worn: PackedInt32Array = _dusk.character_worn()
+	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -191,6 +197,18 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 	if shield.size() >= 2:
 		var row := _row(_pack, "On your arm: %s (%d%%)  ·  Alt to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
 		_button(row, "Put away", func() -> void: _dusk.unshield())
+	# What you wear (armour.rs): with nothing in hand, the first piece takes the Mend button.
+	var worn: PackedInt32Array = _dusk.character_worn()
+	var piece := -1
+	for i in range(0, worn.size(), STACK):
+		piece += 1
+		var def := worn[i]
+		var row := _row(_pack, "Worn: %s (%d%%)  ·  %s" % [_name(def), roundi(worn[i + 2] / 10.0), _places(def)])
+		_button(row, "Take off", func() -> void: _dusk.take_off(piece, def))
+		if trading and piece == 0 and hands.size() < 2:
+			var cost: int = _dusk.mend_check(counter[0], counter[1])
+			if cost > 0 or cost == -2:
+				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
 	var slot := -1
 	for i in range(0, items.size(), STACK):
 		slot += 1
@@ -203,6 +221,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
 		if _kind(def) == FOOD and items[i + 2] < 1000:
 			label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
+		if _kind(def) == ARMOUR:
+			label += "  ·  " + _places(def)  # where it goes
 		var row := _row(_pack, label)
 		_tint(row, rarity, 2 + slot)
 		match _kind(def):
@@ -226,6 +246,8 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 				_button(row, "Burn a body", func() -> void: burn.call())
 			HOLY:
 				_button(row, "Consecrate a body", func() -> void: hallow.call())
+			ARMOUR:
+				_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
 		if stash.x >= 0:
 			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
 		if trading:
@@ -483,6 +505,16 @@ func _name(def: int) -> String:
 
 func _kind(def: int) -> int:
 	return _kinds[def] if def < _kinds.size() else 0
+
+
+## Where a piece of armour goes: "torso, arms".
+func _places(def: int) -> String:
+	var bits := _covers[def] if def < _covers.size() else 0
+	var names := PackedStringArray()
+	for place in PLACES:
+		if bits & place[0]:
+			names.append(place[1])
+	return ", ".join(names)
 
 
 func _fixture_name(fixture: int) -> String:

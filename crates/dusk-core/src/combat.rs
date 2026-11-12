@@ -99,6 +99,8 @@ impl World {
                 ActionKind::Heal => self.heal(id),
                 ActionKind::Ward => self.ward(id, action.dir),
                 ActionKind::Pick { at } => self.pick(id, at),
+                ActionKind::Wear { slot, def } => self.put_on(id, slot, def),
+                ActionKind::TakeOff { piece, def } => self.take_off(id, piece, def),
             }
         }
         true
@@ -170,6 +172,14 @@ impl World {
             Intent::Unshield => {
                 a.shield?;
                 (ActionKind::Unshield, a.facing, self.defs.unwield_time, 0, 0)
+            }
+            Intent::Wear { slot, def } => {
+                let ticks = self.wear_ticks(id, slot, def)?;
+                (ActionKind::Wear { slot, def }, a.facing, ticks, 0, 0)
+            }
+            Intent::TakeOff { piece, def } => {
+                let ticks = self.take_off_ticks(id, piece, def)?;
+                (ActionKind::TakeOff { piece, def }, a.facing, ticks, 0, 0)
             }
             Intent::Light { slot, def } => {
                 let ticks = self.light_ticks(id, slot, def)?;
@@ -519,6 +529,20 @@ impl World {
                 (rule.damage, Some((kind, part, rule.bleed)))
             }
         };
+        // Armour over where it lands may turn it (`armour.rs`): no wound, only a bruise. Not a
+        // blow on one that's down, or one struck unawares: those find the gaps.
+        let turned = if down || unaware {
+            None
+        } else {
+            match wound {
+                Some((k, part, _)) => self.turns_wound(target, id, k, part).map(|p| (p, part)),
+                None => self.turns_weapon(target, id, skill),
+            }
+        };
+        let (damage, wound) = match turned {
+            Some(_) => (self.bruise(damage), None),
+            None => (damage, wound),
+        };
         // Bone turns a blade and a mace shatters it: what the foe's kind takes of the blow
         // (`creature.rs`).
         let resist = match kind {
@@ -572,6 +596,9 @@ impl World {
                     heal_left: self.rules.needs.wound_heal[kind as usize],
                 });
             }
+        }
+        if let Some((piece, part)) = turned {
+            self.turned(target, id, piece, part);
         }
         self.interrupt(target);
         self.startle_by(target, id);

@@ -765,6 +765,19 @@ fn describe(w: &World, e: Event) -> String {
             at.y
         ),
         Event::Regrew { at } => format!("the plant at ({}, {}) grew back", at.x, at.y),
+        Event::Glanced {
+            who,
+            by,
+            item,
+            part,
+        } => format!(
+            "{}'s blow glanced off {}'s item {item}, on its {}",
+            name(by),
+            name(who),
+            part.name()
+        ),
+        Event::Wore { who, item } => format!("{} put on item {item}", name(who)),
+        Event::TookOff { who, item } => format!("{} took off item {item}", name(who)),
     }
 }
 

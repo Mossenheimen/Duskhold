@@ -80,6 +80,9 @@ pub struct Creature {
     /// dead thing's turning is brief (0: it's never turned). The wild are never turned: they
     /// aren't the dead.
     pub turned: u32,
+    /// The armour one of its kind wears (`armour.rs`), by item number: a wight's barrow mail.
+    /// It turns blows as yours does, and it's left where it falls, a find.
+    pub wears: Option<u16>,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -147,6 +150,7 @@ impl Default for Creature {
             butcher: None,
             wild: false,
             turned: 1000,
+            wears: None,
         }
     }
 }

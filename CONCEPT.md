@@ -243,6 +243,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 ## Body, moodles and afflictions
 
 - **The health panel** is Zomboid's: head, torso, arms, hands, legs and feet; scratches, lacerations, deep wounds, fractures, burns and bites; bleeding and pain; bandages, splints and stitches. Armour protects per body part, as Zomboid's clothing does.
+  - *(built 2026-11-12)* **Armour:** worn a piece to a place (head, torso, arms, legs). A blow on a covered place may glance off, by the piece's chance against that kind of wound: no wound, half the harm, and the piece wears until it falls apart. Heavy pieces are the trade: mail is heard (a walk carries 5 tiles, not 3) and makes every swing and run cost more, and a closed helm narrows your sight. A wight wears barrow mail that a blade skids off and a point goes through, and your revenant rises in yours. Padded jerkins, caps and boots in wardrobes, mail on the smithy's anvil; the Fighter comes in a padded jerkin and a cap; the abbey mends it.
 - **Each kind of injury has one clear effect and one treatment,** and heals over days (Stoneshard's lesson):
   - arm: accuracy and swing speed;
   - leg: speed, and endurance per step;

@@ -149,6 +149,9 @@ const WARDED: i32 = 95;
 const WARD_FADED: i32 = 96;
 const PICKED: i32 = 97;
 const REGREW: i32 = 98;
+const GLANCED: i32 = 99;
+const WORE: i32 = 100;
+const TOOK_OFF: i32 = 101;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -493,6 +496,22 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             i32::from(count) * 65536 + i32::from(item),
         ),
         Event::Regrew { at: p } => (REGREW, None, None, (p.x, p.y), 0),
+        // A blow glanced off `who`'s armour, struck by the target: the piece's item and the
+        // place it landed, as part × 65536 + item (`Part` in order: head, torso, left arm...).
+        Event::Glanced {
+            who,
+            by,
+            item,
+            part,
+        } => (
+            GLANCED,
+            Some(who),
+            Some(by),
+            at(who),
+            part as i32 * 65536 + i32::from(item),
+        ),
+        Event::Wore { who, item } => (WORE, Some(who), None, at(who), i32::from(item)),
+        Event::TookOff { who, item } => (TOOK_OFF, Some(who), None, at(who), i32::from(item)),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1017,7 +1036,7 @@ impl DuskWorld {
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
     /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead), 8 a shield,
-    /// 9 a bow, 10 holy water (to consecrate the dead).
+    /// 9 a bow, 10 holy water (to consecrate the dead), 11 armour.
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -1039,6 +1058,7 @@ impl DuskWorld {
                 ItemKind::Shield(_) => 8,
                 ItemKind::Bow(_) => 9,
                 ItemKind::Holy => 10,
+                ItemKind::Armour(_) => 11,
             })
             .collect()
     }
@@ -1306,6 +1326,8 @@ impl DuskWorld {
                         ActionKind::Heal => 41,
                         ActionKind::Ward => 42,
                         ActionKind::Pick { .. } => 43,
+                        ActionKind::Wear { .. } => 44,
+                        ActionKind::TakeOff { .. } => 45,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -2550,6 +2572,78 @@ impl DuskWorld {
     #[func]
     fn unshield(&mut self) {
         self.act(Intent::Unshield);
+    }
+
+    /// The places each item covers worn, by definition number, as bits: 1 the head, 2 the torso,
+    /// 4 the arms, 8 the legs (0: it isn't armour: `armour.rs`).
+    #[func]
+    fn item_covers(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .defs
+            .items
+            .iter()
+            .map(|i| match i.kind {
+                ItemKind::Armour(a) => i32::from(a.covers),
+                _ => 0,
+            })
+            .collect()
+    }
+
+    /// The armour you wear, piece by piece (the pieces `take_off` names): (definition, count,
+    /// condition, 1 if it's a find) four numbers each, as the pack's.
+    #[func]
+    fn character_worn(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let out: Vec<i32> = a.worn.iter().flat_map(|&i| stack_row(i)).collect();
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// The places each actor's armour covers, by its index in the actor arrays, as
+    /// `item_covers`' bits (for drawing it).
+    #[func]
+    fn actor_worn(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .actors()
+            .map(|(_, a)| {
+                a.worn
+                    .iter()
+                    .map(|i| match world.defs.item(i.def).map(|d| &d.kind) {
+                        Some(ItemKind::Armour(arm)) => i32::from(arm.covers),
+                        _ => 0,
+                    })
+                    .fold(0, |all, c| all | c)
+            })
+            .collect()
+    }
+
+    /// Puts on the armour at `slot` of your pack: what covered the same places comes off.
+    #[func]
+    fn wear(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Wear {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Takes off the `piece` of armour you wear (still `def`), into your pack.
+    #[func]
+    fn take_off(&mut self, piece: i32, def: i32) {
+        self.act(Intent::TakeOff {
+            piece: piece as u16,
+            def: def as u16,
+        });
     }
 
     /// Takes up sneaking, or leaves it (`stealth.rs`).

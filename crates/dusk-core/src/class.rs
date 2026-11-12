@@ -55,6 +55,8 @@ pub struct Class {
     pub turns: bool,
     /// What it starts with; None: the rules' kit, everyone's (`Defs::wield`, `Defs::kit`).
     pub kit: Option<Kit>,
+    /// The armour it starts in, by item number (`armour.rs`), whatever its kit.
+    pub wear: Vec<u16>,
 }
 
 /// A talent, in the core's units. Per mille is 1000 for none.
@@ -177,6 +179,7 @@ impl World {
             a.shield = None;
             a.bracing = false;
             a.items.clear();
+            a.worn.clear();
         }
         self.equip(id);
         self.events.push(Event::ClassChosen { who: id, class });
@@ -204,6 +207,15 @@ impl World {
             defs.stow(&mut a.items, item);
         }
         a.faith = faith;
+        // And the armour it comes in (`armour.rs`).
+        let wear = a
+            .class
+            .and_then(|c| defs.classes.get(usize::from(c)))
+            .map(|c| c.wear.clone())
+            .unwrap_or_default();
+        for def in wear {
+            self.don(id, Item::new(def, 1));
+        }
     }
 
     /// An actor's talents, as definitions.
@@ -234,12 +246,13 @@ impl World {
         self.talents_of(id).filter(move |t| !t.doorway || doorway)
     }
 
-    /// Per mille: what `id`'s endurance costs come to, by its class and talents, and its pain
-    /// (`dread.rs`).
+    /// Per mille: what `id`'s endurance costs come to, by its class and talents, its pain
+    /// (`dread.rs`) and the armour it wears (`armour.rs`).
     pub(crate) fn endurance_rate(&self, id: ActorId) -> i32 {
         let class = self.class_of(id).map_or(1000, |c| c.endurance);
         let rate = self.talents_of(id).fold(class, |r, t| per(r, t.endurance));
-        per(rate, self.pain_cost(id)) as i32
+        let rate = per(rate, self.pain_cost(id));
+        per(rate, self.armour_endurance(id)) as i32
     }
 
     /// The chance, out of 10,000, that a creature's hit takes hold of `id`, by its class and

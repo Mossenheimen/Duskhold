@@ -51,6 +51,9 @@ struct ItemFile {
     /// A shield, carried on the off arm (`shield.rs` in the core).
     #[serde(default)]
     shield: Option<ShieldFile>,
+    /// Armour, worn (`armour.rs` in the core).
+    #[serde(default)]
+    armour: Option<crate::armour::ArmourFile>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -372,12 +375,13 @@ pub(crate) fn load_defs(
                 i.holy,
                 i.shield.is_some(),
                 i.bow.is_some(),
+                i.armour.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield and bow",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow and armour",
                         i.id
                     ),
                 ));
@@ -460,6 +464,8 @@ pub(crate) fn load_defs(
                 bow(&file, &i.id, b)?
             } else if let Some(s) = &i.shield {
                 shield(&file, &i.id, s)?
+            } else if let Some(a) = &i.armour {
+                crate::armour::armour(&file, &i.id, a)?
             } else if i.oil {
                 ItemKind::Oil
             } else if i.holy {

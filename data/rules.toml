@@ -287,6 +287,17 @@ near = 8              # tiles: a sneaked tile teaches Stealth with the dead this
 # breath and wear. A shove with a shield on your arm is a bash: it knocks down more often.
 pace = 0.6            # what's left of your pace, bracing
 
+[armour]
+# Armour (items/armour.toml) is worn, a piece to a place on the body. A blow on a covered place may
+# glance off, by the piece's chance: no wound, no bleeding, no fever, but still a bruise. A blow on
+# one that's down, or one struck unawares, finds the gaps.
+bruise = 0.5          # what a blow that glances still does, of its harm
+worn_weight = 0.5     # what a piece weighs worn, of what it would in the pack
+off = 0.5             # taking a piece off takes this much of the time putting it on does
+# How much of a piece's chance holds against a weapon's blow on the dead in armour (a wight's mail,
+# your revenant in yours), by its kind: points go through mail, and blades skid off it.
+pierce = { blade = 1.0, blunt = 0.6, axe = 0.8, spear = 0.4 }
+
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt
 # is the pain of the wounds on it ([pain]: by kind, half dressed, less as they heal), the arms

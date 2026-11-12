@@ -237,19 +237,23 @@ impl World {
         Ok(price)
     }
 
-    /// What mending the weapon in `id`'s hand at the counter on `at` costs, in coin: its share
-    /// of the weapon's worth, by how worn it is, and at least one.
+    /// What mending the weapon in `id`'s hand and the armour it wears (`armour.rs`) at the
+    /// counter on `at` costs, in coin: each one's share of its worth, by how worn it is, and at
+    /// least one in all.
     pub fn repair_cost(&self, id: ActorId, at: TilePos) -> Result<u32, NoDeal> {
         let h = self.reach_counter(id, at)?;
-        let a = self.actors.get(id).ok_or(NoDeal::NoCounter)?;
-        let held = a.hands.ok_or(NoDeal::NothingToMend)?;
-        let def = self.defs.item(held.def).ok_or(NoDeal::NothingToMend)?;
-        if !matches!(def.kind, ItemKind::Weapon { .. }) || held.condition >= NEW {
+        let mending = self.to_mend(id);
+        if mending.is_empty() {
             return Err(NoDeal::NothingToMend);
         }
-        let worn = u64::from(NEW - held.condition);
-        let worth = u64::from(self.defs.worth(&held));
-        let cost = worth * u64::from(h.repair) / 1000 * worn / u64::from(NEW);
+        let cost: u64 = mending
+            .iter()
+            .map(|item| {
+                let worn = u64::from(NEW - item.condition);
+                let worth = u64::from(self.defs.worth(item));
+                worth * u64::from(h.repair) / 1000 * worn / u64::from(NEW)
+            })
+            .sum();
         let cost = cost.div_ceil(1000).max(1) as u32;
         if self.coins(id) < cost {
             return Err(NoDeal::TooPoor);
@@ -497,20 +501,53 @@ impl World {
         }
     }
 
-    /// The deal's end: the weapon in hand mended as new.
+    /// What there is to mend on `id`: the weapon in its hand and the armour it wears, those
+    /// that aren't as new.
+    fn to_mend(&self, id: ActorId) -> Vec<Item> {
+        let Some(a) = self.actors.get(id) else {
+            return Vec::new();
+        };
+        let weapon = a.hands.filter(|held| {
+            self.defs
+                .item(held.def)
+                .is_some_and(|d| matches!(d.kind, ItemKind::Weapon { .. }))
+        });
+        weapon
+            .iter()
+            .chain(&a.worn)
+            .filter(|i| i.condition < NEW)
+            .copied()
+            .collect()
+    }
+
+    /// The deal's end: the weapon in hand and the armour worn mended as new.
     pub(crate) fn mend(&mut self, id: ActorId, at: TilePos) {
         let Ok(cost) = self.repair_cost(id, at) else {
             return;
         };
+        let Some(first) = self.to_mend(id).first().map(|i| i.def) else {
+            return;
+        };
+        let weapon = self
+            .actors
+            .get(id)
+            .and_then(|a| a.hands)
+            .is_some_and(|held| {
+                self.defs
+                    .item(held.def)
+                    .is_some_and(|d| matches!(d.kind, ItemKind::Weapon { .. }))
+            });
         self.pay(id, cost);
-        if let Some(a) = self.actors.get_mut(id)
-            && let Some(held) = a.hands.as_mut()
-        {
-            held.condition = NEW;
-            let item = held.def;
+        if let Some(a) = self.actors.get_mut(id) {
+            if weapon && let Some(held) = a.hands.as_mut() {
+                held.condition = NEW;
+            }
+            for piece in &mut a.worn {
+                piece.condition = NEW;
+            }
             self.events.push(Event::Mended {
                 who: id,
-                item,
+                item: first,
                 price: cost,
             });
         }

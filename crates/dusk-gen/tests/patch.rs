@@ -329,6 +329,17 @@ fn each_shop_holds_its_own_loot() {
             weapons += 1;
             smiths_work += usize::from(forged.contains(&rack[0].def));
         }
+        // And on its anvil, the smith's last piece of armour.
+        let anvil = stores_in(&w, &data, lot("smithy"), "anvil");
+        assert_eq!(anvil.len(), 1, "seed {seed}: one anvil");
+        assert!(
+            anvil[0].len() == 1
+                && matches!(
+                    data.defs.item(anvil[0][0].def).unwrap().kind,
+                    dusk_core::ItemKind::Armour(_)
+                ),
+            "seed {seed}: a piece of armour on the anvil"
+        );
         // The general store: coin in its till, and its shelves stocked.
         let till = stores_in(&w, &data, lot("store"), "till");
         assert_eq!(till.len(), 1, "seed {seed}: one till");

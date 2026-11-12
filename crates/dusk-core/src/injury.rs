@@ -107,10 +107,12 @@ impl World {
         self.hampered_by(id, Group::Legs, self.rules.injury.run)
     }
 
-    /// How far `id` sees in full light: less with a hurt head.
+    /// How far `id` sees in full light: less with a hurt head, and less under a closed helm
+    /// (`armour.rs`).
     pub fn sight_range(&self, id: ActorId) -> i32 {
         let range = i64::from(self.rules.sight.range);
         let left = i64::from(self.hampered_by(id, Group::Head, self.rules.injury.sight));
-        (range * left / 1000) as i32
+        let helm = i64::from(self.armour_sight(id));
+        (range * left / 1000 * helm / 1000) as i32
     }
 }

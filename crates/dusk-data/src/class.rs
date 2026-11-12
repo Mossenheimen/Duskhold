@@ -44,6 +44,9 @@ struct ClassFile {
     wield: Option<String>,
     #[serde(default)]
     kit: Option<Vec<String>>,
+    /// The armour it starts in, by item id, whatever its kit (left out: none).
+    #[serde(default)]
+    wear: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -236,6 +239,14 @@ fn to_class(
         }
         Some(Kit { wield, pack })
     };
+    let mut wear = Vec::new();
+    for name in &c.wear {
+        let n = item(name)?;
+        if !matches!(defs.items[usize::from(n)].kind, ItemKind::Armour(_)) {
+            return Err(bad(format!("wear: {name:?} isn't armour")));
+        }
+        wear.push(n);
+    }
     let per = |m: f64| (m * 1000.0).round() as u32;
     Ok(Class {
         id: c.id.clone(),
@@ -249,6 +260,7 @@ fn to_class(
         faith: (c.faith * 1000.0).round() as i32,
         turns: c.turns,
         kit,
+        wear,
     })
 }
 

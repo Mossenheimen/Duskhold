@@ -132,6 +132,8 @@ douses = 4            # lights and fires within this many tiles go out
 dread = 25            # points of dread it adds near you, over one of the dead's
 lit_harm = 2.0        # what it takes of a blow in the light
 turned = 0.5          # old and strong: turned (rules.toml's [faith]) for half as long
+wears = "barrow_mail" # neck to knee (items/armour.toml): a blade skids off it; bring a spear or a
+                      # mace. It's left where the wight falls.
 
 # The Hushlands' wildlife (crates/dusk-core/src/hunting.rs): beasts that run from you and are
 # after nobody. A deer outruns you (4.0 to your 3.0), sees far and nearly all round, and bolts

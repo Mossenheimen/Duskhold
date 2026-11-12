@@ -85,7 +85,8 @@ impl World {
         }
     }
 
-    /// Everything an actor carries, out of its hands, its pack and its other hand.
+    /// Everything an actor carries, out of its hands, its pack, its other hand and what it
+    /// wears.
     fn take_gear(&mut self, id: ActorId) -> Vec<Item> {
         let Some(a) = self.actors.get_mut(id) else {
             return Vec::new();
@@ -94,6 +95,7 @@ impl World {
         gear.extend(a.light.take());
         gear.extend(a.shield.take());
         gear.append(&mut a.items);
+        gear.append(&mut a.worn);
         gear
     }
 
@@ -120,6 +122,12 @@ impl World {
         let Some(revenant) = self.spawn(ActorKind::Creature(kind), pos) else {
             return; // someone's on it
         };
+        // It rises in the armour it died in (`armour.rs`); the rest is in its pack.
+        let worn = self
+            .actors
+            .get_mut(body)
+            .map(|b| std::mem::take(&mut b.worn))
+            .unwrap_or_default();
         let gear = self.take_gear(body);
         let defs = self.defs.clone();
         if let Some(r) = self.actors.get_mut(revenant) {
@@ -129,6 +137,9 @@ impl World {
             for item in gear {
                 defs.stow(&mut r.items, item);
             }
+        }
+        for piece in worn {
+            self.don(revenant, piece);
         }
         if let Some(b) = self.actors.get_mut(body) {
             b.remains = Remains::Risen;

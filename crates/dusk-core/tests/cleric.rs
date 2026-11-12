@@ -123,6 +123,7 @@ fn defs() -> Defs {
                     wield: Some(CUDGEL),
                     pack: vec![Item::new(HOLY_WATER, 2), Item::new(CANDLE, 1)],
                 }),
+                wear: Vec::new(),
             },
         ],
         talents: vec![

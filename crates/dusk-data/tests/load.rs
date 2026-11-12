@@ -1636,3 +1636,144 @@ fn plants_load_in_the_cores_units_and_nonsense_is_refused() {
     let err = run("plants-solid", &plants("solid = true\n"), &foraging).unwrap_err();
     assert!(err.message.contains("walked through"), "{err}");
 }
+
+#[test]
+fn armour_loads_and_the_wight_and_the_fighter_come_in_it_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let armour = |id: &str| match d.items[usize::from(item(id))].kind {
+        dusk_core::ItemKind::Armour(a) => a,
+        _ => panic!("{id} isn't armour"),
+    };
+    let mail = armour("mail_shirt");
+    assert_eq!(mail.covers, 2 | 4, "the torso and the arms");
+    assert_eq!(mail.turn, [7000, 5500, 4500]);
+    assert_eq!(
+        (mail.wear, mail.noise, mail.endurance, mail.sight),
+        (10, 2, 150, 1000)
+    );
+    assert_eq!(mail.time, 80, "eight seconds");
+    assert_eq!(armour("iron_helm").sight, 850);
+    assert_eq!(armour("barrow_mail").covers, 2 | 4 | 8);
+    let wight = d.creatures.iter().find(|c| c.id == "wight").unwrap();
+    assert_eq!(wight.stats.wears, Some(item("barrow_mail")));
+    let fighter = d.classes.iter().find(|c| c.id == "fighter").unwrap();
+    assert_eq!(
+        fighter.wear,
+        vec![item("padded_jerkin"), item("leather_cap")]
+    );
+    let r = data.rules.armour;
+    assert_eq!((r.bruise, r.worn_weight, r.off), (500, 500, 500));
+    assert_eq!(r.pierce, [1000, 600, 800, 400]);
+    // The smithy's anvil holds the smith's last piece.
+    let anvil = data.fixtures.iter().position(|f| f.id == "anvil").unwrap() + 1;
+    let table = d.container(anvil as u16).flatten().expect("a container");
+    assert_eq!(d.loot[usize::from(table)].id, "anvil");
+}
+
+/// The share of a shambler's blows a piece turns: where they land times what it turns of each
+/// kind of wound.
+fn turned_share(data: &dusk_data::Data, id: &str) -> f64 {
+    let d = &data.defs;
+    let piece = d.items.iter().find(|i| i.id == id).unwrap();
+    let dusk_core::ItemKind::Armour(a) = piece.kind else {
+        panic!("{id} isn't armour");
+    };
+    let shambler = &d.creatures[0].stats;
+    let per_blow: f64 = (0..3)
+        .map(|k| f64::from(shambler.wounds[k]) * f64::from(a.turn[k]) / 1e8)
+        .sum();
+    let covered: u32 = dusk_core::Part::ODDS
+        .iter()
+        .filter(|(p, _)| a.covers & p.group().bit() != 0)
+        .map(|(_, odds)| odds)
+        .sum();
+    f64::from(covered) / 100.0 * per_blow
+}
+
+#[test]
+fn armour_is_a_trade_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let (padded, mail, barrow) = (
+        turned_share(&data, "padded_jerkin"),
+        turned_share(&data, "mail_shirt"),
+        turned_share(&data, "barrow_mail"),
+    );
+    // Better armour turns more of what the dead do to you...
+    assert!(
+        padded > 0.15 && padded < mail && mail < barrow,
+        "{padded} {mail} {barrow}"
+    );
+    assert!(
+        mail > 0.4,
+        "mail turns nearly half a shambler's blows: {mail}"
+    );
+    assert!(
+        barrow < 0.75,
+        "but never all of them: crowds stay deadly ({barrow})"
+    );
+    // ...and costs you for it: mail is heard, and tires you.
+    let d = &data.defs;
+    let armour = |id: &str| match d.items.iter().find(|i| i.id == id).unwrap().kind {
+        dusk_core::ItemKind::Armour(a) => a,
+        _ => panic!(),
+    };
+    let r = &data.rules;
+    for id in ["mail_shirt", "barrow_mail"] {
+        let a = armour(id);
+        assert!(a.noise > 0 && a.endurance >= 100, "{id} is heavy armour");
+        // Still, sneaking in it is quieter than walking bare: you can creep in mail.
+        let sneaked = (r.walk_noise + a.noise) * r.sneak.noise as i32 / 1000;
+        assert!(sneaked < r.walk_noise, "{id}: a sneak carries {sneaked}");
+    }
+    // Worn, even barrow mail leaves you more than half of what you can carry.
+    let barrow_kg = d
+        .items
+        .iter()
+        .find(|i| i.id == "barrow_mail")
+        .unwrap()
+        .weight;
+    assert!(barrow_kg * r.armour.worn_weight / 1000 < d.carry / 2);
+    // And a point goes through a wight's mail less than half as often as a blade is turned.
+    assert!(r.armour.pierce[3] * 2 < r.armour.pierce[0]);
+}
+
+#[test]
+fn armour_that_makes_no_sense_is_refused() {
+    let run = |name: &str, armour: &str, creature: &str| {
+        let mut files = test_files(PREFABS);
+        let creature = format!("{SHAMBLER}{creature}");
+        files.retain(|(path, _)| *path != "creatures/dead.toml");
+        let item = format!("[[item]]\nid = \"coat\"\nname = \"coat\"\nweight = 1.0\n{armour}\n");
+        let mut owned = files
+            .into_iter()
+            .map(|(p, t)| (p, t.to_string()))
+            .collect::<Vec<_>>();
+        owned.push(("creatures/dead.toml", creature));
+        owned.push(("items/coat.toml", item));
+        let borrowed: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        load(&folder(name, &borrowed))
+    };
+    let good = "armour = { covers = [\"torso\"], turn = { scratch = 0.5, laceration = 0.3, bite = 0.2 }, wear = 2.0, time = 4.0 }";
+    let data = run("armour-good", good, "wears = \"coat\"\n").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(data.defs.creatures[0].stats.wears, Some(0));
+    let err = run("armour-tail", &good.replace("torso", "tail"), "").unwrap_err();
+    assert!(err.message.contains("covers"), "{err}");
+    let err = run(
+        "armour-twice",
+        &good.replace("[\"torso\"]", "[\"torso\", \"torso\"]"),
+        "",
+    )
+    .unwrap_err();
+    assert!(err.message.contains("twice"), "{err}");
+    let err = run(
+        "armour-sight",
+        &good.replace("time", "sight = 0.0, time"),
+        "",
+    )
+    .unwrap_err();
+    assert!(err.message.contains("sight"), "{err}");
+    let err = run("armour-none", "", "wears = \"coat\"\n").unwrap_err();
+    assert!(err.message.contains("no armour called"), "{err}");
+}

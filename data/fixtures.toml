@@ -90,6 +90,7 @@ loot = "logs"
 [[fixture]]
 id = "anvil"
 solid = true
+loot = "anvil"        # the smith's last work, left on it: armour
 
 [[fixture]]
 id = "rack"           # a weapon rack: the smith's work
