@@ -134,6 +134,11 @@ pub enum Intent {
     Wear { slot: u16, def: u16 },
     /// Take off the `piece` of armour you wear (still `def`), into your pack.
     TakeOff { piece: u16, def: u16 },
+    /// Move the stack at `slot` of your pack between your pockets and your bag (`bag.rs`), as
+    /// many as fit.
+    Shift { slot: u16, def: u16 },
+    /// Drop the bag on your back at your feet, with what's in it.
+    DropBag,
 }
 
 impl Intent {
@@ -273,6 +278,12 @@ pub enum ActionKind {
         piece: u16,
         def: u16,
     },
+    /// Moving a stack between the pockets and the bag, and dropping the bag (`bag.rs`).
+    Shift {
+        slot: u16,
+        def: u16,
+    },
+    DropBag,
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -446,6 +457,8 @@ pub struct Actor {
     pub faith: i32,
     /// The armour it wears, a piece to a place on the body at most (`armour.rs`).
     pub worn: Vec<Item>,
+    /// The bag on its back (`bag.rs`): what's in it is the pack's stacks marked `bagged`.
+    pub bag: Option<Item>,
     /// A character's Strength and Fitness, in thousandths of a level (`fitness.rs`), and the
     /// day's work toward its Strength (its breath spent, toward Fitness, is the body's).
     pub strength: u32,
@@ -502,6 +515,7 @@ impl Actor {
             bracing: false,
             faith: 0,
             worn: Vec::new(),
+            bag: None,
             strength: 0,
             fitness: 0,
             strain: 0,

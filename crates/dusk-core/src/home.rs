@@ -172,7 +172,7 @@ impl World {
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
-        let mut item = a.items.remove(usize::from(slot));
+        let mut item = a.items.remove(usize::from(slot)).loose();
         let home = a.stash == Some(at);
         self.events.push(Event::Put {
             who: id,

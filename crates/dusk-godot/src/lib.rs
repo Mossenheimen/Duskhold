@@ -23,7 +23,7 @@ use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
     Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCraft, NoDeal, NoFaith, NoFire, NoSleep,
-    NoStash, Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
+    NoStash, NoTake, Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -1118,7 +1118,7 @@ impl DuskWorld {
 
     /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
     /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead), 8 a shield,
-    /// 9 a bow, 10 holy water (to consecrate the dead), 11 armour.
+    /// 9 a bow, 10 holy water (to consecrate the dead), 11 armour, 12 a bag.
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -1141,6 +1141,7 @@ impl DuskWorld {
                 ItemKind::Bow(_) => 9,
                 ItemKind::Holy => 10,
                 ItemKind::Armour(_) => 11,
+                ItemKind::Bag(_) => 12,
             })
             .collect()
     }
@@ -1337,7 +1338,8 @@ impl DuskWorld {
     /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out, 33 making
     /// something, 34 breaking furniture down, 36 drawing a bow, 37 butchering, 38 turning the
     /// dead, 39 praying, 40 consecrating a body, 41 mending a wound, 42 warding a door, 44 putting
-    /// armour on, 45 taking it off, 46 a heavy swing),
+    /// armour on, 45 taking it off, 46 a heavy swing; moving a stack to or from the bag is 6, as
+    /// a take, and dropping the bag 7, as a drop),
     /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
     /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
@@ -1412,6 +1414,8 @@ impl DuskWorld {
                         ActionKind::Pick { .. } => 43,
                         ActionKind::Wear { .. } => 44,
                         ActionKind::TakeOff { .. } => 45,
+                        ActionKind::Shift { .. } => 6,
+                        ActionKind::DropBag => 7,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1957,6 +1961,7 @@ impl DuskWorld {
             let can = match world.can_buy(me, at, line as u16) {
                 Ok(_) => 1,
                 Err(NoDeal::SoldOut) => -1,
+                Err(NoDeal::NoRoom) => -3,
                 Err(_) => -2,
             };
             out.extend([
@@ -2728,6 +2733,118 @@ impl DuskWorld {
             piece: piece as u16,
             def: def as u16,
         });
+    }
+
+    /// The bag on your back (`bag.rs`): [definition, condition, grams in it, grams it holds,
+    /// per mille lighter what's in it is], or nothing.
+    #[func]
+    fn character_bag(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let Some((bag, b)) = world.worn_bag(me) else {
+            return PackedInt32Array::new();
+        };
+        PackedInt32Array::from(&[
+            i32::from(bag.def),
+            i32::from(bag.condition),
+            world.filled(me).1 as i32,
+            b.capacity as i32,
+            b.reduce as i32,
+        ])
+    }
+
+    /// Your pockets: [grams in them, grams they hold (-1: no limit)].
+    #[func]
+    fn character_pockets(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let holds = i32::try_from(world.defs.pockets).unwrap_or(-1);
+        PackedInt32Array::from(&[world.filled(me).0 as i32, holds])
+    }
+
+    /// For each stack of your pack, in order: 1 if it's in the bag, 0 in your pockets.
+    #[func]
+    fn character_bagged(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        a.items.iter().map(|i| i32::from(i.bagged)).collect()
+    }
+
+    /// Whether you can take the stack at `slot` of what's on (x, y) (still `def`): how many of
+    /// it you'd take (as many as there's room for; a full bag is one), 0 with no room at all,
+    /// -1 if it's gone or out of reach.
+    #[func]
+    fn take_check(&self, x: i32, y: i32, slot: i32, def: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_take(me, TilePos::new(x, y, 0), slot as u16, def as u16) {
+            Ok(n) => i32::from(n),
+            Err(NoTake::NoRoom) => 0,
+            Err(NoTake::Gone) => -1,
+        }
+    }
+
+    /// For each stack on (x, y): the grams in it, if it's a full bag; else 0.
+    #[func]
+    fn store_holds(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .store(TilePos::new(x, y, 0))
+            .iter()
+            .map(|i| {
+                if i.holds == 0 {
+                    0
+                } else {
+                    (world.weight_of(i) - world.defs.weight(i)) as i32
+                }
+            })
+            .collect()
+    }
+
+    /// How many of the stack at `slot` of your pack (still `def`) would move between your
+    /// pockets and your bag: 0 with no room on the other side, or no bag on.
+    #[func]
+    fn shift_check(&self, slot: i32, def: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        world.character().map_or(0, |me| {
+            i32::from(world.can_shift(me, slot as u16, def as u16))
+        })
+    }
+
+    /// Moves the stack at `slot` of your pack between your pockets and your bag.
+    #[func]
+    fn shift(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Shift {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// Drops the bag on your back at your feet, with what's in it.
+    #[func]
+    fn drop_bag(&mut self) {
+        self.act(Intent::DropBag);
     }
 
     /// Takes up sneaking, or leaves it (`stealth.rs`).

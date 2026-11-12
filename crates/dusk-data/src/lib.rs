@@ -403,6 +403,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     }
     let kit = items::Kit {
         carry: raw.character.carry,
+        pockets: raw.character.pockets,
         wield: raw.character.wield.as_deref(),
         kit: &raw.character.kit,
     };
@@ -726,6 +727,9 @@ struct CharacterFile {
     path_budget: usize,
     health: f64,
     carry: f64,
+    /// Kilograms a character's pockets hold, with no bag (left out: no limit).
+    #[serde(default)]
+    pockets: Option<f64>,
     #[serde(default)]
     wield: Option<String>,
     #[serde(default)]

@@ -1,9 +1,11 @@
 extends CanvasLayer
 ## Zomboid's inventory windows, as lists with weights (CONCEPT.md: no grid). On the right, your
 ## pack: what's in your hand, and what you carry, with its weight against what you can carry
-## before you can't run. On the left, what's within your reach: each container beside you, and
-## the floor, and water to drink from. Each line has its buttons: they ask the core for a timed
-## action, which a blow breaks off. "Take all" and "Stash all finds" ask for one after another.
+## before you can't run. What you carry is in your pockets or in the bag on your back (bag.rs),
+## each with what it holds; a line moves between them. On the left, what's within your reach:
+## each container beside you, and the floor, and water to drink from. Each line has its
+## buttons: they ask the core for a timed action, which a blow breaks off. "Take all" and "Stash
+## all finds" ask for one after another.
 ##
 ## Your stash (home.rs): a find (one that came out of the world) put into it pays its worth in
 ## XP, once. The pack marks finds with their worth; with your stash within reach, each line has
@@ -26,6 +28,7 @@ const SHIELD := 8
 const BOW := 9
 const HOLY := 10
 const ARMOUR := 11
+const BAG := 12
 ## The places armour covers, by DuskWorld.item_covers()' bits.
 const PLACES := [[1, "head"], [2, "torso"], [4, "arms"], [8, "legs"]]
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
@@ -57,6 +60,7 @@ var _pack_panel: PanelContainer
 var _reach_panel: PanelContainer
 var _shown_pack := []  # what the pack panel shows now, to rebuild only when it changes
 var _shown_reach := PackedInt32Array()
+var _shown_holds := PackedInt32Array()  # what's in each full bag within reach, as last drawn
 var _shown_water := false
 var _queue: Array = []  # actions still to ask for: ["take" or "put", x, y, def]
 var _shown_counter := []  # the counter within reach and what it sells, as last drawn
@@ -114,7 +118,11 @@ func refresh(busy: bool, dead: bool) -> void:
 	var rarity: PackedInt32Array = _dusk.character_rarity()
 	var shield: PackedInt32Array = _dusk.character_shield()
 	var worn: PackedInt32Array = _dusk.character_worn()
-	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn]
+	var bag: PackedInt32Array = _dusk.character_bag()
+	var pockets: PackedInt32Array = _dusk.character_pockets()
+	var bagged: PackedInt32Array = _dusk.character_bagged()
+	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn,
+		bag, pockets, bagged]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -124,12 +132,14 @@ func refresh(busy: bool, dead: bool) -> void:
 		sells = _dusk.counter_sells(counter[0], counter[1])
 	var at_counter := [counter, sells]
 	var fire: PackedInt32Array = _dusk.fire_beside()
+	var holds := _holds_in(reach)
 	if reach != _shown_reach or water != _shown_water or at_counter != _shown_counter \
-			or fire != _shown_fire:
+			or fire != _shown_fire or holds != _shown_holds:
 		_shown_reach = reach
 		_shown_water = water
 		_shown_counter = at_counter
 		_shown_fire = fire
+		_shown_holds = holds
 		_draw_reach(reach, water, counter, sells)
 	if not busy and not _queue.is_empty():
 		_next_queued(reach, items)
@@ -147,6 +157,17 @@ func _fire_line(x: int, y: int) -> String:
 	if f[2] > 0:
 		return "  ·  laid, %s (H lights it)" % wood
 	return "  ·  cold (H lays a fire)"
+
+
+## What's in the full bags within reach, every tile's stacks in turn (DuskWorld.store_holds()):
+## a partial take from one changes its weight and nothing else.
+func _holds_in(reach: PackedInt32Array) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var i := 0
+	while i + HEADER <= reach.size():
+		out.append_array(_dusk.store_holds(reach[i], reach[i + 1]))
+		i += HEADER + reach[i + 3] * STACK
+	return out
 
 
 ## Where your stash is, if it's within reach; else (-1, -1).
@@ -209,54 +230,89 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			var cost: int = _dusk.mend_check(counter[0], counter[1])
 			if cost > 0 or cost == -2:
 				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
-	var slot := -1
-	for i in range(0, items.size(), STACK):
-		slot += 1
-		var def := items[i]
-		var count := items[i + 1]
-		var label := _describe(def, count, items[i + 3] == 1)
-		if 2 + slot < labels.size() and labels[2 + slot] != _name(def):
-			label = labels[2 + slot] + label.substr(_name(def).length())  # magic: what you know of it
-		if _kind(def) == LIGHT and items[i + 2] < 1000:
-			label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
-		if _kind(def) == FOOD and items[i + 2] < 1000:
-			label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
-		if _kind(def) == ARMOUR:
-			label += "  ·  " + _places(def)  # where it goes
-		var row := _row(_pack, label)
-		_tint(row, rarity, 2 + slot)
-		match _kind(def):
-			WEAPON:
-				_button(row, "Wield", func() -> void: _wield(slot, def))
-			SHIELD:
-				_button(row, "Take up", func() -> void: _dusk.wield(slot, def))
-			BOW:
-				_button(row, "Wield", func() -> void: _wield(slot, def))
-			BANDAGE:
-				_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
-			FOOD:
-				_button(row, "Eat", func() -> void: _dusk.use_item(slot, def))
-			DRINK:
-				_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
-			LIGHT:
-				_button(row, "Light", func() -> void: _dusk.light(slot, def))
-			CURE:
-				_button(row, "Take", func() -> void: _take_cure(slot, def))
-			OIL:
-				_button(row, "Burn a body", func() -> void: burn.call())
-			HOLY:
-				_button(row, "Consecrate a body", func() -> void: hallow.call())
-			ARMOUR:
-				_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
-		if stash.x >= 0:
-			_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
-		if trading:
-			_reading_buttons(row, counter, slot)
-			var price: int = _dusk.sell_price(counter[0], counter[1], slot, def)
-			if price >= 0:
-				_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
-		_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
-		_show_lines(2 + slot)
+	# Your pockets, then the bag on your back (bag.rs): each stack's line under the one it's in.
+	var bag: PackedInt32Array = _dusk.character_bag()
+	var pockets: PackedInt32Array = _dusk.character_pockets()
+	var bagged: PackedInt32Array = _dusk.character_bagged()
+	var wearing := bag.size() >= 5
+	if pockets.size() >= 2 and pockets[1] >= 0:
+		var full := pockets[0] > pockets[1]
+		var line := _line(_pack, "Pockets  ·  %.1f / %.1f kg%s" % [pockets[0] / 1000.0,
+			pockets[1] / 1000.0, "  ·  over full" if full else ""], Look.SMALL)
+		if full:
+			line.add_theme_color_override("font_color", Look.BAD)
+	for place in ([0, 1] if wearing else [0]):
+		if place == 1:
+			var row := _row(_pack, "On your back: %s  ·  %.1f / %.1f kg in it, %d%% lighter" % [
+				_name(bag[0]), bag[2] / 1000.0, bag[3] / 1000.0, roundi(bag[4] / 10.0)])
+			_button(row, "Drop", func() -> void: _dusk.drop_bag())
+		for slot in range(items.size() / STACK):
+			var in_bag := slot < bagged.size() and bagged[slot] == 1
+			if int(in_bag) == place:
+				_pack_line(slot, items, labels, rarity, stash, counter, wearing, in_bag)
+
+
+## One stack of the pack: what it is, and its buttons. `wearing`: a bag's on your back, so the
+## stack can move between your pockets and the bag; `in_bag`: it's in the bag now.
+func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
+		rarity: PackedInt32Array, stash: Vector2i, counter: PackedInt32Array, wearing: bool,
+		in_bag: bool) -> void:
+	var i := slot * STACK
+	var def := items[i]
+	var count := items[i + 1]
+	var label := _describe(def, count, items[i + 3] == 1)
+	if 2 + slot < labels.size() and labels[2 + slot] != _name(def):
+		label = labels[2 + slot] + label.substr(_name(def).length())  # magic: what you know of it
+	if _kind(def) == LIGHT and items[i + 2] < 1000:
+		label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
+	if _kind(def) == FOOD and items[i + 2] < 1000:
+		label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
+	if _kind(def) == ARMOUR:
+		label += "  ·  " + _places(def)  # where it goes
+	var row := _row(_pack, "   " + label)
+	_tint(row, rarity, 2 + slot)
+	match _kind(def):
+		WEAPON:
+			_button(row, "Wield", func() -> void: _wield(slot, def))
+		SHIELD:
+			_button(row, "Take up", func() -> void: _dusk.wield(slot, def))
+		BOW:
+			_button(row, "Wield", func() -> void: _wield(slot, def))
+		BANDAGE:
+			_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
+		FOOD:
+			_button(row, "Eat", func() -> void: _dusk.use_item(slot, def))
+		DRINK:
+			_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
+		LIGHT:
+			_button(row, "Light", func() -> void: _dusk.light(slot, def))
+		CURE:
+			_button(row, "Take", func() -> void: _take_cure(slot, def))
+		OIL:
+			_button(row, "Burn a body", func() -> void: burn.call())
+		HOLY:
+			_button(row, "Consecrate a body", func() -> void: hallow.call())
+		ARMOUR, BAG:
+			_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
+	if wearing:
+		_button(row, "To pockets" if in_bag else "To bag", func() -> void: _shift(slot, def, in_bag))
+	if stash.x >= 0:
+		_button(row, "Stash", func() -> void: _dusk.put_item(stash.x, stash.y, slot, def))
+	if counter.size() >= 3:
+		_reading_buttons(row, counter, slot)
+		var price: int = _dusk.sell_price(counter[0], counter[1], slot, def)
+		if price >= 0:
+			_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
+	_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
+	_show_lines(2 + slot)
+
+
+## "To bag", "To pockets": as many as fit. The core says how many, and this says why none.
+func _shift(slot: int, def: int, in_bag: bool) -> void:
+	if _dusk.shift_check(slot, def) > 0:
+		_dusk.shift(slot, def)
+	elif say.is_valid():
+		say.call("No room in your pockets." if in_bag else "No room in your bag.")
 
 
 ## Magic in colour: blue for Uncommon, gold for Rare, and dimmer while you don't know it
@@ -353,16 +409,19 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 			for k in n:
 				defs.append(reach[i + k * STACK])
 			_button(header, "Take all", func() -> void: _take_all(x, y, defs))
+		var known: PackedStringArray = _dusk.store_labels(x, y)
+		var holds: PackedInt32Array = _dusk.store_holds(x, y)
 		for slot in n:
 			var def := reach[i + slot * STACK]
 			var count := reach[i + slot * STACK + 1]
 			var found := reach[i + slot * STACK + 3] == 1
 			var text := _describe(def, count, found)
-			var known: PackedStringArray = _dusk.store_labels(x, y)
 			if slot < known.size() and known[slot] != _name(def):
 				text = known[slot] + text.substr(_name(def).length())  # magic, as far as you know it
+			if slot < holds.size() and holds[slot] > 0:
+				text += "  ·  %.1f kg in it" % (holds[slot] / 1000.0)  # a bag dropped full
 			var row := _row(_reach, "   " + text)
-			_button(row, "Take", func() -> void: _dusk.take(x, y, slot, def))
+			_button(row, "Take", func() -> void: _take(x, y, slot, def))
 		i += n * STACK
 
 
@@ -428,7 +487,31 @@ func _buy(x: int, y: int, line: int, can: int) -> void:
 	if can == 1:
 		_dusk.buy(x, y, line)
 	elif say.is_valid():
-		say.call("None left today: more tomorrow." if can == -1 else "You haven't the coin.")
+		match can:
+			-1:
+				say.call("None left today: more tomorrow.")
+			-3:
+				say.call(_no_room())
+			_:
+				say.call("You haven't the coin.")
+
+
+## "Take": as many as there's room for (bag.rs). The core says how many; this says why none.
+## Returns the core's answer: how many, 0 for no room, -1 if it's gone.
+func _take(x: int, y: int, slot: int, def: int) -> int:
+	var n: int = _dusk.take_check(x, y, slot, def)
+	if n > 0:
+		_dusk.take(x, y, slot, def)
+	elif n == 0 and say.is_valid():
+		say.call(_no_room())
+	return n
+
+
+## Why nothing more fits: with no bag, it's the pockets.
+func _no_room() -> String:
+	if _dusk.character_bag().size() < 5:
+		return "No room for it: your pockets are full. A bag would hold more."
+	return "No room for it in your bag or your pockets."
 
 
 ## "Mend": the weapon in your hand, made good as new for its price.
@@ -468,7 +551,7 @@ func _stash_finds(x: int, y: int) -> void:
 
 
 ## The next queued action: a take of the first stack on that tile that's still the item it was,
-## or a put of the first find of that item in the pack.
+## or a put of the first find of that item in the pack. Once there's no room, the takes stop.
 func _next_queued(reach: PackedInt32Array, items: PackedInt32Array) -> void:
 	var want: Array = _queue.pop_front()
 	if want[0] == "put":
@@ -483,7 +566,8 @@ func _next_queued(reach: PackedInt32Array, items: PackedInt32Array) -> void:
 		if reach[i] == want[1] and reach[i + 1] == want[2]:
 			for slot in n:
 				if reach[i + HEADER + slot * STACK] == want[3]:
-					_dusk.take(want[1], want[2], slot, want[3])
+					if _take(want[1], want[2], slot, want[3]) == 0:
+						_queue.clear()
 					return
 		i += HEADER + n * STACK
 

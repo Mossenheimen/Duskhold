@@ -135,6 +135,8 @@ impl World {
                 ActionKind::Pick { at } => self.pick(id, at),
                 ActionKind::Wear { slot, def } => self.put_on(id, slot, def),
                 ActionKind::TakeOff { piece, def } => self.take_off(id, piece, def),
+                ActionKind::Shift { slot, def } => self.shift(id, slot, def),
+                ActionKind::DropBag => self.drop_bag(id),
             }
         }
         true
@@ -167,7 +169,7 @@ impl World {
             }
             _ if held => return None,
             Intent::Take { at, slot, def } => {
-                let ticks = self.take_ticks(at, slot, def)?;
+                let ticks = self.take_ticks(id, at, slot, def)?;
                 if !crate::items::within_reach(&self.grid, a.pos, at) {
                     return None;
                 }
@@ -214,6 +216,18 @@ impl World {
             Intent::TakeOff { piece, def } => {
                 let ticks = self.take_off_ticks(id, piece, def)?;
                 (ActionKind::TakeOff { piece, def }, a.facing, ticks, 0, 0)
+            }
+            // Bags (`bag.rs`): a stack between the pockets and the bag, and the bag dropped.
+            Intent::Shift { slot, def } => {
+                if self.can_shift(id, slot, def) == 0 {
+                    return None;
+                }
+                let kind = ActionKind::Shift { slot, def };
+                (kind, a.facing, self.defs.shift.max(1), 0, 0)
+            }
+            Intent::DropBag => {
+                a.bag?;
+                (ActionKind::DropBag, a.facing, self.defs.drop.max(1), 0, 0)
             }
             Intent::Light { slot, def } => {
                 let ticks = self.light_ticks(id, slot, def)?;

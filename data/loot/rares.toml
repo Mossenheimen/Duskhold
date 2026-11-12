@@ -7,6 +7,7 @@ rolls = [2, 3]
 items = [
   { item = "coins", weight = 4, count = [10, 30] },
   { item = "tincture", weight = 2 },
+  { item = "travellers_pack", weight = 1 },   # the best bag there is, only ever off a rare
   { item = "hand_axe", weight = 2, magic = 1.0 },
   { item = "wood_axe", weight = 2, magic = 1.0 },
   { item = "kitchen_knife", weight = 2, magic = 1.0 },

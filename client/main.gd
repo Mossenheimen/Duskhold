@@ -157,6 +157,7 @@ const GREW := 105
 const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
 const ARMOUR := 11
+const BAG := 12  # an item kind (DuskWorld.item_kinds())
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -1935,13 +1936,34 @@ func _run_script() -> void:
 					if items[k] < kinds.size() and kinds[items[k]] == 8:
 						dusk.wield(k / 4, items[k])
 						break
-			"wear":  # put on the first armour in the pack
+			"wear":  # put on the first armour or bag in the pack
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] == ARMOUR:
+					if items[k] < kinds.size() and kinds[items[k]] in [ARMOUR, BAG]:
 						dusk.wear(k / 4, items[k])
 						break
+			"dropbag":  # the bag on your back, with what's in it
+				dusk.drop_bag()
+			"tobag":  # the first stack in your pockets that fits, into the bag
+				var items: PackedInt32Array = dusk.character_items()
+				var bagged: PackedInt32Array = dusk.character_bagged()
+				for k in bagged.size():
+					if bagged[k] == 0 and dusk.shift_check(k, items[k * 4]) > 0:
+						dusk.shift(k, items[k * 4])
+						break
+			"take":  # the first thing within reach that there's room for
+				var reach: PackedInt32Array = dusk.stores_in_reach()
+				var i := 0
+				var taken := false
+				while i + 5 <= reach.size() and not taken:
+					for slot in reach[i + 3]:
+						var def := reach[i + 5 + slot * 4]
+						if dusk.take_check(reach[i], reach[i + 1], slot, def) > 0:
+							dusk.take(reach[i], reach[i + 1], slot, def)
+							taken = true
+							break
+					i += 5 + reach[i + 3] * 4
 			"brace":
 				_brace(true)
 			"shoot":  # at the nearest of the dead you see

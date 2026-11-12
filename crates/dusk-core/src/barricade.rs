@@ -261,8 +261,8 @@ impl World {
         let boards = list.len() as u8;
         self.set_boards(pos, dir, list);
         let defs = self.defs.clone();
-        if let (Some(a), Some(b)) = (self.actors.get_mut(id), &defs.boarding) {
-            defs.stow(&mut a.items, Item::new(b.plank, 1));
+        if let Some(b) = &defs.boarding {
+            self.carry_in(id, Item::new(b.plank, 1));
         }
         self.emit(Sound {
             at: pos,

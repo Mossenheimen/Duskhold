@@ -86,14 +86,16 @@ impl World {
     }
 
     /// Everything an actor carries, out of its hands, its pack, its other hand and what it
-    /// wears.
+    /// wears. Its bag comes with what's in it (`bag.rs`).
     fn take_gear(&mut self, id: ActorId) -> Vec<Item> {
+        let bag = self.unpack(id);
         let Some(a) = self.actors.get_mut(id) else {
             return Vec::new();
         };
         let mut gear: Vec<Item> = a.hands.take().into_iter().collect();
         gear.extend(a.light.take());
         gear.extend(a.shield.take());
+        gear.extend(bag);
         gear.append(&mut a.items);
         gear.append(&mut a.worn);
         gear

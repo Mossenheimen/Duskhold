@@ -54,6 +54,9 @@ struct ItemFile {
     /// Armour, worn (`armour.rs` in the core).
     #[serde(default)]
     armour: Option<crate::armour::ArmourFile>,
+    /// A bag, worn on the back (`bag.rs` in the core).
+    #[serde(default)]
+    bag: Option<BagFile>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -207,6 +210,30 @@ struct DrinkFile {
     comfort: f64,
 }
 
+/// A bag: the kilograms it holds, and the share of their weight it takes off on your back.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BagFile {
+    holds: f64,
+    lighter: f64,
+}
+
+fn bag(file: &Path, id: &str, b: &BagFile) -> Result<ItemKind, DataError> {
+    if !(b.holds > 0.0 && b.holds <= 100.0) || !(0.0..=0.9).contains(&b.lighter) {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a bag holds above 0 and at most 100 kg, and is lighter by a share \
+                 from 0 to 0.9"
+            ),
+        ));
+    }
+    Ok(ItemKind::Bag(dusk_core::Bag {
+        capacity: (b.holds * 1000.0).round() as u32,
+        reduce: (b.lighter * 1000.0).round() as u32,
+    }))
+}
+
 /// A light: the tiles it lights round it, and the game hours it burns.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -271,11 +298,21 @@ pub(crate) struct ItemTimesFile {
     unwield: f64,
     light: f64,
     douse: f64,
+    /// Bags (`bag.rs` in the core): more to reach into one, to put one on, and to move a stack
+    /// between the pockets and the bag. Left out: no time.
+    #[serde(default)]
+    from_bag: f64,
+    #[serde(default)]
+    bag_on: f64,
+    #[serde(default)]
+    shift: f64,
 }
 
 /// What a character starts with and can carry: rules.toml's [character].
 pub(crate) struct Kit<'a> {
     pub carry: f64,
+    /// Kilograms its pockets hold (left out: no limit).
+    pub pockets: Option<f64>,
     pub wield: Option<&'a str>,
     pub kit: &'a [String],
 }
@@ -376,12 +413,13 @@ pub(crate) fn load_defs(
                 i.shield.is_some(),
                 i.bow.is_some(),
                 i.armour.is_some(),
+                i.bag.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow and armour",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour and bag",
                         i.id
                     ),
                 ));
@@ -466,6 +504,8 @@ pub(crate) fn load_defs(
                 shield(&file, &i.id, s)?
             } else if let Some(a) = &i.armour {
                 crate::armour::armour(&file, &i.id, a)?
+            } else if let Some(b) = &i.bag {
+                bag(&file, &i.id, b)?
             } else if i.oil {
                 ItemKind::Oil
             } else if i.holy {
@@ -615,6 +655,16 @@ pub(crate) fn load_defs(
         wield,
         kit: Vec::new(),
         carry: (kit.carry * 1000.0).round().max(0.0) as u32,
+        pockets: match kit.pockets {
+            None => u32::MAX,
+            Some(kg) if (0.0..=100.0).contains(&kg) => (kg * 1000.0).round() as u32,
+            Some(_) => {
+                return Err(fail(
+                    rules_file,
+                    "character.pockets: 0 to 100 kg (left out: no limit)".to_string(),
+                ));
+            }
+        },
         take: ticks(rules_file, "items.take", times.take)? as u32,
         take_per_kg: ticks(rules_file, "items.per_kg", times.per_kg)? as u32,
         drop: ticks(rules_file, "items.drop", times.drop)? as u32,
@@ -622,6 +672,9 @@ pub(crate) fn load_defs(
         unwield_time: (ticks(rules_file, "items.unwield", times.unwield)? as u32).max(1),
         light_time: (ticks(rules_file, "items.light", times.light)? as u32).max(1),
         douse_time: (ticks(rules_file, "items.douse", times.douse)? as u32).max(1),
+        from_bag: ticks(rules_file, "items.from_bag", times.from_bag)? as u32,
+        bag_on: ticks(rules_file, "items.bag_on", times.bag_on)? as u32,
+        shift: ticks(rules_file, "items.shift", times.shift)? as u32,
         // Filled in by the loader, from rules.toml's [barricade] and holdouts.toml.
         boarding: None,
         // Filled in by the loader, from recipes.toml, rules.toml's [crafting] and the fixtures.

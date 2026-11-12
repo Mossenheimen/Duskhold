@@ -1,0 +1,33 @@
+# Bags (bag.rs in the core): worn on the back, one at a time. With no bag you carry what fits in
+# your pockets (rules.toml's [character] pockets). A bag holds `holds` kg more, and what's in it
+# weighs `lighter` less on you, so a good pack carries a load you could still run with. Reaching
+# into one is slower than reaching into your pockets (rules.toml's [items] from_bag). Dropped, a
+# bag falls with everything in it, and taken up again it goes back on with all of it.
+
+[[item]]
+id = "satchel"
+name = "satchel"
+weight = 0.5
+bag = { holds = 6.0, lighter = 0.25 }
+worth = 2
+
+[[item]]
+id = "knapsack"
+name = "knapsack"
+weight = 1.0
+bag = { holds = 12.0, lighter = 0.4 }
+worth = 4
+
+[[item]]
+id = "grain_sack"
+name = "grain sack"
+weight = 0.4
+bag = { holds = 15.0, lighter = 0.0 }   # holds plenty, and carries it badly
+worth = 1
+
+[[item]]
+id = "travellers_pack"
+name = "traveller's pack"
+weight = 1.8
+bag = { holds = 20.0, lighter = 0.5 }   # a pack frame: only ever off one of the rares
+worth = 10

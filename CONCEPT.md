@@ -454,6 +454,7 @@ One table of how things act on each other, written before the content, so the ga
   - **Magic items never vanish.** At 0 condition one is broken, unusable until repaired, at a cost that grows with its rarity. Breath of the Wild's weapons broke so fast that players hoarded their best ones unused.
 - **Containers:** cupboards, chests, barrels, bookshelves, sarcophagi, bodies; locks and traps on the good ones; now and then, a mimic.
 - **Inventory** as in Zomboid: lists with weights, not a grid; bags with capacities; both hands (a torch takes one). Weight is noise, endurance and speed here, so what to carry is a real choice.
+  - *(built 2026-11-12)* With no bag you carry what fits in your pockets, 5 kg. A bag on your back holds more (a satchel 6 kg, a knapsack 12, a grain sack 15, a traveller's pack 20), and what's in it weighs less on you; reaching into it is slower than your pockets. What doesn't fit isn't taken. Drop your bag and it falls with everything in it, the way to fight unburdened; take it up again and it goes back on with all of it.
 
 ## Crafting
 

@@ -31,6 +31,10 @@ pub struct Item {
     pub found: bool,
     /// What makes it magic, if anything (`magic.rs`).
     pub magic: crate::magic::Magic,
+    /// In the bag on its carrier's back, not its pockets (`bag.rs`): only ever so in a pack.
+    pub bagged: bool,
+    /// A bag lying full: what's in it is `World::held`'s, under this number (0: empty).
+    pub holds: u32,
 }
 
 impl Item {
@@ -42,6 +46,8 @@ impl Item {
             condition: NEW,
             found: false,
             magic: crate::magic::Magic::MUNDANE,
+            bagged: false,
+            holds: 0,
         }
     }
 }
@@ -88,6 +94,8 @@ pub enum ItemKind {
     Bow(crate::archery::Ranged),
     /// Worn, it covers places on the body and may turn the blows that land there (`armour.rs`).
     Armour(crate::armour::Armour),
+    /// Worn on the back, it holds more, and what's in it weighs less (`bag.rs`).
+    Bag(crate::bag::Bag),
     /// Everything else: materials, junk.
     Other,
 }
@@ -158,6 +166,8 @@ pub struct Defs {
     pub kit: Vec<Item>,
     /// Grams a character carries before it's weighed down (no running).
     pub carry: u32,
+    /// Grams a character's pockets hold, with no bag (`bag.rs`).
+    pub pockets: u32,
     /// How long item actions take, in ticks: taking (plus `take_per_kg` for each kilogram),
     /// dropping, taking something in hand, putting it away, lighting a light and holding it up,
     /// and putting it out.
@@ -168,6 +178,11 @@ pub struct Defs {
     pub unwield_time: u32,
     pub light_time: u32,
     pub douse_time: u32,
+    /// Ticks more to reach into the bag on your back, to put a bag on, and to move a stack
+    /// between the pockets and the bag (`bag.rs`).
+    pub from_bag: u32,
+    pub bag_on: u32,
+    pub shift: u32,
     /// What boarding up takes (`barricade.rs`); None: nobody can.
     pub boarding: Option<Boarding>,
     /// The holdouts' trade (`holdout.rs`), and by fixture number, the holdout a counter is
@@ -214,6 +229,8 @@ impl Default for Defs {
             wield: None,
             kit: Vec::new(),
             carry: 0,
+            // No limit: tests that aren't about bags carry what they like.
+            pockets: u32::MAX,
             take: 0,
             take_per_kg: 0,
             drop: 0,
@@ -221,6 +238,9 @@ impl Default for Defs {
             unwield_time: 0,
             light_time: 0,
             douse_time: 0,
+            from_bag: 0,
+            bag_on: 0,
+            shift: 0,
             boarding: None,
             holdouts: Vec::new(),
             counters: Vec::new(),
@@ -282,8 +302,9 @@ impl Defs {
             .map_or(0, |d| d.weight * u32::from(item.count))
     }
 
-    /// How a stack goes into a list: onto a stack of the same, in the same condition, that has
-    /// room (a half-burnt candle doesn't join new ones), else on its own.
+    /// How a stack goes into a list: onto a stack of the same, in the same condition and the
+    /// same place (pockets or bag), that has room (a half-burnt candle doesn't join new ones),
+    /// else on its own.
     pub fn stow(&self, list: &mut Vec<Item>, item: Item) {
         let stack = self.item(item.def).map_or(1, |d| d.stack.max(1));
         let mut left = item.count;
@@ -292,7 +313,9 @@ impl Defs {
                 let same = held.def == item.def
                     && held.condition == item.condition
                     && held.found == item.found
-                    && held.magic == item.magic;
+                    && held.magic == item.magic
+                    && held.bagged == item.bagged
+                    && held.holds == item.holds;
                 if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
                     held.count += room;
@@ -439,21 +462,22 @@ impl World {
     /// events.
     pub fn put(&mut self, at: TilePos, item: Item) {
         let mut held = self.store(at);
-        self.defs.stow(&mut held, item);
+        self.defs.stow(&mut held, item.loose());
         self.stores.insert(at, held);
     }
 
-    /// What an actor carries, in hand, in its pack and worn (worn armour weighs a share of what
-    /// it would in the pack: `armour.rs`), in grams.
+    /// What an actor carries, in hand, in its pack and worn, in grams: worn armour weighs a
+    /// share of what it would in the pack (`armour.rs`), and what's in a bag the bag's share less
+    /// (`bag.rs`).
     pub fn load(&self, id: ActorId) -> u32 {
         self.actors.get(id).map_or(0, |a| {
-            a.items
+            a.hands
                 .iter()
-                .chain(&a.hands)
                 .chain(&a.light)
                 .chain(&a.shield)
                 .map(|i| self.defs.weight(i))
                 .sum::<u32>()
+                + self.pack_weight(id)
                 + self.worn_weight(id)
         })
     }
@@ -534,29 +558,36 @@ impl World {
         }
     }
 
-    /// Takes the stack at `slot` of what's on `at` (it must still be `def`, and within reach).
+    /// Takes the stack at `slot` of what's on `at` (it must still be `def`, within reach, with
+    /// room for some of it): as many as fit, into the bag, then the pockets (`bag.rs`). A full
+    /// bag is taken whole.
     pub(crate) fn take(&mut self, id: ActorId, at: TilePos, slot: u16, def: u16) {
-        let Some(pos) = self.actors.get(id).map(|a| a.pos) else {
+        let Ok(n) = self.can_take(id, at, slot, def) else {
             return;
         };
-        if !within_reach(&self.grid, pos, at) {
-            return;
-        }
         let mut held = self.store(at);
         let slot = usize::from(slot);
-        if held.get(slot).is_none_or(|i| i.def != def) {
+        let item = held[slot];
+        if item.holds != 0 || n >= item.count {
+            held.remove(slot);
+        } else {
+            held[slot].count -= n;
+        }
+        self.stores.insert(at, held);
+        if item.holds != 0 {
+            self.take_full_bag(id, at, item);
             return;
         }
-        let item = held.remove(slot);
-        self.stores.insert(at, held);
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id) {
-            defs.stow(&mut a.items, item);
+        // A bag there's no room for, taken with a bare back: it goes straight on.
+        if self.room_for(id, &item) == (0, 0) {
+            self.don_bag(id, Item { count: 1, ..item });
+            return;
         }
+        self.carry_in(id, Item { count: n, ..item });
         self.events.push(Event::Took {
             who: id,
             item: def,
-            count: item.count,
+            count: n,
         });
     }
 
@@ -599,43 +630,37 @@ impl World {
             item.count = 1;
         }
         // A shield goes on the off arm, and the light held there goes out, into the pack.
-        if matches!(defs.item(def).map(|d| &d.kind), Some(ItemKind::Shield(_))) {
-            if let Some(was) = a.shield.replace(item) {
-                defs.stow(&mut a.items, was);
-            }
-            if let Some(lit) = a.light.take() {
-                defs.stow(&mut a.items, lit);
-            }
-            self.events.push(Event::Wielded { who: id, item: def });
-            return;
-        }
-        if let Some(was) = a.hands.replace(item) {
-            defs.stow(&mut a.items, was);
+        let shield = matches!(defs.item(def).map(|d| &d.kind), Some(ItemKind::Shield(_)));
+        let back = if shield {
+            [a.shield.replace(item), a.light.take()]
+        } else {
+            [a.hands.replace(item), None]
+        };
+        for was in back.into_iter().flatten() {
+            self.carry_in(id, was);
         }
         self.events.push(Event::Wielded { who: id, item: def });
         // A curse shows itself now, and the weapon clings.
-        self.cling(id);
+        if !shield {
+            self.cling(id);
+        }
     }
 
     /// Puts the shield on `id`'s arm into the pack.
     pub(crate) fn unshield(&mut self, id: ActorId) {
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id)
-            && let Some(s) = a.shield.take()
-        {
-            defs.stow(&mut a.items, s);
-            a.bracing = false;
+        let Some(a) = self.actors.get_mut(id) else {
+            return;
+        };
+        a.bracing = false;
+        if let Some(s) = a.shield.take() {
+            self.carry_in(id, s);
         }
     }
 
     /// Puts what's in hand into the pack.
     pub(crate) fn unwield(&mut self, id: ActorId) {
-        let defs = self.defs.clone();
-        let Some(a) = self.actors.get_mut(id) else {
-            return;
-        };
-        if let Some(was) = a.hands.take() {
-            defs.stow(&mut a.items, was);
+        if let Some(was) = self.actors.get_mut(id).and_then(|a| a.hands.take()) {
+            self.carry_in(id, was);
         }
     }
 
@@ -712,11 +737,12 @@ impl World {
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
     /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound to dress,
-    /// food or drink, or the cure with a fever.
+    /// food or drink, or the cure with a fever. From the bag, it takes longer (`bag.rs`).
     pub(crate) fn item_ticks(&self, id: ActorId, slot: u16, def: u16, using: bool) -> Option<u32> {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
-        match (using, &self.defs.item(def)?.kind) {
+        let reach = self.reach_into(id, slot);
+        let ticks = match (using, &self.defs.item(def)?.kind) {
             (false, ItemKind::Weapon { .. } | ItemKind::Shield(_) | ItemKind::Bow(_)) => {
                 Some(self.defs.wield_time)
             }
@@ -729,16 +755,16 @@ impl World {
             }
             (true, ItemKind::Cure { time }) if a.body.fever.is_some() => Some((*time).max(1)),
             _ => None,
-        }
+        };
+        ticks.map(|t| t + reach)
     }
 
-    /// Ticks to take a stack: a moment, and more the heavier it is.
-    pub(crate) fn take_ticks(&self, at: TilePos, slot: u16, def: u16) -> Option<u32> {
-        let item = *self
-            .store(at)
-            .get(usize::from(slot))
-            .filter(|i| i.def == def)?;
-        let kg = self.defs.weight(&item) / 1000;
+    /// Ticks for `id` to take a stack, if it can: a moment, and more the heavier what it takes
+    /// (a full bag, with what's in it).
+    pub(crate) fn take_ticks(&self, id: ActorId, at: TilePos, slot: u16, def: u16) -> Option<u32> {
+        let n = self.can_take(id, at, slot, def).ok()?;
+        let item = *self.store(at).get(usize::from(slot))?;
+        let kg = self.weight_of(&Item { count: n, ..item }) / 1000;
         Some(self.defs.take + self.defs.take_per_kg * kg)
     }
 }

@@ -376,7 +376,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names | while any is on | text only, no icons |
 | **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | the bar is here; prompts come only through the news |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
-| **H** Your pack | in hand, on your arm, held up, then the pack; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
+| **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
 | **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
 | **J** Book panels | Strength, Fitness, skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
 

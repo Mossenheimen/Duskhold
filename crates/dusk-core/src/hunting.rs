@@ -216,10 +216,7 @@ impl World {
         let Some(cut) = self.butchery(body) else {
             return;
         };
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id) {
-            defs.stow(&mut a.items, crate::items::Item::new(cut.item, cut.count));
-        }
+        self.carry_in(id, crate::items::Item::new(cut.item, cut.count));
         if let Some(b) = self.actors.get_mut(body) {
             b.remains = Remains::Butchered;
         }

@@ -110,11 +110,8 @@ impl World {
         );
         self.regrowing
             .insert(at, (tile.fixture, tick + plant.regrow));
-        let defs = self.defs.clone();
-        if count > 0
-            && let Some(a) = self.actors.get_mut(id)
-        {
-            defs.stow(&mut a.items, Item::new(plant.item, count));
+        if count > 0 {
+            self.carry_in(id, Item::new(plant.item, count));
         }
         self.events.push(Event::Picked {
             who: id,

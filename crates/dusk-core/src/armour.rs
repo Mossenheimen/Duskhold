@@ -203,29 +203,35 @@ impl World {
         let Some(a) = self.actors.get_mut(id) else {
             return false;
         };
-        let mut n = 0;
+        let (mut n, mut off) = (0, Vec::new());
         while n < a.worn.len() {
             let covers = match defs.item(a.worn[n].def).map(|d| &d.kind) {
                 Some(ItemKind::Armour(other)) => other.covers,
                 _ => 0,
             };
             if covers & arm.covers != 0 {
-                let off = a.worn.remove(n);
-                defs.stow(&mut a.items, off);
+                off.push(a.worn.remove(n));
             } else {
                 n += 1;
             }
         }
         a.worn.push(Item { count: 1, ..item });
+        for piece in off {
+            self.carry_in(id, piece);
+        }
         true
     }
 
     /// The ticks it takes `id` to put on the piece at `slot` of its pack, if it's there (as
-    /// `def`) and it's armour.
+    /// `def`) and it's armour, or a bag (`bag.rs`); longer from the bag.
     pub(crate) fn wear_ticks(&self, id: ActorId, slot: u16, def: u16) -> Option<u32> {
         let a = self.actors.get(id)?;
         let item = a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
-        Some(self.armour_of(item)?.time.max(1))
+        let time = match self.defs.bag(def) {
+            Some(_) => self.defs.bag_on,
+            None => self.armour_of(item)?.time,
+        };
+        Some(time.max(1) + self.reach_into(id, slot))
     }
 
     /// Puts on the piece at `slot` of `id`'s pack (still `def`).
@@ -244,6 +250,10 @@ impl World {
         } else {
             a.items.remove(slot);
         }
+        if self.defs.bag(def).is_some() {
+            self.don_bag(id, item);
+            return;
+        }
         if self.don(id, item) {
             self.events.push(Event::Wore { who: id, item: def });
         }
@@ -259,7 +269,6 @@ impl World {
 
     /// Takes off `id`'s `piece` (still `def`), into the pack.
     pub(crate) fn take_off(&mut self, id: ActorId, piece: u16, def: u16) {
-        let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -268,7 +277,7 @@ impl World {
             return;
         }
         let item = a.worn.remove(piece);
-        defs.stow(&mut a.items, item);
+        self.carry_in(id, item);
         self.events.push(Event::TookOff { who: id, item: def });
     }
 }

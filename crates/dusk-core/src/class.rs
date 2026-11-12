@@ -180,6 +180,7 @@ impl World {
             a.bracing = false;
             a.items.clear();
             a.worn.clear();
+            a.bag = None;
         }
         self.equip(id);
         self.events.push(Event::ClassChosen { who: id, class });

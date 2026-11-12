@@ -111,6 +111,8 @@ pub enum NoDeal {
     NothingToRead,
     /// No curse in hand to lift.
     NoCurse,
+    /// No room in your bag or your pockets for what you'd buy (`bag.rs`).
+    NoRoom,
 }
 
 impl Defs {
@@ -203,6 +205,9 @@ impl World {
         }
         if self.coins(id) < sale.price {
             return Err(NoDeal::TooPoor);
+        }
+        if self.room_for(id, &Item::new(sale.item, 1)) == (0, 0) {
+            return Err(NoDeal::NoRoom);
         }
         Ok(sale.price)
     }
@@ -413,14 +418,11 @@ impl World {
         let (Some(coin), true) = (self.defs.coin, n > 0) else {
             return;
         };
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id) {
-            let mut left = n;
-            while left > 0 {
-                let some = left.min(u32::from(u16::MAX)) as u16;
-                defs.stow(&mut a.items, Item::new(coin, some));
-                left -= u32::from(some);
-            }
+        let mut left = n;
+        while left > 0 {
+            let some = left.min(u32::from(u16::MAX)) as u16;
+            self.carry_in(id, Item::new(coin, some));
+            left -= u32::from(some);
         }
     }
 
@@ -445,10 +447,7 @@ impl World {
             *sold = (day, 0);
         }
         sold.1 += 1;
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id) {
-            defs.stow(&mut a.items, Item::new(item, 1));
-        }
+        self.carry_in(id, Item::new(item, 1));
         self.events.push(Event::Bought {
             who: id,
             item,

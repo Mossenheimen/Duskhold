@@ -157,12 +157,11 @@ impl World {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         matches!(self.defs.item(def)?.kind, ItemKind::Light { .. })
-            .then_some(self.defs.light_time.max(1))
+            .then_some(self.defs.light_time.max(1) + self.reach_into(id, slot))
     }
 
     /// Lights the item at `slot` and holds it up. A light already held goes out, into the pack.
     pub(crate) fn hold_light(&mut self, id: ActorId, slot: u16, def: u16) {
-        let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -181,12 +180,13 @@ impl World {
             item.count = 1;
         }
         // The off arm holds a light or a shield: the shield goes in the pack (`shield.rs`).
-        if let Some(s) = a.shield.take() {
-            defs.stow(&mut a.items, s);
+        let shield = a.shield.take();
+        if shield.is_some() {
             a.bracing = false;
         }
-        if let Some(was) = a.light.replace(item) {
-            defs.stow(&mut a.items, was);
+        let was = a.light.replace(item);
+        for back in [shield, was].into_iter().flatten() {
+            self.carry_in(id, back);
         }
         self.events.push(Event::Lit { who: id, item: def });
         // Lit, you see what it is.
@@ -195,12 +195,8 @@ impl World {
 
     /// Puts out the light held up, into the pack (burnt down as far as it got).
     pub(crate) fn douse(&mut self, id: ActorId) {
-        let defs = self.defs.clone();
-        let Some(a) = self.actors.get_mut(id) else {
-            return;
-        };
-        if let Some(was) = a.light.take() {
-            defs.stow(&mut a.items, was);
+        if let Some(was) = self.actors.get_mut(id).and_then(|a| a.light.take()) {
+            self.carry_in(id, was);
             self.events.push(Event::Doused {
                 who: id,
                 item: was.def,

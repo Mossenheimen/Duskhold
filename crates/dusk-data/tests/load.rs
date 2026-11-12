@@ -1866,3 +1866,32 @@ fn strength_and_fitness_load_and_nonsense_is_refused() {
     let err = load(&folder("fitness", &files)).unwrap_err();
     assert!(err.message.contains("fitness"), "{err}");
 }
+
+#[test]
+fn bags_and_pockets_load_and_a_bag_that_holds_nothing_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    assert_eq!(defs.pockets, 5000, "5 kg");
+    assert_eq!(
+        (defs.from_bag, defs.bag_on, defs.shift),
+        (10, 15, 5),
+        "1, 1.5 and 0.5 s"
+    );
+    let knapsack = defs.items.iter().position(|i| i.id == "knapsack").unwrap() as u16;
+    let bag = defs.bag(knapsack).expect("a bag");
+    assert_eq!((bag.capacity, bag.reduce), (12_000, 400));
+    let empty = r#"
+[[item]]
+id = "pouch"
+name = "pouch"
+weight = 0.1
+bag = { holds = 0.0, lighter = 0.1 }
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/bags.toml", empty));
+    let err = load(&folder("bag", &files)).unwrap_err();
+    assert!(
+        err.file.ends_with("bags.toml") && err.message.contains("\"pouch\""),
+        "{err}"
+    );
+}

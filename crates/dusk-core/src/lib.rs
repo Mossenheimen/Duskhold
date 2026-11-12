@@ -10,6 +10,7 @@ pub mod actor;
 pub mod archery;
 pub mod arena;
 pub mod armour;
+pub mod bag;
 pub mod barricade;
 pub mod body;
 pub mod class;
@@ -57,6 +58,7 @@ pub mod world;
 
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind, Remains};
 pub use armour::{Armour, ArmourRules};
+pub use bag::{Bag, NoTake};
 pub use barricade::NoBoard;
 pub use body::{Body, Group, Part, Wound, WoundKind};
 pub use class::{Class, Kit, Talent};

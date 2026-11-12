@@ -162,7 +162,7 @@ impl World {
             }
         }
         let (made, count) = r.makes;
-        defs.stow(&mut a.items, Item::new(made, count));
+        self.carry_in(id, Item::new(made, count));
         self.events.push(Event::Crafted { who: id, recipe });
         if let Some(skill) = r.skill {
             self.train(id, skill, r.xp, On::Once);
@@ -235,10 +235,7 @@ impl World {
                 ..tile
             },
         );
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id) {
-            defs.stow(&mut a.items, Item::new(b.plank, planks));
-        }
+        self.carry_in(id, Item::new(b.plank, planks));
         self.emit(Sound {
             at,
             loudness: b.noise,

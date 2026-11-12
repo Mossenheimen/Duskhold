@@ -908,6 +908,9 @@ pub struct World {
     /// What containers and floors hold, once something changed it (`items.rs`): an unopened
     /// container isn't here, its contents come from the seed. Ordered, for the hash.
     pub(crate) stores: BTreeMap<TilePos, Vec<Item>>,
+    /// What's in the full bags lying about, by the bag's `Item::holds` (`bag.rs`). Ordered, for
+    /// the hash.
+    pub(crate) held: BTreeMap<u32, Vec<Item>>,
     /// The region this world is a patch of (`pressure.rs`): from the data, not saved.
     pub region: Region,
     /// The region's pressure, in thousandths of the dead the patch began with.
@@ -965,6 +968,7 @@ impl World {
             board_strength: BTreeMap::new(),
             defs,
             stores: BTreeMap::new(),
+            held: BTreeMap::new(),
             region: Region::default(),
             pressure: 0,
             fires: Vec::new(),
@@ -1164,6 +1168,7 @@ impl World {
         self.door_damage.hash(&mut h);
         self.board_strength.hash(&mut h);
         self.stores.hash(&mut h);
+        self.held.hash(&mut h);
         self.pressure.hash(&mut h);
         self.sold.hash(&mut h);
         self.claimed.hash(&mut h);

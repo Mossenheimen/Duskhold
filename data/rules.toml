@@ -20,6 +20,7 @@ run_noise = 8
 path_budget = 4096    # the most tiles one search for a way looks at
 health = 100          # points
 carry = 15.0          # kg you carry before you're weighed down: no running
+pockets = 5.0         # kg your pockets hold: a bag (items/bags.toml) holds more
 wield = "cudgel"      # in hand at the start (items/*.toml)
 kit = ["bandage", "torch"]   # and in the pack (name one twice for two)
 
@@ -32,6 +33,9 @@ wield = 0.5           # to take a weapon in hand
 unwield = 0.3         # to put it away
 light = 1.5           # to light a torch or a candle and hold it up in your other hand
 douse = 0.5           # to put it out
+from_bag = 1.0        # more, to use or take up something from the bag on your back
+bag_on = 1.5          # to put a bag on (the one you wore comes off, what's in it moving across)
+shift = 0.5           # to move a stack between your pockets and your bag
 
 [endurance]
 # A bar of 100 points that pays for everything active. Empty, you're out of breath: no running,
