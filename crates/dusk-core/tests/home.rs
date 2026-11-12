@@ -27,7 +27,16 @@ fn defs() -> Defs {
     Defs {
         items: vec![
             item("coins", 10, 100, ItemKind::Other, 1000),
-            item("bandage", 100, 10, ItemKind::Bandage { time: 20 }, 3000),
+            item(
+                "bandage",
+                100,
+                10,
+                ItemKind::Bandage {
+                    time: 20,
+                    salve: 1000,
+                },
+                3000,
+            ),
         ],
         loot: vec![LootTable {
             id: "purse".into(),

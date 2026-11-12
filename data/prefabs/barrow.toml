@@ -14,6 +14,7 @@ tags = ["barrow"]
 front = "south"
 dead = [1, 1]
 kind = "wight"
+grows = { plant = "feverfew", chance = 0.06 }  # the fever's cure grows on the mound
 grid = """
 +-+-+-+-+-+-+-+
 |. . . T . . .|

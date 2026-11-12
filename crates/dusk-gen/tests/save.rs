@@ -341,3 +341,39 @@ fn a_clerics_faith_the_turned_and_a_warded_door_stay_so_after_a_load() {
     assert_eq!(b.class_of(me).map(|c| c.id.as_str()), Some("cleric"));
     assert_eq!(b.state_hash(), w.state_hash());
 }
+
+#[test]
+fn a_plant_picked_bare_stays_so_and_grows_back_alike_after_a_load() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (mut w, _) = patch(1, &data, region);
+    let me = w.character().unwrap();
+    // Yarrow underfoot, to pick.
+    let at = w.actor(me).unwrap().pos;
+    let yarrow = data.fixtures.iter().position(|f| f.id == "yarrow").unwrap() as u16 + 1;
+    let tile = w.grid.tile(at);
+    w.grid.set_tile(
+        at,
+        dusk_core::Tile {
+            fixture: yarrow,
+            ..tile
+        },
+    );
+    w.intent(me, Intent::Pick);
+    w.step(60);
+    let bare = w.defs.bare;
+    assert_eq!(w.grid.tile(at).fixture, bare, "picked bare");
+
+    let bytes = dusk_gen::save(&w, region, &[]);
+    let mut b = dusk_gen::load(&data, &bytes)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .world;
+    assert_eq!(b.grid.tile(at).fixture, bare);
+    assert_eq!(b.state_hash(), w.state_hash());
+    // Three game days and an hour on, it's back in both.
+    let hour = 60 * w.rules.clock.ticks_per_minute;
+    w.step(3 * 24 * hour + hour);
+    b.step(3 * 24 * hour + hour);
+    assert_eq!(b.grid.tile(at).fixture, yarrow, "grown back");
+    assert_eq!(b.state_hash(), w.state_hash());
+}

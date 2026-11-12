@@ -11,7 +11,7 @@ pub mod noise;
 use dusk_core::save::SaveError;
 use dusk_core::text::TextGrid;
 use dusk_core::{ActorKind, Area, ChunkPos, Edge, Ground, Tile, TilePos, World, geom::CHUNK_SIZE};
-use dusk_data::{Data, FarmsFile, PrefabCell, Region, Side, doors_on};
+use dusk_data::{Data, FarmsFile, Growing, PrefabCell, Region, Side, doors_on};
 
 use noise::{Layer, fractal, hash, unit};
 
@@ -40,6 +40,9 @@ pub struct Lot {
     pub holdout: bool,
     /// What its own dead are, over the region's mix (a graveyard's skeletons).
     pub kind: Option<String>,
+    /// What grows in its yard, and the chance a tile of the yard has one (a barrow's
+    /// feverfew: `forage.rs`).
+    pub grows: Option<(Tile, f32)>,
 }
 
 impl Lot {
@@ -87,6 +90,26 @@ pub struct River {
     pub fords: Vec<i32>,
 }
 
+/// Land this little above a pond's water line (in the land's height, 0 to 1) may be its shore:
+/// only a first sieve, as a hollow can dip near the line with no pond in it.
+const SHORE: f32 = 0.06;
+
+/// The tiles within two steps of one: where a pond must be for a tile to be on its shore.
+const NEAR: [(i32, i32); 12] = [
+    (1, 0),
+    (-1, 0),
+    (0, 1),
+    (0, -1),
+    (1, 1),
+    (1, -1),
+    (-1, 1),
+    (-1, -1),
+    (2, 0),
+    (-2, 0),
+    (0, 2),
+    (0, -2),
+];
+
 /// A patch's large-scale layout: everything decided once, before any chunk is made.
 #[derive(Clone, Debug)]
 pub struct Layout {
@@ -102,6 +125,10 @@ pub struct Layout {
     pub start: TilePos,
     /// A tree, as the data's fixtures have it.
     tree: Tile,
+    /// The region's wild plants (`[plants]`): where each grows, its chance, and its tile; and
+    /// the most a tile on any one ground adds up to, so that most tiles look no further.
+    plants: Vec<(Growing, f32, Tile)>,
+    plants_most: f32,
     /// Its river, if the region has one and there's room for it.
     pub river: Option<River>,
 }
@@ -134,6 +161,23 @@ impl Layout {
                 ..Tile::GRASS
             },
         };
+        let plants: Vec<(Growing, f32, Tile)> = region
+            .plants
+            .iter()
+            .flat_map(|p| &p.kinds)
+            .filter_map(|k| {
+                let i = data.fixtures.iter().position(|f| f.id == k.plant)?;
+                let plant = Tile {
+                    fixture: (i + 1) as u16,
+                    ..Tile::GRASS
+                };
+                Some((k.on, k.chance, plant))
+            })
+            .collect();
+        let on = |g: Growing| -> f32 { plants.iter().filter(|p| p.0 == g).map(|p| p.1).sum() };
+        let plants_most = on(Growing::Open)
+            .max(on(Growing::Woods))
+            .max(on(Growing::Water));
         let mut layout = Layout {
             seed,
             region: region.clone(),
@@ -143,6 +187,8 @@ impl Layout {
             lots: Vec::new(),
             start: TilePos::new(0, 0, 0),
             tree,
+            plants,
+            plants_most,
             river: None,
         };
         let middle = layout.town_middle(data);
@@ -271,6 +317,7 @@ impl Layout {
                     path,
                     holdout: false,
                     kind: prefab.kind.clone(),
+                    grows: prefab.grows,
                 });
                 break;
             }
@@ -327,11 +374,7 @@ impl Layout {
     /// The river at a tile, if it's there: deep water, or shallows (its banks and its fords).
     pub fn river_at(&self, x: i32, y: i32) -> Option<Ground> {
         let r = self.river.as_ref()?;
-        // Smooth noise keeps near its middle: stretched, so the river uses its whole sway.
-        let bend = ((fractal(self.seed, Layer::River, 0.5, y as f32, r.bend) - 0.5) * 4.0)
-            .clamp(-1.0, 1.0);
-        let middle = (r.base + r.sway * bend).round() as i32;
-        let off = (x - middle).abs();
+        let off = (x - self.river_middle(y)?).abs();
         if off > r.half + 1 {
             return None;
         }
@@ -341,6 +384,38 @@ impl Layout {
         } else {
             Ground::Shallows
         })
+    }
+
+    /// Where the river's middle line runs on row `y`: None with no river.
+    fn river_middle(&self, y: i32) -> Option<i32> {
+        let r = self.river.as_ref()?;
+        // Smooth noise keeps near its middle: stretched, so the river uses its whole sway.
+        let bend = ((fractal(self.seed, Layer::River, 0.5, y as f32, r.bend) - 0.5) * 4.0)
+            .clamp(-1.0, 1.0);
+        Some((r.base + r.sway * bend).round() as i32)
+    }
+
+    /// Whether (x, y) is on a riverbank: dry land, a tile or two out from the shallows.
+    fn by_river(&self, x: i32, y: i32) -> bool {
+        let (Some(r), Some(middle)) = (self.river.as_ref(), self.river_middle(y)) else {
+            return false;
+        };
+        let off = (x - middle).abs();
+        off > r.half + 1 && off <= r.half + 3
+    }
+
+    /// Whether (x, y), dry land of `height`, is by the water: a riverbank, or a pond's shore
+    /// (low land, a pond within two steps).
+    fn by_water(&self, x: i32, y: i32, height: f32) -> bool {
+        let t = &self.region.terrain;
+        if self.by_river(x, y) {
+            return true;
+        }
+        height < t.pond_below + SHORE
+            && NEAR.iter().any(|&(dx, dy)| {
+                let (fx, fy) = ((x + dx) as f32, (y + dy) as f32);
+                fractal(self.seed, Layer::Height, fx, fy, t.hill_size) < t.pond_below
+            })
     }
 
     /// The region's holdout, north of the road with its gate at `gate_x`: None if the region
@@ -384,6 +459,7 @@ impl Layout {
             path,
             holdout: true,
             kind: None,
+            grows: prefab.grows,
         })
     }
 
@@ -537,16 +613,19 @@ impl Layout {
                 path,
                 holdout: false,
                 kind: prefab.kind.clone(),
+                grows: prefab.grows,
             });
         }
         lots
     }
 
-    /// The land at a tile, before anything is built on it.
+    /// The land at a tile, before anything is built on it: water, a tree, a wild plant (by
+    /// where it is: in the woods, by the water, else in the open), or grass.
     fn land(&self, x: i32, y: i32) -> Tile {
         let t = &self.region.terrain;
         let (fx, fy) = (x as f32, y as f32);
-        if fractal(self.seed, Layer::Height, fx, fy, t.hill_size) < t.pond_below {
+        let height = fractal(self.seed, Layer::Height, fx, fy, t.hill_size);
+        if height < t.pond_below {
             return Tile {
                 ground: Ground::Water,
                 ..Tile::GRASS
@@ -557,6 +636,26 @@ impl Layout {
         let chance = (t.woods_trees * woods * woods * (3.0 - 2.0 * woods)).max(t.field_trees);
         if unit(self.seed, Layer::Tree, i64::from(x), i64::from(y)) < chance {
             return self.tree;
+        }
+        let roll = unit(self.seed, Layer::Plant, i64::from(x), i64::from(y));
+        if roll < self.plants_most {
+            let on = if woods > 0.0 {
+                Growing::Woods
+            } else if self.by_water(x, y, height) {
+                Growing::Water
+            } else {
+                Growing::Open
+            };
+            let mut left = roll;
+            for &(grows, chance, plant) in &self.plants {
+                if grows != on {
+                    continue;
+                }
+                if left < chance {
+                    return plant;
+                }
+                left -= chance;
+            }
         }
         Tile::GRASS
     }
@@ -603,13 +702,21 @@ impl Layout {
                 ..Tile::GRASS
             };
         }
-        // A yard and its fence line are cleared of trees and water.
-        let near_yard = |l: &Lot| {
+        // A yard and its fence line are cleared of trees and water, and some grow a plant of
+        // their own (a barrow's feverfew).
+        let near_yard = |l: &&Lot| {
             let (x0, y0, x1, y1) = l.yard;
             (x0 - 1..=x1).contains(&x) && (y0 - 1..=y1).contains(&y)
         };
-        if self.lots.iter().any(near_yard) {
-            return Tile::GRASS;
+        if let Some(lot) = self.lots.iter().find(near_yard) {
+            return match lot.grows {
+                Some((plant, chance))
+                    if unit(self.seed, Layer::Plant, i64::from(x), i64::from(y)) < chance =>
+                {
+                    plant
+                }
+                _ => Tile::GRASS,
+            };
         }
         self.land(x, y)
     }

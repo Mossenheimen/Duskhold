@@ -123,6 +123,9 @@ pub enum Intent {
     Heal,
     /// Ward the shut door beside you with faith (a talent, Warding): the dead won't beat on it.
     Ward,
+    /// Pick the wild plant beside you (`forage.rs`): the one you face, else the one you stand
+    /// on, else the first round you.
+    Pick,
 }
 
 impl Intent {
@@ -247,6 +250,10 @@ pub enum ActionKind {
     Heal,
     /// Warding the door on the action's side.
     Ward,
+    /// Picking the plant on `at`.
+    Pick {
+        at: TilePos,
+    },
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,

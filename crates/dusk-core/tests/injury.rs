@@ -27,7 +27,10 @@ fn field() -> (World, ActorId) {
             name: "bandage".into(),
             weight: 100,
             stack: 10,
-            kind: ItemKind::Bandage { time: 10 },
+            kind: ItemKind::Bandage {
+                time: 10,
+                salve: 1000,
+            },
             worth: 0,
         }],
         kit: vec![Item::new(BANDAGE, 4)],

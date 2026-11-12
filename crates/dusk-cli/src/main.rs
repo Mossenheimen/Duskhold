@@ -157,6 +157,32 @@ fn gen_patch(args: &[String]) {
         xp / 1000,
         grams as f64 / 1000.0
     );
+    // The wild plants, by kind: "212 wild plants (96 yarrow, 41 chamomile, 63 bramble, 12 feverfew)".
+    let mut plants = vec![0usize; data.fixtures.len() + 1];
+    let mut nearest_plant: Vec<Option<TilePos>> = vec![None; data.fixtures.len() + 1];
+    for y in 0..layout.height {
+        for x in 0..layout.width {
+            let at = TilePos::new(x, y, 0);
+            if world.plant_at(at).is_some() {
+                let f = usize::from(world.grid.tile(at).fixture);
+                plants[f] += 1;
+                let from = |p: TilePos| p.dist2(layout.start);
+                if nearest_plant[f].is_none_or(|n| from(at) < from(n)) {
+                    nearest_plant[f] = Some(at);
+                }
+            }
+        }
+    }
+    let kinds: Vec<String> = plants
+        .iter()
+        .enumerate()
+        .filter(|&(_, &n)| n > 0)
+        .map(|(f, n)| format!("{n} {}", data.fixtures[f - 1].id))
+        .collect();
+    if !kinds.is_empty() {
+        let total: usize = plants.iter().sum();
+        println!("  {total} wild plants ({})", kinds.join(", "));
+    }
     // The magic in it, told as if known: in containers, and on the rares.
     let mut magic: Vec<String> = Vec::new();
     for y in 0..layout.height {
@@ -218,6 +244,13 @@ fn gen_patch(args: &[String]) {
                 a.pos.x,
                 a.pos.y
             );
+        }
+    }
+    // And of each wild plant: somewhere to forage.
+    for (f, at) in nearest_plant.iter().enumerate() {
+        if let Some(at) = at {
+            let plant = &data.fixtures[f - 1].id;
+            println!("  the nearest {plant}: at ({}, {})", at.x, at.y);
         }
     }
     for lot in &layout.lots {
@@ -720,6 +753,18 @@ fn describe(w: &World, e: Event) -> String {
                 at.x, at.y
             )
         }
+        Event::Picked {
+            who,
+            at,
+            item,
+            count,
+        } => format!(
+            "{} picked {count} of item {item} at ({}, {})",
+            name(who),
+            at.x,
+            at.y
+        ),
+        Event::Regrew { at } => format!("the plant at ({}, {}) grew back", at.x, at.y),
     }
 }
 

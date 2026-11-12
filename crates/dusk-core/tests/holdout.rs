@@ -67,7 +67,14 @@ fn defs() -> Defs {
     Defs {
         items: vec![
             item("coins", 1000, ItemKind::Other),
-            item("bandage", 3000, ItemKind::Bandage { time: 10 }),
+            item(
+                "bandage",
+                3000,
+                ItemKind::Bandage {
+                    time: 10,
+                    salve: 1000,
+                },
+            ),
             item("tincture", 15_000, ItemKind::Cure { time: 10 }),
             item(
                 "apple",

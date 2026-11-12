@@ -19,6 +19,7 @@ tags = ["graveyard"]
 front = "south"
 dead = [3, 6]
 kind = "skeleton"
+grows = { plant = "feverfew", chance = 0.03 }  # along the graveyard's fence
 grid = """
 +f+f+f+f+f+f+f+f+f+f+f+f+f+
 f, g , g , T : T , g , g ,f

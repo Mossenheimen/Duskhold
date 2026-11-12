@@ -26,7 +26,13 @@ fn defs() -> Defs {
     };
     Defs {
         items: vec![
-            item("bandage", ItemKind::Bandage { time: 10 }),
+            item(
+                "bandage",
+                ItemKind::Bandage {
+                    time: 10,
+                    salve: 1000,
+                },
+            ),
             item("torch", ItemKind::Light { radius: 6, wane: 4 }),
         ],
         kit: vec![Item::new(BANDAGE, 4), Item::new(TORCH, 1)],

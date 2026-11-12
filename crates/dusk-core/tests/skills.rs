@@ -45,7 +45,15 @@ fn defs() -> Defs {
                     skill: Some(Skill::Blunt),
                 },
             ),
-            item("bandage", 100, 10, ItemKind::Bandage { time: 40 }),
+            item(
+                "bandage",
+                100,
+                10,
+                ItemKind::Bandage {
+                    time: 40,
+                    salve: 1000,
+                },
+            ),
             item("anvil", 8000, 1, ItemKind::Other),
         ],
         wield: Some(CLUB),

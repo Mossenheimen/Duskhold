@@ -5,8 +5,8 @@
 //!   on one that's down); running with one of the dead after you, or under a heavy load, trains
 //!   Athletics; a bandage on a wound that's bleeding trains First Aid; a board nailed across a
 //!   door or window trains Carpentry; each of the dead turned, and a bleeding wound mended with
-//!   faith, trains Devotion. A swing at the air or at a door, or a run with nothing after you,
-//!   teaches nothing. Bare fists train no skill.
+//!   faith, trains Devotion; a wild plant picked trains Foraging. A swing at the air or at a
+//!   door, or a run with nothing after you, teaches nothing. Bare fists train no skill.
 //! - **Repeats pay less:** the same act on the same foe, or in the same spot, pays `repeat` of
 //!   what it paid the time before, until it's been left alone for `forget` ticks. One of the dead
 //!   stuck in a fence is worth a few blows, not a level; running round in circles, a few laps.
@@ -18,7 +18,8 @@
 //!   less breath and less wear on the weapon; Athletics runs faster for less breath; First Aid
 //!   bandages faster; Carpentry boards up faster, with stronger boards; Stealth sneaks faster,
 //!   and its sneak attacks do more harm (`stealth.rs`); Cooking cooks faster (`cooking.rs`);
-//!   Devotion turns the dead for longer, and makes faith go further (`faith.rs`).
+//!   Devotion turns the dead for longer, and makes faith go further (`faith.rs`); Foraging
+//!   finds one more of a herb more often (`forage.rs`).
 
 use crate::actor::{ActorId, ActorKind};
 use crate::geom::{Dir8, TilePos};
@@ -46,10 +47,12 @@ pub enum Skill {
     Cooking,
     /// The Cleric's: turning the dead and mending wounds with faith (`faith.rs`).
     Devotion,
+    /// Picking wild plants (`forage.rs`).
+    Foraging,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 12;
+pub const SKILLS: usize = 13;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -65,6 +68,7 @@ impl Skill {
         Skill::Archery,
         Skill::Cooking,
         Skill::Devotion,
+        Skill::Foraging,
     ];
 
     pub fn name(self) -> &'static str {
@@ -81,6 +85,7 @@ impl Skill {
             Skill::Archery => "Archery",
             Skill::Cooking => "Cooking",
             Skill::Devotion => "Devotion",
+            Skill::Foraging => "Foraging",
         }
     }
 
@@ -99,6 +104,7 @@ impl Skill {
             Skill::Archery => "archery",
             Skill::Cooking => "cooking",
             Skill::Devotion => "devotion",
+            Skill::Foraging => "foraging",
         }
     }
 
@@ -178,6 +184,10 @@ pub struct SkillRules {
     pub mend: u32,
     pub devotion_turn: u32,
     pub devotion_cost: u32,
+    /// Foraging (`forage.rs`): XP for a plant picked; and a level adds `forage_more` per mille
+    /// to the chance of one more of its herb.
+    pub pick: u32,
+    pub forage_more: u32,
 }
 
 impl Default for SkillRules {
@@ -221,6 +231,8 @@ impl Default for SkillRules {
             mend: 3000,
             devotion_turn: 100,
             devotion_cost: 40,
+            pick: 1000,
+            forage_more: 100,
         }
     }
 }
@@ -593,5 +605,10 @@ impl SkillRules {
     /// What an act of faith costs at a level of Devotion (thousandths of a point).
     pub fn faith_cost(&self, cost: i32, level: u8) -> i32 {
         by_level(i64::from(cost), self.devotion_cost, level, false) as i32
+    }
+
+    /// The chance, per mille, of one more of a herb picked at a level of Foraging.
+    pub fn forage_more(&self, level: u8) -> u32 {
+        (u32::from(level) * self.forage_more).min(1000)
     }
 }

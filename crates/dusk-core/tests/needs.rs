@@ -39,6 +39,7 @@ fn defs() -> Defs {
                 ItemKind::Drink {
                     water: 50_000,
                     time: 20,
+                    comfort: 0,
                 },
             ),
         ],

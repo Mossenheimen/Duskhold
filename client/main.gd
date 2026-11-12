@@ -13,8 +13,8 @@ extends Node3D
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
-## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M)
-## S real seconds in;
+## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
+## pick (the wild plant beside you: Y) S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
@@ -139,6 +139,8 @@ const CONSECRATED := 93
 const HEALED := 94
 const WARDED := 95
 const WARD_FADED := 96
+const PICKED := 97
+const REGREW := 98
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -151,7 +153,12 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
 	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
 	37: "Butchering it", 38: "Holding up the holy symbol", 39: "Praying", 40: "Consecrating it",
-	41: "Mending the wound", 42: "Warding the door"}
+	41: "Mending the wound", 42: "Warding the door", 43: "Picking it"}
+## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
+const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
+	"chamomile": "Chamomile grows here: steeped at a fire, its tea calms",
+	"bramble": "A bramble, black with berries",
+	"feverfew": "Feverfew grows here, where the dead lie: brewed at a fire, it cures the fever"}
 ## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
 const RISEN_BODY := 3
 ## A light, by DuskWorld.item_kinds().
@@ -240,6 +247,7 @@ var restart_asked := -100.0  # when R last asked "abandon this world?", in secon
 var class_wanted := ""  # --class: the class a trial run's survivors take up
 var choosing_class := false  # the game waits, paused, for a class to be chosen
 var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
+var plants_told := {}  # the wild plants the news has named, by fixture number
 
 
 func _ready() -> void:
@@ -409,6 +417,7 @@ func _process(delta: float) -> void:
 	hud.show_faith(dusk.faith())
 	hud.show_deeds(dusk.character_deeds())
 	_mind_the_ground()
+	_mind_the_plants()
 	var doing := _my_action()
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
@@ -488,6 +497,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_hallow()
 	elif event.is_action_pressed("mend") and not dead:
 		_mend()
+	elif event.is_action_pressed("pick") and not dead:
+		_pick()
 	elif event.is_action_pressed("unboard") and not dead:
 		_pry_board()
 	elif event.is_action_pressed("tend_fire") and not dead:
@@ -651,6 +662,19 @@ func _mind_the_ground() -> void:
 		hud.say("You leave hallowed ground.")
 
 
+## Beside a wild plant: the first time of each kind, what it's good for, and Y.
+func _mind_the_plants() -> void:
+	if dead:
+		return
+	var f: int = dusk.pick_check()
+	if f <= 0 or plants_told.has(f):
+		return
+	plants_told[f] = true
+	var names: PackedStringArray = dusk.fixture_names()
+	var plant: String = names[f] if f < names.size() else ""
+	hud.say("%s. Y to pick it." % PLANT_TOLD.get(plant, "Something grows here"))
+
+
 ## G: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside
 ## you and set it alight from the light you hold up.
 func _burn_body() -> void:
@@ -761,6 +785,15 @@ func _mend() -> void:
 			hud.say("Not enough faith to mend it. Pray at an altar (P).")
 		_:
 			hud.say("No mending: it takes the talent (a Cleric's, K).")
+
+
+## Y: pick the wild plant beside you: the one you face, else the one you stand on, else the
+## first round you.
+func _pick() -> void:
+	if dusk.pick_check() > 0:
+		dusk.pick()
+	else:
+		hud.say("Nothing to pick beside you. Wild plants grow in the open, in the woods and by the water.")
 
 
 ## H: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
@@ -1152,6 +1185,16 @@ func _read_events() -> void:
 			WARDED:
 				if who == me:
 					hud.say("You ward the door. The dead won't beat on it tonight.")
+			PICKED:
+				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
+				if who == me:
+					var picked := extra / 65536
+					if picked > 0:
+						hud.say("You pick it: %s ×%d." % [_item_name(extra % 65536), picked])
+					else:
+						hud.say("You pick it over, and find nothing worth taking.")
+			REGREW:
+				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
 			WARD_FADED:
 				if _near(events[i + 3], events[i + 4], 16.0):
 					hud.say("The ward on the door has faded.")
@@ -1642,6 +1685,7 @@ func _add_input_actions() -> void:
 		"pray": [KEY_P],
 		"hallow": [KEY_O],
 		"mend": [KEY_M],
+		"pick": [KEY_Y],
 		"unboard": [KEY_N],
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
@@ -1807,6 +1851,8 @@ func _run_script() -> void:
 				_hallow()
 			"mend":
 				_mend()
+			"pick":  # Y: the wild plant beside you
+				_pick()
 			"next":  # after a death, the next survivor
 				_next_survivor()
 

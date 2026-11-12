@@ -147,6 +147,8 @@ const CONSECRATED: i32 = 93;
 const HEALED: i32 = 94;
 const WARDED: i32 = 95;
 const WARD_FADED: i32 = 96;
+const PICKED: i32 = 97;
+const REGREW: i32 = 98;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -477,6 +479,20 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             side: s,
         } => (WARDED, Some(who), None, (p.x, p.y), side(s)),
         Event::WardFaded { at: p, side: s } => (WARD_FADED, None, None, (p.x, p.y), side(s)),
+        // So many of the item, as butchering's: count × 65536 + item.
+        Event::Picked {
+            who,
+            at: p,
+            item,
+            count,
+        } => (
+            PICKED,
+            Some(who),
+            None,
+            (p.x, p.y),
+            i32::from(count) * 65536 + i32::from(item),
+        ),
+        Event::Regrew { at: p } => (REGREW, None, None, (p.x, p.y), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1289,6 +1305,7 @@ impl DuskWorld {
                         ActionKind::Consecrate { .. } => 40,
                         ActionKind::Heal => 41,
                         ActionKind::Ward => 42,
+                        ActionKind::Pick { .. } => 43,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1748,6 +1765,25 @@ impl DuskWorld {
     #[func]
     fn butcher(&mut self) {
         self.act(Intent::Butcher);
+    }
+
+    /// The wild plant you'd pick now (`forage.rs`): its fixture number (a name in
+    /// `fixture_names()`), or -1 with none beside you.
+    #[func]
+    fn pick_check(&self) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        world
+            .character()
+            .and_then(|me| world.plant_beside(me))
+            .map_or(-1, |at| i32::from(world.grid.tile(at).fixture))
+    }
+
+    /// Picks the wild plant beside you (see `pick_check`).
+    #[func]
+    fn pick(&mut self) {
+        self.act(Intent::Pick);
     }
 
     /// Whether you can burn a body now: the body's index in the actor arrays, or why not: -1 no

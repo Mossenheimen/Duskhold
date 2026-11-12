@@ -52,6 +52,9 @@ struct XpFile {
     turn: f64,
     #[serde(default)]
     mend: f64,
+    /// Foraging's: a wild plant picked (left out: none).
+    #[serde(default)]
+    pick: f64,
 }
 
 /// What a level does, as a share a level.
@@ -83,6 +86,9 @@ struct LevelFile {
     devotion_turn: f64,
     #[serde(default)]
     devotion_cost: f64,
+    /// Foraging: one more of a herb picked, more often (left out: never).
+    #[serde(default)]
+    forage_more: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -196,5 +202,7 @@ pub(crate) fn to_skills(
         mend: xp(x.mend.max(0.0)),
         devotion_turn: mille(l.devotion_turn.clamp(0.0, 1.0)),
         devotion_cost: mille(l.devotion_cost.clamp(0.0, 0.1)),
+        pick: xp(x.pick.max(0.0)),
+        forage_more: mille(l.forage_more.clamp(0.0, 0.2)),
     })
 }

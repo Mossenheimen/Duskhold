@@ -87,3 +87,31 @@ tools = ["hammer"]
 time = 12.0
 skill = "carpentry"
 xp = 2.0
+
+# Herbal remedies (crates/dusk-core/src/forage.rs), from what grows wild.
+
+[[recipe]]
+id = "yarrow_poultice"  # yarrow crushed into a rag: a dressing that heals as it binds
+makes = "yarrow_poultice"
+uses = { yarrow = 2, rag = 1 }
+time = 4.0
+skill = "first_aid"
+xp = 0.5
+
+[[recipe]]
+id = "chamomile_tea"    # steeped in the bottle by the fire: it calms
+makes = "chamomile_tea"
+uses = { chamomile = 2, water = 1 }
+fire = true
+time = 10.0
+skill = "cooking"
+xp = 0.5
+
+[[recipe]]
+id = "feverfew_tincture"  # feverfew steeped and boiled down: the fever's cure, by your own hand
+makes = "tincture"
+uses = { feverfew = 3, water = 1 }
+fire = true
+time = 30.0
+skill = "cooking"
+xp = 1.0

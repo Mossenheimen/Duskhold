@@ -1,0 +1,51 @@
+# Herbs and what's made of them (crates/dusk-core/src/forage.rs): picked from wild plants
+# (fixtures.toml's forage, Y), and made into remedies (recipes.toml). Picked, they're yours, not
+# finds: they bring no XP home, though the abbey buys them.
+
+[[item]]
+id = "yarrow"
+name = "sprig of yarrow"
+weight = 0.03
+worth = 0.5
+stack = 20
+
+[[item]]
+id = "chamomile"
+name = "chamomile flowers"
+weight = 0.02
+worth = 0.5
+stack = 20
+
+[[item]]
+id = "feverfew"
+name = "feverfew"
+weight = 0.03
+worth = 2             # it grows only where the dead lie
+stack = 20
+
+[[item]]
+id = "blackberries"
+name = "handful of blackberries"
+weight = 0.1
+worth = 0.2
+stack = 10
+food = { nutrition = 5, time = 1.0, comfort = 2, keeps = 3 }
+
+# The remedies.
+
+[[item]]
+id = "yarrow_poultice"
+name = "yarrow poultice"
+weight = 0.15
+worth = 2
+stack = 5
+bandage = { time = 4.0, salve = 0.5 }   # it dresses the wound, which then closes in half the time
+                                        # it had left, and hurts half as much meanwhile
+
+[[item]]
+id = "chamomile_tea"
+name = "bottle of chamomile tea"
+weight = 0.6
+worth = 3
+stack = 4
+drink = { water = 35, time = 3.0, comfort = 20 }   # comfort: points of dread it takes away

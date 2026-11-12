@@ -6,7 +6,7 @@ extends CanvasLayer
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
 
-const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  right-click shoot (bow)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G butcher a beast or burn a body  ·  O consecrate a body (at a shut door: ward it)  ·  P pray at an altar  ·  C second wind  ·  U turn the dead  ·  M mend\nTab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
+const CONTROLS := "WASD walk  ·  Shift run  ·  Ctrl sneak  ·  Alt brace (shield)  ·  right-click shoot (bow)  ·  click: walk there (on one of the dead beside you: swing)  ·  F swing  ·  Q shove  ·  E door\nB board up  ·  N pry a board off  ·  H tend a fire  ·  J put it out  ·  G butcher a beast or burn a body  ·  O consecrate a body (at a shut door: ward it)  ·  P pray at an altar  ·  C second wind  ·  U turn the dead  ·  M mend  ·  Y pick a plant\nTab pack  ·  K skills and talents  ·  T make things  ·  Z sleep  ·  X drink water  ·  L light  ·  Space pause  ·  1 2 3 speed  ·  wheel zoom  ·  V low walls  ·  F5 save  ·  R new world (dead: the next survivor)  ·  Esc save and quit"
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  orange, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
@@ -160,7 +160,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: the Cleric\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: herbs and foraging\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

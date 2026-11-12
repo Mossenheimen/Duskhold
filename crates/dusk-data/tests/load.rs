@@ -1539,3 +1539,100 @@ fn a_class_must_make_sense_of_its_faith_and_its_kit() {
         "no item called",
     );
 }
+
+#[test]
+fn herbs_grow_wild_and_make_remedies_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    // Each plant gives its herb, and grows back in days.
+    let herbs = [
+        ("yarrow", "yarrow"),
+        ("chamomile", "chamomile"),
+        ("bramble", "blackberries"),
+        ("feverfew", "feverfew"),
+    ];
+    for (plant, herb) in herbs {
+        let p = d.plants[fixture(plant)].unwrap_or_else(|| panic!("{plant} is a plant"));
+        assert_eq!(p.item, item(herb), "{plant}");
+        assert!(p.regrow > 0 && p.count.1 > 0, "{plant}");
+    }
+    assert_eq!(usize::from(d.bare), fixture("picked_plant"));
+    assert!(
+        d.plants[usize::from(d.bare)].is_none(),
+        "nothing to pick on one picked bare"
+    );
+    // The remedies: a poultice heals as it binds, a tea calms, feverfew brews into the cure.
+    let kind = |id: &str| &d.items[usize::from(item(id))].kind;
+    assert!(
+        matches!(kind("yarrow_poultice"), dusk_core::ItemKind::Bandage { salve, .. } if *salve < 1000)
+    );
+    assert!(
+        matches!(kind("chamomile_tea"), dusk_core::ItemKind::Drink { comfort, .. } if *comfort > 0)
+    );
+    assert!(matches!(kind("tincture"), dusk_core::ItemKind::Cure { .. }));
+    let recipe = |id: &str| d.recipes.iter().find(|r| r.id == id).unwrap();
+    let poultice = recipe("yarrow_poultice");
+    assert!(
+        poultice.uses.contains(&(item("yarrow"), 2)) && poultice.uses.contains(&(item("rag"), 1))
+    );
+    assert!(recipe("chamomile_tea").fire);
+    let tincture = recipe("feverfew_tincture");
+    assert!(tincture.fire && tincture.uses.contains(&(item("feverfew"), 3)));
+    assert_eq!(tincture.makes.0, item("tincture"));
+    // Feverfew only where the dead lie: the region doesn't grow it wild; the barrows and the
+    // graveyard grow it round them.
+    let region = data.region("hushlands").unwrap();
+    let wild = &region
+        .plants
+        .as_ref()
+        .expect("the Hushlands grow wild plants")
+        .kinds;
+    assert!(wild.iter().all(|k| k.plant != "feverfew"));
+    for prefab in ["barrow", "graveyard"] {
+        let p = data.prefabs.iter().find(|p| p.id == prefab).unwrap();
+        let (plant, _) = p.grows.expect("feverfew grows round it");
+        assert_eq!(usize::from(plant.fixture), fixture("feverfew"), "{prefab}");
+    }
+    assert!(data.rules.skills.pick > 0, "picking teaches Foraging");
+}
+
+#[test]
+fn plants_load_in_the_cores_units_and_nonsense_is_refused() {
+    const HERB: &str =
+        "[[item]]\nid = \"herb\"\nname = \"herb\"\nweight = 0.1\nworth = 0\nstack = 5\n";
+    let plants = |extra: &str| {
+        format!(
+            "{FIXTURES}[[fixture]]\nid = \"herb_plant\"\n\
+             forage = {{ item = \"herb\", count = [1, 2], regrow = 2.0 }}\n{extra}\
+             [[fixture]]\nid = \"stalks\"\n"
+        )
+    };
+    let foraging = format!("{RULES}\n[foraging]\npick = 2.0\nbare = \"stalks\"\n");
+    let run = |name: &str, fixtures: &str, rules: &str| {
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "rules.toml" && *path != "fixtures.toml");
+        files.push(("rules.toml", rules));
+        files.push(("fixtures.toml", fixtures));
+        files.push(("items/herbs.toml", HERB));
+        load(&folder(name, &files))
+    };
+    let data = run("plants", &plants(""), &foraging).unwrap_or_else(|e| panic!("{e}"));
+    let n = data
+        .fixtures
+        .iter()
+        .position(|f| f.id == "herb_plant")
+        .unwrap()
+        + 1;
+    let p = data.defs.plants[n].expect("a plant");
+    let day = 24 * 60 * u64::from(data.rules.clock.ticks_per_minute);
+    assert_eq!((p.item, p.count, p.regrow), (0, (1, 2), 2 * day));
+    assert_eq!(usize::from(data.defs.bare), n + 1, "the stalks");
+    assert_eq!(data.rules.forage.pick, 20, "two seconds");
+
+    let err = run("plants-no-rules", &plants(""), RULES).unwrap_err();
+    assert!(err.message.contains("needs [foraging]"), "{err}");
+    let err = run("plants-solid", &plants("solid = true\n"), &foraging).unwrap_err();
+    assert!(err.message.contains("walked through"), "{err}");
+}

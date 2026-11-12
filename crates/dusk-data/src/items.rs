@@ -158,10 +158,18 @@ fn shield(file: &Path, id: &str, s: &ShieldFile) -> Result<ItemKind, DataError> 
     }))
 }
 
+/// A bandage: seconds to put it on, and with a salve (a poultice), the share of the wound's
+/// healing it leaves (left out: 1, a plain bandage).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BandageFile {
     time: f64,
+    #[serde(default = "plain")]
+    salve: f64,
+}
+
+fn plain() -> f64 {
+    1.0
 }
 
 /// The cure for ghoul fever: seconds to take it.
@@ -185,12 +193,15 @@ struct FoodFile {
     keeps: f64,
 }
 
-/// Drink: the thirst it takes away and seconds to drink it.
+/// Drink: the thirst it takes away and seconds to drink it; and the dread it takes away
+/// (points: a tea's; left out: none).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DrinkFile {
     water: f64,
     time: f64,
+    #[serde(default)]
+    comfort: f64,
 }
 
 /// A light: the tiles it lights round it, and the game hours it burns.
@@ -388,8 +399,18 @@ pub(crate) fn load_defs(
                 weapon(&file, &i.id, w)?
             } else if let Some(b) = &i.bandage {
                 let time = ticks(&file, &format!("item {:?}: bandage.time", i.id), b.time)?;
+                if !(b.salve > 0.0 && b.salve <= 1.0) {
+                    return Err(fail(
+                        &file,
+                        format!(
+                            "item {:?}: bandage.salve is the share of the healing left, above 0 and at most 1",
+                            i.id
+                        ),
+                    ));
+                }
                 ItemKind::Bandage {
                     time: (time as u32).max(1),
+                    salve: (b.salve * 1000.0).round() as u16,
                 }
             } else if let Some(f) = &i.food {
                 let (nutrition, time) = eaten(&file, &i.id, "food", f.nutrition, f.time)?;
@@ -416,7 +437,17 @@ pub(crate) fn load_defs(
                 }
             } else if let Some(d) = &i.drink {
                 let (water, time) = eaten(&file, &i.id, "drink", d.water, d.time)?;
-                ItemKind::Drink { water, time }
+                if !(-100.0..=100.0).contains(&d.comfort) {
+                    return Err(fail(
+                        &file,
+                        format!("item {:?}: drink.comfort is points from -100 to 100", i.id),
+                    ));
+                }
+                ItemKind::Drink {
+                    water,
+                    time,
+                    comfort: (d.comfort * 1000.0).round() as i32,
+                }
             } else if let Some(l) = &i.light {
                 light(&file, &i.id, l)?
             } else if let Some(c) = &i.cure {
@@ -564,6 +595,9 @@ pub(crate) fn load_defs(
         shrines: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.shrine))
             .collect(),
+        // Filled in by the loader, from the fixtures' forage and rules.toml's [foraging].
+        plants: Vec::new(),
+        bare: 0,
         hearths: std::iter::once(0)
             .chain(fixtures.iter().map(|f| f.fire))
             .collect(),

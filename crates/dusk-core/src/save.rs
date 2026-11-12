@@ -33,7 +33,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 23;
+pub const VERSION: u32 = 24;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -68,6 +68,8 @@ struct State {
     hearths: BTreeMap<TilePos, Hearth>,
     /// The doors warded against the dead, and when each ward fades.
     wards: BTreeMap<(TilePos, Dir8), u64>,
+    /// The plants picked bare, what each grows back as, and when.
+    regrowing: BTreeMap<TilePos, (u16, u64)>,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     memory: Vec<u8>,
@@ -161,6 +163,7 @@ impl World {
             claimed: self.claimed.clone(),
             hearths: self.hearths.clone(),
             wards: self.wards.clone(),
+            regrowing: self.regrowing.clone(),
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -193,6 +196,7 @@ impl World {
         self.claimed = state.claimed;
         self.hearths = state.hearths;
         self.wards = state.wards;
+        self.regrowing = state.regrowing;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }

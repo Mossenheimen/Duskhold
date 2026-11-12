@@ -44,7 +44,15 @@ fn defs() -> Defs {
                     skill: None,
                 },
             ),
-            item("bandage", 100, 10, ItemKind::Bandage { time: 20 }),
+            item(
+                "bandage",
+                100,
+                10,
+                ItemKind::Bandage {
+                    time: 20,
+                    salve: 1000,
+                },
+            ),
             item(
                 "bread",
                 300,

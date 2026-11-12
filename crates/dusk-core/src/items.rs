@@ -56,8 +56,10 @@ pub enum ItemKind {
         wear: u16,
         skill: Option<Skill>,
     },
-    /// Put on a bleeding wound, it stops the bleeding: `time` ticks to put on.
-    Bandage { time: u32 },
+    /// Put on a bleeding wound, it stops the bleeding: `time` ticks to put on. A poultice has a
+    /// salve: the wound it dresses keeps only `salve` per mille of the healing it has left, so
+    /// it closes sooner and hurts the less for it (1000: a plain bandage; `forage.rs`).
+    Bandage { time: u32, salve: u16 },
     /// Eaten: hunger falls by `nutrition` (thousandths of a point), and dread by `comfort`
     /// (less than none: it rises); `time` ticks to eat. It loses `spoils` of its condition a
     /// game hour, and at none it's gone (0: it keeps: `cooking.rs`).
@@ -67,8 +69,9 @@ pub enum ItemKind {
         comfort: i32,
         spoils: u16,
     },
-    /// Drunk: thirst falls by `water`; `time` ticks to drink.
-    Drink { water: i32, time: u32 },
+    /// Drunk: thirst falls by `water`, and dread by `comfort` (a tea: `forage.rs`); `time`
+    /// ticks to drink.
+    Drink { water: i32, time: u32, comfort: i32 },
     /// Taken with ghoul fever, it cures it, at any stage (`fever.rs`): `time` ticks to take.
     Cure { time: u32 },
     /// Held up lit (`light.rs`): it lights `radius` tiles round it, and loses `wane` of its
@@ -133,6 +136,11 @@ pub struct Defs {
     pub wells: Vec<bool>,
     /// By fixture number: whether it's a shrine to pray at (an altar: `faith.rs`).
     pub shrines: Vec<bool>,
+    /// By fixture number: the wild plant it is, to pick (`forage.rs`; None for a fixture that
+    /// isn't one); and the fixture a plant becomes once it's picked bare (0: none, the tile's
+    /// left clear).
+    pub plants: Vec<Option<crate::forage::Plant>>,
+    pub bare: u16,
     /// By fixture number: how far a fire in it lights, in tiles (0: it takes no fire:
     /// `fire.rs`). And what burns in one, with the game minutes each piece burns, the
     /// longest-burning first.
@@ -194,6 +202,8 @@ impl Default for Defs {
             beds: Vec::new(),
             wells: Vec::new(),
             shrines: Vec::new(),
+            plants: Vec::new(),
+            bare: 0,
             hearths: Vec::new(),
             fuel: Vec::new(),
             recipes: Vec::new(),
@@ -639,7 +649,7 @@ impl World {
         }
         let mut bled = false;
         let event = match defs.item(def).map(|d| &d.kind) {
-            Some(ItemKind::Bandage { .. }) => {
+            Some(ItemKind::Bandage { salve, .. }) => {
                 let wounds = &mut a.body.wounds;
                 let worst = |bleeding: bool| {
                     wounds
@@ -656,6 +666,9 @@ impl World {
                 bled = wound.bleeding > 0;
                 wound.bleeding = 0;
                 wound.bandaged = true;
+                // A poultice's salve: the wound closes sooner, and hurts the less for it.
+                let left = u64::from(wound.heal_left) * u64::from((*salve).min(1000)) / 1000;
+                wound.heal_left = left as u32;
                 Event::Bandaged {
                     who: id,
                     part: wound.part,
@@ -668,8 +681,9 @@ impl World {
                 a.body.dread = (a.body.dread - comfort).clamp(0, 100_000);
                 Event::Ate { who: id, item: def }
             }
-            Some(ItemKind::Drink { water, .. }) => {
+            Some(ItemKind::Drink { water, comfort, .. }) => {
                 a.body.thirst = (a.body.thirst - water).max(0);
+                a.body.dread = (a.body.dread - comfort).clamp(0, 100_000);
                 Event::Drank { who: id, item: def }
             }
             Some(ItemKind::Cure { .. }) => {
@@ -702,7 +716,7 @@ impl World {
             (false, ItemKind::Weapon { .. } | ItemKind::Shield(_) | ItemKind::Bow(_)) => {
                 Some(self.defs.wield_time)
             }
-            (true, ItemKind::Bandage { time }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
+            (true, ItemKind::Bandage { time, .. }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
                 let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
                 Some(self.rules.skills.bandage(*time, level))
             }

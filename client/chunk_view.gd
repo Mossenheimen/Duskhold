@@ -49,6 +49,17 @@ const SURFACES := {
 const TRUNK := Color(0.3, 0.23, 0.17)
 const LEAVES := Color(0.24, 0.33, 0.21)
 
+## Wild plants (fixtures.toml's forage), by fixture id: a low clump of leaves (how wide, how tall,
+## its green) and, on the herbs in flower, a flat cap of flowers (its colour, or null).
+## "picked_plant" is one picked bare.
+const PLANTS := {
+	"yarrow": [0.68, 0.52, Color(0.42, 0.5, 0.36), Color(0.93, 0.93, 0.87)],  # flat white flower heads
+	"chamomile": [0.62, 0.4, Color(0.45, 0.56, 0.35), Color(0.96, 0.93, 0.68)],  # small daisies
+	"feverfew": [0.62, 0.5, Color(0.4, 0.48, 0.3), Color(0.94, 0.88, 0.42)],  # yellow-white
+	"bramble": [1.0, 0.8, Color(0.17, 0.23, 0.16), null],  # a dark, thorny tangle
+	"picked_plant": [0.42, 0.22, Color(0.46, 0.41, 0.27), null],  # stalks, picked bare
+}
+
 ## How furniture looks, by fixture id: its size (x, height, z) and colour. Anything not listed is
 ## a plain crate-sized box; "tree" is drawn as a tree.
 const FURNITURE := {
@@ -254,6 +265,10 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 	var boxes: Array[Transform3D] = []
 	var box_colours := PackedColorArray()
 	var box_surfaces := PackedFloat32Array()
+	var clumps: Array[Transform3D] = []
+	var clump_colours := PackedColorArray()
+	var flowers: Array[Transform3D] = []
+	var flower_colours := PackedColorArray()
 	for y in size:
 		for x in size:
 			var fixture := tiles[y * size + x] >> 4
@@ -271,6 +286,16 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 				var crown := Basis.from_euler(Vector3(0, shade * 40.0, 0)).scaled(Vector3(grow, grow, grow))
 				crowns.append(Transform3D(crown, centre + Vector3(0, 1.9 * grow, 0)))
 				crown_colours.append(LEAVES.lightened(shade * 2.5).srgb_to_linear())
+			elif PLANTS.has(names[fixture]):
+				# A low clump, a little wider or narrower from tile to tile, and its flowers on top.
+				var plant: Array = PLANTS[names[fixture]]
+				var wide: float = plant[0] * (0.85 + shade * 3.0)
+				var tall: float = plant[1]
+				clumps.append(Transform3D(Basis.from_scale(Vector3(wide, tall, wide)), centre + Vector3(0, tall * 0.45, 0)))
+				clump_colours.append((plant[2] as Color).darkened(shade).srgb_to_linear())
+				if plant[3] != null:
+					flowers.append(Transform3D(Basis.from_scale(Vector3(wide * 0.5, 0.08, wide * 0.5)), centre + Vector3(0, tall * 0.92, 0)))
+					flower_colours.append((plant[3] as Color).srgb_to_linear())
 			else:
 				var look: Array = FURNITURE.get(names[fixture], [Vector3(0.75, 0.7, 0.75), Color(0.5, 0.39, 0.25)])
 				var box: Vector3 = look[0]
@@ -299,6 +324,23 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 		_add_cut_away(_fixtures, leaves, crowns, crown_colours, leafy)
 	if not boxes.is_empty():
 		_add_cut_away(_fixtures, BoxMesh.new(), boxes, box_colours, box_surfaces)
+	if not clumps.is_empty():
+		var clump := SphereMesh.new()
+		clump.radius = 0.5
+		clump.height = 1.0
+		clump.radial_segments = 6
+		clump.rings = 3
+		var leafy := PackedFloat32Array()
+		leafy.resize(clumps.size())
+		leafy.fill(FOLIAGE)
+		_add_cut_away(_fixtures, clump, clumps, clump_colours, leafy)
+	if not flowers.is_empty():
+		var cap := SphereMesh.new()
+		cap.radius = 0.5
+		cap.height = 1.0
+		cap.radial_segments = 6
+		cap.rings = 2
+		_add_cut_away(_fixtures, cap, flowers, flower_colours)
 
 
 ## Instances drawn with the cut-away material, plus a shadow-only copy: a hole cut for the

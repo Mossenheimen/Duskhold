@@ -547,3 +547,67 @@ fn the_chapel_and_the_abbey_each_have_a_shrine_and_the_chapels_fonts_hold_holy_w
         }
     }
 }
+
+#[test]
+fn wild_plants_grow_where_they_should() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let name = |f: u16| data.fixtures[usize::from(f) - 1].id.as_str();
+    for seed in 1..=4 {
+        let (w, layout) = patch(seed, &data, region);
+        let mut kinds = std::collections::BTreeMap::new();
+        for y in 0..layout.height {
+            for x in 0..layout.width {
+                let at = dusk_core::TilePos::new(x, y, 0);
+                if w.plant_at(at).is_none() {
+                    continue;
+                }
+                let tile = w.grid.tile(at);
+                let plant = name(tile.fixture);
+                *kinds.entry(plant).or_insert(0) += 1;
+                assert_eq!(
+                    tile.ground,
+                    dusk_core::Ground::Grass,
+                    "seed {seed}: {plant} at ({x}, {y}) on grass"
+                );
+                assert!(
+                    !layout.lots.iter().any(|l| l.path.contains(&at)),
+                    "seed {seed}: {plant} at ({x}, {y}) on a path"
+                );
+                // Feverfew only where the dead lie: round a barrow or the graveyard.
+                if plant == "feverfew" {
+                    let round = |prefab: &str| {
+                        layout.lots.iter().any(|l| {
+                            let (x0, y0, x1, y1) = l.yard;
+                            l.prefab == prefab
+                                && (x0 - 1..=x1).contains(&x)
+                                && (y0 - 1..=y1).contains(&y)
+                        })
+                    };
+                    assert!(
+                        round("barrow") || round("graveyard"),
+                        "seed {seed}: feverfew at ({x}, {y}), where the dead don't lie"
+                    );
+                }
+                // Chamomile by the water: a riverbank or a pond's shore.
+                if plant == "chamomile" {
+                    let wet = (-4..=4).any(|dy| {
+                        (-4..=4).any(|dx| {
+                            matches!(
+                                w.grid.tile(at.offset(dx, dy)).ground,
+                                dusk_core::Ground::Water | dusk_core::Ground::Shallows
+                            )
+                        })
+                    });
+                    assert!(wet, "seed {seed}: chamomile at ({x}, {y}), far from water");
+                }
+            }
+        }
+        for plant in ["yarrow", "chamomile", "bramble", "feverfew"] {
+            assert!(
+                kinds.get(plant).copied().unwrap_or(0) > 0,
+                "seed {seed}: no {plant} ({kinds:?})"
+            );
+        }
+    }
+}

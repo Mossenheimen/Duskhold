@@ -132,3 +132,14 @@ tag = "barrow"
 count = 2
 off_road = [30, 70]   # tiles from the road: deeper in than the farms
 gap = 12
+
+[plants]
+# Wild plants (fixtures.toml's forage), out in the wilds: each tile of open grass, of the woods'
+# floor between the trees, or of a riverbank or a pond's shore has this chance of one (kinds on the
+# same ground share its tiles, in this order). The yards round some places grow their own (a
+# prefab's grows: the barrows' and the graveyard's feverfew).
+kinds = [
+  { plant = "yarrow", on = "open", chance = 0.003 },
+  { plant = "bramble", on = "woods", chance = 0.006 },
+  { plant = "chamomile", on = "water", chance = 0.06 },
+]

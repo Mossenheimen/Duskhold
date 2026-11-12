@@ -13,6 +13,7 @@ mod faith;
 mod farm;
 mod fever;
 mod fire;
+mod forage;
 mod holdout;
 mod home;
 mod injury;
@@ -78,7 +79,7 @@ impl Data {
 }
 
 /// What can stand on a tile.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fixture {
     pub id: String,
@@ -111,6 +112,10 @@ pub struct Fixture {
     /// A shrine to pray at (an altar): faith comes back here (`rules.toml`'s [faith]).
     #[serde(default)]
     pub shrine: bool,
+    /// A wild plant: what's picked from it, and when it grows back (`rules.toml`'s
+    /// [foraging]; left out: it isn't one).
+    #[serde(default)]
+    pub forage: Option<forage::ForageFile>,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -126,6 +131,9 @@ pub struct Prefab {
     /// What those dead are (a creature's id), where it isn't the region's mix: a graveyard's
     /// skeletons.
     pub kind: Option<String>,
+    /// What grows in the yard round it, as a tile, and the chance a tile of the yard has one
+    /// (`forage.rs`: a barrow's feverfew). None: grass.
+    pub grows: Option<(Tile, f32)>,
     pub front: Side,
     pub grid: TextGrid<PrefabCell>,
 }
@@ -221,6 +229,36 @@ pub struct Region {
     /// Its wildlife, if it has any (`hunting.rs`): out in the open, apart from the dead.
     #[serde(default)]
     pub beasts: Option<Beasts>,
+    /// Its wild plants, if it has any (`forage.rs`): where each grows out in the wilds.
+    #[serde(default)]
+    pub plants: Option<Plants>,
+}
+
+/// A region's wild plants: which grow where, out in the wilds.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Plants {
+    pub kinds: Vec<PlantKind>,
+}
+
+/// One kind of wild plant: its fixture (one with `forage`), where it grows, and the chance a
+/// tile of that ground has one (kinds on the same ground share the tiles, in their order).
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlantKind {
+    pub plant: String,
+    pub on: Growing,
+    pub chance: f32,
+}
+
+/// Where a wild plant grows: open grass, the woods (between their trees), or by the water (a
+/// riverbank, a pond's shore).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Growing {
+    Open,
+    Woods,
+    Water,
 }
 
 /// A region's beasts: which creatures (each one that flees), each kind's share, and how many
@@ -376,6 +414,14 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         &fixtures,
         &mut defs,
     )?;
+    forage::load(
+        &rules_file,
+        &fixtures_file,
+        raw.foraging.as_ref(),
+        &fixtures,
+        rules.clock.ticks_per_minute,
+        &mut defs,
+    )?;
     defs.creatures = creatures;
     butchery(&creature_files, &mut defs)?;
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
@@ -418,6 +464,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     for file in files_in(&dir.join("regions"))? {
         let region: Region = read(&file)?;
         check_region(&file, &region, &prefabs, &defs.creatures)?;
+        forage::check_plants(&file, &region, &fixtures)?;
         let tables: Vec<String> = defs.loot.iter().map(|t| t.id.clone()).collect();
         if let Some(problem) = region.rares.as_ref().and_then(|r| r.problem(&tables)) {
             return Err(fail(&file, problem));
@@ -508,6 +555,9 @@ struct RulesFile {
     /// Optional: with no [faith], prayer, turning and the rest use the core's defaults.
     #[serde(default)]
     faith: Option<faith::FaithFile>,
+    /// Needed if any fixture is a plant: picking them, and what one becomes once picked.
+    #[serde(default)]
+    foraging: Option<forage::ForagingFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -801,7 +851,18 @@ struct PrefabFile {
     dead: Option<(u32, u32)>,
     #[serde(default)]
     kind: Option<String>,
+    #[serde(default)]
+    grows: Option<GrowsFile>,
     grid: String,
+}
+
+/// A prefab's `grows`: a wild plant (a fixture with `forage`), and the chance a tile of the
+/// yard round it has one.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GrowsFile {
+    plant: String,
+    chance: f32,
 }
 
 fn fail(file: &Path, message: impl Into<String>) -> DataError {
@@ -1158,6 +1219,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     if let Some(f) = &r.faith {
         rules.faith = faith::to_faith(file, f, rules.clock.ticks_per_minute)?;
     }
+    if let Some(f) = &r.foraging {
+        rules.forage = forage::to_foraging(file, f)?;
+    }
     Ok(rules)
 }
 
@@ -1239,12 +1303,41 @@ fn to_prefab(
             format!("prefab {:?}: dead is [fewest, most]", p.id),
         ));
     }
+    let grows = match &p.grows {
+        None => None,
+        Some(g) => {
+            let Some(i) = fixtures
+                .iter()
+                .position(|f| f.id == g.plant && f.forage.is_some())
+            else {
+                return Err(fail(
+                    file,
+                    format!(
+                        "prefab {:?}: grows.plant: no plant (a fixture with forage) called {:?}",
+                        p.id, g.plant
+                    ),
+                ));
+            };
+            if !(g.chance > 0.0 && g.chance <= 1.0) {
+                return Err(fail(
+                    file,
+                    format!("prefab {:?}: grows.chance is above 0 and at most 1", p.id),
+                ));
+            }
+            let plant = Tile {
+                fixture: (i + 1) as u16,
+                ..Tile::GRASS
+            };
+            Some((plant, g.chance))
+        }
+    };
     Ok(Prefab {
         id: p.id.clone(),
         name: p.name.clone().unwrap_or_else(|| p.id.clone()),
         tags: p.tags.clone(),
         dead: p.dead,
         kind: p.kind.clone(),
+        grows,
         front: p.front,
         grid,
     })

@@ -165,3 +165,27 @@ loot = "tomb"
 id = "font"           # a stone font by the chapel door, its holy water stoppered in flasks
 solid = true
 loot = "font"
+
+# Wild plants (crates/dusk-core/src/forage.rs; regions/*.toml's [plants], and a prefab's grows):
+# walked through and seen past. forage: the item picked from it (Y), how many (the fewest and the
+# most), and the game days before it grows back; picked, it's a picked_plant till then
+# (rules.toml's [foraging]).
+
+[[fixture]]
+id = "yarrow"         # in the open: feathery leaves and flat white flower heads; it staunches wounds
+forage = { item = "yarrow", count = [1, 2], regrow = 3.0 }
+
+[[fixture]]
+id = "chamomile"      # by the water: small daisies that smell of apples, and calm
+forage = { item = "chamomile", count = [1, 3], regrow = 3.0 }
+
+[[fixture]]
+id = "bramble"        # in the woods: a thorny tangle, black with berries
+forage = { item = "blackberries", count = [1, 3], regrow = 4.0 }
+
+[[fixture]]
+id = "feverfew"       # only where the dead lie (the barrows, the graveyard): the fever's cure
+forage = { item = "feverfew", count = [1, 2], regrow = 5.0 }
+
+[[fixture]]
+id = "picked_plant"   # a plant picked bare: stalks, till it grows back

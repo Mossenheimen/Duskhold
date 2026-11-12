@@ -170,6 +170,7 @@ sneak_attack = 3.0    # a sneak attack that lands (Stealth)
 shield = 1.5          # a blow blocked, or a shove with a shield on your arm (Shield)
 turn = 2.0            # each of the dead turned (Devotion); the same one pays less
 mend = 3.0            # a bleeding wound mended with faith (Devotion)
+pick = 1.0            # a wild plant picked (Foraging); picking in one spot pays less
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -188,6 +189,7 @@ shield_block = 0.03   # Shield: a shield blocks this much more often
 cook_time = 0.05      # Cooking: cooking takes less time
 devotion_turn = 0.1   # Devotion: the dead stay turned longer...
 devotion_cost = 0.04  # ...and faith goes further (28% further at the free cap)
+forage_more = 0.1     # Foraging: a tenth likelier, a level, to find one more of a herb
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where
@@ -361,3 +363,9 @@ mend_time = 2.0       # and seconds
 ward = 40             # Warding (O, at a shut door): its faith,
 ward_time = 4.0       # seconds,
 ward_hours = 8.0      # and the game hours the ward holds: a night's worth
+
+[foraging]
+# Wild plants (fixtures.toml's forage; crates/dusk-core/src/forage.rs): picking the one beside you
+# (Y), and what it is once it's picked bare, till it grows back.
+pick = 3.0            # seconds bent over it
+bare = "picked_plant"

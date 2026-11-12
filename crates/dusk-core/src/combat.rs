@@ -98,6 +98,7 @@ impl World {
                 ActionKind::Consecrate { body } => self.consecrate(id, body),
                 ActionKind::Heal => self.heal(id),
                 ActionKind::Ward => self.ward(id, action.dir),
+                ActionKind::Pick { at } => self.pick(id, at),
             }
         }
         true
@@ -285,6 +286,10 @@ impl World {
             Intent::Ward => {
                 let side = self.can_ward(id).ok()?;
                 (ActionKind::Ward, side, self.rules.faith.ward_time, 0, 0)
+            }
+            Intent::Pick => {
+                let (kind, dir, ticks) = self.pick_action(id)?;
+                (kind, dir, ticks, 0, 0)
             }
             _ => return self.begin_free(id, intent, held),
         };

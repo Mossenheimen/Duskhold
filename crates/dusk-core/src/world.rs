@@ -82,6 +82,8 @@ pub struct Rules {
     pub shield_pace: u32,
     /// Faith: prayer, turning the dead, consecration, mending and wards (`faith.rs`).
     pub faith: crate::faith::Faith,
+    /// Foraging: picking wild plants (`forage.rs`).
+    pub forage: crate::forage::Foraging,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -310,6 +312,7 @@ impl Default for Rules {
             sneak: Sneak::default(),
             shield_pace: 600,
             faith: crate::faith::Faith::default(),
+            forage: crate::forage::Foraging::default(),
         }
     }
 }
@@ -801,6 +804,17 @@ pub enum Event {
         at: TilePos,
         side: Dir8,
     },
+    /// A wild plant picked (`forage.rs`): so many of its herb (or berries).
+    Picked {
+        who: ActorId,
+        at: TilePos,
+        item: u16,
+        count: u16,
+    },
+    /// A plant picked bare grew back.
+    Regrew {
+        at: TilePos,
+    },
 }
 
 /// A sound made this tick.
@@ -861,6 +875,9 @@ pub struct World {
     /// The doors warded against the dead (`faith.rs`), by (owner tile, side), and the tick each
     /// ward fades. Ordered, for the hash.
     pub(crate) wards: BTreeMap<(TilePos, Dir8), u64>,
+    /// The plants picked bare (`forage.rs`), by tile: the plant's fixture, and the tick it
+    /// grows back. Ordered, for the hash.
+    pub(crate) regrowing: BTreeMap<TilePos, (u16, u64)>,
 }
 
 impl World {
@@ -898,6 +915,7 @@ impl World {
             claimed: std::collections::BTreeSet::new(),
             cleaving: false,
             wards: BTreeMap::new(),
+            regrowing: BTreeMap::new(),
         }
     }
 
@@ -1086,6 +1104,7 @@ impl World {
         self.claimed.hash(&mut h);
         self.hearths.hash(&mut h);
         self.wards.hash(&mut h);
+        self.regrowing.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -1194,6 +1213,7 @@ impl World {
         self.burn_fires();
         self.spoil();
         self.lapse_wards();
+        self.regrow();
         self.drag_downs();
     }
 
