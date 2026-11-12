@@ -59,6 +59,18 @@ endurance = 6
 knock_down = 0.4      # the chance it knocks down what it pushes
 noise = 2
 
+[heavy]
+# A heavy swing (Shift+F, or Shift-click one of the dead): your weight behind it. Its wind-up is
+# the longer tell, and a blow taken during it breaks it off; it costs more breath and wears the
+# weapon more. It does more harm, may knock down what it hits (the next blow finishes it), and
+# beats a door or a window's glass harder. Each a multiple of the swing's own.
+wind_up = 2.0
+recovery = 1.5
+endurance = 2.0
+harm = 1.75
+knock_down = 0.5      # the chance it knocks down what it hits, for its kind's `down` time
+wear = 2              # blows' wear on the weapon
+
 [door]
 time = 0.5            # seconds to open or shut one
 noise = 3

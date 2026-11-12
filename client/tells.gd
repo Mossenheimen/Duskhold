@@ -23,8 +23,9 @@ func show_actions(actions: PackedInt32Array, me: int, seen: PackedByteArray) -> 
 		actor += 1
 		var kind := actions[i]
 		var progress := actions[i + 1]
-		# Swings, shoves and blows on doors still winding up. Nothing else lands on a tile.
-		if kind not in [1, 2, 4] or progress >= 1000:
+		# Swings (heavy ones too), shoves and blows on doors still winding up. Nothing else lands
+		# on a tile.
+		if kind not in [1, 2, 4, 46] or progress >= 1000:
 			continue
 		if actor >= seen.size() or seen[actor] == 0:
 			continue

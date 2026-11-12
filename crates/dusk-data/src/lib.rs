@@ -16,6 +16,7 @@ mod farm;
 mod fever;
 mod fire;
 mod forage;
+mod heavy;
 mod holdout;
 mod home;
 mod injury;
@@ -566,6 +567,9 @@ struct RulesFile {
     /// Optional: with no [climb], climbing uses the core's defaults.
     #[serde(default)]
     climb: Option<climb::ClimbFile>,
+    /// Optional: with no [heavy], a heavy swing uses the core's defaults.
+    #[serde(default)]
+    heavy: Option<heavy::HeavyFile>,
 }
 
 /// rules.toml's [shield]: what's left of your pace bracing behind one.
@@ -1265,6 +1269,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(a) = &r.armour {
         rules.armour = armour::to_armour_rules(file, a)?;
+    }
+    if let Some(h) = &r.heavy {
+        rules.heavy = heavy::to_heavy(file, h)?;
     }
     if let Some(c) = &r.climb {
         rules.climb = climb::to_climb(file, c)?;

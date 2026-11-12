@@ -89,6 +89,8 @@ pub struct Rules {
     pub armour: crate::armour::ArmourRules,
     /// Climbing through windows and over fences (`climb.rs`).
     pub climb: crate::climb::ClimbRules,
+    /// A heavy swing (`combat.rs`).
+    pub heavy: crate::combat::Heavy,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -320,6 +322,7 @@ impl Default for Rules {
             forage: crate::forage::Foraging::default(),
             armour: crate::armour::ArmourRules::default(),
             climb: crate::climb::ClimbRules::default(),
+            heavy: crate::combat::Heavy::default(),
         }
     }
 }
@@ -393,6 +396,11 @@ pub enum Event {
         fell: bool,
         /// The glass left in a broken window cut it (a wound on an arm, a hand or a leg).
         cut: bool,
+    },
+    /// `who`'s heavy blow knocked `target` down (`combat::Heavy`).
+    Felled {
+        who: ActorId,
+        target: ActorId,
     },
     /// `who` ran out of breath.
     Exhausted {
@@ -911,6 +919,8 @@ pub struct World {
     /// A blow carrying on into another foe (Cleave, `class.rs`): only ever true inside a strike,
     /// so one cleave doesn't start another.
     pub(crate) cleaving: bool,
+    /// A heavy swing landing (`combat::Heavy`): only ever true inside a strike.
+    pub(crate) heavy: bool,
     /// The doors warded against the dead (`faith.rs`), by (owner tile, side), and the tick each
     /// ward fades. Ordered, for the hash.
     pub(crate) wards: BTreeMap<(TilePos, Dir8), u64>,
@@ -953,6 +963,7 @@ impl World {
             flow: None,
             claimed: std::collections::BTreeSet::new(),
             cleaving: false,
+            heavy: false,
             wards: BTreeMap::new(),
             regrowing: BTreeMap::new(),
         }

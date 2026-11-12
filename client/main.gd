@@ -9,7 +9,7 @@ extends Node3D
 ## --seed=N the patch's seed; --town the little demo town instead; --walk=X,Y walk there at the
 ## start; --zoom=N; --speed=N the speed dial; --data=PATH another data folder (a mod, a test);
 ## --shot=PATH save a picture after --shot-after=SECONDS (default 3) and quit;
-## --do=S:ACTION,... press swing (swing_n, _e, _s, _w: one way), shove, door, struggle, drop (the
+## --do=S:ACTION,... press swing (swing_n, _e, _s, _w: one way), heavy, shove, door, struggle, drop (the
 ## first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
@@ -151,6 +151,9 @@ const WORE := 100
 const TOOK_OFF := 101
 const CLIMBED := 102
 const WINDOW_BROKE := 103
+const FELLED := 104
+## A heavy swing, by DuskWorld.actor_actions(): it leans in and tells as a swing does.
+const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
 const ARMOUR := 11
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
@@ -476,6 +479,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				if aim != Vector2i.ZERO:
 					if held > 0:
 						dusk.struggle()
+					elif Input.is_action_pressed("run"):
+						# Shift-click: a heavy swing, your weight behind it.
+						dusk.heavy_attack(aim.x, aim.y)
 					else:
 						dusk.attack(aim.x, aim.y)
 				else:
@@ -488,9 +494,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				zoom = minf(ZOOM_MAX, zoom * 1.15)
 	elif event.is_action_pressed("swing") and not dead:
-		# Held, the swing key struggles: you can't swing with one on you.
+		# Held, the swing key struggles: you can't swing with one on you. With Shift, it's a
+		# heavy swing.
 		if held > 0:
 			dusk.struggle()
+		elif Input.is_action_pressed("run"):
+			dusk.heavy_attack(0, 0)
 		else:
 			dusk.attack(0, 0)
 	elif event.is_action_pressed("shove") and not dead:
@@ -946,7 +955,7 @@ func _draw_actors(delta: float) -> void:
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
 		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
-		var swinging := actions[i * 4] == 1 and actions[i * 4 + 1] < 1000
+		var swinging := actions[i * 4] in [1, HEAVY_SWING] and actions[i * 4 + 1] < 1000
 		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
 		actors[i].show_remains(remains[i], delta)
 	tells.show_actions(actions, me, seen)
@@ -1038,6 +1047,9 @@ func _read_events() -> void:
 			WINDOW_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("Glass shatters!")
+			FELLED:
+				if who == me:
+					hud.say("Your heavy blow knocks it down. Finish it!")
 			DRAGGED_DOWN:
 				if who == me:
 					dragged_by = extra
@@ -1872,6 +1884,8 @@ func _run_script() -> void:
 				dusk.attack(0, 1)
 			"swing_w":
 				dusk.attack(-1, 0)
+			"heavy":
+				dusk.heavy_attack(0, 0)
 			"shove":
 				dusk.shove(0, 0)
 			"door":

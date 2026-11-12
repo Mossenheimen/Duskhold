@@ -1828,3 +1828,19 @@ fn climbing_that_makes_no_sense_is_refused() {
     let err = run("climb-zero", "climb = 0.0\n").unwrap_err();
     assert!(err.message.contains("climb"), "{err}");
 }
+
+#[test]
+fn heavy_swings_load_and_nonsense_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let h = data.rules.heavy;
+    assert_eq!((h.wind_up, h.recovery, h.endurance), (2000, 1500, 2000));
+    assert_eq!((h.harm, h.knock_down, h.wear), (1750, 5000, 2));
+    let quick = "[heavy]\nwind_up = 0.5\nrecovery = 1.5\nendurance = 2.0\nharm = 1.75\n\
+                 knock_down = 0.5\nwear = 2\n";
+    let rules = format!("{RULES}{quick}");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    files.push(("rules.toml", &rules));
+    let err = load(&folder("heavy", &files)).unwrap_err();
+    assert!(err.message.contains("heavy"), "{err}");
+}

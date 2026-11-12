@@ -4,6 +4,9 @@
 //! tell everyone can see), takes effect on its strike tick, and recovers. Nobody moves while
 //! acting, and a blow taken during the wind-up breaks it off. Exhausted, every wind-up and
 //! recovery is half as long again, and the character's blows do half the harm.
+//!
+//! The verbs: a swing, a heavy swing (`Heavy`: your weight behind it, a long tell, and it may
+//! knock down), a shove, a blow on one that's down (it always lands, double), a struggle.
 
 use crate::actor::{Action, ActionKind, ActorId, ActorKind, Intent};
 use crate::body::{Part, Wound, WoundKind};
@@ -15,6 +18,32 @@ use crate::world::{Event, Sound, World};
 
 /// Ticks to catch your second wind.
 const SECOND_WIND_TICKS: u32 = 15;
+
+/// A heavy swing (rules.toml's [heavy]), by a swing's own numbers, per mille: its wind-up (the
+/// tell, and a blow breaks it off) and recovery, the breath it costs, and its harm; out of
+/// 10,000, its chance to knock down what it hits; and how many blows' wear it puts on the weapon.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Heavy {
+    pub wind_up: u32,
+    pub recovery: u32,
+    pub endurance: u32,
+    pub harm: u32,
+    pub knock_down: u32,
+    pub wear: u8,
+}
+
+impl Default for Heavy {
+    fn default() -> Heavy {
+        Heavy {
+            wind_up: 2000,
+            recovery: 1500,
+            endurance: 2000,
+            harm: 1750,
+            knock_down: 5000,
+            wear: 2,
+        }
+    }
+}
 
 impl World {
     /// An actor's turn at its timed action, this tick: start one if its intent asks and it's
@@ -62,6 +91,11 @@ impl World {
         if action.elapsed == action.strike {
             match action.kind {
                 ActionKind::Attack => self.strike(id, action.dir),
+                ActionKind::Heavy => {
+                    self.heavy = true;
+                    self.strike(id, action.dir);
+                    self.heavy = false;
+                }
                 ActionKind::Shove => self.shove(id, action.dir),
                 ActionKind::Door => self.toggle_door(id, action.dir),
                 ActionKind::Struggle => self.struggle(id),
@@ -311,7 +345,9 @@ impl World {
         let c = self.rules.combat;
         let a = self.actors.get(id)?;
         let (kind, dir, wind_up, recovery, endurance) = match intent {
-            Intent::Attack { .. } | Intent::Door if held => return None,
+            Intent::Attack { .. } | Intent::HeavyAttack { .. } | Intent::Door if held => {
+                return None;
+            }
             Intent::Struggle => {
                 let s = c.struggle;
                 (
@@ -326,6 +362,17 @@ impl World {
                 let s = self.swing_of(id);
                 let dir = self.aim(id, dir);
                 (ActionKind::Attack, dir, s.wind_up, s.recovery, s.endurance)
+            }
+            Intent::HeavyAttack { dir } => {
+                let (s, h) = (self.swing_of(id), self.rules.heavy);
+                let dir = self.aim(id, dir);
+                (
+                    ActionKind::Heavy,
+                    dir,
+                    s.wind_up * h.wind_up / 1000,
+                    s.recovery * h.recovery / 1000,
+                    (i64::from(s.endurance) * i64::from(h.endurance) / 1000) as i32,
+                )
             }
             // Held, a shove needs a hand free: a weapon in one and a light in the other leave
             // only the struggle.
@@ -512,6 +559,9 @@ impl World {
                 if down {
                     damage *= 2;
                 }
+                if self.heavy {
+                    damage = damage * self.rules.heavy.harm as i32 / 1000;
+                }
                 (damage, None)
             }
             ActorKind::Creature(_) => {
@@ -626,6 +676,13 @@ impl World {
         // shove buys you.
         self.train_blow(id, skill, target, down);
         self.learn_by_use(id);
+        // A heavy blow may knock down what it hits, and is harder on the weapon.
+        if self.heavy && !down {
+            self.fell(id, target);
+            for _ in 1..self.rules.heavy.wear {
+                self.wear(id);
+            }
+        }
         if !down {
             self.wear(id);
         }
@@ -667,6 +724,11 @@ impl World {
             return;
         }
         let (lo, hi) = match kind {
+            ActorKind::Character if self.heavy => {
+                let (lo, hi) = self.swing_of(id).damage;
+                let h = self.rules.heavy.harm as i32;
+                (lo * h / 1000, hi * h / 1000)
+            }
             ActorKind::Character => self.swing_of(id).damage,
             ActorKind::Creature(_) => self.stats(id).map_or((0, 0), |c| c.thump),
         };
@@ -697,6 +759,31 @@ impl World {
             self.grid.set_edge(pos, dir, Edge::Open);
             self.events.push(Event::DoorBroke { at, side });
         }
+    }
+
+    /// A heavy blow that landed on `target` may knock it down, by `[heavy] knock_down`, for its
+    /// kind's `down` time: if it's still standing to be knocked down.
+    fn fell(&mut self, id: ActorId, target: ActorId) {
+        let (tick, seed) = (self.tick, self.seed);
+        let chance = self.rules.heavy.knock_down;
+        if below(
+            roll(seed, tick, id.index() as u64, Purpose::KnockDown),
+            10_000,
+        ) >= chance
+        {
+            return;
+        }
+        let stays_down = self.stats(target).map_or(0, |c| c.down);
+        let Some(t) = self.actors.get_mut(target) else {
+            return;
+        };
+        if t.dead || t.body.health <= 0 || t.prone_until > 0 || stays_down == 0 {
+            return;
+        }
+        t.prone_until = tick + u64::from(stays_down);
+        t.action = None;
+        self.release(target);
+        self.events.push(Event::Felled { who: id, target });
     }
 
     /// A shove pushes whoever is there back a tile (if there's room), breaks off what it was

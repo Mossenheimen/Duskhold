@@ -154,6 +154,7 @@ const WORE: i32 = 100;
 const TOOK_OFF: i32 = 101;
 const CLIMBED: i32 = 102;
 const WINDOW_BROKE: i32 = 103;
+const FELLED: i32 = 104;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -553,6 +554,7 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             i32::from(window) + 2 * i32::from(fell) + 4 * i32::from(cut),
         ),
         Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
+        Event::Felled { who, target } => (FELLED, Some(who), Some(target), at(target), 0),
         Event::Sound { .. } => return None,
     };
     Some([
@@ -1062,6 +1064,14 @@ impl DuskWorld {
         });
     }
 
+    /// A heavy swing at what's beside you, aimed as for `attack` (`combat::Heavy`).
+    #[func]
+    fn heavy_attack(&mut self, dx: i32, dy: i32) {
+        self.act(Intent::HeavyAttack {
+            dir: Dir8::toward(dx, dy),
+        });
+    }
+
     /// Shoves what's beside you, aimed as for `attack`.
     #[func]
     fn shove(&mut self, dx: i32, dy: i32) {
@@ -1310,7 +1320,8 @@ impl DuskWorld {
     /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
     /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out, 33 making
     /// something, 34 breaking furniture down, 36 drawing a bow, 37 butchering, 38 turning the
-    /// dead, 39 praying, 40 consecrating a body, 41 mending a wound, 42 warding a door),
+    /// dead, 39 praying, 40 consecrating a body, 41 mending a wound, 42 warding a door, 44 putting
+    /// armour on, 45 taking it off, 46 a heavy swing),
     /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
     /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
@@ -1326,13 +1337,14 @@ impl DuskWorld {
                 None => [0, 0, at.x, at.y],
                 Some(act) => [
                     match act.kind {
-                        ActionKind::Attack
+                        ActionKind::Attack | ActionKind::Heavy
                             if act.dir.split().is_none()
-                                && world.grid.edge(a.pos, act.dir).is_shut_door() =>
+                                && world.grid.edge(a.pos, act.dir).beatable() =>
                         {
                             4
                         }
                         ActionKind::Attack => 1,
+                        ActionKind::Heavy => 46,
                         ActionKind::Shove => 2,
                         ActionKind::Door => 3,
                         ActionKind::Struggle => 5,

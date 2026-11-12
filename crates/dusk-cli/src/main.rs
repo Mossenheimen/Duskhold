@@ -807,6 +807,9 @@ fn describe(w: &World, e: Event) -> String {
             if fell { " and fell" } else { "" },
             if cut { ", cut on the glass" } else { "" }
         ),
+        Event::Felled { who, target } => {
+            format!("{}'s heavy blow knocked {} down", name(who), name(target))
+        }
         Event::WindowBroke { at, .. } => {
             format!("the window by ({}, {}) smashed", at.x, at.y)
         }

@@ -1335,6 +1335,17 @@ Game first: every step ends with something to look at or play.
          - in the game: a scratch copy of the data with no dead, beasts or rares (seed 7, `--walk=158,135 --speed=4 --do=18:swing_e`): "Glass shatters!" at the first blow, the next blows at the empty frame, the door key doing nothing; the picture shows the rim of glass left at the sill. A walk with the graveyard's skeletons about: "A skeleton tumbles in over the fence. Finish it while it's down!";
        - **measured:** about 162k to 194k ticks a second (nothing to see: a window is looked at only where a chase finds no way);
        - **not yet:** clearing the glass from a frame; the dead finding a window from inside a house as well as from out; shutters; the noise of a crash drawing the dead from farther than a thump does, as a rule of its own.
+     - **Core mechanics** (the user, 2026-11-12: "Forgo those builds for now. Continue with core mechanics"): the verbs, the body and the pack before more content.
+       - **The heavy swing** (2026-11-12; 333 tests pass; `CONCEPT.md`'s verbs: "heavy attack: a longer wind-up, and it knocks down"):
+         - **the verb** (`Intent::HeavyAttack`, `ActionKind::Heavy`, `combat::Heavy`, rules.toml's `[heavy]`): a swing with your weight behind it, aimed as a swing is. Its wind-up is twice the weapon's (the longer tell, and a blow taken during it breaks it off), its recovery half as long again, and it costs twice the breath: six in a row leave you out of breath. Not while held. Only the living swing so;
+         - **what it does:** 1.75 times the harm (`harm`, before what bone, the light and a sneak attack make of it), and half the time it knocks down what it hits for its kind's `down` time (`knock_down`; `Event::Felled`), letting go of whatever it held, so the next blow is a finish (always lands, double). It's two blows' wear on the weapon (`wear`), and it beats a door, boards or a window's glass harder (the thump's harm by `harm` too);
+         - **the save format** is version 28 (the new intent and action kind);
+         - **the client:** Shift+F, or Shift-click one of the dead beside you (`DuskWorld.heavy_attack()`). It leans in and tells as a swing does (action 46; the tell on the ground too). News: "Your heavy blow knocks it down. Finish it!" (`FELLED` 104). The key help lists it; `--do` learns `heavy`. The tell of a blow at a door now also shows at a window (`Edge::beatable`);
+         - **checked:**
+           - by tests: a heavy swing's wind-up, length and breath are the swing's by `[heavy]`; it does 1.75 times the harm and twice the wear; it knocks down by its chance (always at 1, never at 0), and a plain swing never does; it breaks a door in fewer blows; held, it doesn't start; the game's `[heavy]` loads, and a wind-up quicker than a swing's is refused;
+           - in the game: headless runs on seed 7 with `--do=…:heavy`: heavy swings at the air ("You missed."), and "You're out of breath." after six in a row;
+         - **measured:** about 160k to 192k ticks a second (nothing to see);
+         - **not yet:** the dead swinging heavy (a brute); a heavy swing's own pose and sound.
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

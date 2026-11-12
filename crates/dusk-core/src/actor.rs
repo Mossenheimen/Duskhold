@@ -40,6 +40,9 @@ pub enum Intent {
     /// Swing at whatever is that way; None: the nearest enemy beside you, else straight ahead.
     /// One swing: the intent goes back to idle once it starts.
     Attack { dir: Option<Dir8> },
+    /// A heavy swing that way (aimed as for `Attack`; `combat::Heavy`): a longer wind-up and
+    /// more breath for more harm, and it may knock down what it hits. Only the living swing so.
+    HeavyAttack { dir: Option<Dir8> },
     /// Shove that way (None as for `Attack`): it knocks back, and sometimes down.
     Shove { dir: Option<Dir8> },
     /// Open or shut the door beside you: the one you face, else the first of north, east,
@@ -148,6 +151,8 @@ impl Intent {
 #[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum ActionKind {
     Attack,
+    /// A heavy swing (`combat::Heavy`).
+    Heavy,
     Shove,
     Door,
     Struggle,

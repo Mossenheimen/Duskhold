@@ -343,6 +343,7 @@ One table of how things act on each other, written before the content, so the ga
 - **The verbs.** Each has a wind-up, a strike tick and a recovery, shown while paused (like Pillars of Eternity's recovery time):
   - attack;
   - heavy attack: a longer wind-up, and it knocks down;
+    - *(built 2026-11-12)* **The heavy swing:** Shift+F (or Shift-click). Twice the wind-up, so it's the longer tell and a blow breaks it off; twice the breath; one and three-quarters the harm; half the time it knocks down what it hits, and the next blow finishes it. Two blows' wear on the weapon, and it beats a door or a window harder;
   - shove: cheap; knocks back, and down with enough Strength;
   - finish: a blow on someone on the ground always lands, does double harm and doesn't wear the weapon (Zomboid's stomp). That's what a shove buys: 6 endurance now for a weapon that lasts;
   - brace, with a shield;
