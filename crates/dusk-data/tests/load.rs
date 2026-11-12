@@ -1244,3 +1244,31 @@ fn a_recipe_naming_no_item_and_a_container_that_breaks_down_are_refused() {
     let err = load(&folder("planks", &files)).unwrap_err();
     assert!(err.message.contains("doesn't break down"), "{err}");
 }
+
+#[test]
+fn the_wight_walks_only_by_night_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let wight = data
+        .defs
+        .creatures
+        .iter()
+        .find(|c| c.id == "wight")
+        .unwrap();
+    let s = wight.stats;
+    assert!(s.nocturnal);
+    assert_eq!((s.douses, s.dread, s.lit_harm), (4, 25_000, 2000));
+    assert_eq!(s.get_up.chance, 0, "put down, it stays down");
+    // Faster than your walk, slower than your run.
+    let you = data.rules.character_speed;
+    assert!(you.walk < s.speed.run && s.speed.run < you.run);
+    // Only in barrows: not in the region's mix.
+    let region = data.region("hushlands").unwrap();
+    assert!(!region.dead.kinds.iter().any(|k| k.creature == "wight"));
+    let barrows = region.barrows.as_ref().expect("[barrows]");
+    assert_eq!((barrows.tag.as_str(), barrows.count), ("barrow", 2));
+    let barrow = data.prefab("barrow").unwrap();
+    assert_eq!(
+        (barrow.kind.as_deref(), barrow.dead),
+        (Some("wight"), Some((1, 1)))
+    );
+}

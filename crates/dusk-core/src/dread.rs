@@ -153,7 +153,7 @@ impl World {
 
     /// Where the dead `id` dreads are: alive, within `near` tiles, and in its sight (a line of
     /// sight, lit or not: you know what's there) or after something.
-    fn dreaded(&self, id: ActorId) -> Vec<TilePos> {
+    fn dreaded(&self, id: ActorId) -> Vec<(TilePos, i32)> {
         let Some(a) = self.actors.get(id) else {
             return Vec::new();
         };
@@ -168,7 +168,7 @@ impl World {
                     && o.pos.dist2(pos) <= r2
                     && (o.alert() != Alert::Unaware || line_of_sight(&self.grid, pos, o.pos))
             })
-            .map(|(_, o)| o.pos)
+            .map(|(oid, o)| (o.pos, self.stats(oid).map_or(0, |c| c.dread)))
             .collect()
     }
 
@@ -184,11 +184,14 @@ impl World {
         } else {
             0
         };
-        let dead = self.dreaded(id).len().min(d.most as usize) as i32;
+        let dreaded = self.dreaded(id);
+        let dead = dreaded.len().min(d.most as usize) as i32;
+        // And what a dread kind adds of its own (a wight).
+        let more: i32 = dreaded.iter().map(|&(_, extra)| extra).sum();
         let pain = i32::from(self.pain_level(id));
         let hunger = level(a.body.hunger, self.rules.needs.hunger.levels);
         let hungry = i32::from(hunger.saturating_sub(1));
-        (dark + d.per_dead * dead + d.per_pain * pain + d.hungry * hungry).min(100_000)
+        (dark + d.per_dead * dead + more + d.per_pain * pain + d.hungry * hungry).min(100_000)
     }
 
     /// The one of the dead `id` is frightened of, if dread has frightened it: the nearest it
@@ -198,7 +201,10 @@ impl World {
             return None;
         }
         let pos = self.actors.get(id)?.pos;
-        self.dreaded(id).into_iter().min_by_key(|p| p.dist2(pos))
+        self.dreaded(id)
+            .into_iter()
+            .map(|(p, _)| p)
+            .min_by_key(|p| p.dist2(pos))
     }
 
     /// Each game minute: each character's dread moves toward what the moment is worth, and

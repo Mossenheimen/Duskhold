@@ -114,3 +114,11 @@ tag = "farm"
 count = 3
 off_road = [16, 48]   # tiles from the road to a farm's fence: the fewest and the most
 gap = 10              # tiles a farm keeps clear of every other lot, and of the river
+
+[barrows]
+# Old burial mounds out in the wilds, each with a wight (prefabs/barrow.toml): placed as the farms
+# are, off the road with an old track to it, clear of every lot and of the river.
+tag = "barrow"
+count = 2
+off_road = [30, 70]   # tiles from the road: deeper in than the farms
+gap = 12

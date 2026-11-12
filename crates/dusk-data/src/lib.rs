@@ -210,6 +210,9 @@ pub struct Region {
     /// Its farms, if a patch has any.
     #[serde(default)]
     pub farms: Option<FarmsFile>,
+    /// Its barrows out in the wilds, placed as farms are (`[barrows]`, read as `[farms]`).
+    #[serde(default)]
+    pub barrows: Option<FarmsFile>,
 }
 
 /// A region's holdout in a patch: its walled grounds (a prefab, whose walls bound the hallowed
@@ -650,6 +653,18 @@ struct CreatureFile {
     /// Tiles it smells blood from, for each wound that's bleeding (0, or left out: it doesn't).
     #[serde(default)]
     blood: i32,
+    /// Only after dark (left out: day and night alike).
+    #[serde(default)]
+    nocturnal: bool,
+    /// Lights held up, and fires, within this many tiles of it go out (left out: none).
+    #[serde(default)]
+    douses: i32,
+    /// Dread it adds to the living near it, in points (left out: none of its own).
+    #[serde(default)]
+    dread: f64,
+    /// What it takes of a blow standing in the light (left out: 1, the same as in the dark).
+    #[serde(default = "whole")]
+    lit_harm: f64,
     /// What it takes of a blow by the weapon's skill (left out: all of it from any).
     #[serde(default)]
     resist: Option<ResistFile>,
@@ -828,6 +843,11 @@ fn to_creatures(
             }
             None => [1000; 4],
         };
+        if c.douses < 0 || !(0.0..=100.0).contains(&c.dread) || !(0.0..=4.0).contains(&c.lit_harm) {
+            return Err(bad(
+                "douses is 0 or more, dread 0 to 100 points, lit_harm 0 to 4",
+            ));
+        }
         if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
             return Err(bad("health must be above 0, and thump is [least, most]"));
         }
@@ -866,8 +886,11 @@ fn to_creatures(
                 blood: c.blood,
                 fever,
                 get_up,
-                douses: 0,
+                douses: c.douses,
                 resist,
+                nocturnal: c.nocturnal,
+                dread: (c.dread * 1000.0).round() as i32,
+                lit_harm: (c.lit_harm * 1000.0).round() as u32,
             },
         });
     }
@@ -1195,6 +1218,14 @@ fn check_region(
         .filter(|f| !prefabs.iter().any(|p| p.tags.contains(&f.tag)))
     {
         Some(format!("farms.tag: no prefab has the tag {:?}", f.tag))
+    } else if let Some(problem) = r.barrows.as_ref().and_then(FarmsFile::problem) {
+        Some(problem.replacen("farms", "barrows", 1))
+    } else if let Some(f) = r
+        .barrows
+        .as_ref()
+        .filter(|f| !prefabs.iter().any(|p| p.tags.contains(&f.tag)))
+    {
+        Some(format!("barrows.tag: no prefab has the tag {:?}", f.tag))
     } else if let Some(t) = r
         .tolling
         .as_ref()

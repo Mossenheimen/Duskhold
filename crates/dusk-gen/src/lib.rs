@@ -11,7 +11,7 @@ pub mod noise;
 use dusk_core::save::SaveError;
 use dusk_core::text::TextGrid;
 use dusk_core::{ActorKind, Area, ChunkPos, Edge, Ground, Tile, TilePos, World, geom::CHUNK_SIZE};
-use dusk_data::{Data, PrefabCell, Region, Side, doors_on};
+use dusk_data::{Data, FarmsFile, PrefabCell, Region, Side, doors_on};
 
 use noise::{Layer, fractal, hash, unit};
 
@@ -162,18 +162,21 @@ impl Layout {
             layout.lots.push(abbey);
         }
         layout.river = layout.place_river();
-        let farms = layout.place_farms(data);
+        let farms = layout.place_outlying(data, layout.region.farms.as_ref(), Layer::Farm);
         layout.lots.extend(farms);
+        // The barrows after the farms, so they keep clear of them too.
+        let barrows = layout.place_outlying(data, layout.region.barrows.as_ref(), Layer::Barrow);
+        layout.lots.extend(barrows);
         layout
     }
 
-    /// The region's farms (`[farms]`): each a farmstead out in the fields, its front toward the
+    /// What lies out in the wilds, as `[farms]` or `[barrows]` says: each out in the fields, its front toward the
     /// road and its fence `off_road` tiles from it, with a track from its door to the road.
     /// Where, by the seed: anywhere that keeps `gap` tiles clear of every other lot and of the
     /// river's whole course, with a track that crosses no lot. A farm that finds no room in its
     /// tries isn't there.
-    fn place_farms(&self, data: &Data) -> Vec<Lot> {
-        let Some(f) = self.region.farms.as_ref() else {
+    fn place_outlying(&self, data: &Data, f: Option<&FarmsFile>, layer: Layer) -> Vec<Lot> {
+        let Some(f) = f else {
             return Vec::new();
         };
         let choices: Vec<_> = data
@@ -191,7 +194,7 @@ impl Layout {
         let mut farms: Vec<Lot> = Vec::new();
         for k in 0..i64::from(f.count) {
             for attempt in 0..48 {
-                let roll = |what: i64| hash(self.seed, Layer::Farm, k * 64 + attempt, what);
+                let roll = |what: i64| hash(self.seed, layer, k * 64 + attempt, what);
                 let Some(&prefab) = choices.get((roll(0) % choices.len().max(1) as u64) as usize)
                 else {
                     return farms;

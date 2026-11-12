@@ -1,0 +1,27 @@
+# The Hushlands' barrows (regions/hushlands.toml, [barrows]): old burial mounds out in the wilds,
+# a stone chamber with a tomb of grave goods at its back (loot/graveyard.toml's tomb), and a wight
+# lying in it by day (creatures/hushlands.toml), its old door standing open. Its edges and cells are
+# read as in hamlet.toml.
+
+[legend]
+"." = { ground = "floor" }
+"T" = { ground = "floor", fixture = "tomb" }
+
+[[prefab]]
+id = "barrow"
+name = "a barrow"
+tags = ["barrow"]
+front = "south"
+dead = [1, 1]
+kind = "wight"
+grid = """
++-+-+-+-+-+-+-+
+|. . . T . . .|
++             +
+|. . . . . . .|
++             +
+|. . . . . . .|
++             +
+|. . . . . . .|
++-+-+-+d+-+-+-+
+"""

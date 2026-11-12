@@ -9,7 +9,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 - `crates/dusk-gen/`: a patch of a region from a seed: the layout (road, the market town's lots where there's room for the rest, the holdout, the river, the farms out in the fields), then every tile as a pure function, then the dead and the rares.
 - `crates/dusk-cli/`: the demo, the benchmark, and the data and world tools.
 - `crates/dusk-godot/`: the Godot extension (gdext). Its `DuskWorld` node makes a patch, ticks it, and hands GDScript the map a chunk at a time, the actors, what the dead can see, noises and events. It takes intents back.
-- `data/`: the game's numbers and content in TOML: `rules.toml`, `creatures/`, `fixtures.toml`, `holdouts.toml` (the holdouts' trade, and which item is coin), `recipes.toml` (what can be made), `names.toml` (characters' and rares' names), `affixes.toml` (rares' affixes), `properties.toml` (magic items' properties and curses), `classes.toml` and `talents.toml` (the Fighter), `items/`, `loot/`, `prefabs/` (buildings as text grids; `town.toml` the shops, `farm.toml` the farmsteads, `graveyard.toml` the graveyard and its skeletons, `abbey.toml` the holdout), `regions/`.
+- `data/`: the game's numbers and content in TOML: `rules.toml`, `creatures/`, `fixtures.toml`, `holdouts.toml` (the holdouts' trade, and which item is coin), `recipes.toml` (what can be made), `names.toml` (characters' and rares' names), `affixes.toml` (rares' affixes), `properties.toml` (magic items' properties and curses), `classes.toml` and `talents.toml` (the Fighter), `items/`, `loot/`, `prefabs/` (buildings as text grids; `town.toml` the shops, `farm.toml` the farmsteads, `graveyard.toml` the graveyard and its skeletons, `barrow.toml` the barrows and their wights, `abbey.toml` the holdout), `regions/`.
 - `client/`: the Godot 4.7 project, built in code. It draws what the core says and decides nothing:
   - `main.gd`: input, the camera and the loop;
   - `map_view.gd`: streams chunks round the camera, and draws the fog of war and the sight-cone overlay;
@@ -27,7 +27,7 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
 .\play.cmd                                 # build and play: carries on from the saved game (the first run also imports the project)
 .\play.cmd -e                              # the same, but open the Godot editor on client/
 .\play.cmd -- --seed=7 --walk=4,5          # a trial run, not saved. Flags after --: --seed, --town, --walk=X,Y, --zoom, --speed, --data=DIR, --do=S:ACTION (swing, shove, door, struggle, drop, sleep, drink, light, skills, save, board, unboard, burn, next), --news, --hour=H, --save=FILE, --shot=PNG --shot-after=S
-cargo test --workspace                     # 228 tests, a few seconds
+cargo test --workspace                     # 233 tests, a few seconds
 cargo run -p dusk-cli -- check             # load and check everything in data/
 cargo run -p dusk-cli -- prefab cottage    # a building, in its four turns
 cargo run --release -p dusk-cli -- gen --seed 7 --png map.png   # a patch: its lots, its dead by kind, the XP, cures and oil its containers hold, and a map (--text X,Y,W,H, --ticks N: also the pressure after, --tolling: its first Tolling, run)

@@ -59,6 +59,14 @@ pub struct Creature {
     /// What it takes of a blow, per mille, by the weapon's skill (`resist_index`): bone turns a
     /// blade, and a mace shatters it.
     pub resist: [u32; 4],
+    /// Only after dark: by day it lies still where it is, deaf and blind, until the night.
+    pub nocturnal: bool,
+    /// What it adds to the dread of the living near it, over what any of the dead do
+    /// (`dread.rs`), in thousandths of a point.
+    pub dread: i32,
+    /// What it takes of a blow while it stands in the light (its tile lit at half or more),
+    /// per mille: a kind that shuns the light is weak in it.
+    pub lit_harm: u32,
 }
 
 /// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
@@ -119,6 +127,9 @@ impl Default for Creature {
             get_up: GetUp::default(),
             douses: 0,
             resist: [1000; 4],
+            nocturnal: false,
+            dread: 0,
+            lit_harm: 1000,
         }
     }
 }

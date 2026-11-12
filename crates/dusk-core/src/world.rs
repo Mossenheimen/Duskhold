@@ -1330,6 +1330,16 @@ impl World {
             return;
         }
         let Some(kind) = self.stats(id) else { return };
+        // Only after dark: by day it lies still where it is, after nothing (`creature.rs`).
+        if kind.nocturnal && !self.is_night() {
+            if let Some(a) = self.actors.get_mut(id) {
+                a.intent = Intent::Idle;
+                if let Mind::Hunt { target, .. } = &mut a.mind {
+                    *target = None;
+                }
+            }
+            return;
+        }
         if kind.douses > 0 {
             self.eat_lights(id, kind.douses);
         }

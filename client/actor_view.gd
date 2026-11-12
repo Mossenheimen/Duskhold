@@ -16,6 +16,7 @@ const LOOKS := [
 	[Color(0.82, 0.78, 0.7), 1.3, -28.0],
 	[Color(0.45, 0.24, 0.2), 1.6, -6.0],  # a revenant: you, in your gear, gone dark
 	[Color(0.88, 0.86, 0.78), 1.6, -3.0],  # a skeleton: bone white, tall and upright
+	[Color(0.22, 0.25, 0.34), 1.8, 4.0],  # a wight: night-blue, the tallest, leaning back
 ]
 const CURIOUS := Color(1.0, 0.75, 0.25)
 const HUNTING := Color(1.0, 0.22, 0.15)

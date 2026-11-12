@@ -102,3 +102,31 @@ groan = 0
 wounds = { scratch = 0.55, laceration = 0.45, bite = 0.0 }
 thump = [2, 3]
 resist = { blade = 0.4, spear = 0.3, axe = 0.7, blunt = 1.5 }   # what it takes of a blow, by weapon
+
+# The barrows' (prefabs/barrow.toml): the night's own. By day it lies still in its barrow, and the
+# barrow's dim light is enough to weaken it: that's when to go in. After dark it walks, puts out
+# every light near it (your torch, your fire), and its nearness alone frightens you (dread). Faster
+# than your walk, slower than your run, and it sees far in the dark. In the light it takes twice
+# the harm of a blow. Put down, it stays down. It never spawns in the region's mix.
+[[creature]]
+id = "wight"
+walk = 0.7
+run = 1.8
+night_speed = 1.0     # it is the night's: no faster for it
+sight = 12
+darkvision = 6
+cone = 160
+think_every = 3
+forget_after = 90.0
+wander = 0.1
+path_budget = 1000
+health = 60           # twice a shambler
+down = 1.5
+attack = { wind_up = 0.9, recovery = 0.5, hit = 0.7, noise = 2 }   # cold claws
+groan = 0
+wounds = { scratch = 0.3, laceration = 0.6, bite = 0.1 }
+thump = [3, 5]
+nocturnal = true      # only after dark
+douses = 4            # lights and fires within this many tiles go out
+dread = 25            # points of dread it adds near you, over one of the dead's
+lit_harm = 2.0        # what it takes of a blow in the light

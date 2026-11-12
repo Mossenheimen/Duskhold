@@ -462,7 +462,17 @@ impl World {
             ActorKind::Character => self.resistance(target, skill),
             ActorKind::Creature(_) => 1000,
         };
-        let damage = (i64::from(damage) * i64::from(resist) / 1000) as i32;
+        // And a kind that shuns the light takes more of it standing in the light.
+        let lit = match kind {
+            ActorKind::Character => self.stats(target).map_or(1000, |c| c.lit_harm),
+            ActorKind::Creature(_) => 1000,
+        };
+        let in_light = self
+            .actors
+            .get(target)
+            .is_some_and(|t| self.light_at(t.pos) * 2 >= crate::light::FULL_LIGHT);
+        let lit = if in_light { lit } else { 1000 };
+        let damage = (i64::from(damage) * i64::from(resist) / 1000 * i64::from(lit) / 1000) as i32;
         if resist != 1000 {
             let weak = resist > 1000;
             self.events.push(Event::Resisted {

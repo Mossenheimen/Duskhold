@@ -18,6 +18,7 @@ pub enum Layer {
     River = 9,
     Ford = 10,
     Farm = 11,
+    Barrow = 12,
 }
 
 /// A hash of (seed, layer, a, b): every input bit stirs every output bit.

@@ -483,3 +483,35 @@ fn the_graveyard_lies_by_the_chapel_and_its_skeletons_keep_to_it() {
         assert_eq!(tombs, 2, "seed {seed}");
     }
 }
+
+#[test]
+fn barrows_lie_out_in_the_wilds_each_with_its_wight() {
+    for seed in 1..=8 {
+        let (w, layout) = make(seed);
+        let barrows: Vec<_> = layout
+            .lots
+            .iter()
+            .filter(|l| l.prefab == "barrow")
+            .collect();
+        assert!(!barrows.is_empty(), "seed {seed}: no barrow");
+        for (_, a) in w.actors() {
+            let dusk_core::ActorKind::Creature(n) = a.kind else {
+                continue;
+            };
+            let wight = w.defs.creatures[usize::from(n)].id == "wight";
+            let inside = barrows.iter().any(|b| b.inside().contains(a.pos));
+            assert_eq!(
+                wight, inside,
+                "seed {seed}: wights in barrows, and only there"
+            );
+        }
+        for b in &barrows {
+            let wights = w
+                .actors()
+                .filter(|(_, a)| b.inside().contains(a.pos) && !a.kind.is_character())
+                .count();
+            assert_eq!(wights, 1, "seed {seed}: one wight to a barrow");
+            assert!(b.path.len() >= 30, "seed {seed}: out in the wilds");
+        }
+    }
+}

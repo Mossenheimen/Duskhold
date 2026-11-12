@@ -33,7 +33,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 16;
+pub const VERSION: u32 = 17;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
