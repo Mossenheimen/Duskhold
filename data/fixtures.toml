@@ -140,3 +140,14 @@ solid = true
 id = "tools"          # a rack of farm tools
 solid = true
 loot = "farm"
+
+# The graveyard's (prefabs/graveyard.toml).
+
+[[fixture]]
+id = "grave"          # a headstone over a grave
+solid = true
+
+[[fixture]]
+id = "tomb"           # an old stone tomb, its grave goods within
+solid = true
+loot = "tomb"

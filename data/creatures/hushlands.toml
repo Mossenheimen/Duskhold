@@ -77,3 +77,28 @@ attack = { wind_up = 1.0, recovery = 0.5, hit = 0.65, noise = 3 }
 groan = 0
 wounds = { scratch = 0.4, laceration = 0.45, bite = 0.15 }
 thump = [3, 5]
+
+# The graveyard's (prefabs/graveyard.toml): the town's old dead, bone and nothing else. A blade
+# finds little to cut and a spear less to pierce, but a blunt weapon shatters them: the reason to
+# carry a mace or a hammer. Lighter than a shambler and quicker, and they see in the dark better
+# than any of the dead. No flesh: no bite, so no fever, and no breath to groan with. It never
+# spawns in the region's mix (regions/*.toml), and shattered, it stays down.
+[[creature]]
+id = "skeleton"
+walk = 0.6
+run = 1.3             # quicker than a shambler (0.8), slower than your walk (1.5)
+night_speed = 1.25
+sight = 10
+darkvision = 4        # empty sockets see in any light
+cone = 140
+think_every = 4
+forget_after = 40.0
+wander = 0.05         # it keeps to the graves
+path_budget = 500
+health = 24           # a mace's one or two blows, a sword's four to six
+down = 2.0            # bones clatter back up quickly
+attack = { wind_up = 1.1, recovery = 0.6, hit = 0.55, noise = 3 }   # a bony hand, or a rusted blade
+groan = 0
+wounds = { scratch = 0.55, laceration = 0.45, bite = 0.0 }
+thump = [2, 3]
+resist = { blade = 0.4, spear = 0.3, axe = 0.7, blunt = 1.5 }   # what it takes of a blow, by weapon

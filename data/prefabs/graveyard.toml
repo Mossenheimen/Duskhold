@@ -1,0 +1,42 @@
+# The town's graveyard, beside the chapel, as a text grid (crates/dusk-core/src/text.rs; the edges
+# and cells are read as in hamlet.toml). Rows of headstones either side of a path from the gate to
+# two old tombs, inside a railing. The town's old dead lie here, and they're up: bone and nothing
+# else (creatures/hushlands.toml's skeleton). Blades glance off them; bring something blunt. The
+# tombs hold grave goods (loot/graveyard.toml).
+#
+# kind: what its dead are, over the region's mix. The + all round only marks its edge.
+
+[legend]
+"," = { ground = "grass" }
+":" = { ground = "dirt" }
+"g" = { ground = "grass", fixture = "grave" }
+"T" = { ground = "grass", fixture = "tomb" }
+
+[[prefab]]
+id = "graveyard"
+name = "the graveyard"
+tags = ["graveyard"]
+front = "south"
+dead = [3, 6]
+kind = "skeleton"
+grid = """
++f+f+f+f+f+f+f+f+f+f+f+f+f+
+f, g , g , T : T , g , g ,f
++                         +
+f, , , , , , : , , , , , ,f
++                         +
+f, g , g , g : g , g , g ,f
++                         +
+f, , , , , , : , , , , , ,f
++                         +
+f, g , g , g : g , g , g ,f
++                         +
+f, , , , , , : , , , , , ,f
++                         +
+f, g , g , g : g , g , g ,f
++                         +
+f, , , , , , : , , , , , ,f
++                         +
+f, , , , , , : , , , , , ,f
++f+f+f+f+f+f+d+f+f+f+f+f+f+
+"""

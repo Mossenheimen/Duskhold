@@ -38,6 +38,8 @@ pub struct Lot {
     pub path: Vec<TilePos>,
     /// The region's holdout: walled, so no fence round it, and none of the dead inside.
     pub holdout: bool,
+    /// What its own dead are, over the region's mix (a graveyard's skeletons).
+    pub kind: Option<String>,
 }
 
 impl Lot {
@@ -265,6 +267,7 @@ impl Layout {
                     door,
                     path,
                     holdout: false,
+                    kind: prefab.kind.clone(),
                 });
                 break;
             }
@@ -377,6 +380,7 @@ impl Layout {
             door,
             path,
             holdout: true,
+            kind: None,
         })
     }
 
@@ -529,6 +533,7 @@ impl Layout {
                 door,
                 path,
                 holdout: false,
+                kind: prefab.kind.clone(),
             });
         }
         lots
@@ -720,8 +725,16 @@ impl Layout {
     }
 
     /// Which of the region's kinds of dead stands at a tile, by their shares: a roll of its own,
-    /// so where the dead stand doesn't hang on what they are.
+    /// so where the dead stand doesn't hang on what they are. Inside a building whose dead are
+    /// a kind of their own (a graveyard's skeletons), that kind.
     pub fn dead_kind(&self, at: TilePos) -> &str {
+        let own = self
+            .lots
+            .iter()
+            .find(|l| l.kind.is_some() && l.inside().contains(at));
+        if let Some(kind) = own.and_then(|l| l.kind.as_deref()) {
+            return kind;
+        }
         let kinds = &self.region.dead.kinds;
         let mut left = unit(self.seed, Layer::DeadKind, i64::from(at.x), i64::from(at.y));
         for k in kinds {

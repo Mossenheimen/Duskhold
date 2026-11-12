@@ -127,6 +127,7 @@ const FIRE_OUT: i32 = 75;
 const SAW_FIRE: i32 = 76;
 const DREAD: i32 = 77;
 const BALKED: i32 = 78;
+const RESISTED: i32 = 79;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -379,6 +380,13 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::SawFire { who, at: p } => (SAW_FIRE, Some(who), None, (p.x, p.y), 0),
         Event::Dread { who, level } => (DREAD, Some(who), None, at(who), i32::from(level)),
         Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
+        Event::Resisted { who, target, weak } => (
+            RESISTED,
+            Some(who),
+            Some(target),
+            at(target),
+            i32::from(weak),
+        ),
         Event::RainEnded => (RAIN_ENDED, None, None, (-1, -1), 0),
         Event::RainedOut { who, item } => (RAINED_OUT, Some(who), None, at(who), i32::from(item)),
         Event::Identified { who, item } => (IDENTIFIED, Some(who), None, at(who), i32::from(item)),

@@ -428,8 +428,9 @@ impl World {
                 let odds = creature.map_or([10_000, 0, 0], |c| c.wounds);
                 let mut left = below(roll(seed, tick, who, Purpose::Wound), 10_000);
                 let mut kind = WoundKind::Scratch;
-                if holds && left < c.held_bite {
-                    // Held, the mouth gets close.
+                // Held, the mouth gets close: of a kind that bites at all (bone has no bite).
+                let bites = odds[WoundKind::Bite as usize] > 0;
+                if holds && bites && left < c.held_bite {
                     kind = WoundKind::Bite;
                 } else {
                     for (k, &odds) in WoundKind::ALL.iter().zip(&odds) {
@@ -445,6 +446,21 @@ impl World {
                 (rule.damage, Some((kind, part, rule.bleed)))
             }
         };
+        // Bone turns a blade and a mace shatters it: what the foe's kind takes of the blow
+        // (`creature.rs`).
+        let resist = match kind {
+            ActorKind::Character => self.resistance(target, skill),
+            ActorKind::Creature(_) => 1000,
+        };
+        let damage = (i64::from(damage) * i64::from(resist) / 1000) as i32;
+        if resist != 1000 {
+            let weak = resist > 1000;
+            self.events.push(Event::Resisted {
+                who: id,
+                target,
+                weak,
+            });
+        }
         // A wound from a kind that carries ghoul fever may bring it (`fever.rs`).
         let fevered = wound.is_some_and(|(k, _, _)| {
             let odds = creature.map_or(0, |c| c.fever[k as usize]);

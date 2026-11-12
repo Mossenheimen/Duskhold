@@ -1138,3 +1138,48 @@ fn wounds_by_where_they_land_load_in_the_cores_units_and_nonsense_is_refused() {
         assert!(err.message.contains(says), "{err}");
     }
 }
+
+#[test]
+fn the_graveyard_holds_skeletons_that_blades_glance_off_in_the_games_data() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let skeleton = d.creatures.iter().find(|c| c.id == "skeleton").unwrap();
+    let s = skeleton.stats;
+    assert_eq!(s.resist, [400, 1500, 700, 300], "blade, blunt, axe, spear");
+    assert_eq!(s.get_up.chance, 0, "shattered, it stays down");
+    assert_eq!((s.wounds[2], s.fever), (0, [0; 3]), "no bite, no fever");
+    // A mace puts one down in two blows at worst; a sword takes at least three.
+    let damage = |id: &str| match &d.items.iter().find(|i| i.id == id).unwrap().kind {
+        dusk_core::ItemKind::Weapon { swing, .. } => swing.damage,
+        _ => panic!("{id} isn't a weapon"),
+    };
+    let (mace, sword) = (damage("mace"), damage("sword"));
+    assert!(2 * mace.0 * 1500 / 1000 >= s.health);
+    assert!(2 * sword.1 * 400 / 1000 < s.health);
+    // Only in graveyards: not in the region's mix.
+    let region = data.region("hushlands").unwrap();
+    assert!(!region.dead.kinds.iter().any(|k| k.creature == "skeleton"));
+    assert!(region.hamlet.lots.iter().any(|t| t == "graveyard"));
+    let yard = data.prefab("graveyard").expect("a graveyard");
+    assert_eq!(
+        (yard.kind.as_deref(), yard.dead),
+        (Some("skeleton"), Some((3, 6)))
+    );
+    let fixture = |id: &str| data.fixtures.iter().position(|f| f.id == id).unwrap() + 1;
+    let tomb = d.containers[fixture("tomb")].expect("a tomb holds grave goods");
+    assert_eq!(d.loot[usize::from(tomb)].id, "tomb");
+}
+
+#[test]
+fn a_buildings_own_dead_must_be_a_creature_and_a_resistance_must_make_sense() {
+    let prefabs = PREFABS.replace("front = \"south\"", "front = \"south\"\nkind = \"lich\"");
+    let err = load(&folder("kind", &test_files(&prefabs))).unwrap_err();
+    assert!(err.message.contains("kind \"lich\""), "{err}");
+
+    let creature = format!("{SHAMBLER}resist = {{ blade = 5.0 }}\n");
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "creatures/dead.toml");
+    files.push(("creatures/dead.toml", &creature));
+    let err = load(&folder("resist", &files)).unwrap_err();
+    assert!(err.message.contains("resist"), "{err}");
+}

@@ -118,6 +118,7 @@ const FIRE_OUT := 75
 const SAW_FIRE := 76
 const DREAD := 77
 const BALKED := 78
+const RESISTED := 79
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -175,6 +176,7 @@ var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire,
 var dread_was := 0  # your dread's level, as the core last said
 var dread_told := {}  # when the news last told each level of dread, in seconds played
 var balked_at := -100.0  # when the news last said you balked, in seconds played
+var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
 var seen := PackedByteArray()  # per actor, whether you see it (DuskWorld.actor_seen())
 var actors: Array = []  # an ActorView per actor, in the core's order
 var me := -1  # the character's index in the actor arrays
@@ -1005,6 +1007,14 @@ func _read_events() -> void:
 				if who == me and played - balked_at > 4.0:
 					balked_at = played
 					hud.say("You can't make yourself go nearer the dead.")
+			RESISTED:
+				# Once in a while: every blow on bone would fill the news.
+				if who == me and played - resisted_at > 15.0:
+					resisted_at = played
+					if extra == 1:
+						hud.say("The blow shatters bone!")
+					else:
+						hud.say("Your blow glances off the bones. Something blunt would shatter them.")
 
 
 ## Your dread reached a new level (the core's DREAD news): told as it rises, and when it lets go.

@@ -113,6 +113,9 @@ pub struct Prefab {
     /// How many of the dead are in it at the start, the fewest and the most, where it isn't
     /// the region's `per_house`.
     pub dead: Option<(u32, u32)>,
+    /// What those dead are (a creature's id), where it isn't the region's mix: a graveyard's
+    /// skeletons.
+    pub kind: Option<String>,
     pub front: Side,
     pub grid: TextGrid<PrefabCell>,
 }
@@ -348,6 +351,20 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         "prefab",
         prefabs.iter().map(|p| &p.id),
     )?;
+    // A building's own kind of dead must be one of the creatures.
+    for p in &prefabs {
+        if let Some(kind) = &p.kind
+            && !defs.creatures.iter().any(|c| &c.id == kind)
+        {
+            return Err(fail(
+                &dir.join("prefabs"),
+                format!(
+                    "prefab {:?}: kind {kind:?} is no creature in creatures/",
+                    p.id
+                ),
+            ));
+        }
+    }
 
     let mut regions = Vec::new();
     for file in files_in(&dir.join("regions"))? {
@@ -618,12 +635,34 @@ struct CreatureFile {
     /// Tiles it smells blood from, for each wound that's bleeding (0, or left out: it doesn't).
     #[serde(default)]
     blood: i32,
+    /// What it takes of a blow by the weapon's skill (left out: all of it from any).
+    #[serde(default)]
+    resist: Option<ResistFile>,
     /// The chance each kind of wound it leaves carries ghoul fever (left out: none does).
     #[serde(default)]
     fever: Option<WoundOddsFile>,
     /// Whether its body gets up again, and when (left out: it stays down).
     #[serde(default)]
     get_up: Option<remains::GetUpFile>,
+}
+
+/// What a kind takes of a blow, by the weapon's skill: 1 all of it, under 1 less (bone turns a
+/// blade), over 1 more (a mace shatters it). Bare hands strike as blunt.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResistFile {
+    #[serde(default = "whole")]
+    blade: f64,
+    #[serde(default = "whole")]
+    blunt: f64,
+    #[serde(default = "whole")]
+    axe: f64,
+    #[serde(default = "whole")]
+    spear: f64,
+}
+
+fn whole() -> f64 {
+    1.0
 }
 
 #[derive(Deserialize)]
@@ -657,6 +696,8 @@ struct PrefabFile {
     front: Side,
     #[serde(default)]
     dead: Option<(u32, u32)>,
+    #[serde(default)]
+    kind: Option<String>,
     grid: String,
 }
 
@@ -762,6 +803,16 @@ fn to_creatures(
             ],
             None => [0; 3],
         };
+        let resist = match &c.resist {
+            Some(r) => {
+                let all = [r.blade, r.blunt, r.axe, r.spear];
+                if all.iter().any(|x| !(0.0..=4.0).contains(x)) {
+                    return Err(bad("resist: what it takes of a blow is from 0 to 4"));
+                }
+                all.map(|x| (x * 1000.0).round() as u32)
+            }
+            None => [1000; 4],
+        };
         if c.health <= 0.0 || c.thump.0 < 0.0 || c.thump.0 > c.thump.1 {
             return Err(bad("health must be above 0, and thump is [least, most]"));
         }
@@ -801,6 +852,7 @@ fn to_creatures(
                 fever,
                 get_up,
                 douses: 0,
+                resist,
             },
         });
     }
@@ -1025,6 +1077,7 @@ fn to_prefab(
         name: p.name.clone().unwrap_or_else(|| p.id.clone()),
         tags: p.tags.clone(),
         dead: p.dead,
+        kind: p.kind.clone(),
         front: p.front,
         grid,
     })

@@ -470,6 +470,12 @@ fn describe(w: &World, e: Event) -> String {
         Event::FireOut { at } => format!("the fire at ({}, {}) burnt out", at.x, at.y),
         Event::Dread { who, level } => format!("{}'s dread is at level {level}", name(who)),
         Event::Balked { who } => format!("{} balked, frightened", name(who)),
+        Event::Resisted { who, target, weak } => format!(
+            "{}'s blow {} {}",
+            name(who),
+            if weak { "told on" } else { "was turned by" },
+            name(target)
+        ),
         Event::SawFire { who, at } => {
             format!(
                 "{} saw the fire at ({}, {}) and comes",

@@ -567,6 +567,7 @@ The first playable:
 - base-building basics: board the windows, barricade the doors, a bed, storage, a fire;
   - *(built 2026-11-11)* **a fire:** a hearth, a stove or a forge takes one, with a few split logs kept by it. Lay the logs on, then light them from the torch or candle you hold up. A fire burns down through the night and lights the room, so your hands are free. But light is bait: at night the dead that see a fire through a window come to it, so board the windows up first. A plank burns too, for half as long, which makes it a choice against nailing it across a window. Put out, a fire keeps what's left of its wood;
 - the dead: shamblers and ghouls, the Tolling (the first siege on the calendar), a handful of rare affixes, revenants;
+  - *(built 2026-11-11)* **the graveyard and its skeletons:** a fenced graveyard beside the chapel holds 3 to 6 skeletons, the town's old dead, and two tombs of grave goods. Blades glance off bone (a sword does 40%, a spear 30%) and blunt weapons shatter it (150%), so the mace and the hammer have their place. Skeletons see best in the dark of all the dead, but they have no bite, no fever and no groan, and once shattered they stay down;
 - one class (Fighter), perhaps two (+ Cleric);
 - combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;
 - the senses drawn: noise rings, sight cones and alert states, your light's reach;

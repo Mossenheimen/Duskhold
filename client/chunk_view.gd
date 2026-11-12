@@ -63,6 +63,9 @@ const FURNITURE := {
 	"sack": [Vector3(0.6, 0.7, 0.6), Color(0.6, 0.52, 0.38)],
 	"hay": [Vector3(0.9, 0.8, 0.9), Color(0.74, 0.66, 0.38)],
 	"tools": [Vector3(0.9, 1.5, 0.3), Color(0.4, 0.3, 0.2)],
+	# The graveyard: headstones, and its old tombs.
+	"grave": [Vector3(0.55, 0.75, 0.18), Color(0.52, 0.53, 0.55)],
+	"tomb": [Vector3(0.95, 0.75, 0.95), Color(0.47, 0.47, 0.45)],
 }
 
 const SIDE_WEST := 1

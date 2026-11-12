@@ -444,3 +444,42 @@ fn farms_lie_out_in_the_fields_with_a_track_to_the_road_a_well_and_wheat() {
         }
     }
 }
+
+#[test]
+fn the_graveyard_lies_by_the_chapel_and_its_skeletons_keep_to_it() {
+    for seed in 1..=8 {
+        let (w, layout) = make(seed);
+        let chapel = layout.lots.iter().find(|l| l.prefab == "chapel").unwrap();
+        let yard = layout
+            .lots
+            .iter()
+            .find(|l| l.prefab == "graveyard")
+            .unwrap_or_else(|| panic!("seed {seed}: no graveyard"));
+        assert!(
+            (yard.door.x - chapel.door.x).abs() <= 30 && yard.north == chapel.north,
+            "seed {seed}: beside the chapel, on its side of the road"
+        );
+        let inside = yard.inside();
+        let mut skeletons = 0;
+        for (_, a) in w.actors() {
+            let dusk_core::ActorKind::Creature(n) = a.kind else {
+                continue;
+            };
+            let bones = w.defs.creatures[usize::from(n)].id == "skeleton";
+            assert_eq!(
+                bones,
+                inside.contains(a.pos),
+                "seed {seed}: skeletons in the graveyard, and only there ({:?})",
+                a.pos
+            );
+            skeletons += usize::from(bones);
+        }
+        assert!((3..=6).contains(&skeletons), "seed {seed}: {skeletons}");
+        // Its tombs hold grave goods.
+        let tombs = (inside.y0..inside.y1)
+            .flat_map(|y| (inside.x0..inside.x1).map(move |x| dusk_core::TilePos::new(x, y, 0)))
+            .filter(|&p| w.defs.container(w.grid.tile(p).fixture).is_some())
+            .count();
+        assert_eq!(tombs, 2, "seed {seed}");
+    }
+}

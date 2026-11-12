@@ -56,6 +56,21 @@ pub struct Creature {
     /// Lights held up within this many tiles of it go out (0: none). No kind has it; the
     /// Lantern-Eater affix gives it (`rare.rs`).
     pub douses: i32,
+    /// What it takes of a blow, per mille, by the weapon's skill (`resist_index`): bone turns a
+    /// blade, and a mace shatters it.
+    pub resist: [u32; 4],
+}
+
+/// Where a weapon's skill falls in `Creature::resist`: blade, blunt, axe, spear. Bare hands,
+/// and a weapon of no skill, strike as blunt.
+pub fn resist_index(skill: Option<crate::skills::Skill>) -> usize {
+    use crate::skills::Skill;
+    match skill {
+        Some(Skill::Blade) => 0,
+        Some(Skill::Axe) => 2,
+        Some(Skill::Spear) => 3,
+        _ => 1,
+    }
 }
 
 /// Whether a kind's body gets up after it's put down, and when: the Hushlands' rule, "the
@@ -103,6 +118,7 @@ impl Default for Creature {
             fever: [0; 3],
             get_up: GetUp::default(),
             douses: 0,
+            resist: [1000; 4],
         }
     }
 }

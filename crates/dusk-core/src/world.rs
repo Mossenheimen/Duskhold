@@ -602,6 +602,13 @@ pub enum Event {
     Balked {
         who: ActorId,
     },
+    /// `who`'s blow on `target` was turned by its kind (a blade on bone), or, `weak`, told
+    /// all the more (a mace on bone: `creature.rs`).
+    Resisted {
+        who: ActorId,
+        target: ActorId,
+        weak: bool,
+    },
     /// `who` bought one of an item at a holdout, for `price` coin (`holdout.rs`).
     Bought {
         who: ActorId,

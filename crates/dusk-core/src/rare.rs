@@ -166,6 +166,13 @@ impl World {
         }
     }
 
+    /// What `target` takes of a blow from a weapon of `skill` (bare hands strike as blunt), per
+    /// mille, by its kind: 1000 for the living, and for a kind that minds no weapon.
+    pub fn resistance(&self, target: ActorId, skill: Option<crate::skills::Skill>) -> u32 {
+        self.stats(target)
+            .map_or(1000, |c| c.resist[crate::creature::resist_index(skill)])
+    }
+
     /// Whether an actor is a rare.
     pub fn is_rare(&self, id: ActorId) -> bool {
         self.actors.get(id).is_some_and(|a| !a.affixes.is_empty())

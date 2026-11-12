@@ -25,9 +25,10 @@ start = 40            # you start on the road this many tiles west of the hamlet
 # The market town: its lots, by prefab tag, from the middle outward on alternate sides of the
 # road: north, south, north, ... At its heart the chapel (the landmark) and the tavern face each
 # other across the road, with the smithy and the general store beside them (prefabs/town.toml);
-# then houses and outbuildings. It lies wherever along the road leaves room west of it for the
+# then the graveyard beside the chapel (prefabs/graveyard.toml), then houses and outbuildings. It
+# lies wherever along the road leaves room west of it for the
 # abbey and east of it for the river.
-lots = ["landmark", "tavern", "smithy", "store", "house", "house", "house", "outbuilding", "house", "house", "house", "outbuilding", "house"]
+lots = ["landmark", "tavern", "smithy", "store", "graveyard", "house", "house", "house", "outbuilding", "house", "house", "house", "outbuilding", "house"]
 gap = 2               # tiles between neighbouring lots
 setback = 2           # tiles between the road and a lot's fence
 yard = 2              # tiles of yard round a building, inside its fence
