@@ -28,6 +28,24 @@ const BOARD := Color(0.62, 0.48, 0.3)
 const BOARD_SLOTS := 4
 const BOARD_TILT := 9.0
 const FENCE := Color(0.45, 0.38, 0.3)
+## What things are made of, for their look (shaders/wall.gdshader draws each, as a code over 16 in
+## an instance's custom data): 0 plain colour.
+const PLAIN := 0
+const PLASTER := 1
+const WOOD := 2
+const STONE := 3
+const FOLIAGE := 4
+const STRAW := 5
+const CLOTH := 6
+const IRON := 7
+const BARK := 8
+## Furniture's, by fixture id; anything not listed is wood.
+const SURFACES := {
+	"bed": CLOTH, "sister": CLOTH, "sack": CLOTH,
+	"stove": IRON, "anvil": IRON,
+	"altar": STONE, "forge": STONE, "hearth": STONE, "well": STONE, "grave": STONE, "tomb": STONE,
+	"wheat": STRAW, "hay": STRAW,
+}
 const TRUNK := Color(0.3, 0.23, 0.17)
 const LEAVES := Color(0.24, 0.33, 0.21)
 
@@ -131,6 +149,7 @@ func build_walls(low_walls: bool) -> void:
 	var height := LOW_WALL_HEIGHT if low_walls else WALL_HEIGHT
 	var solid: Array[Transform3D] = []
 	var colours := PackedColorArray()
+	var surfaces := PackedFloat32Array()
 	var glass: Array[Transform3D] = []
 	var planks: Array[Transform3D] = []
 	var plank_colours := PackedColorArray()
@@ -173,6 +192,7 @@ func build_walls(low_walls: bool) -> void:
 			else:
 				solid.append(place)
 				colours.append({"wall": WALL, "door": DOOR, "fence": FENCE}[what].srgb_to_linear())
+				surfaces.append(PLASTER if what == "wall" else WOOD)
 		# Boards nailed across a door or window, sticking out a little on both sides.
 		var opening := Vector2(0.2, DOOR_TOP - 0.15) if kind in [EDGE_DOOR_SHUT, EDGE_DOOR_OPEN] \
 			else Vector2(SILL, WINDOW_TOP)
@@ -186,11 +206,14 @@ func build_walls(low_walls: bool) -> void:
 			var centre := Vector3(x, mid, y + 0.5) if west else Vector3(x + 0.5, mid, y)
 			planks.append(Transform3D(turn * Basis.from_scale(size), centre))
 			plank_colours.append(BOARD.darkened(_shade(x + b, y)).srgb_to_linear())
-	_add_cut_away(_walls, BoxMesh.new(), solid, colours)
+	_add_cut_away(_walls, BoxMesh.new(), solid, colours, surfaces)
 	# Boards aren't cut away, as glass isn't: the ones you've just nailed are right beside you,
 	# where the cut-away is, and you want to see them.
 	if not planks.is_empty():
-		_walls.add_child(_instances(BoxMesh.new(), planks, plank_colours, _materials["plain"]))
+		var wood := PackedFloat32Array()
+		wood.resize(planks.size())
+		wood.fill(WOOD)
+		_walls.add_child(_instances(BoxMesh.new(), planks, plank_colours, _materials["solid"], wood))
 	var white := PackedColorArray()
 	white.resize(glass.size())
 	white.fill(Color.WHITE)
@@ -205,7 +228,7 @@ func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void
 		for x in size:
 			var ground := tiles[y * size + x] & 15
 			var colour: Color = GROUND[ground].darkened(_shade(origin.x + x, origin.y + y))
-			colour.a = 0.5 if ground == 4 or ground == 6 else 1.0  # water shines, shallow or deep
+			colour.a = (ground + 0.5) / 16.0  # its kind, for its surface (ground.gdshader)
 			image.set_pixel(x, y, colour)
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/ground.gdshader")
@@ -230,6 +253,7 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 	var crown_colours := PackedColorArray()
 	var boxes: Array[Transform3D] = []
 	var box_colours := PackedColorArray()
+	var box_surfaces := PackedFloat32Array()
 	for y in size:
 		for x in size:
 			var fixture := tiles[y * size + x] >> 4
@@ -252,6 +276,7 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 				var box: Vector3 = look[0]
 				boxes.append(Transform3D(Basis.from_scale(box), centre + Vector3(0, box.y / 2.0, 0)))
 				box_colours.append((look[1] as Color).darkened(shade).srgb_to_linear())
+				box_surfaces.append(SURFACES.get(names[fixture], WOOD))
 	if not trunks.is_empty():
 		var trunk := CylinderMesh.new()
 		trunk.top_radius = 0.09
@@ -259,22 +284,28 @@ func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 		trunk.height = 1.4
 		trunk.radial_segments = 6
 		trunk.rings = 1
-		_fixtures.add_child(_instances(trunk, trunks, trunk_colours, _materials["plain"]))
+		var bark := PackedFloat32Array()
+		bark.resize(trunks.size())
+		bark.fill(BARK)
+		_fixtures.add_child(_instances(trunk, trunks, trunk_colours, _materials["solid"], bark))
 		var leaves := SphereMesh.new()
 		leaves.radius = 0.85
 		leaves.height = 1.5
 		leaves.radial_segments = 7
 		leaves.rings = 4
-		_add_cut_away(_fixtures, leaves, crowns, crown_colours)
+		var leafy := PackedFloat32Array()
+		leafy.resize(crowns.size())
+		leafy.fill(FOLIAGE)
+		_add_cut_away(_fixtures, leaves, crowns, crown_colours, leafy)
 	if not boxes.is_empty():
-		_add_cut_away(_fixtures, BoxMesh.new(), boxes, box_colours)
+		_add_cut_away(_fixtures, BoxMesh.new(), boxes, box_colours, box_surfaces)
 
 
 ## Instances drawn with the cut-away material, plus a shadow-only copy: a hole cut for the
 ## camera mustn't let the sun in.
 func _add_cut_away(parent: Node3D, mesh: Mesh, places: Array[Transform3D],
-		colours: PackedColorArray) -> void:
-	var seen := _instances(mesh, places, colours, _materials["cut_away"])
+		colours: PackedColorArray, surfaces := PackedFloat32Array()) -> void:
+	var seen := _instances(mesh, places, colours, _materials["cut_away"], surfaces)
 	seen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(seen)
 	var shadows := MultiMeshInstance3D.new()
@@ -283,17 +314,21 @@ func _add_cut_away(parent: Node3D, mesh: Mesh, places: Array[Transform3D],
 	parent.add_child(shadows)
 
 
-## Many copies of one mesh, each placed and coloured (colours in linear space).
+## Many copies of one mesh, each placed and coloured (colours in linear space), and each of a
+## surface (PLASTER, WOOD...: plain if none are given).
 func _instances(mesh: Mesh, places: Array[Transform3D], colours: PackedColorArray,
-		material: Material) -> MultiMeshInstance3D:
+		material: Material, surfaces := PackedFloat32Array()) -> MultiMeshInstance3D:
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
+	multimesh.use_custom_data = true
 	multimesh.mesh = mesh
 	multimesh.instance_count = places.size()
 	for i in places.size():
 		multimesh.set_instance_transform(i, places[i])
 		multimesh.set_instance_color(i, colours[i])
+		var surface: float = surfaces[i] if i < surfaces.size() else float(PLAIN)
+		multimesh.set_instance_custom_data(i, Color(surface / 16.0, 0.0, 0.0, 0.0))
 	var node := MultiMeshInstance3D.new()
 	node.multimesh = multimesh
 	node.material_override = material

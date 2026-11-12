@@ -34,10 +34,14 @@ func _init() -> void:
 	cut_away.shader = preload("res://shaders/wall.gdshader")
 	var glass := ShaderMaterial.new()
 	glass.shader = preload("res://shaders/glass.gdshader")
+	# The same, never cut away: what you must see whole (boards you've nailed, trunks).
+	var solid := ShaderMaterial.new()
+	solid.shader = cut_away.shader
+	solid.set_shader_parameter("cuts", false)
 	var plain := StandardMaterial3D.new()
 	plain.vertex_color_use_as_albedo = true
 	plain.roughness = 0.95
-	_materials = {"cut_away": cut_away, "glass": glass, "plain": plain}
+	_materials = {"cut_away": cut_away, "solid": solid, "glass": glass, "plain": plain}
 	_watched_material.shader = preload("res://shaders/watched.gdshader")
 	_fog_material.shader = preload("res://shaders/fog_of_war.gdshader")
 	_fog_material.render_priority = Material.RENDER_PRIORITY_MIN  # before the cones and rings

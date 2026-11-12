@@ -154,7 +154,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: making things, and breaking furniture down\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: textures\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

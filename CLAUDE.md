@@ -14,8 +14,8 @@ An open-world fantasy survival RPG in Project Zomboid's style. The game comes fi
   - `main.gd`: input, the camera and the loop;
   - `map_view.gd`: streams chunks round the camera, and draws the fog of war and the sight-cone overlay;
   - `chunk_view.gd`: one chunk's ground, trees, furniture and walls;
-  - `actor_view.gd` (poses: the lean of a wind-up, lying down, dead), `tells.gd` (a swing's tell on the ground), `threats.gd` (engagement lines), `bag.gd` (the pack and "within reach" panels), `skills.gd` (the skills panel), `litter.gd` (what lies on the floor), `noise_rings.gd`, `hud.gd` (clock, body panel, moodle column, news, the sleep veil, death screen);
-  - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture. `fog_of_war.gdshader` is a full-screen pass over everything opaque, before the overlays.
+  - `actor_view.gd` (poses: the lean of a wind-up, lying down, dead), `tells.gd` (a swing's tell on the ground), `threats.gd` (engagement lines), `bag.gd` (the pack and "within reach" panels), `skills.gd` (the skills panel), `craft.gd` (the crafting panel), `litter.gd` (what lies on the floor), `noise_rings.gd`, `hud.gd` (clock, body panel, moodle column, news, the sleep veil, death screen);
+  - `shaders/`: the cut-away is `cut_away.gdshaderinc`, also used for tree crowns and furniture. `fog_of_war.gdshader` is a full-screen pass over everything opaque, before the overlays. Every surface is procedural (`surfaces.gdshaderinc`: noise, blocks, boards), worked out from where a point is: the ground by its kind (in the ground texture's alpha), and walls, furniture and trees by a surface code in each MultiMesh instance's custom data (`chunk_view.gd`'s `SURFACES`). Nothing is downloaded.
 - `play.cmd`: builds the extension and starts the game.
 - `research/`: what's behind the decisions.
   - `game_design.md`: the 2026-11-06 design research (combat, loot, athletics, levelling, pacing and more), with its sources. It was accepted and folded into CONCEPT.md the same day.
