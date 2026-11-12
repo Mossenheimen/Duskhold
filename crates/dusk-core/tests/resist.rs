@@ -52,6 +52,8 @@ fn beside(wield: Option<u16>, resist: [u32; 4]) -> (World, ActorId, ActorId) {
     let c = w.creature_mut(0);
     (c.wander, c.health, c.resist) = (0, 5000, resist);
     c.attack.hit = 0;
+    // It sees all round: a blow on it unawares would be a sneak attack (`stealth.rs`).
+    c.cone = dusk_core::senses::Cone { cos: -10_000 };
     (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
     w.rules.combat.attack.hit = 10_000;
     w.rules.combat.attack.damage = (100, 100);

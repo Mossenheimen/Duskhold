@@ -354,6 +354,8 @@ pub struct Actor {
     pub class: Option<u8>,
     pub talents: Vec<u8>,
     pub winded: bool,
+    /// Sneaking: a stance (`stealth.rs`).
+    pub sneaking: bool,
 }
 
 impl Actor {
@@ -400,6 +402,7 @@ impl Actor {
             class: None,
             talents: Vec::new(),
             winded: false,
+            sneaking: false,
         }
     }
 

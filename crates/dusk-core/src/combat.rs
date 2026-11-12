@@ -416,8 +416,14 @@ impl World {
             .actors
             .get(id)
             .is_some_and(|a| a.holding == Some(target));
-        // On one that's down, or one it holds, a blow always lands.
-        if !down && !holds && below(roll(seed, tick, who, Purpose::Hit), 10_000) >= swing.hit {
+        // Struck unawares, from behind, a blow lands and does many times the harm (`stealth.rs`).
+        let unaware = self.unawares(id, target);
+        // On one that's down, one it holds, or one struck unawares, a blow always lands.
+        if !down
+            && !holds
+            && !unaware
+            && below(roll(seed, tick, who, Purpose::Hit), 10_000) >= swing.hit
+        {
             self.events.push(Event::Missed { who: id, at });
             return;
         }
@@ -472,7 +478,19 @@ impl World {
             .get(target)
             .is_some_and(|t| self.light_at(t.pos) * 2 >= crate::light::FULL_LIGHT);
         let lit = if in_light { lit } else { 1000 };
-        let damage = (i64::from(damage) * i64::from(resist) / 1000 * i64::from(lit) / 1000) as i32;
+        let sneak = if unaware { self.sneak_harm(id) } else { 1000 };
+        let damage = (i64::from(damage) * i64::from(resist) / 1000 * i64::from(lit) / 1000
+            * i64::from(sneak)
+            / 1000) as i32;
+        if unaware {
+            self.events.push(Event::SneakAttack { who: id, target });
+            self.train(
+                id,
+                Skill::Stealth,
+                self.rules.skills.sneak_attack,
+                crate::skills::On::Foe(target),
+            );
+        }
         if resist != 1000 {
             let weak = resist > 1000;
             self.events.push(Event::Resisted {

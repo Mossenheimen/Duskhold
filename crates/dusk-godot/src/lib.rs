@@ -130,6 +130,8 @@ const BALKED: i32 = 78;
 const RESISTED: i32 = 79;
 const CRAFTED: i32 = 80;
 const BROKE_DOWN: i32 = 81;
+const SNEAKING: i32 = 82;
+const SNEAK_ATTACK: i32 = 83;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -382,6 +384,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::SawFire { who, at: p } => (SAW_FIRE, Some(who), None, (p.x, p.y), 0),
         Event::Dread { who, level } => (DREAD, Some(who), None, at(who), i32::from(level)),
         Event::Balked { who } => (BALKED, Some(who), None, at(who), 0),
+        Event::Sneaking { who, on } => (SNEAKING, Some(who), None, at(who), i32::from(on)),
+        Event::SneakAttack { who, target } => {
+            (SNEAK_ATTACK, Some(who), Some(target), at(target), 0)
+        }
         Event::Crafted { who, recipe } => (CRAFTED, Some(who), None, at(who), i32::from(recipe)),
         Event::BrokeDown { who, at: p, planks } => {
             (BROKE_DOWN, Some(who), None, (p.x, p.y), i32::from(planks))
@@ -2145,6 +2151,25 @@ impl DuskWorld {
     #[func]
     fn break_down(&mut self) {
         self.act(Intent::BreakDown);
+    }
+
+    /// Takes up sneaking, or leaves it (`stealth.rs`).
+    #[func]
+    fn set_sneaking(&mut self, on: bool) {
+        if let Some(world) = self.world.as_mut()
+            && let Some(me) = world.character()
+        {
+            world.sneak(me, on);
+        }
+    }
+
+    /// Whether you're sneaking.
+    #[func]
+    fn is_sneaking(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world.character().is_some_and(|me| world.is_sneaking(me))
     }
 
     /// Whether you can tend the fire beside you now: 1 to lay a piece of fuel on, 2 to light it,

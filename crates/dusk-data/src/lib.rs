@@ -24,6 +24,7 @@ mod rare;
 mod remains;
 mod river;
 mod skills;
+mod stealth;
 mod tolling;
 mod weather;
 
@@ -463,6 +464,9 @@ struct RulesFile {
     /// Optional: with no [crafting], nothing breaks down.
     #[serde(default)]
     crafting: Option<craft::CraftingFile>,
+    /// Optional: with no [sneak], sneaking uses the core's defaults.
+    #[serde(default)]
+    sneak: Option<stealth::SneakFile>,
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,
@@ -1025,6 +1029,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(d) = &r.dread {
         rules.dread = dread::to_dread(file, d)?;
+    }
+    if let Some(s) = &r.sneak {
+        rules.sneak = stealth::to_sneak(file, s)?;
     }
     if let Some(i) = &r.injury {
         rules.injury = injury::to_injury(file, i)?;

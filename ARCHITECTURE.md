@@ -1182,6 +1182,17 @@ Game first: every step ends with something to look at or play.
          - by tests: by day it lies still while a day-walking kind hunts you, and at night it hunts you; its nearness frightens (75 at night, against 50 without its own dread); a blow does twice the harm by day and the same at night; the wight's numbers, its speed between your walk and your run, and only in barrows; seeds 1 to 8 have barrows out in the wilds, one wight to each, and wights nowhere else;
          - on screen: a picture inside seed 1's barrow at noon shows the stone chamber with its plinth, the tomb at its back, the HUD's "in a barrow", and dread rising to afraid as one of the dead followed in. The wight itself didn't make the picture: the client draws only the dead you see, and it was out of the character's cone or behind the tomb;
        - **measured:** a patch is made in about 69 ms; it runs at about 217k ticks a second (from about 218k); at the Tolling, 50 to 56 of the 62 to 65 dead in reach gather within 15 tiles of the bell (seeds 1 to 3).
+     - **Sneaking** (2026-11-11; 238 tests pass):
+       - **a stance, not an action** (`stealth.rs`, `World::sneak`, `Actor::sneaking`; `rules.toml`'s `[sneak]`): no running, half your walking pace (Stealth quickens it), footsteps that carry 40% as far (at least a tile), and the dead see you only half as far off (`spots`, in `nearest_visible_character`). Right beside them, or within their darkvision, they see you as ever. A shambler sees a sneaking you from 4 tiles, not 8;
+       - **a sneak attack** (`World::unawares`, `Event::SneakAttack`): a blow on one of the dead that's after nothing, from outside its sight cone. It always lands and does three times the harm, more with Stealth, whether you were sneaking or not;
+       - **Stealth** (`Skill::Stealth`, the eighth skill): learnt from a sneak attack that lands, and from a tile sneaked with the dead within 8 tiles and none of them after you (one spot pays less each time, as a run does). Each level quickens sneaking by 3% and adds 10% to a sneak attack's harm;
+       - **the save format** is version 18 (a body's stance, and a skill more);
+       - **the client:** Ctrl to sneak and to stand; a "Sneaking" moodle saying what it does; you crouch; news of a sneak attack;
+       - **five tests changed on the way:** a magic, a skills and two resistance tests struck an idle shambler from beside or behind, which is now a sneak attack. They're about other things, so their shamblers now see all round;
+       - **checked:**
+         - by tests: sneaking is slower, quieter and never a run; at 6 tiles a shambler sees you standing and not sneaking; a blow from behind on one unaware does 300 and teaches Stealth, while the same blow on one that sees all round does 100 and teaches nothing; sneaking past the dead unseen teaches Stealth and walking doesn't; the data's numbers;
+         - on screen: a picture by day outside the abbey shows the Sneaking moodle, the crouch, Ctrl in the controls and the new title, with the cobbled road, patchy grass and leafy crowns of the last slice in daylight;
+       - **measured:** about 215k ticks a second (from about 217k).
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

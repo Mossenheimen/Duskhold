@@ -15,14 +15,15 @@
 //!   the cap stops learning, so characters stay distinct (Ultima Online's skill cap).
 //! - **What a level does,** a little each: a weapon skill's blows land more often and harder, for
 //!   less breath and less wear on the weapon; Athletics runs faster for less breath; First Aid
-//!   bandages faster; Carpentry boards up faster, with stronger boards.
+//!   bandages faster; Carpentry boards up faster, with stronger boards; Stealth sneaks faster,
+//!   and its sneak attacks do more harm (`stealth.rs`).
 
 use crate::actor::{ActorId, ActorKind};
 use crate::geom::{Dir8, TilePos};
 use crate::items::ItemKind;
 use crate::world::{Event, Swing, World};
 
-/// The skills there is a use for so far. (Sneak and the rest come with what trains them.)
+/// The skills there is a use for so far. (The rest come with what trains them.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub enum Skill {
@@ -33,10 +34,12 @@ pub enum Skill {
     Athletics,
     FirstAid,
     Carpentry,
+    /// Sneaking, and the sneak attack (`stealth.rs`).
+    Stealth,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 7;
+pub const SKILLS: usize = 8;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -47,6 +50,7 @@ impl Skill {
         Skill::Athletics,
         Skill::FirstAid,
         Skill::Carpentry,
+        Skill::Stealth,
     ];
 
     pub fn name(self) -> &'static str {
@@ -58,6 +62,7 @@ impl Skill {
             Skill::Athletics => "Athletics",
             Skill::FirstAid => "First Aid",
             Skill::Carpentry => "Carpentry",
+            Skill::Stealth => "Stealth",
         }
     }
 
@@ -71,6 +76,7 @@ impl Skill {
             Skill::Athletics => "athletics",
             Skill::FirstAid => "first_aid",
             Skill::Carpentry => "carpentry",
+            Skill::Stealth => "stealth",
         }
     }
 
@@ -130,6 +136,13 @@ pub struct SkillRules {
     pub bandage_time: u32,
     pub board_time: u32,
     pub board_strength: u32,
+    /// Stealth (`stealth.rs`): XP for a tile sneaked with the dead near and none after you,
+    /// and for a sneak attack that lands; and a level adds `sneak_pace` per mille to sneaking
+    /// pace and `sneak_harm` to a sneak attack's harm.
+    pub sneak: u32,
+    pub sneak_attack: u32,
+    pub sneak_pace: u32,
+    pub sneak_harm: u32,
 }
 
 impl Default for SkillRules {
@@ -162,6 +175,10 @@ impl Default for SkillRules {
             bandage_time: 50,
             board_time: 50,
             board_strength: 100,
+            sneak: 300,
+            sneak_attack: 3000,
+            sneak_pace: 30,
+            sneak_harm: 100,
         }
     }
 }

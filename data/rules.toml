@@ -165,6 +165,8 @@ down = 0.5            # on one that's down, this share of it
 run = 0.2             # a tile run under risk (Athletics)
 bandage = 3.0         # a bandage on a wound that's bleeding (First Aid)
 board = 2.0           # a board nailed across a door or window (Carpentry); the same one pays less
+sneak = 0.3           # a tile sneaked with the dead near and none after you (Stealth)
+sneak_attack = 3.0    # a sneak attack that lands (Stealth)
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -177,6 +179,8 @@ run_endurance = 0.04  # ...for less endurance
 bandage = 0.05        # First Aid: bandaging takes less time
 board_time = 0.05     # Carpentry: boarding up takes less time...
 board_strength = 0.1  # ...and the boards take more beating
+sneak_pace = 0.03     # Stealth: quicker sneaking...
+sneak_harm = 0.1      # ...and sneak attacks that do more harm
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where
@@ -256,6 +260,17 @@ tools = ["hammer", "hand_axe", "wood_axe"]
 time = 8.0            # seconds
 noise = 14           # tiles it's heard, as the work starts and as it's done
 xp = 1.0             # Carpentry's
+
+[sneak]
+# Sneaking (Ctrl): a stance, not an action. No running, a slower step, footsteps that carry a
+# fraction as far, and the dead see you only a fraction as far off (right beside them, or in
+# their darkvision, as ever). A blow on one of the dead that's after nothing, from outside its
+# sight cone, is a sneak attack, sneaking or not: it lands, and does many times the harm.
+pace = 0.5            # of your walking pace (Stealth quickens it: [skills.level])
+noise = 0.4           # of your footsteps' reach
+seen = 0.5            # of how far off the dead see you
+harm = 3.0            # a sneak attack's harm, times a blow's
+near = 8              # tiles: a sneaked tile teaches Stealth with the dead this near
 
 [injury]
 # Wounds by where they land: what each does to the living (the dead feel nothing). A part's hurt

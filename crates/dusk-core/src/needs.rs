@@ -94,6 +94,8 @@ pub enum Moodle {
     Arm,
     Leg,
     Head,
+    /// Sneaking (`stealth.rs`): a stance, not a trouble.
+    Sneaking,
 }
 
 /// Why someone woke.
@@ -163,6 +165,7 @@ impl World {
             (Moodle::HeavyLoad, u8::from(self.weighed_down(id))),
             (Moodle::Held, holders),
             (Moodle::Asleep, u8::from(b.asleep)),
+            (Moodle::Sneaking, u8::from(a.sneaking)),
         ]
         .into_iter()
         .filter(|&(_, l)| l > 0)

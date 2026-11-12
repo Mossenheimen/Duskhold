@@ -38,6 +38,11 @@ struct XpFile {
     run: f64,
     bandage: f64,
     board: f64,
+    /// Stealth's: a tile sneaked near the dead, and a sneak attack (left out: none).
+    #[serde(default)]
+    sneak: f64,
+    #[serde(default)]
+    sneak_attack: f64,
 }
 
 /// What a level does, as a share a level.
@@ -53,6 +58,11 @@ struct LevelFile {
     bandage: f64,
     board_time: f64,
     board_strength: f64,
+    /// Stealth: quicker sneaking, and more harm to a sneak attack (left out: none).
+    #[serde(default)]
+    sneak_pace: f64,
+    #[serde(default)]
+    sneak_harm: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -155,5 +165,9 @@ pub(crate) fn to_skills(
         bandage_time: mille(l.bandage),
         board_time: mille(l.board_time),
         board_strength: mille(l.board_strength),
+        sneak: xp(x.sneak.max(0.0)),
+        sneak_attack: xp(x.sneak_attack.max(0.0)),
+        sneak_pace: mille(l.sneak_pace.clamp(0.0, 0.1)),
+        sneak_harm: mille(l.sneak_harm.clamp(0.0, 1.0)),
     })
 }

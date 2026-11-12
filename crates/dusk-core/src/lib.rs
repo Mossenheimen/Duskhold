@@ -39,6 +39,7 @@ pub mod remains;
 pub mod save;
 pub mod senses;
 pub mod skills;
+pub mod stealth;
 pub mod text;
 pub mod tolling;
 pub mod view;

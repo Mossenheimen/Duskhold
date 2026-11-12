@@ -24,6 +24,7 @@ use crate::pressure::Region;
 use crate::remains::Burning;
 use crate::senses::{Cone, Muffling, hears, line_of_sight};
 use crate::skills::{Skill, SkillRules};
+use crate::stealth::Sneak;
 use crate::text::{self, TextError, TextGrid, default_legend};
 
 /// Ticks in a second of action time at 1×.
@@ -75,6 +76,8 @@ pub struct Rules {
     pub dread: Dread,
     /// What wounds do where they land (`injury.rs`).
     pub injury: Injury,
+    /// Sneaking (`stealth.rs`).
+    pub sneak: Sneak,
 }
 
 /// Wading (`Ground::Shallows`), per mille: the pace of a step into it, and its footsteps' noise.
@@ -300,6 +303,7 @@ impl Default for Rules {
             pain: Pain::default(),
             dread: Dread::default(),
             injury: Injury::default(),
+            sneak: Sneak::default(),
         }
     }
 }
@@ -608,6 +612,16 @@ pub enum Event {
         who: ActorId,
         at: TilePos,
         planks: u16,
+    },
+    /// `who` took up sneaking (`on`), or left it (`stealth.rs`).
+    Sneaking {
+        who: ActorId,
+        on: bool,
+    },
+    /// `who` struck `target` unawares: a sneak attack.
+    SneakAttack {
+        who: ActorId,
+        target: ActorId,
     },
     /// `who`, frightened, couldn't make itself step nearer the dead.
     Balked {
@@ -1141,7 +1155,8 @@ impl World {
             }
             let (dir, run) = match next_heading(a, &self.grid, rules.repath_after, path_budget) {
                 // Out of breath or weighed down, nobody runs.
-                Heading::Go(dir, run) => (dir, run && !a.body.exhausted && !heavy),
+                // Sneaking, nobody runs either.
+                Heading::Go(dir, run) => (dir, run && !a.body.exhausted && !heavy && !a.sneaking),
                 Heading::Stand => {
                     a.carry = 0;
                     return None;
@@ -1227,6 +1242,15 @@ impl World {
         } else {
             rules.walk_noise
         });
+        // Sneaking, a footstep carries a fraction as far (`stealth.rs`).
+        let sneaking = a.sneaking;
+        let footsteps = footsteps.map(|n| {
+            if sneaking {
+                (i64::from(n) * i64::from(rules.sneak.noise) / 1000).max(1) as i32
+            } else {
+                n
+            }
+        });
         // A splash carries farther than a footstep.
         let footsteps = footsteps.map(|n| {
             if wading {
@@ -1245,6 +1269,8 @@ impl World {
             // A character's run, a tile at a time, may teach it something.
             if step.run {
                 self.train_run(id);
+            } else if sneaking {
+                self.train_sneak(id);
             }
         }
         Some(step.run)
@@ -1552,7 +1578,8 @@ impl World {
             if best.is_some_and(|(b, ..)| d2 >= b) {
                 continue;
             }
-            if self.sees(who, c.pos) {
+            // Sneaking, only from nearer (`stealth.rs`).
+            if self.sees(who, c.pos) && self.spots(who, c) {
                 best = Some((d2, id, c.pos));
             }
         }

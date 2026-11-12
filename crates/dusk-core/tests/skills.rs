@@ -71,6 +71,8 @@ fn row() -> (World, ActorId, ActorId, ActorId) {
     w.defs = Arc::new(defs());
     w.creature_mut(0).attack.hit = 0;
     w.creature_mut(0).wander = 0;
+    // They see all round: a blow on one unawares would be a sneak attack (`stealth.rs`).
+    w.creature_mut(0).cone = dusk_core::senses::Cone { cos: -10_000 };
     // Spawned once the items are there, so it gets its kit.
     let me = w
         .spawn(ActorKind::Character, TilePos::new(2, 0, 0))

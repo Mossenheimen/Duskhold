@@ -1272,3 +1272,30 @@ fn the_wight_walks_only_by_night_in_the_games_data() {
         (Some("wight"), Some((1, 1)))
     );
 }
+
+#[test]
+fn sneaking_and_stealth_load_in_the_cores_units() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let s = data.rules.sneak;
+    assert_eq!(
+        (s.pace, s.noise, s.seen, s.harm, s.near),
+        (500, 400, 500, 3000, 8)
+    );
+    let k = data.rules.skills;
+    assert_eq!(
+        (k.sneak, k.sneak_attack, k.sneak_pace, k.sneak_harm),
+        (300, 3000, 30, 100)
+    );
+    assert_eq!(
+        dusk_core::Skill::from_id("stealth"),
+        Some(dusk_core::Skill::Stealth)
+    );
+    // Sneaking, a shambler sees you from no farther than half its sight.
+    let shambler = data
+        .defs
+        .creatures
+        .iter()
+        .find(|c| c.id == "shambler")
+        .unwrap();
+    assert_eq!(shambler.stats.sight * s.seen as i32 / 1000, 4);
+}

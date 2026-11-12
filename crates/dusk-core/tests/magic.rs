@@ -194,6 +194,9 @@ fn a_weapons_properties_work_in_hand_known_or_not() {
     wield(&mut w, me, CUDGEL);
     let before = w.actor(me).unwrap().hands.unwrap();
     assert_eq!(before.def, CUDGEL);
+    // It sees all round: struck from behind unawares, a blow would be a sneak attack
+    // (`stealth.rs`), and this is about the knife.
+    w.creature_mut(0).cone = dusk_core::senses::Cone { cos: -10_000 };
     // Swing the plain cudgel, then the knife: hear the difference, feel it.
     let swing = |w: &mut World| {
         w.spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0));

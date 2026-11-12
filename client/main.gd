@@ -122,6 +122,7 @@ const BALKED := 78
 const RESISTED := 79
 const CRAFTED := 80
 const BROKE_DOWN := 81
+const SNEAK_ATTACK := 83
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -358,6 +359,9 @@ func _process(delta: float) -> void:
 	_light_the_sky(dusk.daylight())
 	_hold_up_light()
 	_light_the_fires()
+	# Sneaking, you crouch.
+	if me >= 0 and me < actors.size():
+		actors[me].scale.y = 0.72 if dusk.is_sneaking() and not dead else 1.0
 	_let_it_rain()
 	_move_camera(delta)
 	map_view.update(focus)
@@ -467,6 +471,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		skills.toggle()
 	elif event.is_action_pressed("craft") and not dead:
 		craft.toggle()
+	elif event.is_action_pressed("sneak") and not dead:
+		dusk.set_sneaking(not dusk.is_sneaking())
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -982,6 +988,9 @@ func _read_events() -> void:
 			RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
+			SNEAK_ATTACK:
+				if who == me:
+					hud.say("A sneak attack! %s never knew you were there." % _a(target))
 			CRAFTED:
 				if who == me and extra * 2 < recipe_texts.size():
 					hud.say("You made a %s." % recipe_texts[extra * 2])
@@ -1374,6 +1383,7 @@ func _add_input_actions() -> void:
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
 		"craft": [KEY_T],
+		"sneak": [KEY_CTRL],
 		"restart": [KEY_R],
 		"save": [KEY_F5],
 		"quit": [KEY_ESCAPE],
@@ -1460,6 +1470,8 @@ func _run_script() -> void:
 				craft.toggle()
 			"breakdown":
 				dusk.break_down()
+			"sneak":
+				dusk.set_sneaking(not dusk.is_sneaking())
 			"save":
 				_save("Saved.")
 			"board":
