@@ -1432,6 +1432,13 @@ Game first: every step ends with something to look at or play.
        - **the news:** a plant's first sighting still says what it's good for, without the old "Y to pick it": the prompt says that now. `--news` prints the prompts as they change ("prompt: [P] Pray at the altar"), so a headless run can check them;
        - **checked:** headless, walking seed 1 to the chamomile ("[Y] Pick the chamomile"), seed 7 to the abbey's altar ("[P] Pray at the altar"), and seed 7 to the near farm's stove ("[Y] Pick the bramble" on the way, then the stove's "you have nothing that burns", dimmed; a shambler caught the walker after). One picture, by the altar; its route is in `VISUALS.md` §14;
        - **not yet:** a prompt for what's within reach (that's zone G's panel); the prompts' own key remapping (slice 7).
+     - **Book panels: Esc first, and the keys apart** (2026-11-12; the fifth visual slice of `VISUALS.md` §16; 373 tests, nothing in the core changed):
+       - **one at a time, in one place:** opening a book panel (skills, making, spells) went through hand-copied closes at six places in `main.gd`, and two of them (the scripted `skills` and `craft`) had already missed the spells panel. Now `_book(panel)` is the one way in: it closes the other book panels and the keys;
+       - **the keys apart:** F1 used to open its four columns over the middle of the screen whatever lay there, and over a book panel at the left. Opening the keys now closes the book panel, and opening a book panel closes the keys;
+       - **Esc backs out** (`_close_top`): a readied spell is let go, then the keys close, then the book panel. Only with none of those open does it save and quit, as before (the menu waits for the screens' slice). The pack isn't on the list: it's open from the start, as part of the HUD, and closing it first would make quitting take two presses that look like one did nothing. The F1 list says "close what's open, else save and quit";
+       - `skills.gd` and `spells.gd` gained `is_open()`, as `craft.gd` had; `--do=S:esc` does what Esc would, but a script never quits by it;
+       - **checked:** headless through skills, keys, spells, keys, Esc, spells, Esc (clean, and the run went its full length), and one picture: the keys opened over the spells panel, which closed (its route is in `VISUALS.md` §14);
+       - **not yet:** panels fading in and out (§12's 0.12 s); the Esc menu (slice 9).
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions

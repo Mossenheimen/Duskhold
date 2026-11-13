@@ -27,7 +27,7 @@ const KEYS := [
 	["Tab", "your pack"], ["K", "Strength, Fitness, skills and talents"], ["T", "make things"], ["Z", "sleep"],
 	["X", "drink water"], ["L", "light"], ["Space", "pause"], ["1 2 3", "speed"],
 	["wheel", "zoom"], ["V", "low walls"], ["- =", "smaller or larger GUI"], ["F5", "save"],
-	["R", "new world (dead: the next survivor)"], ["Esc", "save and quit"], ["F1", "these keys"],
+	["R", "new world (dead: the next survivor)"], ["Esc", "close what's open, else save and quit"], ["F1", "these keys"],
 ]
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  amber, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 

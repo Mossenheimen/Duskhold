@@ -58,6 +58,10 @@ func toggle() -> void:
 	_panel.visible = not _panel.visible
 
 
+func is_open() -> bool:
+	return _panel.visible
+
+
 ## Each frame: redraw if anything changed (only while it's open).
 func refresh(dead: bool) -> void:
 	if _dusk == null:

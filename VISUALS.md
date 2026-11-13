@@ -382,14 +382,16 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
 | **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
-| **J** Book panels | Strength, Fitness, skills and talents (K), making (T), spells (I); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
+| **J** Book panels | Strength, Fitness, skills and talents (K), making (T), spells (I); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
 
 **Rules:**
 
 - **Yours on the right, the world's on the left:** the pack is H, what's within reach is G. Moving a thing between them always moves it across the screen.
 - **The middle is the world's.** Only world-anchored marks, zone F and banner C may sit near you.
-- **Panels don't stack.** Opening a book panel (J) closes the other one. A modal screen dims the world (`ui.dim`) and pauses the game.
+- **Panels don't stack.** Opening a book panel (J) closes the other one, and the keys (I), which would lie over it; opening the keys closes the book panel. A modal screen dims the world (`ui.dim`) and pauses the game.
 - **Esc** closes the top panel first, and only then opens the menu.
+
+  **Today** (2026-11-12): Esc lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). The pack isn't closed by Esc: it's open from the start, as part of the HUD, and Tab closes it.
 
 ### Screens
 
@@ -553,6 +555,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | Midnight in town, dread | `--seed=1 --hour=22 --speed=5 --walk=118,118 --shot=PNG --shot-after=14` |
 | The class choice: the title's serif, the GUI's sans | `--seed=7 --hour=12 --choose --shot=PNG --shot-after=3` |
 | A prompt under you, by the abbey's altar | `--seed=7 --hour=12 --walk=74,114 --shot=PNG --shot-after=10` |
+| The keys opened over the spells panel: the panel closes | `--seed=7 --hour=12 --class=wizard --do=1:spells,2:keys --shot=PNG --shot-after=3` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
@@ -598,7 +601,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 2. *(Done 2026-11-12.)* **Type:** the fonts in: Alegreya Sans (Regular, and Medium for headings and banners) and the serif Alegreya for titles, with lining, tabular figures. *(The sizes of §8, and the held banner in sentence case, came first.)*
 3. *(Done 2026-11-12.)* **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
 4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
-5. **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time: done 2026-11-12.)*
+5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
 6. **The body diagram** in zone B.
 7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
 8. **Looks as data:** `data/looks.toml`.

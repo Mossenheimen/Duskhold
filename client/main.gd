@@ -15,7 +15,8 @@ extends Node3D
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
 ## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
-## pick (the wild plant beside you: Y), keys (F1), moodle (the worst one's detail, as if hovered)
+## pick (the wild plant beside you: Y), keys (F1), moodle (the worst one's detail, as if hovered),
+## esc (closes what Esc would, never quits)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
@@ -491,8 +492,10 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("quit"):
-		_save("")
-		get_tree().quit()
+		if not _close_top():
+			_save("")
+			get_tree().quit()
+		return
 	if dusk == null:
 		return
 	# Who comes into the world: a number takes up that class, and nothing else is heeded.
@@ -598,17 +601,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("pack"):
 		bag.toggle()
 	elif event.is_action_pressed("skills"):
-		skills.toggle()
-		craft.close()
-		spells.close()
+		_book(skills)
 	elif event.is_action_pressed("craft") and not dead:
-		craft.toggle()
-		skills.close()
-		spells.close()
+		_book(craft)
 	elif event.is_action_pressed("spells") and not dead:
-		spells.toggle()
-		skills.close()
-		craft.close()
+		_book(spells)
 	elif event.is_action_pressed("spell_1") and not dead:
 		_ready_nth(0)
 	elif event.is_action_pressed("spell_2") and not dead:
@@ -1879,8 +1876,43 @@ func _mind_the_keys(clock: PackedInt32Array) -> void:
 	hud.show_keys(keys_mode == 1, keys_mode == 0 and first_hour)
 
 
+## F1: the keys (zone I), over the middle of the screen. Panels don't stack (VISUALS.md §10):
+## opening the keys closes the book panel, which they'd lie over.
 func _toggle_keys() -> void:
 	keys_mode = 2 if hud.keys_shown() else 1
+	if keys_mode == 1:
+		for panel: Node in [skills, craft, spells]:
+			panel.close()
+
+
+## Opens or closes a book panel (zone J: skills, making, spells), one at a time: opening one
+## closes the others, and the keys.
+func _book(panel: Node) -> void:
+	for other: Node in [skills, craft, spells]:
+		if other != panel:
+			other.close()
+	panel.toggle()
+	if panel.is_open() and keys_mode == 1:
+		keys_mode = 2
+
+
+## Esc backs out of what's open before it quits (VISUALS.md §10): a readied spell is let go,
+## then the keys close, then the book panel. True if it closed something. The pack stays: it's
+## open from the start, as part of the HUD, and Tab closes it.
+func _close_top() -> bool:
+	if dusk == null:
+		return false
+	if readied >= 0:
+		_let_go()
+		return true
+	if hud.keys_shown():
+		keys_mode = 2
+		return true
+	for panel: Node in [skills, craft, spells]:
+		if panel.is_open():
+			panel.close()
+			return true
+	return false
 
 
 func _add_input_actions() -> void:
@@ -2022,15 +2054,15 @@ func _run_script() -> void:
 			"light":
 				_light_or_douse()
 			"skills":
-				skills.toggle()
-				craft.close()
+				_book(skills)
 			"craft":
-				craft.toggle()
-				skills.close()
+				_book(craft)
 			"keys":  # F1: the keys panel
 				_toggle_keys()
 			"moodle":  # the worst moodle's detail, as if the mouse rested on it
 				hud.hover_first_moodle()
+			"esc":  # what Esc closes first; a script never quits by it
+				_close_top()
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
 				var texts: PackedStringArray = dusk.recipe_texts()
@@ -2080,9 +2112,7 @@ func _run_script() -> void:
 			"brace":
 				_brace(true)
 			"spells":
-				spells.toggle()
-				skills.close()
-				craft.close()
+				_book(spells)
 			"cast_light", "cast_silence", "cast_fog", "cast_fireball":
 				# The spell of that name, on the nearest of the dead you see, else 3 tiles east.
 				var spell := spell_names.find(action.substr(5).capitalize())

@@ -51,6 +51,10 @@ func toggle() -> void:
 	_panel.visible = not _panel.visible
 
 
+func is_open() -> bool:
+	return _panel.visible
+
+
 ## Each frame: redraw if anything changed (only while it's open). `readied`: the spell readied
 ## now, -1 none.
 func refresh(dead: bool, readied: int) -> void:
