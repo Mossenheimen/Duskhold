@@ -47,6 +47,11 @@ struct ClassFile {
     /// The armour it starts in, by item id, whatever its kit (left out: none).
     #[serde(default)]
     wear: Vec<String>,
+    /// The spell slots it holds, and the spells it knows, by id (spells.toml); left out, none.
+    #[serde(default)]
+    slots: u8,
+    #[serde(default)]
+    spells: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -118,6 +123,16 @@ struct TalentFile {
     /// The dead you put down stay down.
     #[serde(default)]
     last_rites: bool,
+    /// Spells: slots it adds; a multiplier on how long the words take; tiles added to every
+    /// spell's range; a multiplier on how far the words carry.
+    #[serde(default)]
+    slots: u8,
+    #[serde(default = "one")]
+    cast: f64,
+    #[serde(default)]
+    range: i32,
+    #[serde(default = "one")]
+    hush: f64,
 }
 
 fn one() -> f64 {
@@ -212,6 +227,27 @@ fn to_class(
                 t.id
             )));
         }
+        if c.spells.is_empty() && (t.slots > 0 || t.cast != 1000 || t.range != 0 || t.hush != 1000)
+        {
+            return Err(bad(format!(
+                "talent {:?} is for casting spells, and this class knows none",
+                t.id
+            )));
+        }
+    }
+    let spells = c
+        .spells
+        .iter()
+        .map(|s| {
+            defs.spells
+                .iter()
+                .position(|x| &x.id == s)
+                .map(|n| n as u16)
+                .ok_or_else(|| bad(format!("no spell called {s:?} in spells.toml")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if c.slots > 20 {
+        return Err(bad("slots is 0 to 20".into()));
     }
     let item = |name: &str| -> Result<u16, DataError> {
         defs.items
@@ -261,6 +297,8 @@ fn to_class(
         turns: c.turns,
         kit,
         wear,
+        slots: c.slots,
+        spells,
     })
 }
 
@@ -279,6 +317,15 @@ fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
     if chances.iter().any(|c| !(-1.0..=1.0).contains(c)) {
         return Err(bad(
             "hit, knock_down and struggle are chances added, from -1 to 1",
+        ));
+    }
+    if !(0.1..=2.0).contains(&t.cast)
+        || !(0.0..=2.0).contains(&t.hush)
+        || !(0..=10).contains(&t.range)
+        || t.slots > 5
+    {
+        return Err(bad(
+            "cast is a multiplier from 0.1 to 2, hush from 0 to 2, range 0 to 10 tiles, slots 0 to 5",
         ));
     }
     if !(0.0..=100.0).contains(&t.health) || t.hold > 5 {
@@ -323,5 +370,9 @@ fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
         turn_reach: t.turn_reach,
         sunder: points(t.sunder),
         last_rites: t.last_rites,
+        slots: t.slots,
+        cast: per(t.cast),
+        range: t.range,
+        hush: per(t.hush),
     })
 }

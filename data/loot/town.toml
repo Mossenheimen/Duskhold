@@ -45,6 +45,7 @@ items = [
   { item = "arrow", weight = 2, count = [6, 15] },
   { item = "satchel", weight = 1 },
   { item = "knapsack", weight = 1 },
+  { item = "sulphur", weight = 1, count = [2, 5] },
 ]
 
 [[loot]]

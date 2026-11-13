@@ -22,8 +22,9 @@ use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
-    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCraft, NoDeal, NoFaith, NoFire, NoSleep,
-    NoStash, NoTake, Part, Remains, Rise, Skill, Tend, TilePos, View, World, WoundKind, demo,
+    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoFaith, NoFire,
+    NoSleep, NoStash, NoTake, Part, Remains, Rise, Skill, SpellKind, Tend, TilePos, View, World,
+    WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -159,6 +160,10 @@ const FELLED: i32 = 104;
 const GREW: i32 = 105;
 const WET: i32 = 106;
 const COLD: i32 = 107;
+const CAST: i32 = 108;
+const SCORCHED: i32 = 109;
+const SPELL_BROKE: i32 = 110;
+const SLOTS_BACK: i32 = 111;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -562,6 +567,17 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
+        // Spells (`spell.rs`): the spell cast, the harm a fireball did, the spell broken.
+        Event::Cast { who, spell, at: p } => (CAST, Some(who), None, (p.x, p.y), i32::from(spell)),
+        Event::Scorched {
+            who,
+            target,
+            damage,
+        } => (SCORCHED, Some(who), Some(target), at(target), damage),
+        Event::SpellBroke { who, spell } => {
+            (SPELL_BROKE, Some(who), None, at(who), i32::from(spell))
+        }
+        Event::SlotsBack { who } => (SLOTS_BACK, Some(who), None, at(who), 0),
         // The stat (0 Strength, 1 Fitness) × 100, plus the level reached.
         Event::Grew { who, stat, level } => {
             let stat = match stat {
@@ -1355,7 +1371,11 @@ impl DuskWorld {
             return PackedInt32Array::new();
         };
         for (_, a) in world.actors() {
-            let at = a.pos.step(a.action.map_or(a.facing, |act| act.dir));
+            // A spell's tell is on the spot it's cast on (`spell.rs`); the rest, the tile ahead.
+            let at = match a.action.map(|act| act.kind) {
+                Some(ActionKind::Cast { at, .. }) => at,
+                _ => a.pos.step(a.action.map_or(a.facing, |act| act.dir)),
+            };
             out.extend(match a.action {
                 None => [0, 0, at.x, at.y],
                 Some(act) => [
@@ -1421,6 +1441,7 @@ impl DuskWorld {
                         ActionKind::TakeOff { .. } => 45,
                         ActionKind::Shift { .. } => 6,
                         ActionKind::DropBag => 7,
+                        ActionKind::Cast { .. } => 47,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -2846,6 +2867,148 @@ impl DuskWorld {
             slot: slot as u16,
             def: def as u16,
         });
+    }
+
+    /// The spells' names, in the order their numbers name them (`spell.rs`).
+    #[func]
+    fn spell_names(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .spells
+            .iter()
+            .map(|s| GString::from(s.name.as_str()))
+            .collect()
+    }
+
+    /// What each spell does, in a line.
+    #[func]
+    fn spell_lines(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .spells
+            .iter()
+            .map(|s| GString::from(s.line.as_str()))
+            .collect()
+    }
+
+    /// Each spell, as you'd cast it, eight numbers each: its kind (0 light, 1 silence, 2 fog,
+    /// 3 fireball), the slots it costs, its words (tenths of a second, as quick as you are), its
+    /// range (yours), how far it reaches, how far it lights, how long it lasts (seconds), and its
+    /// component (an item's number; -1 none).
+    #[func]
+    fn spell_info(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let me = world.character();
+        let mut out = Vec::new();
+        for (n, s) in world.defs.spells.iter().enumerate() {
+            let n = n as u16;
+            let (cast, range) = me.map_or((s.cast, s.range), |me| {
+                (world.cast_ticks(me, n), world.spell_range(me, n))
+            });
+            out.extend([
+                match s.kind {
+                    SpellKind::Light => 0,
+                    SpellKind::Silence => 1,
+                    SpellKind::Fog => 2,
+                    SpellKind::Fireball => 3,
+                },
+                i32::from(s.slots),
+                cast as i32,
+                range,
+                s.radius,
+                s.light,
+                (s.lasts / 10) as i32,
+                s.component.map_or(-1, i32::from),
+            ]);
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// The spells you know, by number (none for a class without).
+    #[func]
+    fn character_spells(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world.character().map_or(PackedInt32Array::new(), |me| {
+            world
+                .known_spells(me)
+                .iter()
+                .map(|&s| i32::from(s))
+                .collect()
+        })
+    }
+
+    /// Your spell slots: [left, the most] (both 0 for a class without).
+    #[func]
+    fn character_slots(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        PackedInt32Array::from(&[i32::from(world.slots(me)), i32::from(world.max_slots(me))])
+    }
+
+    /// Whether you can cast `spell` on (x, y) now: 0, or why not: -1 you don't know it, -2
+    /// something has hold of you, -3 not slots enough, -4 no component, -5 too far, -6 you can't
+    /// see it.
+    #[func]
+    fn cast_check(&self, spell: i32, x: i32, y: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_cast(me, spell as u16, TilePos::new(x, y, 0)) {
+            Ok(()) => 0,
+            Err(NoCast::Unknown) => -1,
+            Err(NoCast::Held) => -2,
+            Err(NoCast::NoSlots) => -3,
+            Err(NoCast::NoComponent) => -4,
+            Err(NoCast::TooFar) => -5,
+            Err(NoCast::NoSight) => -6,
+        }
+    }
+
+    /// Casts `spell` on (x, y).
+    #[func]
+    fn cast(&mut self, spell: i32, x: i32, y: i32) {
+        self.act(Intent::Cast {
+            spell: spell as u16,
+            at: TilePos::new(x, y, 0),
+        });
+    }
+
+    /// The spells lasting on their spots, five numbers each: their kind (as `spell_info`'s), x, y,
+    /// how far each reaches (or lights), and the ticks it has left.
+    #[func]
+    fn spell_zones(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for z in world.zones() {
+            let kind = match z.kind {
+                SpellKind::Light => 0,
+                SpellKind::Silence => 1,
+                SpellKind::Fog => 2,
+                SpellKind::Fireball => 3,
+            };
+            let left = z.until.saturating_sub(world.tick).min(i32::MAX as u64) as i32;
+            out.extend([kind, z.at.x, z.at.y, z.radius, left]);
+        }
+        PackedInt32Array::from(&out[..])
     }
 
     /// Drops the bag on your back at your feet, with what's in it.

@@ -238,6 +238,8 @@ impl World {
         let fires: Vec<TilePos> = self
             .hearth_fires()
             .chain(self.fires())
+            // A spell's light lures them too (`spell.rs`).
+            .chain(self.spell_lights())
             .map(|(at, _)| at)
             .filter(|&at| !crate::holdout::in_hallowed(&self.hallowed, at))
             .collect();

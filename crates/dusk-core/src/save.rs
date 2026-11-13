@@ -33,7 +33,7 @@ use crate::items::{Defs, Item};
 use crate::world::{Sound, World};
 
 /// The save format's version. A change to what's saved, or to any saved type, raises it.
-pub const VERSION: u32 = 31;
+pub const VERSION: u32 = 32;
 
 const MAGIC: [u8; 8] = *b"DUSKHOLD";
 
@@ -60,6 +60,8 @@ struct State {
     stores: BTreeMap<TilePos, Vec<Item>>,
     /// What's in the full bags lying about (`bag.rs`).
     held: BTreeMap<u32, Vec<Item>>,
+    /// The spells lasting on their spots (`spell.rs`).
+    zones: Vec<crate::spell::Zone>,
     /// The region's pressure.
     pressure: u32,
     /// What the holdouts have sold, and when.
@@ -161,6 +163,7 @@ impl World {
             board_strength: self.board_strength.clone(),
             stores: self.stores.clone(),
             held: self.held.clone(),
+            zones: self.zones.clone(),
             pressure: self.pressure,
             sold: self.sold.clone(),
             claimed: self.claimed.clone(),
@@ -195,6 +198,7 @@ impl World {
         self.board_strength = state.board_strength;
         self.stores = state.stores;
         self.held = state.held;
+        self.zones = state.zones;
         self.pressure = state.pressure;
         self.sold = state.sold;
         self.claimed = state.claimed;

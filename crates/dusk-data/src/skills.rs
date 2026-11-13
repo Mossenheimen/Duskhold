@@ -55,6 +55,9 @@ struct XpFile {
     /// Foraging's: a wild plant picked (left out: none).
     #[serde(default)]
     pick: f64,
+    /// Arcana's: a spell cast (left out: none).
+    #[serde(default)]
+    cast: f64,
 }
 
 /// What a level does, as a share a level.
@@ -89,6 +92,9 @@ struct LevelFile {
     /// Foraging: one more of a herb picked, more often (left out: never).
     #[serde(default)]
     forage_more: f64,
+    /// Arcana: a spell's words take less time (left out: no quicker).
+    #[serde(default)]
+    arcana_cast: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -204,5 +210,7 @@ pub(crate) fn to_skills(
         devotion_cost: mille(l.devotion_cost.clamp(0.0, 0.1)),
         pick: xp(x.pick.max(0.0)),
         forage_more: mille(l.forage_more.clamp(0.0, 0.2)),
+        cast: xp(x.cast.max(0.0)),
+        arcana_cast: mille(l.arcana_cast.clamp(0.0, 0.1)),
     })
 }

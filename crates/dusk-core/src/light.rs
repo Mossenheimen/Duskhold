@@ -139,7 +139,9 @@ impl World {
     pub fn light_at(&self, at: TilePos) -> u32 {
         let mut best = self.sky_light(at);
         let lights = self.carried_lights().chain(self.fires());
-        for (from, radius) in lights.chain(self.hearth_fires()) {
+        // And the spells' (`spell.rs`).
+        let lights = lights.chain(self.hearth_fires()).chain(self.spell_lights());
+        for (from, radius) in lights {
             if from.z != at.z {
                 continue;
             }

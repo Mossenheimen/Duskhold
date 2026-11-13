@@ -49,10 +49,12 @@ pub enum Skill {
     Devotion,
     /// Picking wild plants (`forage.rs`).
     Foraging,
+    /// The Wizard's: casting spells (`spell.rs`).
+    Arcana,
 }
 
 /// How many skills there are.
-pub const SKILLS: usize = 13;
+pub const SKILLS: usize = 14;
 
 impl Skill {
     pub const ALL: [Skill; SKILLS] = [
@@ -69,6 +71,7 @@ impl Skill {
         Skill::Cooking,
         Skill::Devotion,
         Skill::Foraging,
+        Skill::Arcana,
     ];
 
     pub fn name(self) -> &'static str {
@@ -86,6 +89,7 @@ impl Skill {
             Skill::Cooking => "Cooking",
             Skill::Devotion => "Devotion",
             Skill::Foraging => "Foraging",
+            Skill::Arcana => "Arcana",
         }
     }
 
@@ -105,6 +109,7 @@ impl Skill {
             Skill::Cooking => "cooking",
             Skill::Devotion => "devotion",
             Skill::Foraging => "foraging",
+            Skill::Arcana => "arcana",
         }
     }
 
@@ -188,6 +193,10 @@ pub struct SkillRules {
     /// to the chance of one more of its herb.
     pub pick: u32,
     pub forage_more: u32,
+    /// Arcana (`spell.rs`): XP for each spell cast; and a level takes `arcana_cast` per mille off
+    /// the words' time.
+    pub cast: u32,
+    pub arcana_cast: u32,
 }
 
 impl Default for SkillRules {
@@ -233,6 +242,8 @@ impl Default for SkillRules {
             devotion_cost: 40,
             pick: 1000,
             forage_more: 100,
+            cast: 2000,
+            arcana_cast: 50,
         }
     }
 }
@@ -605,6 +616,11 @@ impl SkillRules {
     /// What an act of faith costs at a level of Devotion (thousandths of a point).
     pub fn faith_cost(&self, cost: i32, level: u8) -> i32 {
         by_level(i64::from(cost), self.devotion_cost, level, false) as i32
+    }
+
+    /// A spell's words, in ticks, at a level of Arcana.
+    pub fn cast_ticks(&self, ticks: u32, level: u8) -> u32 {
+        (by_level(i64::from(ticks), self.arcana_cast, level, false) as u32).max(1)
     }
 
     /// The chance, per mille, of one more of a herb picked at a level of Foraging.

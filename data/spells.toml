@@ -1,0 +1,63 @@
+# Spells (spell.rs in the core; CONCEPT.md: "Spells are timed actions, stated by their limits" and
+# "Spells work on the sense fields"). A class knows some of them (classes.toml's spells) and casts
+# them with its slots (slots), all back once it has slept the night through.
+#
+# Casting is a timed action at a tile within range that you can see: the words (cast, seconds) are
+# its wind-up and its tell, heard noise tiles off, and a blow during them breaks the spell, spending
+# nothing. On the spot it reaches radius tiles, lights light tiles, and lasts seconds. kind is what
+# it does: light (a light to see by; at night the dead that see it come to it), silence (no sound is
+# made inside it), fog (the dead can't see into it or out of it), fireball (a burst: damage points to
+# everything within its reach, you too, and what it puts down burns; heard boom tiles off).
+# component: the item each cast uses up.
+
+[[spell]]
+id = "light"
+name = "Light"
+line = "a pale light on a spot you can see, for two minutes: to see by, or at night a lure for the dead"
+kind = "light"
+slots = 0             # a cantrip: as often as you like
+cast = 1.0
+range = 8
+light = 4
+lasts = 120
+noise = 2
+
+[[spell]]
+id = "silence"
+name = "Silence"
+line = "for half a minute, no sound is made within 3 tiles of a spot: not a footstep, a blow or a hammer"
+kind = "silence"
+slots = 1
+cast = 1.5
+range = 6
+radius = 3
+lasts = 30
+noise = 2
+
+[[spell]]
+id = "fog"
+name = "Fog"
+line = "for half a minute, the dead can't see into or out of a fog 2 tiles round a spot"
+kind = "fog"
+slots = 1
+cast = 1.5
+range = 6
+radius = 2
+lasts = 30
+noise = 2
+
+[[spell]]
+id = "fireball"
+name = "Fireball"
+line = "a burst of fire 2 tiles round a spot (you too): it burns what it puts down, and the bodies there; heard across the map"
+kind = "fireball"
+slots = 2
+cast = 2.5
+range = 8
+radius = 2
+light = 7             # the flash...
+lasts = 1.5           # ...for a moment
+noise = 3
+boom = 35
+damage = [25, 35]     # most of the common dead fall to one; a revenant or a wight is only singed
+component = "sulphur"

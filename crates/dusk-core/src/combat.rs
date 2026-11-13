@@ -137,6 +137,7 @@ impl World {
                 ActionKind::TakeOff { piece, def } => self.take_off(id, piece, def),
                 ActionKind::Shift { slot, def } => self.shift(id, slot, def),
                 ActionKind::DropBag => self.drop_bag(id),
+                ActionKind::Cast { spell, at } => self.cast(id, spell, at),
             }
         }
         true
@@ -228,6 +229,11 @@ impl World {
             Intent::DropBag => {
                 a.bag?;
                 (ActionKind::DropBag, a.facing, self.defs.drop.max(1), 0, 0)
+            }
+            // A spell's words are its wind-up (`spell.rs`): a blow breaks them.
+            Intent::Cast { spell, at } => {
+                let (kind, dir, ticks) = self.cast_action(id, spell, at)?;
+                (kind, dir, ticks, 0, 0)
             }
             Intent::Light { slot, def } => {
                 let ticks = self.light_ticks(id, slot, def)?;
@@ -511,9 +517,13 @@ impl World {
     /// A blow during the wind-up breaks it off.
     pub(crate) fn interrupt(&mut self, id: ActorId) {
         if let Some(a) = self.actors.get_mut(id)
-            && a.action.is_some_and(|act| act.winding_up())
+            && let Some(act) = a.action.filter(|act| act.winding_up())
         {
             a.action = None;
+            // A spell's words broken: it's lost, and nothing's spent (`spell.rs`).
+            if let ActionKind::Cast { spell, .. } = act.kind {
+                self.events.push(Event::SpellBroke { who: id, spell });
+            }
         }
     }
 

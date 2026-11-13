@@ -809,6 +809,18 @@ fn describe(w: &World, e: Event) -> String {
         ),
         Event::Wet { who, level } => format!("{} is wet (level {level})", name(who)),
         Event::Cold { who, level } => format!("{} is cold (level {level})", name(who)),
+        Event::Cast { who, spell, at } => format!("{} cast spell {spell} on {at:?}", name(who)),
+        Event::Scorched {
+            who,
+            target,
+            damage,
+        } => format!(
+            "{}'s fireball burns {} for {damage}",
+            name(who),
+            name(target)
+        ),
+        Event::SpellBroke { who, spell } => format!("{}'s spell {spell} is broken", name(who)),
+        Event::SlotsBack { who } => format!("{}'s spell slots come back", name(who)),
         Event::Grew { who, stat, level } => format!(
             "{}'s {} reached {level}",
             name(who),

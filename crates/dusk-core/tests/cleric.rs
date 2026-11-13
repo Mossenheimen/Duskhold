@@ -124,6 +124,8 @@ fn defs() -> Defs {
                     pack: vec![Item::new(HOLY_WATER, 2), Item::new(CANDLE, 1)],
                 }),
                 wear: Vec::new(),
+                slots: 0,
+                spells: Vec::new(),
             },
         ],
         talents: vec![

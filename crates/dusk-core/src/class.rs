@@ -57,6 +57,10 @@ pub struct Class {
     pub kit: Option<Kit>,
     /// The armour it starts in, by item number (`armour.rs`), whatever its kit.
     pub wear: Vec<u16>,
+    /// The spell slots it holds (0: none), and the spells it knows, by their numbers in
+    /// `Defs::spells` (`spell.rs`): the Wizard's.
+    pub slots: u8,
+    pub spells: Vec<u16>,
 }
 
 /// A talent, in the core's units. Per mille is 1000 for none.
@@ -103,6 +107,12 @@ pub struct Talent {
     pub sunder: i32,
     /// The dead you put down stay down, as with a Hallowed weapon.
     pub last_rites: bool,
+    /// Spells (`spell.rs`): slots it adds; per mille, how long the words take; tiles added to
+    /// every spell's range; and per mille, how far the words carry.
+    pub slots: u8,
+    pub cast: u32,
+    pub range: i32,
+    pub hush: u32,
 }
 
 impl Default for Talent {
@@ -132,6 +142,10 @@ impl Default for Talent {
             turn_reach: 0,
             sunder: 0,
             last_rites: false,
+            slots: 0,
+            cast: 1000,
+            range: 0,
+            hush: 1000,
         }
     }
 }
@@ -191,10 +205,11 @@ impl World {
     /// in its pack) and its class's faith, full.
     pub(crate) fn equip(&mut self, id: ActorId) {
         let defs = self.defs.clone();
-        let faith = self.max_faith(id);
+        let (faith, slots) = (self.max_faith(id), self.max_slots(id));
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
+        a.slots = slots;
         let kit = a
             .class
             .and_then(|c| defs.classes.get(usize::from(c)))
@@ -356,16 +371,17 @@ impl World {
         if !self.talent_offer(id).contains(&talent) {
             return false;
         }
-        let health = self
+        let (health, slots) = self
             .defs
             .talents
             .get(usize::from(talent))
-            .map_or(0, |t| t.health);
+            .map_or((0, 0), |t| (t.health, t.slots));
         let Some(a) = self.actors.get_mut(id) else {
             return false;
         };
         a.talents.push(talent);
         a.body.health += health;
+        a.slots = a.slots.saturating_add(slots);
         self.events.push(Event::TalentChosen { who: id, talent });
         true
     }

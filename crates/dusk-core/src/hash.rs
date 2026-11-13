@@ -139,6 +139,8 @@ pub enum Purpose {
     Turn = 28,
     /// Whether the glass left in a broken window cuts the one climbing through, and where.
     Glass = 29,
+    /// The harm a fireball does each one in its burst (`spell.rs`).
+    Burst = 30,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

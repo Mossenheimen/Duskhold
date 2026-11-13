@@ -34,6 +34,8 @@ const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
 const Skills = preload("res://skills.gd")
 const Craft = preload("res://craft.gd")
+const Spells = preload("res://spells.gd")
+const Zones = preload("res://zones.gd")
 const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
 ## The GUI sizes - and = step through, and where the player's own game keeps its choice.
@@ -155,6 +157,10 @@ const FELLED := 104
 const GREW := 105
 const WET := 106
 const COLD := 107
+const CAST := 108
+const SCORCHED := 109
+const SPELL_BROKE := 110
+const SLOTS_BACK := 111
 ## A heavy swing, by DuskWorld.actor_actions(): it leans in and tells as a swing does.
 const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
@@ -173,7 +179,7 @@ const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: 
 	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
 	37: "Butchering it", 38: "Holding up the holy symbol", 39: "Praying", 40: "Consecrating it",
 	41: "Mending the wound", 42: "Warding the door", 43: "Picking it", 44: "Putting it on",
-	45: "Taking it off"}
+	45: "Taking it off", 47: "Casting"}
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
 	"chamomile": "Chamomile grows here: steeped at a fire, its tea calms",
@@ -228,6 +234,10 @@ var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire,
 var dread_was := 0  # your dread's level, as the core last said
 var cold_was := 0  # how cold you are, its level, as the core last said (cold.rs)
 var craft: Node  # the crafting panel (T)
+var spells: Node  # the spells panel (I)
+var zones: Node3D  # the spells lasting on their spots, drawn
+var readied := -1  # the spell readied, cast on the next spot clicked; -1 none
+var spell_names := PackedStringArray()
 var recipe_texts := PackedStringArray()  # two lines a recipe (DuskWorld.recipe_texts())
 var dread_told := {}  # when the news last told each level of dread, in seconds played
 var balked_at := -100.0  # when the news last said you balked, in seconds played
@@ -317,6 +327,11 @@ func _ready() -> void:
 	add_child(skills)
 	craft = Craft.new()
 	add_child(craft)
+	spells = Spells.new()
+	add_child(spells)
+	spells.ready_spell = _ready_spell
+	zones = Zones.new()
+	add_child(zones)
 	_start(true)
 
 
@@ -365,6 +380,10 @@ func _start(carry_on := false) -> void:
 	skill_names = dusk.skill_names()
 	skills.start(dusk)
 	craft.start(dusk)
+	spells.start(dusk)
+	zones.clear()
+	readied = -1
+	spell_names = dusk.spell_names()
 	recipe_texts = dusk.recipe_texts()
 	part_names = dusk.part_names()
 	last_hurt = ""
@@ -446,6 +465,7 @@ func _process(delta: float) -> void:
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
 	hud.show_faith(dusk.faith())
+	hud.show_slots(dusk.character_slots())
 	hud.show_deeds(dusk.character_deeds())
 	_mind_the_ground()
 	_mind_the_plants()
@@ -453,6 +473,8 @@ func _process(delta: float) -> void:
 	bag.refresh(doing.x != 0, dead)
 	skills.refresh(dead)
 	craft.refresh(dead)
+	spells.refresh(dead, readied)
+	zones.show_zones(dusk.spell_zones())
 	litter.show_floors(dusk.floor_items())
 	hud.show_action(DOING.get(doing.x, ""), doing.y / 1000.0)
 	played += delta
@@ -481,6 +503,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				if dead:
 					return
 				var tile := _tile_under(mouse.position)
+				# A readied spell is cast on the spot clicked.
+				if readied >= 0:
+					_cast_on(tile)
+					return
 				var aim := _foe_beside(tile)
 				if aim != Vector2i.ZERO:
 					if held > 0:
@@ -494,7 +520,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
 			MOUSE_BUTTON_RIGHT:
 				if not dead:
-					_shoot(_tile_under(mouse.position))
+					if readied >= 0:
+						_let_go()
+					else:
+						_shoot(_tile_under(mouse.position))
 			MOUSE_BUTTON_WHEEL_UP:
 				zoom = maxf(ZOOM_MIN, zoom / 1.15)
 			MOUSE_BUTTON_WHEEL_DOWN:
@@ -564,9 +593,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("skills"):
 		skills.toggle()
 		craft.close()
+		spells.close()
 	elif event.is_action_pressed("craft") and not dead:
 		craft.toggle()
 		skills.close()
+		spells.close()
+	elif event.is_action_pressed("spells") and not dead:
+		spells.toggle()
+		skills.close()
+		craft.close()
+	elif event.is_action_pressed("spell_1") and not dead:
+		_ready_nth(0)
+	elif event.is_action_pressed("spell_2") and not dead:
+		_ready_nth(1)
+	elif event.is_action_pressed("spell_3") and not dead:
+		_ready_nth(2)
+	elif event.is_action_pressed("spell_4") and not dead:
+		_ready_nth(3)
 	elif event.is_action_pressed("keys"):
 		_toggle_keys()
 	elif event.is_action_pressed("gui_smaller"):
@@ -1065,6 +1108,18 @@ func _read_events() -> void:
 			COLD:
 				if who == me:
 					_tell_cold(extra)
+			CAST:
+				if who == me:
+					hud.say("You cast %s." % _spell_name(extra))
+			SCORCHED:
+				if target == me:
+					hud.say("Your own fireball burns you!" if who == me else "Fire burns you!")
+			SPELL_BROKE:
+				if who == me:
+					hud.say("The blow breaks your words: the %s is lost. Nothing's spent." % _spell_name(extra))
+			SLOTS_BACK:
+				if who == me:
+					hud.say("Rested, your spell slots are all back.")
 			GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
 				# plus the level).
@@ -1566,6 +1621,8 @@ func _next_survivor() -> void:
 	bag.start(dusk)
 	skills.start(dusk)
 	craft.start(dusk)
+	spells.start(dusk)
+	readied = -1
 	hud.say("%s comes to the abbey. Somewhere out there, the last one's body lies in its gear." % dusk.actor_name(me))
 	_save("")
 	_offer_classes()
@@ -1845,6 +1902,11 @@ func _add_input_actions() -> void:
 		"tend_fire": [KEY_H],
 		"smother_fire": [KEY_J],
 		"craft": [KEY_T],
+		"spells": [KEY_I],
+		"spell_1": [KEY_4],
+		"spell_2": [KEY_5],
+		"spell_3": [KEY_6],
+		"spell_4": [KEY_7],
 		"sneak": [KEY_CTRL],
 		"brace": [KEY_ALT],
 		"restart": [KEY_R],
@@ -1910,7 +1972,8 @@ func _maybe_take_picture() -> void:
 ## --do: presses the scripted actions as their time comes (for pictures of a fight or a door).
 func _run_script() -> void:
 	while not scripted.is_empty() and played >= scripted[0][0]:
-		match scripted.pop_front()[1]:
+		var action: String = scripted.pop_front()[1]
+		match action:
 			"swing":
 				dusk.attack(0, 0)
 			# A swing one way (at a door or a window, say): north, east, south or west.
@@ -1996,6 +2059,26 @@ func _run_script() -> void:
 					i += 5 + reach[i + 3] * 4
 			"brace":
 				_brace(true)
+			"spells":
+				spells.toggle()
+				skills.close()
+				craft.close()
+			"cast_light", "cast_silence", "cast_fog", "cast_fireball":
+				# The spell of that name, on the nearest of the dead you see, else 3 tiles east.
+				var spell := spell_names.find(action.substr(5).capitalize())
+				var where: PackedVector2Array = dusk.actor_positions()
+				var spot := Vector2i(roundi(where[me].x) + 3, roundi(where[me].y))
+				var best := -1
+				for k in where.size():
+					if k == me or k >= kinds.size() or kinds[k] == 0 or k >= seen.size() or seen[k] == 0:
+						continue
+					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
+						best = k
+				if best >= 0:
+					spot = Vector2i(roundi(where[best].x), roundi(where[best].y))
+				if spell >= 0:
+					readied = spell
+					_cast_on(spot)
 			"shoot":  # at the nearest of the dead you see
 				var where: PackedVector2Array = dusk.actor_positions()
 				var best := -1
@@ -2077,6 +2160,62 @@ func _known_as(def: int) -> String:
 		if items[i] == def:
 			return labels[2 + floori(i / 4.0)]
 	return _item_name(def)
+
+
+func _spell_name(spell: int) -> String:
+	return spell_names[spell] if spell >= 0 and spell < spell_names.size() else "spell"
+
+
+## Readies a spell (its number): the next spot clicked is the one it's cast on. Readying the one
+## readied lets it go.
+func _ready_spell(spell: int) -> void:
+	if readied == spell:
+		_let_go()
+		return
+	var info: PackedInt32Array = dusk.spell_info()
+	var reach: int = info[spell * 8 + 3] if spell * 8 + 3 < info.size() else 0
+	readied = spell
+	hud.say("%s ready: click a spot within %d tiles. Right-click lets it go." % [_spell_name(spell), reach])
+
+
+## 4 to 7: the first to the fourth spell you know, readied.
+func _ready_nth(k: int) -> void:
+	var known: PackedInt32Array = dusk.character_spells()
+	if known.is_empty():
+		hud.say("You know no spells: only a Wizard casts them.")
+	elif k >= known.size():
+		hud.say("You know only %d spells." % known.size())
+	else:
+		_ready_spell(known[k])
+
+
+func _let_go() -> void:
+	readied = -1
+	hud.say("You let the spell go.")
+
+
+## The readied spell, cast on `tile`: the core says whether it can be, and this says why not.
+func _cast_on(tile: Vector2i) -> void:
+	var spell := readied
+	match dusk.cast_check(spell, tile.x, tile.y):
+		0:
+			dusk.cast(spell, tile.x, tile.y)
+			readied = -1
+		-1:
+			hud.say("You don't know that spell.")
+			readied = -1
+		-2:
+			hud.say("Not with it holding you! Struggle (F) or shove (Q).")
+		-3:
+			hud.say("Not slots enough for the %s: they come back when you've slept the night through." % _spell_name(spell))
+		-4:
+			var info: PackedInt32Array = dusk.spell_info()
+			var what: int = info[spell * 8 + 7] if spell * 8 + 7 < info.size() else -1
+			hud.say("You've no %s for it." % (_item_name(what) if what >= 0 else "component"))
+		-5:
+			hud.say("Too far: the %s reaches only so far." % _spell_name(spell))
+		-6:
+			hud.say("You can't see that spot.")
 
 
 func _item_name(def: int) -> String:

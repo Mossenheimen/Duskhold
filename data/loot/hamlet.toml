@@ -63,6 +63,7 @@ items = [
   { item = "torch", weight = 3, count = [1, 3], magic = 0.05 },
   { item = "lamp_oil", weight = 3, count = [1, 2] },
   { item = "knapsack", weight = 1 },
+  { item = "sulphur", weight = 1, count = [1, 3] },   # for a fireball (spells.toml)
 ]
 
 [[loot]]

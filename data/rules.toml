@@ -236,6 +236,7 @@ shield = 1.5          # a blow blocked, or a shove with a shield on your arm (Sh
 turn = 2.0            # each of the dead turned (Devotion); the same one pays less
 mend = 3.0            # a bleeding wound mended with faith (Devotion)
 pick = 1.0            # a wild plant picked (Foraging); picking in one spot pays less
+cast = 2.0            # a spell cast (Arcana)
 
 [skills.level]
 # What each level gives, as a share a level (level 5 gives five times this).
@@ -255,6 +256,7 @@ cook_time = 0.05      # Cooking: cooking takes less time
 devotion_turn = 0.1   # Devotion: the dead stay turned longer...
 devotion_cost = 0.04  # ...and faith goes further (28% further at the free cap)
 forage_more = 0.1     # Foraging: a tenth likelier, a level, to find one more of a herb
+arcana_cast = 0.05    # Arcana: a spell's words take less time
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where

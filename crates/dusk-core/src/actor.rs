@@ -139,6 +139,8 @@ pub enum Intent {
     Shift { slot: u16, def: u16 },
     /// Drop the bag on your back at your feet, with what's in it.
     DropBag,
+    /// Cast `spell` (its number in `Defs::spells`) on the tile `at` (`spell.rs`).
+    Cast { spell: u16, at: TilePos },
 }
 
 impl Intent {
@@ -284,6 +286,11 @@ pub enum ActionKind {
         def: u16,
     },
     DropBag,
+    /// Saying a spell's words, cast on `at` (`spell.rs`).
+    Cast {
+        spell: u16,
+        at: TilePos,
+    },
 }
 
 /// A timed action under way: a wind-up of `strike` ticks (its tell), the tick it takes effect,
@@ -459,6 +466,8 @@ pub struct Actor {
     pub worn: Vec<Item>,
     /// The bag on its back (`bag.rs`): what's in it is the pack's stacks marked `bagged`.
     pub bag: Option<Item>,
+    /// A Wizard's spell slots left (`spell.rs`).
+    pub slots: u8,
     /// A character's Strength and Fitness, in thousandths of a level (`fitness.rs`), and the
     /// day's work toward its Strength (its breath spent, toward Fitness, is the body's).
     pub strength: u32,
@@ -516,6 +525,7 @@ impl Actor {
             faith: 0,
             worn: Vec::new(),
             bag: None,
+            slots: 0,
             strength: 0,
             fitness: 0,
             strain: 0,

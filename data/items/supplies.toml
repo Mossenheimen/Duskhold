@@ -226,3 +226,10 @@ name = "arrow"
 weight = 0.05
 worth = 0.2
 stack = 30
+
+[[item]]
+id = "sulphur"
+name = "sulphur"
+weight = 0.05
+worth = 1
+stack = 20            # a pinch a fireball (spells.toml)

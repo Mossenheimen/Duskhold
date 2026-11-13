@@ -414,6 +414,25 @@ pub enum Event {
         who: ActorId,
         level: u8,
     },
+    /// `who` cast `spell` on `at`; its fireball burned `target` for `damage`; its words were
+    /// broken by a blow; its slots came back with a night's sleep (`spell.rs`).
+    Cast {
+        who: ActorId,
+        spell: u16,
+        at: TilePos,
+    },
+    Scorched {
+        who: ActorId,
+        target: ActorId,
+        damage: i32,
+    },
+    SpellBroke {
+        who: ActorId,
+        spell: u16,
+    },
+    SlotsBack {
+        who: ActorId,
+    },
     /// At midnight, `who`'s Strength or Fitness reached a whole `level` (`fitness.rs`).
     Grew {
         who: ActorId,
@@ -923,6 +942,8 @@ pub struct World {
     /// What's in the full bags lying about, by the bag's `Item::holds` (`bag.rs`). Ordered, for
     /// the hash.
     pub(crate) held: BTreeMap<u32, Vec<Item>>,
+    /// The spells lasting on their spots (`spell.rs`), in the order cast.
+    pub(crate) zones: Vec<crate::spell::Zone>,
     /// The region this world is a patch of (`pressure.rs`): from the data, not saved.
     pub region: Region,
     /// The region's pressure, in thousandths of the dead the patch began with.
@@ -981,6 +1002,7 @@ impl World {
             defs,
             stores: BTreeMap::new(),
             held: BTreeMap::new(),
+            zones: Vec::new(),
             region: Region::default(),
             pressure: 0,
             fires: Vec::new(),
@@ -1142,6 +1164,8 @@ impl World {
             && cone.contains(a.facing, at.x - a.pos.x, at.y - a.pos.y)
             && (a.pos.steps_to(at) <= c.darkvision || bright_enough(d2, self.light_at(at), range))
             && line_of_sight(&self.grid, a.pos, at)
+            // A Fog: nothing seen into it or out of it (`spell.rs`).
+            && (self.zones.is_empty() || !(self.fogged(a.pos) || self.fogged(at)))
     }
 
     /// Makes a sound at a tile, heard on the next tick (what a shout or a dropped pan does).
@@ -1151,6 +1175,10 @@ impl World {
 
     /// A sound made: heard by the creatures on this tick's hearing pass, and told to the client.
     pub(crate) fn emit(&mut self, s: Sound) {
+        // Inside a Silence, no sound is made at all (`spell.rs`).
+        if !self.zones.is_empty() && self.hushed(s.at) {
+            return;
+        }
         self.sounds.push(s);
         self.events.push(Event::Sound {
             at: s.at,
@@ -1181,6 +1209,7 @@ impl World {
         self.board_strength.hash(&mut h);
         self.stores.hash(&mut h);
         self.held.hash(&mut h);
+        self.zones.hash(&mut h);
         self.pressure.hash(&mut h);
         self.sold.hash(&mut h);
         self.claimed.hash(&mut h);
@@ -1292,6 +1321,7 @@ impl World {
         self.press();
         self.toll();
         self.weather();
+        self.fade_spells();
         self.burn_lights();
         self.burn_fires();
         self.spoil();

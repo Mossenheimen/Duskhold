@@ -31,3 +31,19 @@ turns = true          # its signature: held up, the holy symbol turns the dead (
 wield = "cudgel"
 kit = ["bandage", "bandage", "torch", "holy_water", "holy_water"]
 talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "steady", "rebuke", "sunder", "last_rites"]
+
+[[class]]
+id = "wizard"
+name = "Wizard"
+line = "fragile, and loud when it counts: spells that work on what the dead sense, slots a night's sleep restores"
+# Fragile and versatile: the sense fields themselves are its part of the system (spells.toml).
+skills = ["arcana", "first_aid"]
+learn = 1.5
+endurance = 1.1       # fragile: its breath goes quicker than anyone's
+grabbed = 1.15        # and the dead get hold of it more easily
+slots = 3             # spell slots, all back when it has slept the night through
+spells = ["light", "silence", "fog", "fireball"]
+wield = "quarterstaff"
+kit = ["bandage", "sulphur", "sulphur"]
+wear = ["wool_cloak"]
+talents = ["tough", "arcane_reserve", "quick_casting", "far_reach", "hushed_words", "steady"]

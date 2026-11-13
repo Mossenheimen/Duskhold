@@ -1929,3 +1929,44 @@ fn wet_and_cold_load_and_a_shiver_that_saves_breath_is_refused() {
     let err = load(&folder("cold", &files)).unwrap_err();
     assert!(err.message.contains("cold"), "{err}");
 }
+
+#[test]
+fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    let wizard = defs.classes.iter().find(|c| c.id == "wizard").unwrap();
+    assert_eq!(wizard.slots, 3);
+    let known: Vec<&str> = wizard
+        .spells
+        .iter()
+        .map(|&s| defs.spells[usize::from(s)].id.as_str())
+        .collect();
+    assert_eq!(known, ["light", "silence", "fog", "fireball"]);
+    let fireball = defs.spells.iter().find(|s| s.id == "fireball").unwrap();
+    assert_eq!(
+        (
+            fireball.slots,
+            fireball.cast,
+            fireball.radius,
+            fireball.damage
+        ),
+        (2, 25, 2, (250, 350)),
+        "2.5 s of words, 25 to 35 points"
+    );
+    let sulphur = defs.items.iter().position(|i| i.id == "sulphur").unwrap() as u16;
+    assert_eq!(fireball.component, Some(sulphur));
+    assert_eq!(
+        (data.rules.skills.cast, data.rules.skills.arcana_cast),
+        (2000, 50)
+    );
+    // A fog that reaches nowhere.
+    let mist = "[[spell]]\nid = \"mist\"\nname = \"Mist\"\nline = \"\"\nkind = \"fog\"\n\
+        slots = 1\ncast = 1.0\nrange = 5\nlasts = 10\n";
+    let mut files = test_files(PREFABS);
+    files.push(("spells.toml", mist));
+    let err = load(&folder("spell", &files)).unwrap_err();
+    assert!(
+        err.file.ends_with("spells.toml") && err.message.contains("\"mist\""),
+        "{err}"
+    );
+}

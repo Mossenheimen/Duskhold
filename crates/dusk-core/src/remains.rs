@@ -182,7 +182,7 @@ impl World {
     }
 
     /// A body catches fire: it'll never get up now, and the pressure falls.
-    fn set_alight(&mut self, body: ActorId) {
+    pub(crate) fn set_alight(&mut self, body: ActorId) {
         let per = u64::from(self.rules.clock.ticks_per_minute.max(1));
         let until = self.tick + u64::from(self.rules.burning.burn) * per;
         // A character's gear doesn't burn: it falls where the body lies.

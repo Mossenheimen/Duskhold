@@ -22,6 +22,7 @@ const KEYS := [
 	["H", "tend a fire"], ["J", "put it out"], ["G", "butcher a beast, or burn a body"],
 	["O", "consecrate a body; at a shut door, ward it"], ["P", "pray at an altar"],
 	["C", "second wind"], ["U", "turn the dead"], ["M", "mend"], ["Y", "pick a plant"],
+	["I", "spells"], ["4 5 6 7", "ready a spell; then click the spot (right-click: let it go)"],
 	["Tab", "your pack"], ["K", "Strength, Fitness, skills and talents"], ["T", "make things"], ["Z", "sleep"],
 	["X", "drink water"], ["L", "light"], ["Space", "pause"], ["1 2 3", "speed"],
 	["wheel", "zoom"], ["V", "low walls"], ["- =", "smaller or larger GUI"], ["F5", "save"],
@@ -97,6 +98,7 @@ var _flash_left := 0.0
 var _health: ProgressBar
 var _endurance: ProgressBar
 var _faith: ProgressBar  # a Cleric's (DuskWorld.faith()): hidden for a class without any
+var _slots: ProgressBar  # a Wizard's spell slots (DuskWorld.character_slots()): hidden without
 var _choice: Label  # who comes into the world: the classes to choose from
 var _breath: Label
 var _wounds: Label
@@ -179,7 +181,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: wet and cold\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: the Wizard\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 
@@ -314,6 +316,16 @@ func show_faith(faith: PackedInt32Array) -> void:
 		_faith.value = faith[0]
 
 
+## Your spell slots (DuskWorld.character_slots(): [left, the most]): a bar under endurance, for a
+## class that casts.
+func show_slots(slots: PackedInt32Array) -> void:
+	var most := slots[1] if slots.size() > 1 else 0
+	_slots.get_parent().visible = most > 0
+	if most > 0:
+		_slots.max_value = most
+		_slots.value = slots[0]
+
+
 ## Who comes into the world: the classes to choose from, or "" once one's chosen.
 func show_choice(text: String) -> void:
 	_choice.text = text
@@ -419,6 +431,8 @@ func _build_left_column() -> void:
 	_endurance = _bar(column, "Endurance", Look.ENDURANCE)
 	_faith = _bar(column, "Faith", Look.FAITH)
 	_faith.get_parent().visible = false
+	_slots = _bar(column, "Spells", Look.ARCANE)
+	_slots.get_parent().visible = false
 	_breath = Look.text(Label.new(), Look.BODY, Look.ALERT, true)
 	column.add_child(_breath)
 	_wounds = Look.text(Label.new(), Look.SMALL, Look.HURT_TEXT, true)

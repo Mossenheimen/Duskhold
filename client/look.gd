@@ -67,6 +67,8 @@ const GOLD := Color("#FFC74D")  # XP, a level, a mastery, a find's worth, your s
 const UNCOMMON := Color("#8CBFFF")  # an uncommon magic item's name
 const RARE := Color("#FFCC59")  # a rare magic item's name
 const LORE := Color("#BFCCE6")  # what a known magic item's properties do
+const ARCANE := Color("#B3A6FF")  # a Wizard's: its slots, a Light spell's light, a Silence's ring
+const FOG := Color("#B8BEC780")  # a Fog spell's cloud, 50%
 const DREAD := Color("#05000A")  # the screen's edges darkening with dread
 
 # Bars and moodles (§4).

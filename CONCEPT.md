@@ -205,6 +205,13 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 - **Consecration** (O): holy water on a body, or with none a cleric's 15 faith, and it never gets up. Burning's quiet cousin: no fire, no light, and the dusk falls back as for a body burned. Anyone with holy water can; the chapel's fonts hold it, and the abbey sells it.
 - **Talents:** Tough and Heavy Hand; Devout (more faith); Mending (faith stops the worst bleeding and gives health back: M); Purify (a prayer cures ghoul fever: the cure becomes a pilgrimage); Warding (a shut door warded for the night: the dead won't beat on it); Steady (the steadying light: with a light held up, dread rises half as fast); Rebuke (turned longer, from farther); Sunder (the weakest of the dead it turns fall); Last Rites (what it puts down stays down).
 
+*(built 2026-11-12)* **The Wizard**, the third class (its numbers and talents are Defaults, not yet played):
+- **Skills:** it learns Arcana (its own: each spell cast teaches it, and each level casts quicker) and First Aid half as fast again. Fragile: its breath goes a tenth quicker, and the dead get hold of it more easily.
+- **Its kit:** a quarterstaff, a wool cloak and two pinches of sulphur.
+- **Spell slots, its resource:** three, all back once it has slept the night through.
+- **Its spells** (I, then 4 to 7 to ready one and a click on the spot): Light (a cantrip: a pale light for two minutes, and at night a lure for the dead), Silence (no sound made within 3 tiles for half a minute), Fog (the dead can't see into or out of it for half a minute), Fireball (two slots and a pinch of sulphur: everything within 2 tiles of the spot is burned, you too; what it puts down burns and never gets up; heard across the map). The words are a tell, and a blow breaks them.
+- **Talents:** Tough, Steady, Arcane Reserve (a slot more), Quick Casting (words a third quicker), Far Reach (3 tiles farther), Hushed Words (heard a quarter as far).
+
 ### Ancestry and traits (Default)
 
 - **Ancestries are trait bundles:** human (one more trait), dwarf (darkvision 3 tiles, hardy, slow), elf (keen hearing, darkvision 2 tiles), halfling (small: quieter, lucky). Darkvision matters a great deal in a game about night.

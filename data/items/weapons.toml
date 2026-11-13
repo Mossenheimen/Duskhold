@@ -145,3 +145,10 @@ weight = 1.0
 worth = 8
 stack = 1
 bow = { draw = 0.9, recovery = 0.4, endurance = 6, hit = 0.85, damage = [10, 16], noise = 2, range = 12, ammo = "arrow", breaks = 0.35 }
+
+[[item]]
+id = "quarterstaff"
+name = "quarterstaff"
+weight = 1.8
+worth = 3
+weapon = { wind_up = 0.45, recovery = 0.6, endurance = 9, hit = 0.85, damage = [7, 11], noise = 5, wear = 0.8, skill = "blunt" }

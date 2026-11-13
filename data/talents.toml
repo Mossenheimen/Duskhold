@@ -120,3 +120,29 @@ id = "last_rites"
 name = "Last Rites"
 line = "the dead you put down stay down"
 last_rites = true
+
+# The Wizard's (spells.toml).
+
+[[talent]]
+id = "arcane_reserve"
+name = "Arcane Reserve"
+line = "one more spell slot"
+slots = 1
+
+[[talent]]
+id = "quick_casting"
+name = "Quick Casting"
+line = "your spells' words take a third less time"
+cast = 0.67
+
+[[talent]]
+id = "far_reach"
+name = "Far Reach"
+line = "your spells reach 3 tiles farther"
+range = 3
+
+[[talent]]
+id = "hushed_words"
+name = "Hushed Words"
+line = "your spells' words are a whisper, heard a quarter as far"
+hush = 0.25

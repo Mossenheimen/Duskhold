@@ -206,6 +206,8 @@ pub struct Defs {
     /// The classes and their talents (`class.rs`). A character is the first class.
     pub classes: Vec<crate::class::Class>,
     pub talents: Vec<crate::class::Talent>,
+    /// The spells (`spell.rs`): a class knows some of them, by their numbers here.
+    pub spells: Vec<crate::spell::SpellDef>,
 }
 
 impl Default for Defs {
@@ -254,6 +256,7 @@ impl Default for Defs {
             magic: crate::magic::MagicRules::default(),
             classes: Vec::new(),
             talents: Vec::new(),
+            spells: Vec::new(),
         }
     }
 }

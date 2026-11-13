@@ -157,6 +157,8 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `signal.dread` | `#05000A` | the screen's edges darkening with dread | |
 | `magic.uncommon` | `#8CBFFF` | an uncommon magic item's name | |
 | `magic.rare` | `#FFCC59` | a rare magic item's name, and a rare monster's | |
+| `magic.arcane` | `#B3A6FF` | a Wizard's: its spell slots bar, a Light spell's light, a Silence's ring, a readied spell in the panel | |
+| `magic.fog` | `#B8BEC7` at 50% | a Fog spell's cloud | |
 
 ### Bars and moodles
 
@@ -277,6 +279,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | Light | The light itself: a warm pool round a torch or a fire, as far as the core says it reaches | torch, fire |
 | A body burning, ash, hallowed | Embers that glow and light the ground; a dark smear of ash; a body consecrated lies pale | ember, holy |
 | Your own state | Edge darkening for dread; a red flash for a hurt; a gold flash for a level; a veil for sleep | §4 |
+| A spell on its spot | Light: a pale light with a glowing mote over the spot, reaching as far as the core says. Silence: a ring at its reach. Fog: a low cloud as wide as it reaches. A spell's words: the tell, on the spot it's cast on | `magic.arcane`, `magic.fog`, `signal.yours` |
 
 **Should:** a new sense or state reuses a token above. A new colour needs a new row here first.
 
@@ -378,7 +381,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
 | **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
-| **J** Book panels | Strength, Fitness, skills and talents (K), making (T); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
+| **J** Book panels | Strength, Fitness, skills and talents (K), making (T), spells (I); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here, but Esc doesn't close panels yet |
 
 **Rules:**
 

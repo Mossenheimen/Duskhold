@@ -308,6 +308,10 @@ impl World {
                 if let Some(a) = self.actors.get_mut(id) {
                     a.winded = false;
                 }
+                // And a Wizard's spell slots (`spell.rs`).
+                if self.rest_slots(id) {
+                    self.events.push(Event::SlotsBack { who: id });
+                }
                 self.make_home(id);
             }
         }
