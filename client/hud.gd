@@ -2,8 +2,8 @@ extends CanvasLayer
 ## What's drawn over the world (VISUALS.md §10): the status and your body down the top left
 ## (zones A and B); the news, and Zomboid's moodle column under it as tiles, down the top right
 ## (D, E);
-## the one thing you must answer now at the top centre (C: held, paused, asleep); the act under
-## way just under you (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
+## the one thing you must answer now at the top centre (C: held, paused, asleep); just under you,
+## the act under way, else what you can do there (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
 ## dark veil while you sleep, how you died, and who comes next. Every colour and size is a
 ## Look token.
 
@@ -116,6 +116,8 @@ var _death_title: Label  # the name of the one who died, in the serif
 var _held: Label
 var _doing: Label
 var _doing_bar: ProgressBar
+var _prompts: Array[Label] = []  # zone F's prompts, under the act's bar
+var _prompts_shown := []  # as last given (show_prompts)
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
@@ -617,13 +619,34 @@ func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:
 
 
 ## What you're doing now, with how far along it is (Zomboid's progress bar): "" for nothing.
+## While an act is under way, it has zone F to itself: the prompts wait.
 func show_action(label: String, progress: float) -> void:
 	_doing.text = label + "…" if label != "" else ""
+	_doing.visible = label != ""
 	_doing_bar.visible = label != ""
 	_doing_bar.value = progress * 100.0
+	for prompt in _prompts:
+		prompt.visible = label == "" and prompt.text != ""
 
 
-## Zone F: just under you, where your eyes already are.
+## Zone F's prompts (prompts.gd's `here`: each [its line, whether it can be done now]): one that
+## can't be done is dimmed, its reason after it. Printed too, with `echo`, when they change.
+func show_prompts(prompts: Array) -> void:
+	if prompts == _prompts_shown:
+		return
+	_prompts_shown = prompts
+	for i in _prompts.size():
+		var line := _prompts[i]
+		line.text = prompts[i][0] if i < prompts.size() else ""
+		var can: bool = i < prompts.size() and prompts[i][1]
+		line.add_theme_color_override("font_color", Look.TEXT if can else Look.TEXT_DIM)
+		line.visible = line.text != "" and not _doing.visible
+		if echo and line.text != "":
+			print("prompt: ", line.text)
+
+
+## Zone F: just under you, where your eyes already are: the act under way and its bar, or the
+## prompts.
 func _build_action_bar() -> void:
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -637,8 +660,17 @@ func _build_action_bar() -> void:
 	box.add_child(_doing)
 	_doing_bar = Look.bar(ProgressBar.new(), Look.YOURS)
 	_doing_bar.custom_minimum_size = Vector2(240, 10)
+	_doing_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_doing_bar.visible = false
 	box.add_child(_doing_bar)
+	# Then what you can do here, at most two (prompts.gd's MOST): "[Y] Pick the yarrow".
+	for i in 2:
+		var line := Look.text(Label.new(), Look.BODY, Look.TEXT, true)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.visible = false
+		box.add_child(line)
+		_prompts.append(line)
 
 
 ## Zone I: every key in four columns, with what's drawn on the ground above them, over the

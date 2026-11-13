@@ -19,7 +19,7 @@ extends Node3D
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
-## --news print the news too (for --headless); --hour=H start at that hour of the day;
+## --news print the news too, and zone F's prompts as they change (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
 ## With no flags at all, the game is saved (user://world.dusk) and carries on from its save. Any
@@ -40,6 +40,7 @@ const Spells = preload("res://spells.gd")
 const Zones = preload("res://zones.gd")
 const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
+const Prompts = preload("res://prompts.gd")
 ## The GUI sizes - and = step through, and where the player's own game keeps its choice.
 const GUI_SCALES := [0.75, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0]
 const SETTINGS := "user://settings.cfg"
@@ -438,7 +439,8 @@ func _process(delta: float) -> void:
 	rings.advance(0.0 if dusk.paused else delta * dusk.speed)
 	_read_events()
 	var tick: int = dusk.tick()
-	if tick != last_tick:
+	var ticked := tick != last_tick
+	if ticked:
 		last_tick = tick
 		map_view.show_watched(dusk.watched())
 		map_view.show_view(dusk.view_tiles())
@@ -470,6 +472,8 @@ func _process(delta: float) -> void:
 	hud.show_faith(dusk.faith())
 	hud.show_slots(dusk.character_slots())
 	hud.show_deeds(dusk.character_deeds())
+	if ticked:
+		_prompt_here(asleep)
 	_mind_the_ground()
 	_mind_the_plants()
 	var doing := _my_action()
@@ -755,7 +759,16 @@ func _mind_the_ground() -> void:
 		hud.say("You leave hallowed ground.")
 
 
-## Beside a wild plant: the first time of each kind, what it's good for, and Y.
+## Zone F's prompts: what you can do beside you (prompts.gd), none while you're asleep, held,
+## choosing who comes, or dead.
+func _prompt_here(asleep: bool) -> void:
+	if dead or asleep or held > 0 or choosing_class:
+		hud.show_prompts([])
+		return
+	hud.show_prompts(Prompts.here(dusk, creature_names, fixture_names, kinds, _moodle(THIRSTY) > 0))
+
+
+## Beside a wild plant: the first time of each kind, what it's good for (its prompt says the key).
 func _mind_the_plants() -> void:
 	if dead:
 		return
@@ -765,7 +778,7 @@ func _mind_the_plants() -> void:
 	plants_told[f] = true
 	var names: PackedStringArray = dusk.fixture_names()
 	var plant: String = names[f] if f < names.size() else ""
-	hud.say("%s. Y to pick it." % PLANT_TOLD.get(plant, "Something grows here"))
+	hud.say("%s." % PLANT_TOLD.get(plant, "Something grows here"))
 
 
 ## G: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside

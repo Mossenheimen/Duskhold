@@ -378,7 +378,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
-| **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | the bar is here; prompts come only through the news |
+| **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
 | **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
@@ -439,6 +439,13 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Prompt (zone F):**
   - A key cap, a verb and a thing: "[G] Butcher the deer", "[Y] Pick chamomile".
   - At most two, the likeliest first. A prompt that can't be done says why in `ui.text_dim`.
+
+  **Today** (2026-11-12): `client/prompts.gd` words the core's own checks, the ones each key asks before it acts, so a prompt never promises what the key won't do. What's prompted is what's easily missed:
+  - a carcass (G butchers it) or a body (G burns it, O consecrates it); with no body, a Cleric's ward on a shut door (O);
+  - a wild plant (Y), an altar (P), a hearth, stove or forge (H);
+  - water (X), only when you're thirsty.
+
+  Doors and boards aren't prompted: they're everywhere in a town, and the keys (F1) say them. The ones that can be done come first, and while an act is under way its bar has zone F to itself. A key cap is read from the key the act is on (on another keyboard layout, its own label), so remapping (§13) will change it everywhere.
 - **Tooltip:**
   - After 0.4 s of hovering, in a panel, at most 70 characters a line.
   - It never hides what it describes.
@@ -545,6 +552,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | Dusk, rain, a wolf pack | `--seed=1 --hour=18 --speed=2 --walk=27,135 --shot=PNG --shot-after=20` |
 | Midnight in town, dread | `--seed=1 --hour=22 --speed=5 --walk=118,118 --shot=PNG --shot-after=14` |
 | The class choice: the title's serif, the GUI's sans | `--seed=7 --hour=12 --choose --shot=PNG --shot-after=3` |
+| A prompt under you, by the abbey's altar | `--seed=7 --hour=12 --walk=74,114 --shot=PNG --shot-after=10` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
@@ -589,7 +597,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 1. *(Done 2026-11-12.)* **Tokens, and a GUI that scales:** `client/look.gd` took every inline colour; the 1920 × 1080 base with `canvas_items` and `expand`; the GUI's size on `-` and `=`.
 2. *(Done 2026-11-12.)* **Type:** the fonts in: Alegreya Sans (Regular, and Medium for headings and banners) and the serif Alegreya for titles, with lining, tabular figures. *(The sizes of §8, and the held banner in sentence case, came first.)*
 3. *(Done 2026-11-12.)* **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
-4. **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1: done 2026-11-12.)*
+4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
 5. **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time: done 2026-11-12.)*
 6. **The body diagram** in zone B.
 7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
