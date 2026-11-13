@@ -3,12 +3,17 @@ extends CanvasLayer
 ## (zones A and B, the body diagram beside the bars); the news, and Zomboid's moodle column under it as tiles, down the top right
 ## (D, E);
 ## the one thing you must answer now at the top centre (C: held, paused, asleep); just under you,
-## the act under way, else what you can do there (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
+## the act under way, else what you can do there (F, the whole list while E is held); and the
+## keys in their groups, on F1 (I). Then a red flash when the dead hurt you, a
 ## dark veil while you sleep, how you died, and who comes next. Every colour and size is a
 ## Look token.
 
 const Look = preload("res://look.gd")
 const BodyView = preload("res://body_view.gd")
+const Prompts = preload("res://prompts.gd")
+
+## A line of zone F's list was clicked (E held): its place in the list.
+signal chose(index: int)
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
@@ -16,20 +21,50 @@ const NEWS_LINES := 6
 const NEWS_WIDTH := 620.0
 const LINE_HEIGHT := 28.0  # a line of BODY text, for the news's room
 
-## Every key, for the F1 panel (zone I): the key, and what it does.
+## Every key, for the F1 panel (zone I), in its groups: [the group, its rows, each [its keys, what
+## they do]]. "{action}" is the key an action is on, read from the InputMap (prompts.gd's
+## `keyed`), so a remapped key shows here too, in either. The mouse's buttons aren't remapped.
 const KEYS := [
-	["WASD", "walk (into an open window or a fence: climb it)"], ["Shift", "run"], ["Ctrl", "sneak"], ["Alt", "brace (shield)"],
-	["click", "walk there; beside one of the dead, swing"], ["right-click", "shoot (bow)"],
-	["F", "swing (at a shut window: smash it)"], ["Shift+F", "heavy swing: slower, may knock down"], ["Q", "shove"], ["E", "door or window"], ["B", "board up"], ["N", "pry a board off"],
-	["H", "tend a fire"], ["J", "put it out"], ["G", "butcher a beast, or burn a body"],
-	["O", "consecrate a body; at a shut door, ward it"], ["P", "pray at an altar"],
-	["C", "second wind"], ["U", "turn the dead"], ["M", "mend"], ["Y", "pick a plant"],
-	["I", "spells"], ["4 5 6 7", "ready a spell; then click the spot (right-click: let it go)"],
-	["Tab", "your pack"], ["K", "Strength, Fitness, skills and talents"], ["T", "make things"], ["Z", "sleep"],
-	["X", "drink water"], ["L", "light"], ["Space", "pause"], ["1 2 3", "speed"],
-	["wheel", "zoom"], ["V", "low walls"], ["- =", "smaller or larger GUI"], ["F5", "save"],
-	["R", "new world (dead: the next survivor)"], ["Esc", "close what's open, else save and quit"], ["F1", "these keys"],
+	["Move and fight", [
+		["{walk_up}{walk_left}{walk_down}{walk_right}", "walk; into an open window or a fence, climb it"],
+		["{run}", "run, held"],
+		["{sneak}", "sneak, or stand"],
+		["click", "walk there; beside one of the dead, swing"],
+		["{swing}", "swing; at a shut window, smash it; held, struggle"],
+		["{run}+{swing}", "a heavy swing (or {run}-click): slower, and it may knock down"],
+		["{shove}", "shove"],
+		["right-click", "shoot a bow; with a shield on your arm, hold to brace"],
+		["wheel", "zoom"],
+	]],
+	["Here", [
+		["{use}", "the likeliest thing beside you: a door, a body, a plant, an altar, a fire"],
+		["hold {use}", "all you can do here: board up, pry a board off, ward, put a fire out, drink"],
+		["{light}", "hold up a light, or put it away"],
+		["{sleep}", "sleep, or get up"],
+	]],
+	["Your powers", [
+		["{power_1} {power_2} {power_3} {power_4}", "a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells (then click the spot; right-click lets it go)"],
+	]],
+	["Panels", [
+		["{pack|all}", "your pack"],
+		["{craft}", "making"],
+		["{skills}", "Strength, Fitness, skills and talents"],
+		["{spells}", "spells"],
+		["{keys}", "these keys"],
+	]],
+	["The game", [
+		["{pause}", "pause"],
+		["{speed_1} {speed_2} {speed_3}", "speed: 1×, 2×, 5×"],
+		["{low_walls}", "low walls"],
+		["{gui_smaller} {gui_larger}", "a smaller or larger GUI"],
+		["{save}", "save"],
+		["{new_world}", "a new world (it asks twice)"],
+		["{quit}", "close what's open, else save and quit"],
+	]],
 ]
+## The keys panel's three columns, by KEYS' groups: moving and fighting; what you do here and your
+## powers; the panels and the game.
+const KEY_COLUMNS := [[0], [1, 2], [3, 4]]
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  amber, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level; what it does to you
@@ -37,42 +72,42 @@ const LEGEND := "On the ground, what the dead can see:  pale, not after you  · 
 ## level already is (0 mild, 1 bad, 2 dire; -1 a restful one); and its glyph, in icons/moodles/.
 const MOODLES := [
 	[["Peckish", "Hungry", "Starving"],
-		["eat something soon: Tab", "your breath comes back slower  ·  eat something: Tab",
-			"losing health  ·  eat something: Tab"], 0, "hungry"],
+		["eat something soon: {pack}", "your breath comes back slower  ·  eat something: {pack}",
+			"losing health  ·  eat something: {pack}"], 0, "hungry"],
 	[["Thirsty", "Parched", "Dying of thirst"],
-		["drink something soon: X at water, or Tab", "your breath comes back slower  ·  X at water, or Tab",
-			"losing health  ·  X at water, or Tab"], 0, "thirsty"],
+		["drink something soon: {use} at water, or {pack}", "your breath comes back slower  ·  {use} at water, or {pack}",
+			"losing health  ·  {use} at water, or {pack}"], 0, "thirsty"],
 	[["Drowsy", "Tired", "Falling asleep"],
-		["Z to sleep", "slower swings  ·  Z to sleep", "much slower swings  ·  Z to sleep"], 0, "tired"],
+		["{sleep} to sleep", "slower swings  ·  {sleep} to sleep", "much slower swings  ·  {sleep} to sleep"], 0, "tired"],
 	[["Hurt", "Badly hurt", "Near death"],
 		["fed, watered and not bleeding, you heal", "sleep heals fastest", "sleep heals fastest"], 0, "hurt"],
 	[["Bleeding", "Bleeding badly", "Bleeding heavily"],
-		["bandage it: Tab  ·  ghouls smell it", "bandage them: Tab  ·  ghouls smell them",
-			"bandage them: Tab  ·  ghouls smell them"], 1, "bleeding"],
+		["bandage it: {pack}  ·  ghouls smell it", "bandage them: {pack}  ·  ghouls smell them",
+			"bandage them: {pack}  ·  ghouls smell them"], 1, "bleeding"],
 	[["Out of breath"], ["no running, weak swings  ·  it comes back fastest standing still"], 1, "breath"],
 	[["Heavy load"], ["no running  ·  drop something, or carry it in a bag on your back"], 0, "load"],
-	[["Held", "Held by two", "Held by three"], ["F struggle  ·  Q shove", "F struggle  ·  Q shove", "F struggle  ·  Q shove"], 2, "held"],
-	[["Asleep"], ["Z to get up"], -1, "asleep"],
+	[["Held", "Held by two", "Held by three"], ["{swing} struggle  ·  {shove} shove", "{swing} struggle  ·  {shove} shove", "{swing} struggle  ·  {shove} shove"], 2, "held"],
+	[["Asleep"], ["{sleep} to get up"], -1, "asleep"],
 	[["Ghoul fever", "Weak with fever", "Dying of fever"],
 		["thirstier, and nothing heals  ·  find a cure", "your breath comes back slowly  ·  find a cure",
 			"the cure, today, or death"], 1, "fever"],
 	[["Sore", "In pain", "Agony"],
-		["a bandage on the wound eases it: Tab", "everything costs more breath  ·  dress your wounds: Tab",
-			"everything costs far more breath, and no sleep  ·  dress your wounds: Tab"], 0, "pain"],
+		["a bandage on the wound eases it: {pack}", "everything costs more breath  ·  dress your wounds: {pack}",
+			"everything costs far more breath, and no sleep  ·  dress your wounds: {pack}"], 0, "pain"],
 	[["Uneasy", "Afraid", "Frightened"],
 		["your aim shakes  ·  light, food and rest ease it", "your aim shakes more  ·  get into the light",
 			"you can't step nearer the dead  ·  back away, get to the light"], 0, "dread"],
 	[["Hurt arm", "Badly hurt arm"],
-		["swings a little slower and less sure  ·  dress it: Tab",
-			"swings slower and less sure  ·  dress it: Tab"], 0, "arm"],
+		["swings a little slower and less sure  ·  dress it: {pack}",
+			"swings slower and less sure  ·  dress it: {pack}"], 0, "arm"],
 	[["Limping", "Lame"],
-		["slower on your feet, and running costs more  ·  dress it: Tab",
-			"much slower: a ghoul will run you down  ·  dress it: Tab"], 0, "leg"],
+		["slower on your feet, and running costs more  ·  dress it: {pack}",
+			"much slower: a ghoul will run you down  ·  dress it: {pack}"], 0, "leg"],
 	[["Head wound", "Bad head wound"],
-		["your aim, and how far you see, a little worse  ·  dress it: Tab",
-			"your aim and how far you see, worse  ·  dress it: Tab"], 0, "head"],
-	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1, "sneaking"],
-	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1, "bracing"],
+		["your aim, and how far you see, a little worse  ·  dress it: {pack}",
+			"your aim and how far you see, worse  ·  dress it: {pack}"], 0, "head"],
+	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  {sneak} to stand"], -1, "sneaking"],
+	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of the right mouse button"], -1, "bracing"],
 	[["Chilly", "Cold", "Freezing"],
 		["get under a roof, or by a fire, before it's worse",
 			"shivering: your aim is worse, and everything costs more breath  ·  a roof, a fire",
@@ -117,8 +152,10 @@ var _death_title: Label  # the name of the one who died, in the serif
 var _held: Label
 var _doing: Label
 var _doing_bar: ProgressBar
-var _prompts: Array[Label] = []  # zone F's prompts, under the act's bar
+var _prompt_box: VBoxContainer  # zone F: the act's bar, then the prompts
+var _prompts: Array[Label] = []  # zone F's prompts, under the act's bar: more as the list needs
 var _prompts_shown := []  # as last given (show_prompts)
+var _listing := false  # E is held: each prompt is a choice, and takes a click
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
@@ -296,6 +333,7 @@ func show_problem(text: String) -> void:
 ## Every key, on F1 (zone I), or not; and for a world's first game hour, a line saying so.
 func show_keys(shown: bool, hint: bool) -> void:
 	_keys.visible = shown
+	_prompt_box.visible = not shown  # zone F would show through the panel's ground
 	_keys_hint.visible = hint and not shown
 
 
@@ -473,7 +511,7 @@ func _hover(row: Control) -> void:
 	var what: Array = row.get_meta("moodle")
 	var moodle: Array = MOODLES[what[0]]
 	_hover_on(row, [moodle[0][what[1] - 1],
-		"\n".join((moodle[1][what[1] - 1] as String).split("  ·  "))], false)
+		Prompts.keyed("\n".join((moodle[1][what[1] - 1] as String).split("  ·  ")))], false)
 
 
 ## A part of the body diagram under the mouse (-1: none now): its wounds, to the diagram's right.
@@ -573,7 +611,7 @@ func show_dread(per_mille: int, delta: float) -> void:
 ## Asleep, the world is veiled and the clock runs fast; awake, the veil lifts.
 func show_asleep(asleep: bool, clock: PackedInt32Array) -> void:
 	_veil.visible = asleep
-	_asleep.text = "Asleep\n%s\n\nZ to get up" % time_of_day(clock) if asleep else ""
+	_asleep.text = Prompts.keyed("Asleep\n%s\n\n{sleep} to get up") % time_of_day(clock) if asleep else ""
 
 
 ## The end, as a recap (CONCEPT.md, death and legacy): who, how they died, how long they lasted
@@ -592,7 +630,7 @@ func show_death(name: String, how: String, minutes: int, carried: String, rises:
 	if rises:
 		lines.append("The body lies where it fell. Unburned, at midnight it rises as a revenant, in that gear.")
 	lines.append("")
-	lines.append("R: the next survivor comes to the abbey, in this world.   Shift+R: a new world.")
+	lines.append(Prompts.keyed("{next_survivor} The next survivor comes to the abbey, in this world.     {new_world} A new world."))
 	_death_title.text = name if name != "" else "You died"
 	_death_title.visible = true
 	_death.text = "\n".join(lines)
@@ -700,20 +738,43 @@ func show_action(label: String, progress: float) -> void:
 		prompt.visible = label == "" and prompt.text != ""
 
 
-## Zone F's prompts (prompts.gd's `here`: each [its line, whether it can be done now]): one that
-## can't be done is dimmed, its reason after it. Printed too, with `echo`, when they change.
-func show_prompts(prompts: Array) -> void:
-	if prompts == _prompts_shown:
+## Zone F's lines (prompts.gd's `lines`: each [its text, whether it's bright]). A dim one is a hint,
+## or can't be done now and says why. `listing`: E is held, and each line but the last (which
+## says how to pick) is a choice that takes a click too (`chose`). Printed too, with `echo`, when
+## they change.
+func show_prompts(prompts: Array, listing := false) -> void:
+	if prompts == _prompts_shown and listing == _listing:
 		return
 	_prompts_shown = prompts
+	_listing = listing
+	while _prompts.size() < prompts.size():
+		_add_prompt()
 	for i in _prompts.size():
 		var line := _prompts[i]
 		line.text = prompts[i][0] if i < prompts.size() else ""
-		var can: bool = i < prompts.size() and prompts[i][1]
-		line.add_theme_color_override("font_color", Look.TEXT if can else Look.TEXT_DIM)
+		var bright: bool = i < prompts.size() and prompts[i][1]
+		line.add_theme_color_override("font_color", Look.TEXT if bright else Look.TEXT_DIM)
+		var choice := listing and i < prompts.size() - 1
+		line.mouse_filter = Control.MOUSE_FILTER_STOP if choice else Control.MOUSE_FILTER_IGNORE
+		line.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if choice else Control.CURSOR_ARROW
 		line.visible = line.text != "" and not _doing.visible
 		if echo and line.text != "":
 			print("prompt: ", line.text)
+
+
+## One more of zone F's lines, under the rest. A click on it, while E's list is up, picks it.
+func _add_prompt() -> void:
+	var line := Look.text(Label.new(), Look.BODY, Look.TEXT, true)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.visible = false
+	var index := _prompts.size()
+	line.gui_input.connect(func(event: InputEvent) -> void:
+		var click := event as InputEventMouseButton
+		if _listing and click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+			chose.emit(index))
+	_prompt_box.add_child(line)
+	_prompts.append(line)
 
 
 ## Zone F: just under you, where your eyes already are: the act under way and its bar, or the
@@ -734,21 +795,16 @@ func _build_action_bar() -> void:
 	_doing_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_doing_bar.visible = false
 	box.add_child(_doing_bar)
-	# Then what you can do here, at most two (prompts.gd's MOST): "[Y] Pick the yarrow".
-	for i in 2:
-		var line := Look.text(Label.new(), Look.BODY, Look.TEXT, true)
-		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.visible = false
-		box.add_child(line)
-		_prompts.append(line)
+	# Then what you can do here (prompts.gd): "[E] Pick the yarrow", and what holding E offers;
+	# while it's held, everything here, numbered. Lines are added as they're needed.
+	_prompt_box = box
 
 
-## Zone I: every key in four columns, with what's drawn on the ground above them, over the
-## middle of the screen while F1 has it open; and the line that says it's there.
+## Zone I: every key in its groups, in three columns under the legend of what's drawn on the
+## ground, over the middle of the screen while F1 has it open; and the line that says it's there.
 func _build_keys() -> void:
 	_keys_hint = _label(Look.SMALL, Control.PRESET_CENTER_BOTTOM, Look.TEXT_DIM)
-	_keys_hint.text = "F1: every key"
+	_keys_hint.text = Prompts.keyed("{keys} every key")
 	_keys_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_keys_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_keys_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -757,21 +813,40 @@ func _build_keys() -> void:
 	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_keys.add_theme_stylebox_override("panel", Look.panel_style())
 	var lines := VBoxContainer.new()
-	lines.add_theme_constant_override("separation", 8)
+	lines.add_theme_constant_override("separation", 12)
 	_keys.add_child(lines)
 	var legend := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 	legend.text = LEGEND
 	lines.add_child(legend)
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 2)
-	lines.add_child(grid)
-	for key: Array in KEYS:
-		var cell := Look.text(Label.new(), Look.SMALL)
-		cell.text = "[%s]  %s" % [key[0], key[1]]
-		cell.custom_minimum_size = Vector2(300, 0)
-		grid.add_child(cell)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 32)
+	lines.add_child(columns)
+	for groups: Array in KEY_COLUMNS:
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 6)
+		columns.add_child(column)
+		for g: int in groups:
+			var heading := Look.text(Label.new(), Look.BODY)
+			heading.add_theme_font_override("font", Look.SANS_MEDIUM)
+			heading.text = KEYS[g][0]
+			column.add_child(heading)
+			# Each row: its keys, then what they do (wrapped, dimmed).
+			var grid := GridContainer.new()
+			grid.columns = 2
+			grid.add_theme_constant_override("h_separation", 12)
+			grid.add_theme_constant_override("v_separation", 2)
+			column.add_child(grid)
+			for row: Array in KEYS[g][1]:
+				var caps := Look.text(Label.new(), Look.SMALL)
+				caps.text = Prompts.keyed(row[0], false)
+				caps.custom_minimum_size = Vector2(80, 0)
+				caps.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+				grid.add_child(caps)
+				var does := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
+				does.text = Prompts.keyed(row[1], false)
+				does.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				does.custom_minimum_size = Vector2(340, 0)
+				grid.add_child(does)
 	add_child(_keys)
 	_keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	_keys.grow_horizontal = Control.GROW_DIRECTION_BOTH

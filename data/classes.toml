@@ -27,7 +27,7 @@ endurance = 1.0       # no more breath than anyone
 grabbed = 1.0
 faith = 100           # points: spent turning the dead and the rest (rules.toml's [faith]); back by
                       # prayer at a shrine
-turns = true          # its signature: held up, the holy symbol turns the dead (U)
+turns = true          # its signature: held up, the holy symbol turns the dead (a power: 1)
 wield = "cudgel"
 kit = ["bandage", "bandage", "torch", "holy_water", "holy_water"]
 talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "steady", "rebuke", "sunder", "last_rites"]

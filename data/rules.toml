@@ -288,9 +288,9 @@ light = 4             # tiles a burning body lights round it (a torch's 5, a can
 
 [fire]
 # A fire for your base: a hearth, a stove or a forge takes one (fixtures.toml's fire: how far it
-# lights). Tending it (H) puts a piece of fuel on, the longest-burning first (items/*.toml's
-# fuel), or, once it's laid, lights it from the light you hold up (L). It burns down a game
-# minute at a time; putting it out (J) leaves what's left in it. A lit room needs no torch in
+# lights). Tending it (E) puts a piece of fuel on, the longest-burning first (items/*.toml's
+# fuel), or, once it's laid, lights it from the light you hold up (R). It burns down a game
+# minute at a time; putting it out (E's list) leaves what's left in it. A lit room needs no torch in
 # your hand. But light is bait: at night the dead that see a fire, through a window or a door
 # left open, come to it. Board the windows up before you light it.
 most = 8.0            # game hours of fuel a fire holds: a night's worth
@@ -338,7 +338,7 @@ noise = 14           # tiles it's heard, as the work starts and as it's done
 xp = 1.0             # Carpentry's
 
 [sneak]
-# Sneaking (Ctrl): a stance, not an action. No running, a slower step, footsteps that carry a
+# Sneaking (C): a stance, not an action. No running, a slower step, footsteps that carry a
 # fraction as far, and the dead see you only a fraction as far off (right beside them, or in
 # their darkvision, as ever). A blow on one of the dead that's after nothing, from outside its
 # sight cone, is a sneak attack, sneaking or not: it lands, and does many times the harm.
@@ -442,17 +442,17 @@ remove_noise = 6
 # let go of you and strike nobody; a blow ends it. A body consecrated, with holy water
 # (items/supplies.toml) or with a cleric's faith, never gets up, as a body burned doesn't, and
 # nothing burns: it's quiet, and makes no light.
-pray = 10.0           # seconds kneeling at a shrine (P): faith full again
+pray = 10.0           # seconds kneeling at a shrine (E): faith full again
 comfort = 20          # points of dread a prayer takes away, for anyone
-turn = 30             # faith to turn the dead (U)
+turn = 30             # faith to turn the dead (a power)
 turn_time = 1.0       # seconds holding up the holy symbol: the tell
 turn_recovery = 0.5
 reach = 8             # tiles: the dead within it that you see are turned
 turned = 20.0         # seconds they flee from you
 noise = 6             # tiles the holy word carries: the turning is heard
-consecrate = 15       # faith to consecrate a body (O) with no holy water
+consecrate = 15       # faith to consecrate a body (E) with no holy water
 consecrate_time = 3.0 # seconds, with holy water or with faith
-mend = 20             # Mending (M): its faith,
+mend = 20             # Mending (a power): its faith,
 mend_health = 15      # the health it gives back,
 mend_time = 2.0       # and seconds
 ward = 40             # Warding (O, at a shut door): its faith,
@@ -461,6 +461,6 @@ ward_hours = 8.0      # and the game hours the ward holds: a night's worth
 
 [foraging]
 # Wild plants (fixtures.toml's forage; crates/dusk-core/src/forage.rs): picking the one beside you
-# (Y), and what it is once it's picked bare, till it grows back.
+# (E), and what it is once it's picked bare, till it grows back.
 pick = 3.0            # seconds bent over it
 bare = "picked_plant"

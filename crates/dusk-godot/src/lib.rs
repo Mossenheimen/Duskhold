@@ -22,9 +22,9 @@ use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
-    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoFaith, NoFire,
-    NoSleep, NoStash, NoTake, Part, Remains, Rise, Skill, SpellKind, Tend, TilePos, View, World,
-    Wound, WoundKind, demo,
+    Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoDoor, NoFaith,
+    NoFire, NoSleep, NoStash, NoTake, Part, Power, Remains, Rise, Skill, SpellKind, Tend, TilePos,
+    View, World, Wound, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -1121,6 +1121,42 @@ impl DuskWorld {
     #[func]
     fn use_door(&mut self) {
         self.act(Intent::Door);
+    }
+
+    /// The door or window beside you that `use_door` would open or shut (the core's
+    /// `door_side`): [what it is (0 a door, 1 a window), 1 if it's open, whether it can be used
+    /// (1, else why not: -2 boarded, -3 a broken window), 1 if it's the one you face], or nothing
+    /// with none beside you.
+    #[func]
+    fn door_check(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some((me, a)) = world
+            .character()
+            .and_then(|me| Some((me, world.actor(me)?)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let Some(side) = world.door_side(me) else {
+            return PackedInt32Array::new();
+        };
+        let (what, open) = match world.grid.edge(a.pos, side) {
+            Edge::Door { open, .. } => (0, open),
+            Edge::Window { open, .. } => (1, open),
+            _ => return PackedInt32Array::new(),
+        };
+        let can = match world.can_use_door(me) {
+            Ok(_) => 1,
+            Err(NoDoor::Boarded) => -2,
+            Err(NoDoor::Broken) => -3,
+            Err(NoDoor::Nothing) => return PackedInt32Array::new(),
+        };
+        let faced = a.facing == side
+            || a.facing
+                .split()
+                .is_some_and(|(x, y)| x == side || y == side);
+        PackedInt32Array::from(&[what, i32::from(open), can, i32::from(faced)])
     }
 
     /// The items' names, by definition number (what the item arrays and events count by).
@@ -2970,6 +3006,28 @@ impl DuskWorld {
                 .map(|&s| i32::from(s))
                 .collect()
         })
+    }
+
+    /// What the number keys hold for you (the core's `powers`), two numbers each: [what (0
+    /// turning the dead, 1 the Second Wind, 2 Mending, 3 a spell), the spell's number (else 0)].
+    #[func]
+    fn character_powers(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        world
+            .powers(me)
+            .into_iter()
+            .flat_map(|p| match p {
+                Power::Turn => [0, 0],
+                Power::SecondWind => [1, 0],
+                Power::Mend => [2, 0],
+                Power::Spell(s) => [3, i32::from(s)],
+            })
+            .collect()
     }
 
     /// Your spell slots: [left, the most] (both 0 for a class without).

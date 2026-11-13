@@ -63,6 +63,20 @@ pub struct Class {
     pub spells: Vec<u16>,
 }
 
+/// What a character can call on at will, in the order the number keys hold them
+/// (`World::powers`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Power {
+    /// Turning the dead: a class that turns (`faith.rs`).
+    Turn,
+    /// The Second Wind, a talent.
+    SecondWind,
+    /// Mending, a talent (`faith.rs`).
+    Mend,
+    /// A spell it knows, by its number in `Defs::spells` (`spell.rs`).
+    Spell(u16),
+}
+
 /// A talent, in the core's units. Per mille is 1000 for none.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Talent {
@@ -232,6 +246,26 @@ impl World {
         for def in wear {
             self.don(id, Item::new(def, 1));
         }
+    }
+
+    /// What `id` can call on at will, in the order the number keys hold them: turning the dead,
+    /// for a class that turns; each talent acted on (the Second Wind, Mending), as they were
+    /// taken; then the spells it knows. Whether one can be used now is its own check's.
+    pub fn powers(&self, id: ActorId) -> Vec<Power> {
+        let mut powers = Vec::new();
+        if self.class_of(id).is_some_and(|c| c.turns) {
+            powers.push(Power::Turn);
+        }
+        for t in self.talents_of(id) {
+            if t.second_wind {
+                powers.push(Power::SecondWind);
+            }
+            if t.mending {
+                powers.push(Power::Mend);
+            }
+        }
+        powers.extend(self.known_spells(id).into_iter().map(Power::Spell));
+        powers
     }
 
     /// An actor's talents, as definitions.

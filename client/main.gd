@@ -13,9 +13,10 @@ extends Node3D
 ## first thing in the pack),
 ## logs (take what's kept by the fire beside you), fire (tend it), smother, sleep, drink (from
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
-## that can be made), butcher (G), hunt (shoot the nearest
-## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
-## pick (the wild plant beside you: Y), keys (F1), moodle (the worst one's detail, as if hovered),
+## that can be made), butcher, hunt (shoot the nearest
+## beast within a bow's reach), turn (the dead), pray, consecrate, ward, mend,
+## pick (the wild plant beside you), use (E tapped: the likeliest thing here), here (E held: all
+## of it, listed), power1 to power4 (the number keys), keys (F1), moodle (the worst one's detail, as if hovered),
 ## esc (closes what Esc would, never quits), body (the worst-wounded part's detail), bandage (the
 ## first in the pack)
 ## S real seconds in;
@@ -204,6 +205,8 @@ const ASLEEP := 8
 const FEVER := 9
 ## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
 const SLEEP_SPEED := 60.0
+## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
+const HOLD_MS := 350
 ## Seconds played before the news tells of the same level of dread again.
 const DREAD_TOLD_EVERY := 30.0
 ## Why you woke, by WOKE's extra.
@@ -286,7 +289,7 @@ var played := 0.0
 var scripted: Array = []  # --do: [real seconds, action], soonest first
 var save_path := ""  # where the game is saved; "" for a trial run, which isn't
 var saved_hour := -1  # the game hour of the last autosave
-var restart_asked := -100.0  # when R last asked "abandon this world?", in seconds played
+var restart_asked := -100.0  # when a new world was last asked for ("abandon this one?"), in seconds played
 var class_wanted := ""  # --class: the class a trial run's survivors take up
 var choose_asked := false  # --choose: a trial run asks who comes, as the player's own game does
 var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 shown, 2 hidden
@@ -294,6 +297,10 @@ var gui_scale := 1.0  # the GUI's size over the screen's own (- and =)
 var choosing_class := false  # the game waits, paused, for a class to be chosen
 var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
 var plants_told := {}  # the wild plants the news has named, by fixture number
+var here: Array = []  # what you can do here (Prompts.here), as last worked out
+var listing := false  # E held: all of `here` listed, for a number or a click to pick one
+var use_down := -1  # when E went down (Time.get_ticks_msec()), -1 while it's up
+var bracing := false  # the right mouse button, held behind a shield
 
 
 func _ready() -> void:
@@ -306,6 +313,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.echo = print_news
 	add_child(hud)
+	hud.chose.connect(_do_here)
 	if not ClassDB.class_exists("DuskWorld"):
 		hud.show_problem("The game's core (the Rust extension) isn't loaded.\n"
 			+ "Start the game with play.cmd in 12_Duskhold: it builds the extension first.")
@@ -327,7 +335,7 @@ func _ready() -> void:
 	add_child(bag)
 	bag.say = hud.say
 	bag.burn = _burn_body
-	bag.hallow = _hallow
+	bag.hallow = _consecrate
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -437,6 +445,7 @@ func _process(delta: float) -> void:
 	if dusk == null:
 		return
 	_steer()
+	_mind_held_buttons()
 	_draw_actors(delta)
 	for noise in dusk.take_noises():
 		rings.add(noise.x, noise.y, noise.z)
@@ -478,7 +487,7 @@ func _process(delta: float) -> void:
 	hud.show_slots(dusk.character_slots())
 	hud.show_deeds(dusk.character_deeds())
 	if ticked:
-		_prompt_here(asleep)
+		_here_now(asleep)
 	_mind_the_ground()
 	_mind_the_plants()
 	var doing := _my_action()
@@ -502,13 +511,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if dusk == null:
 		return
+	var key := event as InputEventKey
+	var number := int(key.physical_keycode) - int(KEY_1) if key and key.pressed and not key.echo else -1
 	# Who comes into the world: a number takes up that class, and nothing else is heeded.
 	if choosing_class:
-		var key := event as InputEventKey
-		if key and key.pressed and not key.echo:
-			var n: int = int(key.physical_keycode) - int(KEY_1)
-			if n >= 0 and n < class_texts.size() / 2:
-				_take_up_class(n)
+		if number >= 0 and number < class_texts.size() / 2:
+			_take_up_class(number)
+		return
+	# E's list is up: a number picks from it, in place of the powers.
+	if listing and number >= 0 and number < Prompts.MOST:
+		_do_here(number)
 		return
 	var mouse := event as InputEventMouseButton
 	if mouse and mouse.pressed:
@@ -533,9 +545,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
 			MOUSE_BUTTON_RIGHT:
+				# A readied spell let go; with a shield on your arm, a brace behind it while the
+				# button's held (_mind_held_buttons); else a bow's shot at the spot.
 				if not dead:
 					if readied >= 0:
 						_let_go()
+					elif dusk.character_shield().size() >= 2:
+						bracing = true
+						_brace(true)
 					else:
 						_shoot(_tile_under(mouse.position))
 			MOUSE_BUTTON_WHEEL_UP:
@@ -553,47 +570,42 @@ func _unhandled_input(event: InputEvent) -> void:
 			dusk.attack(0, 0)
 	elif event.is_action_pressed("shove") and not dead:
 		if not dusk.can_shove():
-			hud.say("No hand free to shove with: struggle (F).")
+			hud.say(Prompts.keyed("No hand free to shove with: struggle {swing}."))
 		dusk.shove(0, 0)
-	elif event.is_action_pressed("door") and not dead:
-		var pry: int = dusk.board_check(true)
-		if pry > 0 or pry == -4:
-			hud.say("It's boarded up. N pries a board off (with a hammer).")
-		dusk.use_door()
-	elif event.is_action_pressed("board") and not dead:
-		_board_up()
-	elif event.is_action_pressed("burn") and not dead:
-		_burn_body()
-	elif event.is_action_pressed("second_wind") and not dead:
-		if dusk.can_second_wind():
-			dusk.second_wind()
+	elif event.is_action_pressed("use") and not dead:
+		# Tapped, E does the likeliest thing here; held, it lists them all (_mind_held_buttons).
+		# Pressed over the list, it closes it.
+		if listing:
+			_close_here()
 		else:
-			hud.say("No second wind: it takes the talent, and comes back when you've slept.")
-	elif event.is_action_pressed("turn") and not dead:
-		_turn_the_dead()
-	elif event.is_action_pressed("pray") and not dead:
-		_pray()
-	elif event.is_action_pressed("hallow") and not dead:
-		_hallow()
-	elif event.is_action_pressed("mend") and not dead:
-		_mend()
-	elif event.is_action_pressed("pick") and not dead:
-		_pick()
-	elif event.is_action_pressed("unboard") and not dead:
-		_pry_board()
-	elif event.is_action_pressed("tend_fire") and not dead:
-		_tend_fire()
-	elif event.is_action_pressed("smother_fire") and not dead:
-		_smother_fire()
-	elif event.is_action_pressed("sleep") and not dead:
-		_sleep_or_wake()
-	elif event.is_action_pressed("drink") and not dead:
-		if dusk.water_in_reach():
-			dusk.drink_water()
+			use_down = Time.get_ticks_msec()
+	elif event.is_action_released("use"):
+		if use_down >= 0:
+			use_down = -1
+			_use_here()
+	elif event.is_action_pressed("next_survivor") and dead:
+		# Dead, R brings the next survivor into this same world.
+		_next_survivor()
+	elif event.is_action_pressed("new_world"):
+		# Alive in a saved world, it asks twice: the world you leave is gone for good.
+		if save_path != "" and not dead and played - restart_asked > 4.0:
+			restart_asked = played
+			hud.say(Prompts.keyed("Abandon this world for a new one? Press {new_world} again."))
 		else:
-			hud.say("There's no water within reach.")
+			town_seed += 1
+			_start()
 	elif event.is_action_pressed("light") and not dead:
 		_light_or_douse()
+	elif event.is_action_pressed("sleep") and not dead:
+		_sleep_or_wake()
+	elif event.is_action_pressed("power_1") and not dead:
+		_power(0)
+	elif event.is_action_pressed("power_2") and not dead:
+		_power(1)
+	elif event.is_action_pressed("power_3") and not dead:
+		_power(2)
+	elif event.is_action_pressed("power_4") and not dead:
+		_power(3)
 	elif event.is_action_pressed("pause"):
 		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
@@ -610,14 +622,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_book(craft)
 	elif event.is_action_pressed("spells") and not dead:
 		_book(spells)
-	elif event.is_action_pressed("spell_1") and not dead:
-		_ready_nth(0)
-	elif event.is_action_pressed("spell_2") and not dead:
-		_ready_nth(1)
-	elif event.is_action_pressed("spell_3") and not dead:
-		_ready_nth(2)
-	elif event.is_action_pressed("spell_4") and not dead:
-		_ready_nth(3)
 	elif event.is_action_pressed("keys"):
 		_toggle_keys()
 	elif event.is_action_pressed("gui_smaller"):
@@ -626,10 +630,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_scale_gui(1)
 	elif event.is_action_pressed("sneak") and not dead:
 		dusk.set_sneaking(not dusk.is_sneaking())
-	elif event.is_action_pressed("brace") and not dead:
-		_brace(true)
-	elif event.is_action_released("brace"):
-		_brace(false)
 	elif event.is_action_pressed("low_walls"):
 		low_walls = not low_walls
 		map_view.set_low_walls(low_walls)
@@ -638,19 +638,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.say("This is a trial run: it isn't saved.")
 		else:
 			_save("Saved.")
-	elif event.is_action_pressed("restart") and dead and not Input.is_key_pressed(KEY_SHIFT):
-		# Dead, R brings the next survivor into this same world.
-		_next_survivor()
-	elif event.is_action_pressed("restart"):
-		# Alive in a saved world, R asks twice: the world you leave is gone for good. Dead,
-		# Shift+R leaves it at once.
-		if save_path != "" and not dead and played - restart_asked > 4.0:
-			restart_asked = played
-			hud.say("Abandon this world for a new one? Press R again.")
-		else:
-			town_seed += 1
-			_start()
-
 
 ## Saves the game, if this run is saved, and says `said` if that's not "". The core makes the
 ## save; the extension writes the file.
@@ -706,7 +693,7 @@ func _set_speed(index: int) -> void:
 	dusk.paused = false
 
 
-## Z: lie down to sleep, or get up. The core says whether you can; this says why not.
+## Sleep (Z): lie down to sleep, or get up. The core says whether you can; this says why not.
 func _sleep_or_wake() -> void:
 	if _moodle(ASLEEP) > 0:
 		dusk.wake()
@@ -719,14 +706,14 @@ func _sleep_or_wake() -> void:
 		-3:
 			hud.say("Not with it holding you!")
 		-4:
-			hud.say("You're in too much pain to sleep. Dress your wounds first: a bandage (Tab).")
+			hud.say(Prompts.keyed("You're in too much pain to sleep. Dress your wounds first: a bandage {pack}."))
 		-5:
 			hud.say("You're too cold to sleep. Get warm first: under a roof, by a fire.")
 		_:
 			dusk.sleep()
 
 
-## B: nail a board across the door or window beside you. The core says whether you can; this
+## Board it up (E's list): nail a board across the door or window beside you. The core says whether you can; this
 ## says why not.
 func _board_up() -> void:
 	match dusk.board_check(false):
@@ -760,13 +747,144 @@ func _mind_the_ground() -> void:
 		hud.say("You leave hallowed ground.")
 
 
-## Zone F's prompts: what you can do beside you (prompts.gd), none while you're asleep, held,
-## choosing who comes, or dead.
-func _prompt_here(asleep: bool) -> void:
+## Zone F: what you can do here (prompts.gd), worked out each tick and whenever E is used;
+## nothing while you're asleep, held, choosing who comes, or dead.
+func _here_now(asleep: bool) -> void:
 	if dead or asleep or held > 0 or choosing_class:
-		hud.show_prompts([])
+		here = []
+	else:
+		here = Prompts.here(dusk, creature_names, fixture_names, kinds, _moodle(THIRSTY) > 0)
+	if here.is_empty():
+		listing = false
+	hud.show_prompts(Prompts.lines(here, listing), listing)
+
+
+## E, tapped: the likeliest thing here (Prompts.first). With nothing that's E's to do, the list
+## of what there is.
+func _use_here() -> void:
+	_here_now(_moodle(ASLEEP) > 0)
+	var e := Prompts.first(here)
+	if e >= 0:
+		_do(here[e][0])
+	else:
+		_open_here()
+
+
+## E, held: everything you can do here, numbered, till a number or a click picks one, or E or Esc
+## closes it. It's worked out afresh as you move, like the prompts.
+func _open_here() -> void:
+	listing = true
+	_here_now(_moodle(ASLEEP) > 0)
+	if not listing:
+		hud.say("There's nothing to do here.")
+
+
+func _close_here() -> void:
+	listing = false
+	_here_now(_moodle(ASLEEP) > 0)
+
+
+## The `n`th thing in E's list (from 0), done, and the list closed. A number past its end does
+## nothing.
+func _do_here(n: int) -> void:
+	if not listing or n < 0 or n >= here.size():
 		return
-	hud.show_prompts(Prompts.here(dusk, creature_names, fixture_names, kinds, _moodle(THIRSTY) > 0))
+	var verb: String = here[n][0]
+	listing = false
+	_do(verb)
+	_here_now(_moodle(ASLEEP) > 0)
+
+
+## What each of Prompts.here's verbs does: its handler, which asks the core and says why not.
+func _do(verb: String) -> void:
+	match verb:
+		"door":
+			_use_door()
+		"burn":
+			_burn_body()
+		"consecrate":
+			_consecrate()
+		"pick":
+			_pick()
+		"pray":
+			_pray()
+		"tend_fire":
+			_tend_fire()
+		"smother_fire":
+			_smother_fire()
+		"drink":
+			_drink()
+		"board":
+			_board_up()
+		"unboard":
+			_pry_board()
+		"ward":
+			_ward()
+
+
+## Held buttons: E long enough lists everything here (a press whose letting go went astray counts
+## as a tap); the right mouse button let go ends a brace.
+func _mind_held_buttons() -> void:
+	if use_down >= 0 and Time.get_ticks_msec() - use_down >= HOLD_MS:
+		use_down = -1
+		if Input.is_action_pressed("use"):
+			_open_here()
+		else:
+			_use_here()
+	if bracing and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		bracing = false
+		_brace(false)
+
+
+## E at a door or window: open or shut it. The core says whether it can be; this says why not.
+func _use_door() -> void:
+	var door: PackedInt32Array = dusk.door_check()
+	if door.size() < 4:
+		hud.say("There's no door or window beside you.")
+	elif door[2] == -2:
+		hud.say(Prompts.keyed("It's boarded up. Hold {use} to pry a board off (with a hammer)."))
+	elif door[2] == -3:
+		hud.say("Its glass is broken: it won't shut. Climb through it, or board it up.")
+	else:
+		dusk.use_door()
+
+
+## E at water: drink your fill.
+func _drink() -> void:
+	if dusk.water_in_reach():
+		dusk.drink_water()
+	else:
+		hud.say("There's no water within reach.")
+
+
+## The number keys: the power on key `k + 1` (DuskWorld.character_powers(): turning the dead,
+## the Second Wind, Mending, then the spells you know). Its handler asks the core, and says why
+## not.
+func _power(k: int) -> void:
+	var powers: PackedInt32Array = dusk.character_powers()
+	if k * 2 + 1 >= powers.size():
+		if powers.is_empty():
+			hud.say(Prompts.keyed("{power_1} to {power_4} hold your powers: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells."))
+		else:
+			hud.say(Prompts.keyed("Nothing on {power_%d} yet." % (k + 1)))
+		return
+	match powers[k * 2]:
+		0:
+			_turn_the_dead()
+		1:
+			_second_wind()
+		2:
+			_mend()
+		3:
+			_ready_spell(powers[k * 2 + 1])
+
+
+## A power: catch your second wind (the Fighter's talent), once between sleeps.
+func _second_wind() -> void:
+	if dusk.can_second_wind():
+		dusk.second_wind()
+	else:
+		hud.say("Your second wind is spent: it comes back when you've slept.")
 
 
 ## Beside a wild plant: the first time of each kind, what it's good for (its prompt says the key).
@@ -782,7 +900,7 @@ func _mind_the_plants() -> void:
 	hud.say("%s." % PLANT_TOLD.get(plant, "Something grows here"))
 
 
-## G: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside
+## E at a carcass or a body: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside
 ## you and set it alight from the light you hold up.
 func _burn_body() -> void:
 	match dusk.butcher_check():
@@ -800,7 +918,7 @@ func _burn_body() -> void:
 		-2:
 			hud.say("You need oil to burn it.")
 		-3:
-			hud.say("You need a flame: hold up a lit torch or candle (L).")
+			hud.say(Prompts.keyed("You need a flame: hold up a lit torch or candle {light}."))
 		_:
 			dusk.burn()
 
@@ -841,18 +959,18 @@ func _take_up_class(c: int) -> void:
 	_save("")
 
 
-## U: hold up the holy symbol and turn the dead (a Cleric's). The core says whether you can.
+## A power (the Cleric's first): hold up the holy symbol and turn the dead (a Cleric's). The core says whether you can.
 func _turn_the_dead() -> void:
 	match dusk.turn_check():
 		-1:
 			hud.say("Only a Cleric can turn the dead.")
 		-2:
-			hud.say("Your faith is spent. Pray at an altar (P): the abbey's, or the old chapel's in town.")
+			hud.say("Your faith is spent. Pray at an altar: the abbey's, or the old chapel's in town.")
 		_:
 			dusk.turn()
 
 
-## P: kneel and pray at the altar beside you. Anyone may, for comfort; a Cleric's faith comes back.
+## E at an altar: kneel and pray at it beside you. Anyone may, for comfort; a Cleric's faith comes back.
 func _pray() -> void:
 	if dusk.pray_check() == 1:
 		dusk.pray()
@@ -860,28 +978,31 @@ func _pray() -> void:
 		hud.say("There's no altar beside you to pray at: the abbey's chapel has one, and so does the old chapel in town.")
 
 
-## O: consecrate the body beside you, with holy water (or a Cleric's faith): it never gets up. With
-## no body beside you, a Cleric with Warding wards the shut door beside you instead.
-func _hallow() -> void:
+## E at a body: consecrate it with holy water (or a Cleric's faith), and it never gets up.
+func _consecrate() -> void:
 	var body: int = dusk.consecrate_check()
 	if body >= 0:
 		dusk.consecrate()
-		return
-	if body == -2:
+	elif body == -2:
 		hud.say("You need holy water to consecrate it: the abbey sells it, and the chapel's fonts hold it.")
-		return
+	else:
+		hud.say("There's no body beside you to consecrate.")
+
+
+## Ward the door (E's list): a Cleric with Warding wards the shut door beside you.
+func _ward() -> void:
 	match dusk.ward_check():
 		1:
 			dusk.ward()
 		-2:
-			hud.say("There's no body beside you to consecrate, nor a shut door to ward.")
+			hud.say("There's no shut door beside you to ward.")
 		-3:
-			hud.say("Not enough faith to ward the door. Pray at an altar (P).")
+			hud.say("Not enough faith to ward the door. Pray at an altar.")
 		_:
-			hud.say("There's no body beside you to consecrate.")
+			hud.say("No warding: it takes the talent (a Cleric's).")
 
 
-## M: mend your worst bleeding wound with faith (Mending, a Cleric's talent).
+## A power: mend your worst bleeding wound with faith (Mending, a Cleric's talent).
 func _mend() -> void:
 	match dusk.heal_check():
 		1:
@@ -889,12 +1010,12 @@ func _mend() -> void:
 		-2:
 			hud.say("There's nothing to mend.")
 		-3:
-			hud.say("Not enough faith to mend it. Pray at an altar (P).")
+			hud.say("Not enough faith to mend it. Pray at an altar.")
 		_:
-			hud.say("No mending: it takes the talent (a Cleric's, K).")
+			hud.say(Prompts.keyed("No mending: it takes the talent (a Cleric's: {skills})."))
 
 
-## Y: pick the wild plant beside you: the one you face, else the one you stand on, else the
+## E at a wild plant: pick the one beside you: the one you face, else the one you stand on, else the
 ## first round you.
 func _pick() -> void:
 	if dusk.pick_check() > 0:
@@ -903,7 +1024,7 @@ func _pick() -> void:
 		hud.say("Nothing to pick beside you. Wild plants grow in the open, in the woods and by the water.")
 
 
-## H: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
+## E at a fire: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
 ## light it from the light you hold up. The core says which, or why not.
 func _tend_fire() -> void:
 	match dusk.fire_check():
@@ -914,12 +1035,12 @@ func _tend_fire() -> void:
 		-3:
 			hud.say("You have nothing that burns: split logs (a hearth or stove keeps a few by it) or planks.")
 		-4:
-			hud.say("The fire's laid. Hold up a lit torch or candle (L) to light it.")
+			hud.say(Prompts.keyed("The fire's laid. Hold up a lit torch or candle {light} to light it."))
 		_:
 			dusk.tend_fire()
 
 
-## J: put out the fire beside you. What's left of the wood stays in it for the next time.
+## Put it out (E's list): the fire beside you. What's left of the wood stays in it for the next time.
 func _smother_fire() -> void:
 	var f: PackedInt32Array = dusk.fire_beside()
 	if f.size() >= 4 and f[3] == 1:
@@ -951,7 +1072,7 @@ func _near(x: int, y: int, tiles: float) -> bool:
 	return me < where.size() and (Vector2(x, y) - where[me]).length() <= tiles
 
 
-## N: pry a board off the boarded door or window beside you.
+## Pry a board off (E's list): the boarded door or window beside you.
 func _pry_board() -> void:
 	match dusk.board_check(true):
 		-1:
@@ -1058,7 +1179,7 @@ func _read_events() -> void:
 					if _seen(who):
 						hud.say("%s has the scent of your blood! Bandage it, or it won't lose you." % _a(who))
 					else:
-						hud.say("Something has the scent of your blood. Bandage it: Tab.")
+						hud.say(Prompts.keyed("Something has the scent of your blood. Bandage it: {pack}."))
 			NO_WAY:
 				if who == me:
 					hud.say("There's no way there.")
@@ -1095,7 +1216,7 @@ func _read_events() -> void:
 					hud.say("You're out of breath.")
 			GRABBED:
 				if target == me:
-					hud.say("It has hold of you! F to struggle, Q to shove it off.")
+					hud.say(Prompts.keyed("It has hold of you! {swing} to struggle, {shove} to shove it off."))
 					hud.flash()
 			FREED:
 				if who == me:
@@ -1156,7 +1277,7 @@ func _read_events() -> void:
 				if who == me:
 					var kinds: PackedInt32Array = dusk.item_kinds()
 					var shield := extra < kinds.size() and kinds[extra] == 8
-					hud.say(("You took up the %s on your arm. Hold Alt to brace behind it." if shield
+					hud.say(("You took up the %s on your arm. Hold the right mouse button to brace behind it." if shield
 						else "You took the %s in hand.") % _item_name(extra))
 			WEAPON_BROKE:
 				if who == me:
@@ -1219,11 +1340,11 @@ func _read_events() -> void:
 				hud.say("The sky is lightening. Dawn is coming.")
 			SKILL_UP:
 				if who == me:
-					hud.say("%s rose to level %d.  (K: skills)" % [_skill_name(extra), extra % 100])
+					hud.say(Prompts.keyed("%s rose to level %d.  ({skills}: skills)") % [_skill_name(extra), extra % 100])
 			SKILL_AT_CAP:
 				if who == me:
 					if dusk.masteries_left() > 0:
-						hud.say("%s will rise no further unless you master it (K)." % _skill_name(extra))
+						hud.say(Prompts.keyed("%s will rise no further unless you master it: {skills}.") % _skill_name(extra))
 					else:
 						hud.say("%s will rise no further: your masteries are taken." % _skill_name(extra))
 			MASTERED:
@@ -1276,7 +1397,7 @@ func _read_events() -> void:
 				# The first of the dead you see go down: what happens next, and what stops it.
 				if who != me and _seen(who) and not told_get_up:
 					told_get_up = true
-					hud.say("It'll get up again in a day or so, unless you burn it (oil and a flame, G) or consecrate it (holy water, O).")
+					hud.say(Prompts.keyed("It'll get up again in a day or so, unless you burn it (oil and a flame) or consecrate it (holy water): {use} beside it."))
 			GOT_UP:
 				if _seen(who):
 					hud.say("%s gets up again!" % _a(who))
@@ -1426,7 +1547,7 @@ func _read_events() -> void:
 					if f.size() >= 4 and f[3] == 1:
 						hud.say("You put another %s on the fire." % _item_name(extra))
 					else:
-						hud.say("You lay the fire. Hold up a light (L) and press H to light it.")
+						hud.say(Prompts.keyed("You lay the fire. Hold up a light {light}, and {use} lights it."))
 			FIRE_LIT:
 				if who == me:
 					hud.say("The fire catches. The room is lit, and so is anything seen through its windows.")
@@ -1505,10 +1626,10 @@ func _shoot(tile: Vector2i) -> void:
 			dusk.shoot(tile.x, tile.y)
 
 
-## Alt, held: brace behind your shield (none on your arm, and the news says so).
+## The right mouse button, held: brace behind your shield (none on your arm, and the news says so).
 func _brace(on: bool) -> void:
 	if on and dusk.character_shield().size() < 2:
-		hud.say("You've no shield on your arm to brace behind. Take one up (Tab).")
+		hud.say(Prompts.keyed("You've no shield on your arm to brace behind. Take one up: {pack}."))
 		return
 	dusk.set_bracing(on)
 
@@ -1823,7 +1944,7 @@ func _let_it_rain() -> void:
 	rain_fall.position = focus + Vector3(0.0, 14.0, 0.0)
 
 
-## L: light the first torch or candle in your pack, or put out the one you hold up.
+## Light (R): light the first torch or candle in your pack, or put out the one you hold up.
 func _light_or_douse() -> void:
 	if dusk.character_light().size() > 0:
 		dusk.douse()
@@ -1900,12 +2021,15 @@ func _book(panel: Node) -> void:
 		keys_mode = 2
 
 
-## Esc backs out of what's open before it quits (VISUALS.md §10): a readied spell is let go,
-## then the keys close, then the book panel. True if it closed something. The pack stays: it's
-## open from the start, as part of the HUD, and Tab closes it.
+## Esc backs out of what's open before it quits (VISUALS.md §10): E's list closes, a readied
+## spell is let go, then the keys close, then the book panel. True if it closed something. The
+## pack stays: it's open from the start, as part of the HUD, and Tab closes it.
 func _close_top() -> bool:
 	if dusk == null:
 		return false
+	if listing:
+		_close_here()
+		return true
 	if readied >= 0:
 		_let_go()
 		return true
@@ -1919,59 +2043,58 @@ func _close_top() -> bool:
 	return false
 
 
+## Every key (VISUALS.md §10, the keys). The left hand stays on WASD: what's pressed in a fight
+## or a hurry is within reach of it (Shift, C, F, Q, E, R, Z, the number row). E does whatever is
+## beside you, as in Zomboid, so the world's verbs need no keys of their own. The right hand's
+## letters only open panels; the F keys are the game's own (the keys, speed, save). A key held
+## with Ctrl is KEY_MASK_CTRL | its key.
 func _add_input_actions() -> void:
 	var keys := {
+		# Moving and fighting.
 		"walk_up": [KEY_W, KEY_UP],
 		"walk_down": [KEY_S, KEY_DOWN],
 		"walk_left": [KEY_A, KEY_LEFT],
 		"walk_right": [KEY_D, KEY_RIGHT],
 		"run": [KEY_SHIFT],
-		"pause": [KEY_SPACE],
-		"speed_1": [KEY_1],
-		"speed_2": [KEY_2],
-		"speed_3": [KEY_3],
+		"sneak": [KEY_C],
 		"swing": [KEY_F],
 		"shove": [KEY_Q],
-		"door": [KEY_E],
+		# Here: E for whatever's beside you, held for all of it.
+		"use": [KEY_E],
+		"light": [KEY_R],
 		"sleep": [KEY_Z],
-		"drink": [KEY_X],
-		"light": [KEY_L],
-		"low_walls": [KEY_V],
-		"pack": [KEY_TAB],
+		# Your powers: a class's own, its talents', its spells.
+		"power_1": [KEY_1],
+		"power_2": [KEY_2],
+		"power_3": [KEY_3],
+		"power_4": [KEY_4],
+		# The panels.
+		"pack": [KEY_TAB, KEY_I],
+		"craft": [KEY_B],
 		"skills": [KEY_K],
-		"board": [KEY_B],
-		"burn": [KEY_G],
-		"second_wind": [KEY_C],
-		"turn": [KEY_U],
-		"pray": [KEY_P],
-		"hallow": [KEY_O],
-		"mend": [KEY_M],
-		"pick": [KEY_Y],
+		"spells": [KEY_P],
 		"keys": [KEY_F1],
+		# The game.
+		"pause": [KEY_SPACE],
+		"speed_1": [KEY_F2],
+		"speed_2": [KEY_F3],
+		"speed_3": [KEY_F4],
+		"save": [KEY_F5],
+		"low_walls": [KEY_V],
 		"gui_smaller": [KEY_MINUS],
 		"gui_larger": [KEY_EQUAL],
-		"unboard": [KEY_N],
-		"tend_fire": [KEY_H],
-		"smother_fire": [KEY_J],
-		"craft": [KEY_T],
-		"spells": [KEY_I],
-		"spell_1": [KEY_4],
-		"spell_2": [KEY_5],
-		"spell_3": [KEY_6],
-		"spell_4": [KEY_7],
-		"sneak": [KEY_CTRL],
-		"brace": [KEY_ALT],
-		"restart": [KEY_R],
-		"save": [KEY_F5],
+		"next_survivor": [KEY_R],  # dead only, so it shares the light's key
+		"new_world": [KEY_MASK_CTRL | KEY_N],
 		"quit": [KEY_ESCAPE],
 	}
 	for action: String in keys:
 		if InputMap.has_action(action):
 			continue
 		InputMap.add_action(action)
-		for key in keys[action]:
+		for key: int in keys[action]:
 			var press := InputEventKey.new()
-			press.physical_keycode = key
+			press.physical_keycode = (key & KEY_CODE_MASK) as Key
+			press.ctrl_pressed = key & KEY_MASK_CTRL != 0
 			InputMap.action_add_event(action, press)
 
 
@@ -2177,7 +2300,7 @@ func _run_script() -> void:
 				_save("Saved.")
 			"board":
 				_board_up()
-			"burn", "butcher":  # G: a beast's carcass is cut up, else a body burned
+			"burn", "butcher":  # a beast's carcass is cut up, else a body burned
 				_burn_body()
 			"unboard":
 				_pry_board()
@@ -2191,12 +2314,20 @@ func _run_script() -> void:
 				_turn_the_dead()
 			"pray":
 				_pray()
-			"consecrate", "ward":  # O: a body beside you consecrated, else a door warded
-				_hallow()
+			"consecrate":
+				_consecrate()
+			"ward":
+				_ward()
 			"mend":
 				_mend()
-			"pick":  # Y: the wild plant beside you
+			"pick":  # the wild plant beside you
 				_pick()
+			"use":  # E, tapped: the likeliest thing here
+				_use_here()
+			"here":  # E, held: everything here, listed
+				_open_here()
+			"power1", "power2", "power3", "power4":  # the number keys
+				_power(action.right(1).to_int() - 1)
 			"next":  # after a death, the next survivor
 				_next_survivor()
 
@@ -2241,17 +2372,6 @@ func _ready_spell(spell: int) -> void:
 	hud.say("%s ready: click a spot within %d tiles. Right-click lets it go." % [_spell_name(spell), reach])
 
 
-## 4 to 7: the first to the fourth spell you know, readied.
-func _ready_nth(k: int) -> void:
-	var known: PackedInt32Array = dusk.character_spells()
-	if known.is_empty():
-		hud.say("You know no spells: only a Wizard casts them.")
-	elif k >= known.size():
-		hud.say("You know only %d spells." % known.size())
-	else:
-		_ready_spell(known[k])
-
-
 func _let_go() -> void:
 	readied = -1
 	hud.say("You let the spell go.")
@@ -2268,7 +2388,7 @@ func _cast_on(tile: Vector2i) -> void:
 			hud.say("You don't know that spell.")
 			readied = -1
 		-2:
-			hud.say("Not with it holding you! Struggle (F) or shove (Q).")
+			hud.say(Prompts.keyed("Not with it holding you! Struggle {swing} or shove {shove}."))
 		-3:
 			hud.say("Not slots enough for the %s: they come back when you've slept the night through." % _spell_name(spell))
 		-4:

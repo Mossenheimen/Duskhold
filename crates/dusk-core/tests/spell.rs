@@ -8,7 +8,7 @@ use std::sync::Arc;
 use dusk_core::senses::Cone;
 use dusk_core::{
     ActorId, ActorKind, Class, Defs, Event, Intent, Item, ItemDef, ItemKind, Kit, NoCast, Part,
-    Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, Woke, World, WoundKind,
+    Power, Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, Woke, World, WoundKind,
 };
 
 const SULPHUR: u16 = 0;
@@ -390,5 +390,15 @@ fn the_wizards_talents_add_a_slot_quicken_the_words_and_hush_them() {
             .iter()
             .any(|e| matches!(*e, Event::Sound { at: p, .. } if p == ME)),
         "the words aren't heard"
+    );
+}
+
+#[test]
+fn a_wizards_powers_are_its_spells() {
+    let (mut w, me) = field(12);
+    assert!(w.choose_class(me, 0));
+    assert_eq!(
+        w.powers(me),
+        [LIGHT, SILENCE, FOG, FIREBALL].map(Power::Spell)
     );
 }

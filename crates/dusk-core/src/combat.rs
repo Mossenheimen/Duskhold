@@ -45,6 +45,17 @@ impl Default for Heavy {
     }
 }
 
+/// Why the door or window beside you won't open or shut (`World::can_use_door`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoDoor {
+    /// No door or window on a side of your tile.
+    Nothing,
+    /// Boards across it: it stays as it is until they're pried off.
+    Boarded,
+    /// A broken window: open for good.
+    Broken,
+}
+
 impl World {
     /// An actor's turn at its timed action, this tick: start one if its intent asks and it's
     /// between steps, carry on with the one under way, or lie there if it's down. True while
@@ -403,13 +414,7 @@ impl World {
                 (ActionKind::Shove, dir, s.wind_up, s.recovery, s.endurance)
             }
             Intent::Door => {
-                let dir = self.door_beside(a.pos, a.facing)?;
-                // A boarded door (or window) stays as it is until its boards are off, and a
-                // broken window can't be shut.
-                let edge = self.grid.edge(a.pos, dir);
-                if edge.boards() > 0 || matches!(edge, Edge::Window { broken: true, .. }) {
-                    return None;
-                }
+                let dir = self.can_use_door(id).ok()?;
                 (ActionKind::Door, dir, c.door_ticks, 0, 0)
             }
             _ => return None,
@@ -512,6 +517,27 @@ impl World {
                     Edge::Door { .. } | Edge::Window { .. }
                 )
             })
+    }
+
+    /// The side of `id`'s tile with the door or window it would open or shut (`door_beside`):
+    /// the one it faces, else the first of north, east, south and west.
+    pub fn door_side(&self, id: ActorId) -> Option<Dir8> {
+        let a = self.actors.get(id)?;
+        self.door_beside(a.pos, a.facing)
+    }
+
+    /// Whether `id` can open or shut the door or window beside it now (`Intent::Door`): the
+    /// side it's on, or why not.
+    pub fn can_use_door(&self, id: ActorId) -> Result<Dir8, NoDoor> {
+        let a = self.actors.get(id).ok_or(NoDoor::Nothing)?;
+        let dir = self.door_beside(a.pos, a.facing).ok_or(NoDoor::Nothing)?;
+        // A boarded door (or window) stays as it is until its boards are off, and a broken
+        // window can't be shut.
+        match self.grid.edge(a.pos, dir) {
+            edge if edge.boards() > 0 => Err(NoDoor::Boarded),
+            Edge::Window { broken: true, .. } => Err(NoDoor::Broken),
+            _ => Ok(dir),
+        }
     }
 
     /// A blow during the wind-up breaks it off.

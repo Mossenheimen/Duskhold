@@ -6,8 +6,8 @@ use std::sync::Arc;
 use dusk_core::skills::Skill;
 use dusk_core::world::Swing;
 use dusk_core::{
-    ActorId, ActorKind, Class, Defs, Dir8, Edge, Event, Intent, ItemDef, ItemKind, Talent, Tile,
-    TilePos, World,
+    ActorId, ActorKind, Class, Defs, Dir8, Edge, Event, Intent, ItemDef, ItemKind, Power, Talent,
+    Tile, TilePos, World,
 };
 
 const CUDGEL: u16 = 0;
@@ -329,4 +329,12 @@ fn a_fighter_learns_its_own_skills_half_as_fast_again() {
     let (fighter, plain) = (blunt_after_a_blow(true), blunt_after_a_blow(false));
     assert!(plain > 0);
     assert_eq!(fighter, plain * 3 / 2);
+}
+
+#[test]
+fn the_second_wind_is_a_power_once_taken() {
+    let (mut w, me) = field(true);
+    assert!(w.powers(me).is_empty(), "only with the talent");
+    take(&mut w, me, SECOND_WIND);
+    assert_eq!(w.powers(me), [Power::SecondWind]);
 }

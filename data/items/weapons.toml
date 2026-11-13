@@ -114,7 +114,7 @@ stack = 1
 weapon = { wind_up = 0.45, recovery = 0.65, endurance = 10, hit = 0.85, damage = [11, 16], noise = 6, wear = 1.0, skill = "blunt" }
 
 # Shields, on the off arm where a light would be (shield.rs in the core): block is the chance a blow
-# from ahead is blocked while you brace (Alt), endurance the breath a block costs, wear what a block
+# from ahead is blocked while you brace (the right mouse button, held), endurance the breath a block costs, wear what a block
 # takes off it (out of 100), bash what it adds to a shove's chance to knock down.
 
 [[item]]

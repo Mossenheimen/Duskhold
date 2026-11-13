@@ -7,8 +7,8 @@ use dusk_core::skills::Skill;
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Class, Creature, CreatureDef, Defs, Dir8, Event, GetUp, Hallow, Intent,
-    Item, ItemDef, ItemKind, Kit, Mind, NoFaith, Part, Pressure, Region, Remains, Talent, Tile,
-    TilePos, World, WoundKind,
+    Item, ItemDef, ItemKind, Kit, Mind, NoFaith, Part, Power, Pressure, Region, Remains, Talent,
+    Tile, TilePos, World, WoundKind,
 };
 
 const SHAMBLER: ActorKind = ActorKind::Creature(0);
@@ -753,4 +753,20 @@ fn devotion_grows_by_turning_the_dead_and_makes_faith_go_further() {
     w.give_xp(me, Skill::Devotion, 1_000_000);
     assert_eq!(w.skill_level(me, Skill::Devotion), 7);
     assert_eq!(w.faith_cost(me, 30_000), 21_600, "28% off at level 7");
+}
+
+#[test]
+fn a_clerics_powers_are_turning_then_the_talents_it_acts_with() {
+    let (w, me) = field();
+    assert!(w.powers(me).is_empty(), "no class, no powers");
+    let (mut w, me) = cleric();
+    assert_eq!(w.powers(me), [Power::Turn]);
+    take(&mut w, me, WARDING);
+    assert_eq!(
+        w.powers(me),
+        [Power::Turn],
+        "a ward is put on a door, not called on"
+    );
+    take(&mut w, me, MENDING);
+    assert_eq!(w.powers(me), [Power::Turn, Power::Mend]);
 }

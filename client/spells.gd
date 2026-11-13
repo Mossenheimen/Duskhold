@@ -1,10 +1,11 @@
 extends CanvasLayer
-## Spells (I): the ones you know, each with what it costs, how long its words take and how far it
-## reaches, and a Ready button (or its key, 4 to 7). A readied spell is cast on the next spot you
+## Spells (P): the ones you know, each with what it costs, how long its words take and how far it
+## reaches, and a Ready button (or its number key: your powers). A readied spell is cast on the next spot you
 ## click (main.gd); right-click lets it go. The core decides what can be cast and does it; this
 ## only shows it and asks.
 
 const Look = preload("res://look.gd")
+const Prompts = preload("res://prompts.gd")
 
 ## The numbers a spell takes in DuskWorld.spell_info().
 const INFO := 8
@@ -103,7 +104,7 @@ func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Ar
 		lines.add_theme_constant_override("separation", 0)
 		lines.custom_minimum_size = Vector2(340, 0)
 		row.add_child(lines)
-		var key := "%d  " % (k + 4) if k < 4 else ""
+		var key := _key_for(spell)
 		var called := _label(key + (_names[spell] if spell < _names.size() else "?") + "  ·  " + describe(spell, info), Look.BODY)
 		if spell == readied:
 			called.add_theme_color_override("font_color", Look.ARCANE)
@@ -117,6 +118,16 @@ func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Ar
 	var hint := _label("Ready one, then click the spot to cast it on. Right-click lets it go. A blow breaks the words.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
 	_list.add_child(hint)
+
+
+## The number key a spell is on, as its cap and a space ("[2] "), by DuskWorld.character_powers();
+## "" if it's on none (a fifth spell, say).
+func _key_for(spell: int) -> String:
+	var powers: PackedInt32Array = _dusk.character_powers()
+	for p in range(0, mini(powers.size(), 8), 2):
+		if powers[p] == 3 and powers[p + 1] == spell:
+			return Prompts.keyed("{power_%d} " % (p / 2 + 1))
+	return ""
 
 
 func _button(text: String, pressed: Callable) -> Button:

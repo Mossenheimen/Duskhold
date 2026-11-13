@@ -7,8 +7,8 @@ use dusk_core::barricade::Boarding;
 use dusk_core::senses::line_of_sight;
 use dusk_core::world::Swing;
 use dusk_core::{
-    ActorId, ActorKind, Defs, Dir8, Edge, Event, Intent, Item, ItemDef, ItemKind, NoBoard, Skill,
-    TilePos, World,
+    ActorId, ActorKind, Defs, Dir8, Edge, Event, Intent, Item, ItemDef, ItemKind, NoBoard, NoDoor,
+    Skill, TilePos, World,
 };
 
 const PLANK: u16 = 0;
@@ -284,5 +284,42 @@ fn carpentry_learns_from_each_board_and_nails_stronger_ones() {
     assert!(
         quick < slow,
         "level 5 nails one on in {quick} ticks, level 0 in {slow}"
+    );
+}
+
+#[test]
+fn the_door_you_would_use_and_why_it_wont_move() {
+    let (mut w, me, _) = room(defs(1, 2, true));
+    assert_eq!(w.door_side(me), Some(Dir8::E));
+    assert_eq!(w.can_use_door(me), Ok(Dir8::E), "the shut door beside you");
+    act(&mut w, me, Intent::Board);
+    assert_eq!(
+        w.can_use_door(me),
+        Err(NoDoor::Boarded),
+        "boarded, it stays shut"
+    );
+    // A window: whole, it opens; its glass beaten out, it can't be shut.
+    let window = |broken| Edge::Window {
+        open: broken,
+        boards: 0,
+        broken,
+    };
+    w.grid.set_edge(at(2, 0), Dir8::E, window(false));
+    assert_eq!(w.can_use_door(me), Ok(Dir8::E));
+    w.grid.set_edge(at(2, 0), Dir8::E, window(true));
+    assert_eq!(w.can_use_door(me), Err(NoDoor::Broken));
+    w.intent(
+        me,
+        Intent::Move {
+            dir: Dir8::W,
+            run: false,
+        },
+    );
+    w.step(20);
+    assert_eq!(w.door_side(me), None);
+    assert_eq!(
+        w.can_use_door(me),
+        Err(NoDoor::Nothing),
+        "nothing beside you"
     );
 }

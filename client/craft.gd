@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Making things (T): each recipe with what it takes, and a "Make" button when you have it all;
+## Making things (B): each recipe with what it takes, and a "Make" button when you have it all;
 ## else what's missing. And the furniture beside you, if it breaks down for planks. The core
 ## decides what can be made and does the making; this only shows it and asks.
 

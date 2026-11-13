@@ -359,11 +359,11 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 │                   C   Three of them have hold of you     ▣ Uneasy            │
 │                                                          ▣ Bleeding          │
 │ J  Skills (K)                                                                │
-│    or Making (T):                                                            │
+│    or Making (B):                                                            │
 │    one at a time            · · ·  the world  · · ·                          │
 │                             (nothing stays here)                             │
 │                                      @   you                                 │
-│                          F   [Y] Pick chamomile                              │
+│                          F   [E] Pick chamomile                              │
 │                              Picking it  ▓▓▓▓▓░░                             │
 │                                                                              │
 │ G  Within reach                                       H  Your pack (Tab)     │
@@ -380,11 +380,11 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
-| **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
+| **F** Here and now | what you can do beside you: E's prompt, and what holding E offers besides; while E is held, all of it, numbered; and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
-| **I** Keys | every key, with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "F1: every key" | over the middle of the screen, in four columns, while it's open | on F1 | as here |
-| **J** Book panels | Strength, Fitness, skills and talents (K), making (T), spells (I); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
+| **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
+| **J** Book panels | Strength, Fitness, skills and talents (K), making (B), spells (P); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
 
 **Rules:**
 
@@ -393,7 +393,27 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Panels don't stack.** Opening a book panel (J) closes the other one, and the keys (I), which would lie over it; opening the keys closes the book panel. A modal screen dims the world (`ui.dim`) and pauses the game.
 - **Esc** closes the top panel first, and only then opens the menu.
 
-  **Today** (2026-11-12): Esc lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). The pack isn't closed by Esc: it's open from the start, as part of the HUD, and Tab closes it.
+  **Today** (2026-11-12): Esc closes E's list, lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). The pack isn't closed by Esc: it's open from the start, as part of the HUD, and Tab closes it.
+
+### The keys
+
+Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valheim, Don't Starve and the rest do, is in `research/controls.md`.
+
+| Group | Keys | Where the hand is |
+|---|---|---|
+| **Move and fight** | WASD walk (and climb); Shift run; C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing; Q shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
+| **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light; Z sleep | the left hand |
+| **Your powers** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order | the left hand, over WASD |
+| **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys | the right hand, in calm moments |
+| **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
+
+**Rules:**
+
+- **The world's verbs are E's, not keys of their own.** A new thing to do beside you is a new line in E's list (`client/prompts.gd`), never a new key.
+- **E's choice is the one its prompt shows.** Both come from `Prompts.first`, over the core's own checks. The door or window you face comes first, then a body, a plant, an altar, a fire, and water when you're thirsty; a door beside you that you don't face comes last, with no prompt, as E did before. What's done on purpose (boarding up, prying off, a ward, putting a fire out) is never E's alone: holding E offers it, and the line under the prompt names it.
+- **Every key cap is read from the InputMap** (`Prompts.keyed`): the prompts, the news, the moodles' tips, the death screen and the keys panel. Remapping (§13) will change them all.
+
+**Today** (2026-11-12): as here.
 
 ### Screens
 
@@ -423,7 +443,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
   - Its word, then its key: "Take all [T]".
   - A click target is at least 32 × 32 px, with 8 px between targets.
   - It never relies on a hover to say what it does.
-- **Key caps:** a key always appears in brackets in the same face as its line, such as "[Y] Pick chamomile". Remapping a key changes every place it's shown.
+- **Key caps:** a key always appears in brackets in the same face as its line, such as "[E] Pick chamomile". Remapping a key changes every place it's shown. The keys panel's own column of keys is the one place without brackets: it's a table of them.
 - **Item row:**
   - Name ×count, weight, then the actions on the right.
   - A find carries a small `signal.gold` dot until it's brought home.
@@ -441,15 +461,18 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
   - A glyph 0.45 m above the head, billboarded, in `type.banner` scaled to the zoom, with an outline.
   - It pops when it changes.
 - **Prompt (zone F):**
-  - A key cap, a verb and a thing: "[G] Butcher the deer", "[Y] Pick chamomile".
-  - At most two, the likeliest first. A prompt that can't be done says why in `ui.text_dim`.
+  - A key cap, a verb and a thing: "[E] Butcher the deer", "[E] Pick chamomile".
+  - E's prompt first, then, dimmed, what holding E offers besides ("Hold [E]: board it up"). A prompt that can't be done says why in `ui.text_dim`.
 
-  **Today** (2026-11-12): `client/prompts.gd` words the core's own checks, the ones each key asks before it acts, so a prompt never promises what the key won't do. What's prompted is what's easily missed:
-  - a carcass (G butchers it) or a body (G burns it, O consecrates it); with no body, a Cleric's ward on a shut door (O);
-  - a wild plant (Y), an altar (P), a hearth, stove or forge (H);
-  - water (X), only when you're thirsty.
+  **Today** (2026-11-12): `client/prompts.gd` words the core's own checks, the ones E asks before it acts, so a prompt never promises what E won't do. E's prompt is for:
+  - the door or window you face;
+  - a carcass (butcher it) or a body (burn it, consecrate it);
+  - a wild plant, an altar, a hearth, stove or forge;
+  - water, only when you're thirsty.
 
-  Doors and boards aren't prompted: they're everywhere in a town, and the keys (F1) say them. The ones that can be done come first, and while an act is under way its bar has zone F to itself. A key cap is read from the key the act is on (on another keyboard layout, its own label), so remapping (§13) will change it everywhere.
+  A door beside you that you don't face isn't prompted: they're everywhere in a town. E still opens it when nothing else is E's, and then what's easily missed beside you (a body you can't yet burn, say) shows dimmed, without a key. While an act is under way, its bar has zone F to itself.
+
+  **E held** (0.35 s) turns zone F into a list of everything here, numbered "[1] Shut the door", with what can't be done dimmed and its reason ("[2] Board it up: you need a hammer"), and a last line saying how to pick: a number, a click, or Esc. It's worked out afresh as you move, and closes when you pick, press E or Esc, or there's nothing left in it.
 - **Tooltip:**
   - After 0.4 s of hovering, in a panel, at most 70 characters a line.
   - It never hides what it describes.
@@ -613,7 +636,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
 5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
 6. *(Done 2026-11-12.)* **The body diagram** in zone B.
-7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
+7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
 8. **Looks as data:** `data/looks.toml`.
 9. **Screens:** title, the class choice as a screen, and death as a story.
 10. **Icons:** glyphs by kind, then each item's icon drawn from its own model.

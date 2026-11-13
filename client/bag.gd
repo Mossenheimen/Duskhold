@@ -216,7 +216,7 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		_button(row, "Put out", func() -> void: _dusk.douse())
 	var shield: PackedInt32Array = _dusk.character_shield()
 	if shield.size() >= 2:
-		var row := _row(_pack, "On your arm: %s (%d%%)  ·  Alt to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
+		var row := _row(_pack, "On your arm: %s (%d%%)  ·  hold right-click to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
 		_button(row, "Put away", func() -> void: _dusk.unshield())
 	# What you wear (armour.rs): with nothing in hand, the first piece takes the Mend button.
 	var worn: PackedInt32Array = _dusk.character_worn()

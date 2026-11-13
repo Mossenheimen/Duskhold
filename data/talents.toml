@@ -17,7 +17,7 @@ endurance = 0.75
 [[talent]]
 id = "second_wind"
 name = "Second Wind"
-line = "once between sleeps, catch your breath: endurance full, and 10 health back (C)"
+line = "once between sleeps, catch your breath: endurance full, and 10 health back (a power, on the number keys)"
 second_wind = true
 
 [[talent]]
@@ -81,7 +81,7 @@ faith = 25
 [[talent]]
 id = "mending"
 name = "Mending"
-line = "spend faith to stop your worst bleeding wound and get 15 health back (M)"
+line = "spend faith to stop your worst bleeding wound and get 15 health back (a power, on the number keys)"
 mending = true
 
 [[talent]]
@@ -93,7 +93,7 @@ purify = true
 [[talent]]
 id = "warding"
 name = "Warding"
-line = "spend faith to ward the shut door beside you: the dead won't beat on it for a night (O)"
+line = "spend faith to ward the shut door beside you: the dead won't beat on it for a night (hold E at the door)"
 warding = true
 
 [[talent]]

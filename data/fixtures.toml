@@ -168,7 +168,7 @@ solid = true
 loot = "font"
 
 # Wild plants (crates/dusk-core/src/forage.rs; regions/*.toml's [plants], and a prefab's grows):
-# walked through and seen past. forage: the item picked from it (Y), how many (the fewest and the
+# walked through and seen past. forage: the item picked from it (E), how many (the fewest and the
 # most), and the game days before it grows back; picked, it's a picked_plant till then
 # (rules.toml's [foraging]).
 
