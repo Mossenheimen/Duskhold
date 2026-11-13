@@ -100,11 +100,13 @@ var _endurance: ProgressBar
 var _faith: ProgressBar  # a Cleric's (DuskWorld.faith()): hidden for a class without any
 var _slots: ProgressBar  # a Wizard's spell slots (DuskWorld.character_slots()): hidden without
 var _choice: Label  # who comes into the world: the classes to choose from
+var _choice_title: Label  # over it, in the serif: "Who comes to the abbey?"
 var _breath: Label
 var _wounds: Label
 var _level: Label
 var _gold_left := 0.0  # the level-up glow
 var _death: Label
+var _death_title: Label  # the name of the one who died, in the serif
 var _held: Label
 var _doing: Label
 var _doing_bar: ProgressBar
@@ -147,8 +149,13 @@ func _ready() -> void:
 	_held = _label(Look.BANNER, Control.PRESET_CENTER_TOP, Look.DANGER_TEXT)
 	_held.position.y += 190.0
 	_problem = _label(Look.HEADING, Control.PRESET_CENTER)
-	_death = _label(Look.HEADING, Control.PRESET_CENTER)
-	_choice = _label(Look.HEADING, Control.PRESET_CENTER)
+	# The death screen and the class choice: a title in the serif over their lines.
+	var death := _screen()
+	_death_title = death[0]
+	_death = death[1]
+	var choice := _screen()
+	_choice_title = choice[0]
+	_choice = choice[1]
 	_build_action_bar()
 	_build_keys()
 
@@ -244,8 +251,8 @@ func reset() -> void:
 	_lines.clear()
 	_ages.clear()
 	_flash_left = 0.0
-	_death.text = ""
-	_choice.text = ""
+	hide_death()
+	show_choice("", "")
 	_veil.visible = false
 	_asleep.text = ""
 	_shown_moodles = PackedInt32Array()
@@ -280,6 +287,26 @@ func _label(size: int, preset: Control.LayoutPreset, colour := Look.TEXT) -> Lab
 	label.grow_vertical = Control.GROW_DIRECTION_BOTH if preset == Control.PRESET_CENTER \
 		else Control.GROW_DIRECTION_END
 	return label
+
+
+## A screen's words in the middle, centred line by line: a title in the serif (TITLE), and under
+## it its lines. Both empty, it takes no room; an empty title is hidden.
+func _screen() -> Array[Label]:
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 14)
+	add_child(box)
+	var title := Look.text(Label.new(), Look.TITLE, Look.TEXT, true)
+	var lines := Look.text(Label.new(), Look.HEADING, Look.TEXT, true)
+	for label: Label in [title, lines]:
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(label)
+	title.visible = false
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	return [title, lines]
 
 
 ## Your body, from DuskWorld.character_body() and character_wounds(). `can_shove` is the core's
@@ -326,8 +353,10 @@ func show_slots(slots: PackedInt32Array) -> void:
 		_slots.value = slots[0]
 
 
-## Who comes into the world: the classes to choose from, or "" once one's chosen.
-func show_choice(text: String) -> void:
+## Who comes into the world: a title, and the classes to choose from; both "" once one's chosen.
+func show_choice(title: String, text: String) -> void:
+	_choice_title.text = title
+	_choice_title.visible = title != ""
 	_choice.text = text
 
 
@@ -399,20 +428,23 @@ func show_death(name: String, how: String, minutes: int, carried: String, rises:
 		lasted = "%d minutes" % minutes
 	if days > 0:
 		lasted = "%d day%s %d hours" % [days, "" if days == 1 else "s", hours]
-	var who := name if name != "" else "You"
-	var lines := ["%s lasted %s." % [who, lasted], how]
+	var lines := ["Lasted %s." % lasted, how]
 	if carried != "":
 		lines.append("Carrying %s." % carried)
 	if rises:
 		lines.append("The body lies where it fell. Unburned, at midnight it rises as a revenant, in that gear.")
 	lines.append("")
 	lines.append("R: the next survivor comes to the abbey, in this world.   Shift+R: a new world.")
+	_death_title.text = name if name != "" else "You died"
+	_death_title.visible = true
 	_death.text = "\n".join(lines)
 	_veil.visible = false
 	_asleep.text = ""
 
 
 func hide_death() -> void:
+	_death_title.text = ""
+	_death_title.visible = false
 	_death.text = ""
 
 

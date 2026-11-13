@@ -103,8 +103,15 @@ const SMALL := 18  # hints, legends, item weights
 const BODY := 20  # news, panel rows, moodle names
 const HEADING := 24  # panel titles, the status line
 const BANNER := 32  # held, paused, asleep
-const TITLE := 48  # screen titles (the serif, once there are fonts)
+const TITLE := 48  # screen titles, in the serif
 const OUTLINE_SIZE := 6
+
+# Faces (§8): Alegreya Sans for everything in the GUI, as the project's default font (project.godot,
+# gui/theme/custom_font: Regular); its Medium for headings and banners; and the serif, Alegreya,
+# only for titles. All under the SIL Open Font License, in fonts/ with their licences.
+
+const SANS_MEDIUM := preload("res://fonts/AlegreyaSans-Medium.ttf")
+const SERIF := preload("res://fonts/Alegreya-Variable.ttf")
 
 # Layout (§10).
 
@@ -125,10 +132,21 @@ static func panel_style() -> StyleBoxFlat:
 	return style
 
 
+## Text at `size`, in the face that size calls for (§8): the serif for a title, Medium for a
+## heading or a banner, else the project's own (Alegreya Sans).
+static func sized(control: Control, size: int) -> Control:
+	control.add_theme_font_size_override("font_size", size)
+	if size >= TITLE:
+		control.add_theme_font_override("font", SERIF)
+	elif size >= HEADING:
+		control.add_theme_font_override("font", SANS_MEDIUM)
+	return control
+
+
 ## A label at `size`, in `colour`. Drawn straight on the world (`outlined`), it gets the outline
 ## that keeps it readable on anything (§8).
 static func text(label: Label, size: int, colour := TEXT, outlined := false) -> Label:
-	label.add_theme_font_size_override("font_size", size)
+	sized(label, size)
 	if colour != TEXT:
 		label.add_theme_color_override("font_color", colour)
 	if outlined:

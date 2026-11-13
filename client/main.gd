@@ -17,6 +17,7 @@ extends Node3D
 ## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
 ## pick (the wild plant beside you: Y), keys (F1) S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
+## --choose ask who comes, as the player's own game does (for a picture of the choice);
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it.
 ##
@@ -282,6 +283,7 @@ var save_path := ""  # where the game is saved; "" for a trial run, which isn't
 var saved_hour := -1  # the game hour of the last autosave
 var restart_asked := -100.0  # when R last asked "abandon this world?", in seconds played
 var class_wanted := ""  # --class: the class a trial run's survivors take up
+var choose_asked := false  # --choose: a trial run asks who comes, as the player's own game does
 var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 shown, 2 hidden
 var gui_scale := 1.0  # the GUI's size over the screen's own (- and =)
 var choosing_class := false  # the game waits, paused, for a class to be chosen
@@ -796,19 +798,19 @@ func _offer_classes() -> void:
 	var count := class_texts.size() / 2
 	if count < 2 or not dusk.can_choose_class():
 		return
-	if not OS.get_cmdline_user_args().is_empty():
+	if not OS.get_cmdline_user_args().is_empty() and not choose_asked:
 		for c in count:
 			if class_texts[c * 2].to_lower() == class_wanted.to_lower():
 				_take_up_class(c)
 		return
 	choosing_class = true
 	dusk.paused = true
-	var lines := ["Who comes to the abbey?", ""]
+	var lines := []
 	for c in count:
 		lines.append("%d   %s: %s" % [c + 1, class_texts[c * 2], class_texts[c * 2 + 1]])
 	lines.append("")
 	lines.append("Press a number.")
-	hud.show_choice("\n".join(lines))
+	hud.show_choice("Who comes to the abbey?", "\n".join(lines))
 
 
 ## Takes up class `c` (by DuskWorld.class_texts()): its kit in place of the one you came with.
@@ -817,7 +819,7 @@ func _take_up_class(c: int) -> void:
 		return
 	if choosing_class:
 		choosing_class = false
-		hud.show_choice("")
+		hud.show_choice("", "")
 		dusk.paused = false
 	bag.start(dusk)
 	skills.start(dusk)
@@ -1953,6 +1955,8 @@ func _read_args() -> void:
 			start_hour = value.to_int()
 		elif arg.begins_with("--class="):
 			class_wanted = value
+		elif arg == "--choose":
+			choose_asked = true
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.

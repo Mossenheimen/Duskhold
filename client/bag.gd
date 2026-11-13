@@ -622,7 +622,7 @@ func _panel(preset: Control.LayoutPreset) -> PanelContainer:
 func _line(parent: Control, text: String, size: int) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", size)
+	Look.sized(label, size)
 	parent.add_child(label)
 	return label
 

@@ -293,7 +293,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 
   Both are under the SIL Open Font License, so they ship in `client/fonts/` with their licence. If Alegreya Sans reads poorly at 18 px, swap it for Noto Sans.
 
-  **Today:** Godot's built-in font.
+  **Today** (2026-11-12): both in, in `client/fonts/` with their licences. Alegreya Sans Regular is the project's default font, so everything takes it; Alegreya Sans Medium is for headings (`type.heading`) and banners (`type.banner`); the serif, Alegreya, is for titles (`type.title`): the class choice and the death screen. `Look.sized` gives each size its face. Alegreya Sans read well at 18 px, so Noto Sans wasn't needed.
 - **Must:** the body text is a plain sans. A decorative face never carries information (Microsoft XAG 101).
 - **Sizes** at the base screen. Microsoft's minimum for PC is 18 px at 1080p, measured from the top of the tallest letter to the bottom of the lowest.
 
@@ -312,7 +312,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
   So the held banner says "Three of them have hold of you", in `type.banner` and `signal.danger_text`.
 - **Left-aligned** in its box, even when the box sits on the right edge. Centred only for one-line banners and titles.
 - **Lines of 80 characters at most** (news, tooltips, descriptions).
-- **Numbers:** counts as "×2", weights as "0.6 kg", times as "3h 50m", and a percentage only for condition.
+- **Numbers:** counts as "×2", weights as "0.6 kg", times as "3h 50m", and a percentage only for condition. Figures are lining and tabular (the fonts are imported with OpenType `lnum` and `tnum`): Alegreya Sans's own old-style figures sit low among the letters, and a ticking clock or weight would shift.
 - **Words:** plain and short, in the game's voice (`CONCEPT.md`). An act and its key are said together: "Y to pick it".
 
 ---
@@ -535,6 +535,8 @@ These are standard pictures for checking the look. Each takes no special data. A
 | Noon, the dead turned, faith | `--seed=1 --class=cleric --hour=12 --speed=5 --walk=122,117 --do=11:turn --shot=PNG --shot-after=11.7` |
 | Dusk, rain, a wolf pack | `--seed=1 --hour=18 --speed=2 --walk=27,135 --shot=PNG --shot-after=20` |
 | Midnight in town, dread | `--seed=1 --hour=22 --speed=5 --walk=118,118 --shot=PNG --shot-after=14` |
+| The class choice: the title's serif, the GUI's sans | `--seed=7 --hour=12 --choose --shot=PNG --shot-after=3` |
+| A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
 ### Done means
 
@@ -569,10 +571,10 @@ Each region shifts the world's colours (ground, foliage, sky and night tint) and
 These are the visual slices, in order. Each one ends with a picture or two and this guide brought up to date. All are Defaults.
 
 1. *(Done 2026-11-12.)* **Tokens, and a GUI that scales:** `client/look.gd` took every inline colour; the 1920 × 1080 base with `canvas_items` and `expand`; the GUI's size on `-` and `=`.
-2. **Type:** the fonts in. *(The sizes of §8, and the held banner in sentence case: done 2026-11-12.)*
+2. *(Done 2026-11-12.)* **Type:** the fonts in: Alegreya Sans (Regular, and Medium for headings and banners) and the serif Alegreya for titles, with lining, tabular figures. *(The sizes of §8, and the held banner in sentence case, came first.)*
 3. **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
 4. **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1: done 2026-11-12.)*
-5. **Book panels:** Esc closes panels first. *(Making on the left, one book panel at a time: done 2026-11-12.)*
+5. **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time: done 2026-11-12.)*
 6. **The body diagram** in zone B.
 7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
 8. **Looks as data:** `data/looks.toml`.
