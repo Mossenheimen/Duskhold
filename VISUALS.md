@@ -136,6 +136,7 @@ Each look is a colour, a height and a stoop. The colour is the second cue; the s
 | `actor.wolf` | `#66666B` | 0.95 m, on four legs | grey, head low and forward |
 | `actor.scut` | `#EBE6D9` | | a deer's white tail, flashing as it bolts |
 | `actor.ash` | `#211F1C` | | a body burnt to ash |
+| `actor.blood` | `#8C1A14` | | a blow landing on flesh: dark, so it's never mistaken for `signal.danger` |
 
 Ghouls and skeletons are close in colour on purpose. Their posture tells them apart: low and crouched against tall and upright. A new kind must pass the silhouette test (§5) before it gets a colour.
 
@@ -532,7 +533,9 @@ A power or a spell as it happens: glowing motes, rings and a flash of light, bri
 - **The Cleric's:** turning sends a holy wave out to as far as it reaches (`DuskWorld.turn_reach()`, its talents in it); prayer and consecration lift holy motes from the body, a ward puts them on the door. Mending lifts motes in good's green.
 - **The Fighter's:** the Second Wind blows a breath out round you.
 - **Skills and levels:** gold motes round your feet as a skill rises a level or is mastered; a level of your own, more, and a gold ring.
+- **The fight's** (`main.gd`'s `_fight_effect`): a blow landing flicks blood (`actor.blood`), more for a wound, and bone chips off a skeleton (the bloodless); your shield taking a blow throws sparks toward the one who struck, armour turning one a few (`signal.yours`, the colour of your own); a heavy blow felling one throws up dust and a ring of it round its feet; a sneak attack bursts sharply where it lands; bone turned or shattered chips. The dead's: grave dust as one gets up, the dark off your old body as it rises a revenant, a curl of smoke as a wight eats your light. A door or the boards on it giving way: splinters, if you see the spot.
 - **Motes** are soft dots made in code (a radial gradient), drawn additively as light or blended as smoke (`Effects.mote`), CPU particles, so a run with no window draws them too.
+- **Checked** by `check.cmd`: every effect made once with no window (`client/tests/check_effects.gd`), and none left after three seconds.
 
 ---
 

@@ -127,6 +127,8 @@ const CLIMB_LIFT := 0.55
 const SLEEP_SPEED := 60.0
 ## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
 const HOLD_MS := 350
+## The kinds with no blood (by DuskWorld.creature_names()): a blow chips bone off them instead.
+const BLOODLESS := ["skeleton"]
 ## Seconds played before the news tells of the same level of dread again.
 const DREAD_TOLD_EVERY := 30.0
 ## Why you woke, by Event.WOKE's extra.
@@ -1079,6 +1081,7 @@ func _read_events() -> void:
 		var who := events[i + 1]
 		var target := events[i + 2]
 		var extra := events[i + 5]
+		_fight_effect(events[i], who, target, events[i + 3], events[i + 4], extra)
 		match events[i]:
 			Event.HEARD:
 				if _seen(who):
@@ -2264,6 +2267,55 @@ func _ready_spell(spell: int) -> void:
 func _let_go() -> void:
 	readied = -1
 	hud.say("You let the spell go.")
+
+
+## The fight's effects (effects.gd), from its events, only where you'd see them: on you, by you,
+## or on one you see; a door giving way on a tile you see. `x`, `y`: the event's tile.
+func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int) -> void:
+	match kind:
+		Event.STRUCK:
+			if target == me or who == me or _seen(target):
+				effects.hit(_drawn(target, x, y), _bloodless(target), extra > 0)
+		Event.BLOCKED:
+			if who == me:
+				effects.block(_drawn(me, x, y), _drawn(target, x, y))
+		Event.GLANCED:
+			if who == me or target == me:
+				effects.glance(_drawn(who, x, y))
+		Event.FELLED:
+			if who == me:
+				effects.fell(_drawn(target, x, y))
+		Event.SNEAK_ATTACK:
+			if who == me:
+				effects.sneak_attack(_drawn(target, x, y))
+		Event.RESISTED:
+			if who == me:
+				effects.bone(_drawn(target, x, y), extra == 1)
+		Event.GOT_UP:
+			if _seen(who):
+				effects.got_up(_drawn(who, x, y))
+		Event.RISEN:
+			if _seen(target):
+				effects.risen(_drawn(target, x, y))
+		Event.LIGHT_EATEN:
+			if target == me:
+				effects.light_eaten(_drawn(me, x, y))
+		Event.DOOR_BROKE, Event.BOARD_BROKE:
+			# The edge is the tile's north or west one: between it and the tile beyond.
+			if map_view.sees(x, y) or map_view.sees(x - 1, y) or map_view.sees(x, y - 1):
+				var wood := Look.DOOR if kind == Event.DOOR_BROKE else Look.BOARD
+				effects.splinters(Vector3(x + 0.25, 1.0, y + 0.25), wood)
+
+
+## Where actor `i` is drawn, or tile (x, y)'s middle with no such actor.
+func _drawn(i: int, x: int, y: int) -> Vector3:
+	return actors[i].position if i >= 0 and i < actors.size() else Vector3(x + 0.5, 0.0, y + 0.5)
+
+
+## Whether actor `i` has no blood to shed: blows on it chip bone instead (BLOODLESS).
+func _bloodless(i: int) -> bool:
+	var n: int = kinds[i] - 1 if i >= 0 and i < kinds.size() else -1
+	return n >= 0 and n < creature_names.size() and creature_names[n] in BLOODLESS
 
 
 ## A spell of yours landing on tile (x, y) (Event.CAST): its effect, by its kind and how far it

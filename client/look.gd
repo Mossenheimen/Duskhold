@@ -54,6 +54,7 @@ const DEER := Color("#8C613D")
 const SCUT := Color("#EBE6D9")  # a deer's white tail, flashing as it bolts
 const WOLF := Color("#66666B")
 const ASH := Color("#211F1C")  # a body burnt to ash
+const BLOOD := Color("#8C1A14")  # a blow landing on flesh: dark, so it's never a signal's red
 
 # Light, and what's drawn in it (§3).
 

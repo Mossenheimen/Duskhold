@@ -10,6 +10,14 @@ extends Node3D
 ## - the Second Wind: a breath blown out round you;
 ## - a skill or a level rising: gold.
 ##
+## And the fight's (main.gd's _fight_effect, where you'd see them):
+## - a blow landing: blood, a little or (a wound) more; bone chips off the bloodless;
+## - your shield taking a blow: sparks; armour turning one: a few;
+## - a heavy blow felling one: dust round its feet; a sneak attack: a sharp burst;
+## - bone turning a blade, or shattering under a blunt one: chips;
+## - the dead getting up: grave dust; a revenant rising: its dark; a wight eating your light: smoke;
+## - a door or the boards on it giving way: splinters.
+##
 ## Only the look: the core says what happened (its events, read by main.gd). With fewer flashes
 ## and less motion (Look.reduce_motion), half as many motes and no flash of light.
 
@@ -120,6 +128,67 @@ func gold(at: Vector3, level: bool) -> void:
 	_burst(at + Vector3(0, 0.2, 0), Look.GOLD, [36 if level else 14, 1.2, 1.6, 0.4, 0.3, 0.22])
 	if level:
 		_wave(at, 1.6, Look.GOLD, 0.7)
+
+
+## A blow landing on someone at `at`: blood flicked off it, falling, more for a wound; off one
+## with no blood (`bloodless`: a skeleton), bone chips instead.
+func hit(at: Vector3, bloodless: bool, wounded: bool) -> void:
+	var n := 14 if wounded else 6
+	if bloodless:
+		bone(at, false)
+	else:
+		_burst(at + Vector3(0, 1.0, 0), Look.BLOOD, [n, 0.6, 2.2, -6.0, 0.15, 0.13], true)
+
+
+## Your shield taking a blow: sparks off its face, toward `from` (the one who struck).
+func block(at: Vector3, from: Vector3) -> void:
+	var face := at.lerp(from, 0.35) + Vector3(0, 1.0, 0)
+	_burst(face, Look.YOURS, [16, 0.35, 3.5, -5.0, 0.08, 0.1])
+
+
+## Armour turning a blow: a few sparks off it.
+func glance(at: Vector3) -> void:
+	_burst(at + Vector3(0, 1.1, 0), Look.YOURS, [7, 0.3, 2.8, -5.0, 0.1, 0.09])
+
+
+## A heavy blow felling one: dust thrown up round its feet as it goes down, and a ring of it.
+func fell(at: Vector3) -> void:
+	_burst(at + Vector3(0, 0.15, 0), Look.LITTER, [16, 0.9, 1.6, -0.5, 0.35, 0.5], true)
+	_wave(at, 1.2, Look.LITTER, 0.5)
+
+
+## A sneak attack: a sharp burst where it lands, out fast and gone.
+func sneak_attack(at: Vector3) -> void:
+	var cut := _burst(at + Vector3(0, 1.0, 0), Look.YOURS, [18, 0.3, 1.0, 0.0, 0.1, 0.12])
+	cut.radial_accel_min = 14.0
+	cut.radial_accel_max = 20.0
+
+
+## Bone chips off one of the bloodless dead: a blade turned (a few), or bone shattered under a
+## blunt blow (`shattered`: more).
+func bone(at: Vector3, shattered: bool) -> void:
+	_burst(at + Vector3(0, 1.0, 0), Look.SKELETON, [16 if shattered else 6, 0.7, 2.6, -7.0, 0.15, 0.11], true)
+
+
+## The dead getting up again: grave dust rising off the body.
+func got_up(at: Vector3) -> void:
+	_burst(at + Vector3(0, 0.2, 0), Look.LITTER, [14, 1.4, 0.8, 0.5, 0.4, 0.5], true)
+
+
+## A revenant rising from your old body: the dark coming off it, and a ring of it.
+func risen(at: Vector3) -> void:
+	_burst(at + Vector3(0, 0.6, 0), Look.REVENANT, [24, 1.6, 0.9, 0.9, 0.4, 0.4], true)
+	_wave(at, 2.0, Look.REVENANT, 0.9)
+
+
+## A wight putting out the light you held up: a curl of smoke where it was.
+func light_eaten(at: Vector3) -> void:
+	_burst(at + Vector3(0, 1.4, 0), Look.ASH, [12, 1.6, 0.4, 0.8, 0.1, 0.45], true)
+
+
+## A door, or the boards on it, giving way at `on`: splinters, in the wood's colour.
+func splinters(on: Vector3, wood: Color) -> void:
+	_burst(on, wood, [18, 0.8, 2.6, -7.0, 0.3, 0.12], true)
 
 
 ## A fireball: a bolt from the hand to the spot; there, a flash, flames, embers and smoke as far as

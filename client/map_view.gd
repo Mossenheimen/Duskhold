@@ -27,6 +27,7 @@ var _watched_texture: ImageTexture
 var _overlay: MeshInstance3D
 var _fog_material := ShaderMaterial.new()
 var _view_image: Image
+var _view_tiles := PackedByteArray()  # as last shown: 0 never seen, 1 remembered, 2 seen now
 var _view_texture: ImageTexture
 var _fog: MeshInstance3D
 
@@ -137,10 +138,17 @@ func show_watched(levels: PackedByteArray) -> void:
 	_watched_texture.update(_watched_image)
 
 
+## Whether you see tile (x, y) now (DuskWorld.view_tiles(): 2), as of the last tick.
+func sees(x: int, y: int) -> bool:
+	var i := y * map_size.x + x
+	return x >= 0 and y >= 0 and x < map_size.x and i < _view_tiles.size() and _view_tiles[i] == 2
+
+
 ## What you make out of the map, from DuskWorld.view_tiles().
 func show_view(tiles: PackedByteArray) -> void:
 	if tiles.size() != map_size.x * map_size.y:
 		return
+	_view_tiles = tiles
 	_view_image.set_data(map_size.x, map_size.y, false, Image.FORMAT_R8, tiles)
 	_view_texture.update(_view_image)
 
