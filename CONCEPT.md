@@ -574,7 +574,7 @@ The game comes first (2026-11-05). These rules cost the game little and help it 
 
 Before classes, spells, quests and other regions: is surviving the Hushlands tense and fun?
 
-*(review)* **The order matters more than the list.** What's built is a set of rules with no reason to go out and nothing that lasts. So the first playable starts with the two things that turn rules into a game, and leaves the decoration for last (`ARCHITECTURE.md`, build step 6, has the slices):
+*(review)* **The order matters more than the list.** What's built is a set of rules with no reason to go out and nothing that lasts. So the first playable starts with the two things that turn rules into a game, and leaves the decoration for last (`HISTORY.md`, build step 6, has the slices):
 
 1. saves: a game day is an hour, and a base means nothing in a world that's gone when you quit;
 2. the stash and bring-it-home XP: the reason to go out;
