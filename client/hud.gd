@@ -67,6 +67,14 @@ const MOODLES := [
 			"your aim and how far you see, worse  ·  dress it: Tab"], 0],
 	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1],
 	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1],
+	[["Chilly", "Cold", "Freezing"],
+		["get under a roof, or by a fire, before it's worse",
+			"shivering: your aim is worse, and everything costs more breath  ·  a roof, a fire",
+			"nothing heals, health drains, no sleep  ·  get to a fire"], 0],
+	[["Damp", "Wet", "Soaked"],
+		["wet makes you colder  ·  dry off under a roof",
+			"wet makes you colder  ·  dry off under a roof, faster by a fire",
+			"much colder, and your clothes keep half their warmth  ·  dry off by a fire"], 0],
 ]
 ## How many of the dead have hold of you, in words, for the held banner.
 const HOW_MANY := ["", "One", "Two", "Three", "Four", "Five"]
@@ -171,7 +179,7 @@ func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bo
 		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
 	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
 	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: bags\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
+	_state.text = "DUSKHOLD  ·  new: wet and cold\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
 		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
 	_paused.visible = paused
 

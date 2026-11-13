@@ -1895,3 +1895,37 @@ bag = { holds = 0.0, lighter = 0.1 }
         "{err}"
     );
 }
+
+#[test]
+fn wet_and_cold_load_and_a_shiver_that_saves_breath_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let c = data.rules.cold;
+    assert_eq!(
+        (c.soak, c.wade),
+        ([2000, 5000], 10_000),
+        "points a game minute"
+    );
+    assert_eq!((c.night, c.wet, c.rain), (30_000, 40_000, [10_000, 20_000]));
+    assert_eq!((c.aim, c.breath, c.harm), ([850, 700], [1150, 1300], 30));
+    let jerkin = data
+        .defs
+        .items
+        .iter()
+        .find(|i| i.id == "padded_jerkin")
+        .unwrap();
+    match &jerkin.kind {
+        dusk_core::ItemKind::Armour(a) => assert_eq!(a.warmth, 15_000),
+        other => panic!("{other:?}"),
+    }
+    // Shivering that costs less breath than being warm.
+    let warm = "[cold]\nsoak = [2.0, 5.0]\nwade = 10.0\ndry = 0.5\ndry_roof = 1.0\n\
+        dry_fire = 5.0\nnight = 30\nwet = 40\nrain = [10, 20]\nroof = 20\nbed = 20\n\
+        soaked = 0.5\nfire = 3\nrise = 0.5\nfall = 1.0\nfire_fall = 3.0\n\
+        levels = [25, 50, 75]\naim = [0.85, 0.7]\nbreath = [0.5, 1.3]\nharm = 3.0\n";
+    let mut files = test_files(PREFABS);
+    files.retain(|(path, _)| *path != "rules.toml");
+    let cold = format!("{RULES}{warm}");
+    files.push(("rules.toml", &cold));
+    let err = load(&folder("cold", &files)).unwrap_err();
+    assert!(err.message.contains("cold"), "{err}");
+}

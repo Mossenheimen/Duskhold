@@ -143,6 +143,9 @@ pub struct Body {
     pub dread: i32,
     /// Breath spent since midnight: the day's work toward Fitness (`fitness.rs`).
     pub spent: u32,
+    /// How wet, and how cold, out of 100 points in thousandths (`cold.rs`).
+    pub wet: i32,
+    pub chill: i32,
 }
 
 impl Body {
@@ -160,6 +163,8 @@ impl Body {
             fever: None,
             dread: 0,
             spent: 0,
+            wet: 0,
+            chill: 0,
         }
     }
 

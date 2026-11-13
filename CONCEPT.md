@@ -287,6 +287,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 - **Movement:** running and heavy armour shake the ground; webs carry every touch.
 - **Scent:** you leave a trail; blood makes it stronger; rain, rivers and wind change it; food stores smell too.
 - **Heat:** your body, your clothes (wet means cold: hidden from heat-hunters, and on the way to hypothermia), your fires.
+  - *(built 2026-11-12)* **Wet and cold:** the rain soaks you out of doors (heavy rain in twenty minutes), and wading does; a roof dries you, a fire fast. The cold creeps toward what the night, the wet and the rain are worth, less a roof, a bed and your clothes (a padded jerkin is the warm one; soaked, clothes keep half their warmth), and by a fire it goes. Chilly is a warning; cold, you shiver (worse aim, more breath); freezing, health drains, nothing heals and the cold won't let you sleep. Heat-hunters come with their region.
 - **Dread:** rises in the dark, near the dead, alone and wounded; falls with light, company, music, food and rest.
 - **Stealth:** be what they can't sense, and get behind them: a sneak attack.
 - **Every sense is drawn** (a pillar; Mark of the Ninja drew every noise for the same reason: players couldn't make sense of the game without it). In the playfield:

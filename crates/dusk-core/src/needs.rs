@@ -98,6 +98,9 @@ pub enum Moodle {
     Sneaking,
     /// Bracing behind a shield (`shield.rs`): a stance too.
     Bracing,
+    /// Cold (chilly, cold, freezing) and wet (damp, wet, soaked: `cold.rs`).
+    Cold,
+    Wet,
 }
 
 /// Why someone woke.
@@ -107,6 +110,8 @@ pub enum Woke {
     Chose,
     Hurt,
     Noise,
+    /// Freezing (`cold.rs`).
+    Cold,
 }
 
 /// Why you can't sleep now.
@@ -117,6 +122,8 @@ pub enum NoSleep {
     Held,
     /// In agony (`dread.rs`): dress the wounds first.
     Pain,
+    /// Freezing (`cold.rs`): get warm first.
+    Cold,
 }
 
 /// How many of a need's levels a value has reached: 0 to 3.
@@ -163,6 +170,8 @@ impl World {
             (Moodle::Head, self.hurt_level(id, Group::Head)),
             (Moodle::Fever, self.fever_stage(id)),
             (Moodle::Dread, self.dread_level(id)),
+            (Moodle::Cold, self.cold_level(id)),
+            (Moodle::Wet, self.wet_level(id)),
             (Moodle::OutOfBreath, u8::from(b.exhausted)),
             (Moodle::HeavyLoad, u8::from(self.weighed_down(id))),
             (Moodle::Held, holders),
@@ -224,6 +233,9 @@ impl World {
         }
         if self.pain_level(id) >= 3 {
             return Err(NoSleep::Pain);
+        }
+        if self.cold_level(id) >= crate::cold::FREEZING {
+            return Err(NoSleep::Cold);
         }
         // On hallowed ground the dead outside can't come in, so they don't keep you awake.
         if self.dead_after(id, n.sleep_clear) && !self.is_hallowed(a.pos) {
@@ -319,7 +331,7 @@ impl World {
     /// and the rested wake. On the hour, starving and thirst cost health and the fed and watered
     /// heal. A fever makes you thirstier and stops the healing, and dying of it costs health.
     pub(crate) fn needs(&mut self) {
-        let (n, fever) = (self.rules.needs, self.rules.fever);
+        let (n, fever, cold) = (self.rules.needs, self.rules.fever, self.rules.cold);
         let per = u64::from(self.rules.clock.ticks_per_minute.max(1));
         if !self.tick.is_multiple_of(per) {
             return;
@@ -331,6 +343,7 @@ impl World {
             let id = self.characters[i];
             let full = self.max_health(id);
             let stage = self.fever_stage(id);
+            let freezing = self.cold_level(id) >= crate::cold::FREEZING;
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -365,7 +378,11 @@ impl World {
                 if stage >= crate::fever::DYING {
                     b.health -= fever.harm;
                 }
-                if !starving && !parched && !b.bleeding() && stage == 0 {
+                // Freezing, the cold takes health, and nothing heals (`cold.rs`).
+                if freezing {
+                    b.health -= cold.harm;
+                }
+                if !starving && !parched && !b.bleeding() && stage == 0 && !freezing {
                     let heal = n.heal * if b.asleep { n.sleep_heal } else { 1 };
                     b.health = (b.health + heal).min(full);
                 }

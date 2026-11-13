@@ -807,6 +807,8 @@ fn describe(w: &World, e: Event) -> String {
             if fell { " and fell" } else { "" },
             if cut { ", cut on the glass" } else { "" }
         ),
+        Event::Wet { who, level } => format!("{} is wet (level {level})", name(who)),
+        Event::Cold { who, level } => format!("{} is cold (level {level})", name(who)),
         Event::Grew { who, stat, level } => format!(
             "{}'s {} reached {level}",
             name(who),

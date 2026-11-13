@@ -39,6 +39,7 @@ fn armour(covers: u8, turn: u32, wear: u16) -> Armour {
         endurance: 0,
         sight: 1000,
         time: 5,
+        warmth: 0,
     }
 }
 

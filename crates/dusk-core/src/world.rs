@@ -74,6 +74,8 @@ pub struct Rules {
     /// Pain from wounds, and dread (`dread.rs`).
     pub pain: Pain,
     pub dread: Dread,
+    /// Wet and cold (`cold.rs`).
+    pub cold: crate::cold::Cold,
     /// What wounds do where they land (`injury.rs`).
     pub injury: Injury,
     /// Sneaking (`stealth.rs`).
@@ -318,6 +320,7 @@ impl Default for Rules {
             fire: Fire::default(),
             pain: Pain::default(),
             dread: Dread::default(),
+            cold: crate::cold::Cold::default(),
             injury: Injury::default(),
             sneak: Sneak::default(),
             shield_pace: 600,
@@ -401,6 +404,15 @@ pub enum Event {
         fell: bool,
         /// The glass left in a broken window cut it (a wound on an arm, a hand or a leg).
         cut: bool,
+    },
+    /// `who` is wetter or drier, colder or warmer: a new `level` of the moodle (`cold.rs`).
+    Wet {
+        who: ActorId,
+        level: u8,
+    },
+    Cold {
+        who: ActorId,
+        level: u8,
     },
     /// At midnight, `who`'s Strength or Fitness reached a whole `level` (`fitness.rs`).
     Grew {
@@ -1275,6 +1287,7 @@ impl World {
         self.bodies(&strides);
         self.needs();
         self.minds();
+        self.chills();
         self.remains();
         self.press();
         self.toll();

@@ -9,6 +9,7 @@ mod armour;
 mod barricade;
 mod class;
 mod climb;
+mod cold;
 mod craft;
 mod dread;
 mod faith;
@@ -545,6 +546,9 @@ struct RulesFile {
     pain: Option<dread::PainFile>,
     #[serde(default)]
     dread: Option<dread::DreadFile>,
+    /// Optional: with no [cold], wet and cold use the core's defaults.
+    #[serde(default)]
+    cold: Option<cold::ColdFile>,
     /// Optional: with no [crafting], nothing breaks down.
     #[serde(default)]
     crafting: Option<craft::CraftingFile>,
@@ -1258,6 +1262,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(d) = &r.dread {
         rules.dread = dread::to_dread(file, d)?;
+    }
+    if let Some(c) = &r.cold {
+        rules.cold = cold::to_cold(file, c)?;
     }
     if let Some(s) = &r.shield {
         if !(s.pace > 0.0 && s.pace <= 1.0) {

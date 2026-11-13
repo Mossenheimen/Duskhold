@@ -41,6 +41,8 @@ pub struct Armour {
     pub sight: u32,
     /// Ticks to put it on. Taking it off is the rules' share of this.
     pub time: u32,
+    /// What it takes off the cold, in thousandths of a point (`cold.rs`): less when it's wet.
+    pub warmth: i32,
 }
 
 /// Armour's rules, per mille: what a blow turned still does (a bruise), what a piece weighs worn
@@ -81,7 +83,7 @@ impl World {
     }
 
     /// What `id` wears, piece by piece, with each one's numbers.
-    fn pieces(&self, id: ActorId) -> Vec<Armour> {
+    pub(crate) fn pieces(&self, id: ActorId) -> Vec<Armour> {
         self.actors.get(id).map_or(Vec::new(), |a| {
             a.worn.iter().filter_map(|i| self.armour_of(i)).collect()
         })

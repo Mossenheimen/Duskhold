@@ -26,6 +26,9 @@ pub(crate) struct ArmourFile {
     #[serde(default = "all")]
     sight: f64,
     time: f64,
+    /// Points it takes off the cold (`cold.rs` in the core); left out, none.
+    #[serde(default)]
+    warmth: f64,
 }
 
 fn all() -> f64 {
@@ -81,6 +84,12 @@ pub(crate) fn armour(file: &Path, id: &str, a: &ArmourFile) -> Result<ItemKind, 
     if time == 0 {
         return Err(fail(file, format!("{} is at least a tick", what("time"))));
     }
+    if !(0.0..=50.0).contains(&a.warmth) {
+        return Err(fail(
+            file,
+            format!("{} is points, from 0 to 50", what("warmth")),
+        ));
+    }
     Ok(ItemKind::Armour(Armour {
         covers,
         turn: [
@@ -93,6 +102,7 @@ pub(crate) fn armour(file: &Path, id: &str, a: &ArmourFile) -> Result<ItemKind, 
         endurance: (a.endurance * 1000.0).round() as u32,
         sight: (a.sight * 1000.0).round() as u32,
         time,
+        warmth: (a.warmth * 1000.0).round() as i32,
     }))
 }
 

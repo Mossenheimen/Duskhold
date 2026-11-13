@@ -157,6 +157,8 @@ const CLIMBED: i32 = 102;
 const WINDOW_BROKE: i32 = 103;
 const FELLED: i32 = 104;
 const GREW: i32 = 105;
+const WET: i32 = 106;
+const COLD: i32 = 107;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -557,6 +559,9 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
         Event::Felled { who, target } => (FELLED, Some(who), Some(target), at(target), 0),
+        // A new level of the moodle (`cold.rs`).
+        Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
+        Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
         // The stat (0 Strength, 1 Fitness) × 100, plus the level reached.
         Event::Grew { who, stat, level } => {
             let stat = match stat {
@@ -2347,7 +2352,8 @@ impl DuskWorld {
     }
 
     /// Whether you can lie down to sleep now: 1 beside a bed, 0 on the ground, or why not:
-    /// -1 not tired, -2 the dead are about, -3 something has hold of you, -4 in agony.
+    /// -1 not tired, -2 the dead are about, -3 something has hold of you, -4 in agony, -5
+    /// freezing.
     #[func]
     fn sleep_check(&self) -> i32 {
         let Some(world) = &self.world else {
@@ -2362,6 +2368,7 @@ impl DuskWorld {
             Err(NoSleep::DeadAbout) => -2,
             Err(NoSleep::Held) => -3,
             Err(NoSleep::Pain) => -4,
+            Err(NoSleep::Cold) => -5,
         }
     }
 

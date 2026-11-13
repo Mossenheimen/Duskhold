@@ -161,6 +161,8 @@ impl World {
         let far = i64::from(from.steps_to(last));
         let reach = i64::from(r.range.max(1)) * 2;
         let chance = (i64::from(r.swing.hit) * (reach - far) / reach) as u32;
+        // Shivering, the bow shakes too (`cold.rs`).
+        let chance = self.numbed(id, chance);
         let unaware = self.unawares(id, target);
         if !unaware && below(roll(self.seed, tick, who, Purpose::Hit), 10_000) >= chance {
             self.events.push(Event::Missed { who: id, at: last });

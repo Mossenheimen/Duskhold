@@ -153,6 +153,8 @@ const CLIMBED := 102
 const WINDOW_BROKE := 103
 const FELLED := 104
 const GREW := 105
+const WET := 106
+const COLD := 107
 ## A heavy swing, by DuskWorld.actor_actions(): it leans in and tells as a swing does.
 const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
@@ -193,7 +195,8 @@ const SLEEP_SPEED := 60.0
 ## Seconds played before the news tells of the same level of dread again.
 const DREAD_TOLD_EVERY := 30.0
 ## Why you woke, by WOKE's extra.
-const WOKE_BY := ["You woke, rested.", "You got up.", "You woke to pain!", "A noise woke you."]
+const WOKE_BY := ["You woke, rested.", "You got up.", "You woke to pain!", "A noise woke you.",
+	"The cold woke you, shivering. Get warm: a roof, a fire."]
 ## Numbers an event takes.
 const EVENT_SIZE := 6
 
@@ -223,6 +226,7 @@ var fires := {}  # the fires alight in hearths, stoves and forges: Vector2i -> O
 var fixture_names := PackedStringArray()  # by fixture number (DuskWorld.fixture_names())
 var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire, in seconds played
 var dread_was := 0  # your dread's level, as the core last said
+var cold_was := 0  # how cold you are, its level, as the core last said (cold.rs)
 var craft: Node  # the crafting panel (T)
 var recipe_texts := PackedStringArray()  # two lines a recipe (DuskWorld.recipe_texts())
 var dread_told := {}  # when the news last told each level of dread, in seconds played
@@ -665,6 +669,8 @@ func _sleep_or_wake() -> void:
 			hud.say("Not with it holding you!")
 		-4:
 			hud.say("You're in too much pain to sleep. Dress your wounds first: a bandage (Tab).")
+		-5:
+			hud.say("You're too cold to sleep. Get warm first: under a roof, by a fire.")
 		_:
 			dusk.sleep()
 
@@ -1052,6 +1058,13 @@ func _read_events() -> void:
 			FELLED:
 				if who == me:
 					hud.say("Your heavy blow knocks it down. Finish it!")
+			WET:
+				# A new level of wet (cold.rs): only soaked through is news; the moodle says the rest.
+				if who == me and extra == 3:
+					hud.say("You're soaked through. Wet, you'll get cold: get under a roof, or by a fire.")
+			COLD:
+				if who == me:
+					_tell_cold(extra)
 			GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
 				# plus the level).
@@ -1426,6 +1439,23 @@ func _brace(on: bool) -> void:
 		hud.say("You've no shield on your arm to brace behind. Take one up (Tab).")
 		return
 	dusk.set_bracing(on)
+
+
+## How cold you are reached a new level (the core's COLD news, cold.rs): told as it rises, and
+## when you're warm again. The cold drifts slowly, so it doesn't hover at a level's edge.
+func _tell_cold(level: int) -> void:
+	if level > cold_was:
+		match level:
+			1:
+				hud.say("You're getting chilly.")
+			2:
+				hud.say("You're cold, and shivering: your aim is worse, and everything costs more breath.")
+			3:
+				hud.say("You're freezing! Nothing heals, and the cold is taking your health. Get to a fire.")
+				hud.flash()
+	elif level == 0:
+		hud.say("You're warm again.")
+	cold_was = level
 
 
 ## Your dread reached a new level (the core's DREAD news): told as it rises, and when it lets go.

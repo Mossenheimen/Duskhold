@@ -254,6 +254,8 @@ impl World {
         let rate = self.talents_of(id).fold(class, |r, t| per(r, t.endurance));
         let rate = per(rate, self.pain_cost(id));
         let rate = per(rate, self.armour_endurance(id));
+        // Shivering, everything costs more (`cold.rs`).
+        let rate = per(rate, self.cold_cost(id));
         per(rate, self.fitness_cost(id)) as i32
     }
 

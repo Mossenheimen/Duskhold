@@ -501,7 +501,8 @@ impl World {
     pub(crate) fn swing_of(&self, id: ActorId) -> Swing {
         // And as its wounds hamper it (`injury.rs`).
         let mut swing = self.hampered(id, self.steady_swing(id));
-        swing.hit = self.shaken(id, swing.hit);
+        // And as the cold makes it shiver (`cold.rs`).
+        swing.hit = self.numbed(id, self.shaken(id, swing.hit));
         swing
     }
 
