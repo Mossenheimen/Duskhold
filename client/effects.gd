@@ -27,8 +27,9 @@ const Spell = preload("res://codes.gd").Spell
 ## How fast a fireball flies to its spot, in tiles a second: quick, but seen.
 const BOLT_SPEED := 24.0
 
-## A mote: a soft dot, drawn additively (light) or blended (smoke and fog). Made once, shared by
-## every burst and every actor's glow (`mote`, `dot`).
+## A mote: a soft dot, drawn additively (light: magic, sparks, embers, glowing by itself) or
+## blended and lit by the world's light (smoke, fog, dust, blood: dark at night unless a light
+## reaches it). Made once, shared by every burst and every actor's glow (`mote`, `dot`).
 static var _glow: StandardMaterial3D
 static var _haze: StandardMaterial3D
 static var _dot: QuadMesh
@@ -65,6 +66,7 @@ static func mote(haze := false) -> StandardMaterial3D:
 			material.billboard_keep_scale = true
 			material.albedo_texture = texture
 		_glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_haze.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX  # lit, as the world is
 	return _haze if haze else _glow
 
 

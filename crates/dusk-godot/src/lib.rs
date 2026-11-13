@@ -2946,6 +2946,17 @@ impl DuskWorld {
         PackedInt32Array::from(&[i32::from(world.slots(me)), i32::from(world.max_slots(me))])
     }
 
+    /// Whether `spell` cast on (x, y) would catch you in it (a fireball's burst): for aiming.
+    #[func]
+    fn spell_catches(&self, spell: i32, x: i32, y: i32) -> bool {
+        let (Some(world), Ok(spell)) = (&self.world, u16::try_from(spell)) else {
+            return false;
+        };
+        world
+            .character()
+            .is_some_and(|me| world.spell_catches(me, spell, TilePos::new(x, y, 0)))
+    }
+
     /// Whether you can cast `spell` on (x, y) now: 0, or why not: -1 you don't know it, -2
     /// something has hold of you, -3 not slots enough, -4 no component, -5 too far, -6 you can't
     /// see it.

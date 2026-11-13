@@ -25,7 +25,8 @@ extends Node3D
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
 ## --news print the news too, and zone F's prompts as they change (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it;
-## --look=colour_blind,high_contrast,reduce_motion,show_numbers turn settings on (not kept: for pictures).
+## --look=colour_blind,high_contrast,reduce_motion,show_numbers turn settings on (not kept: for pictures);
+## --aim=DX,DY aim a readied spell, and a script's spells, at your tile plus (DX, DY) (for pictures).
 ##
 ## With no flags at all, the game is saved (user://world.dusk) and carries on from its save. Any
 ## flag makes it a trial run, which neither loads nor saves unless --save says where: so pictures
@@ -37,6 +38,7 @@ const NoiseRings = preload("res://noise_rings.gd")
 const Hud = preload("res://hud.gd")
 const Tells = preload("res://tells.gd")
 const Effects = preload("res://effects.gd")
+const Aim = preload("res://aim.gd")
 const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
@@ -57,6 +59,7 @@ const Moodle = Codes.Moodle
 const State = Codes.State
 const Remains = Codes.Remains
 const Power = Codes.Power
+const Spell = Codes.Spell
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -127,6 +130,9 @@ const CLIMB_LIFT := 0.55
 const SLEEP_SPEED := 60.0
 ## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
 const HOLD_MS := 350
+## Why a readied spell can't be cast on the spot aimed at, by DuskWorld.cast_check()'s code.
+const AIM_WHY := {-2: "not with it holding you", -3: "not slots enough", -4: "you've no component for it",
+	-5: "too far", -6: "you can't see that spot"}
 ## The kinds with no blood (by DuskWorld.creature_names()): a blow chips bone off them instead.
 const BLOODLESS := ["skeleton"]
 ## Seconds played before the news tells of the same level of dread again.
@@ -142,6 +148,7 @@ var map_view: MapView
 var rings: NoiseRings
 var tells: Tells
 var effects: Effects  # a power or a spell as it happens: bursts, waves, a fireball's flight
+var aim: Aim  # a readied spell's reach, round you and at the mouse
 var threats: Threats
 var bag: Bag
 var litter: Litter
@@ -220,6 +227,10 @@ var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 sh
 var settings: Settings  # the settings screen (F10), and the keys' defaults and remapping
 var paused_before := false  # whether the game was paused when the settings opened
 var look_flags := ""  # --look: settings a trial run turns on
+## --aim=DX,DY: for pictures, the tile aimed at is yours plus this, not the mouse's, and a script's
+## spells land there. (0, 0) is the mouse, as in play.
+var aim_offset := Vector2i.ZERO
+var aiming := false  # a readied spell's aim has zone F (_aim)
 var choosing_class := false  # the game waits, paused, for a class to be chosen
 var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
 var plants_told := {}  # the wild plants the news has named, by fixture number
@@ -262,6 +273,8 @@ func _ready() -> void:
 	add_child(tells)
 	effects = Effects.new()
 	add_child(effects)
+	aim = Aim.new()
+	add_child(aim)
 	threats = Threats.new()
 	add_child(threats)
 	bag = Bag.new()
@@ -401,6 +414,7 @@ func _process(delta: float) -> void:
 	_move_camera(delta)
 	map_view.update(focus)
 	_move_cursor()
+	_aim()
 	var clock: PackedInt32Array = dusk.clock()
 	if not dead and clock[1] != saved_hour:
 		saved_hour = clock[1]
@@ -692,6 +706,8 @@ func _mind_the_ground() -> void:
 ## Zone F: what you can do here (prompts.gd), worked out each tick and whenever E is used;
 ## nothing while you're asleep, held, choosing who comes, or dead.
 func _here_now(asleep: bool) -> void:
+	if aiming:
+		return  # a readied spell's aim has zone F (_aim)
 	if dead or asleep or held > 0 or choosing_class:
 		here = []
 	else:
@@ -2013,6 +2029,8 @@ func _read_args() -> void:
 			choose_asked = true
 		elif arg.begins_with("--look="):
 			look_flags = value
+		elif arg.begins_with("--aim="):
+			aim_offset = Vector2i(value.get_slice(",", 0).to_int(), value.get_slice(",", 1).to_int())
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
@@ -2142,7 +2160,8 @@ func _run_script() -> void:
 			"spells":
 				_book(spells)
 			"cast_light", "cast_silence", "cast_fog", "cast_fireball":
-				# The spell of that name, on the nearest of the dead you see, else 3 tiles east.
+				# The spell of that name, on the nearest of the dead you see, else 3 tiles east; or, with
+				# --aim, where it says.
 				var spell := spell_names.find(action.substr(5).capitalize())
 				var where: PackedVector2Array = dusk.actor_positions()
 				var spot := Vector2i(roundi(where[me].x) + 3, roundi(where[me].y))
@@ -2152,7 +2171,9 @@ func _run_script() -> void:
 						continue
 					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
 						best = k
-				if best >= 0:
+				if aim_offset != Vector2i.ZERO:
+					spot = _my_tile() + aim_offset
+				elif best >= 0:
 					spot = Vector2i(roundi(where[best].x), roundi(where[best].y))
 				if spell >= 0:
 					readied = spell
@@ -2316,6 +2337,42 @@ func _drawn(i: int, x: int, y: int) -> Vector3:
 func _bloodless(i: int) -> bool:
 	var n: int = kinds[i] - 1 if i >= 0 and i < kinds.size() else -1
 	return n >= 0 and n < creature_names.size() and creature_names[n] in BLOODLESS
+
+
+## The tile you stand on.
+func _my_tile() -> Vector2i:
+	var where: PackedVector2Array = dusk.actor_positions()
+	return Vector2i(roundi(where[me].x), roundi(where[me].y)) if me >= 0 and me < where.size() else Vector2i.ZERO
+
+
+## A readied spell, aimed at the tile under the mouse (aim.gd): how far you can cast it, and how
+## far it would reach there, coloured by the core's checks (DuskWorld.cast_check(): can it be
+## cast; spell_catches(): would it burn you too). Gone with none readied.
+func _aim() -> void:
+	var info: PackedInt32Array = dusk.spell_info()
+	var i := readied * 8
+	if readied < 0 or dead or me < 0 or i + 5 >= info.size():
+		aim.hide_aim()
+		if aiming:
+			aiming = false
+			_here_now(_moodle(Moodle.ASLEEP) > 0)  # zone F back to what's here
+		return
+	var tile := _tile_under(get_viewport().get_mouse_position())
+	if aim_offset != Vector2i.ZERO:
+		tile = _my_tile() + aim_offset
+	# A Light reaches as far as it lights; the rest, their own reach (spell_info: fifth and sixth).
+	var reach: int = info[i + 5] if info[i] == Spell.LIGHT else info[i + 4]
+	var can: int = dusk.cast_check(readied, tile.x, tile.y)
+	var burns: bool = dusk.spell_catches(readied, tile.x, tile.y)
+	aim.show_aim(actors[me].position, info[i + 3], tile, reach, can == 0, burns)
+	# And in words, under you, so the colours aren't alone (VISUALS.md §4): what a click would do.
+	aiming = true
+	var line := "[Click] Cast the %s here" % _spell_name(readied)
+	if can != 0:
+		line = "%s: %s" % [_spell_name(readied), AIM_WHY.get(can, "it can't be cast now")]
+	elif burns:
+		line += ": it would burn you too"
+	hud.show_prompts([[line, can == 0], [Prompts.keyed("[Right-click] let it go"), false]])
 
 
 ## A spell of yours landing on tile (x, y) (Event.CAST): its effect, by its kind and how far it

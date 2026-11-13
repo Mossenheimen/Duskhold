@@ -111,6 +111,22 @@ impl World {
         self.defs.spells.get(usize::from(spell))
     }
 
+    /// Whether `spell` cast on `at` would catch `id` in it: a fireball's burst harms all it holds,
+    /// its caster too (`burst`). The others harm nobody. For aiming: the client warns before you
+    /// cast one on yourself.
+    pub fn spell_catches(&self, id: ActorId, spell: u16, at: TilePos) -> bool {
+        let (Some(a), Some(s)) = (self.actors.get(id), self.spell(spell)) else {
+            return false;
+        };
+        let burst = Zone {
+            kind: s.kind,
+            at,
+            radius: s.radius,
+            until: 0,
+        };
+        s.kind == SpellKind::Fireball && burst.holds(a.pos)
+    }
+
     /// The spells `id` knows: its class's.
     pub fn known_spells(&self, id: ActorId) -> Vec<u16> {
         self.class_of(id).map_or(Vec::new(), |c| c.spells.clone())

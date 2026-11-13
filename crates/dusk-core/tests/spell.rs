@@ -402,3 +402,22 @@ fn a_wizards_powers_are_its_spells() {
         [LIGHT, SILENCE, FOG, FIREBALL].map(Power::Spell)
     );
 }
+
+#[test]
+fn a_fireball_catches_its_caster_only_within_its_reach() {
+    let (w, me) = field(12);
+    // The fireball's reach is 2 tiles: on yourself, beside you and two off, it catches you.
+    assert!(w.spell_catches(me, FIREBALL, ME));
+    assert!(w.spell_catches(me, FIREBALL, at(2, 0)));
+    assert!(
+        !w.spell_catches(me, FIREBALL, at(3, 0)),
+        "three tiles off, it doesn't"
+    );
+    assert!(
+        !w.spell_catches(me, FIREBALL, at(2, 2)),
+        "the reach is round: (2, 2) is 2.8 off"
+    );
+    // Nothing else harms its caster.
+    assert!(!w.spell_catches(me, LIGHT, ME));
+    assert!(!w.spell_catches(me, FOG, ME));
+}
