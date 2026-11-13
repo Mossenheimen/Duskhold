@@ -1,8 +1,10 @@
 extends Node3D
 ## One actor, the character or one of the dead. It faces the way the core says, and a mark over its
 ## head says what it knows of you: "?" it heard something, "!" it sees you. It leans in as it
-## winds up a swing (the tell), lies down when knocked down or asleep ("z"), and stays down,
-## darker, when dead. A body set alight glows and lights the ground round it; burnt, it's ash.
+## winds up a swing (the tell), rears back for a heavy one, kneels to pray and bends to pick, and
+## glows in a power's colour while it's called on (POSES). It lies down when knocked down or asleep
+## ("z"), and stays down, darker, when dead. A body set alight glows and lights the ground round
+## it; burnt, it's ash.
 
 const Look = preload("res://look.gd")
 const CHARACTER := Look.YOU
@@ -27,6 +29,31 @@ const TURNED := Look.HOLY
 ## An actor's state and what's become of a body, by name (codes.gd).
 const State = preload("res://codes.gd").State
 const Remains = preload("res://codes.gd").Remains
+const Action = preload("res://codes.gd").Action
+const Effects = preload("res://effects.gd")
+## No glow: a colour with nothing to it.
+const NO_GLOW := Color(0, 0, 0, 0)
+## How a body holds itself through an act (codes.gd's Action), as it's done: [degrees it leans,
+## back from its stoop (forward is -), how low it goes (1 standing, under 1 kneeling or
+## crouching), the glow of a power (NO_GLOW for an everyday act)]. A swing and a heavy swing move
+## through their wind-up instead (`show_pose`).
+const POSES := {
+	Action.CAST: [8.0, 1.0, Look.ARCANE],  # a Wizard's words, upright and leaning back
+	Action.TURN: [14.0, 1.0, Look.HOLY],  # the holy symbol held up high
+	Action.PRAY: [-14.0, 0.68, Look.HOLY],  # kneeling, head bowed
+	Action.CONSECRATE: [-30.0, 0.72, Look.HOLY],  # kneeling over the body
+	Action.WARD: [-10.0, 1.0, Look.HOLY],  # a hand on the door
+	Action.HEAL: [-12.0, 1.0, Look.GOOD],  # Mending: bent over the wound
+	Action.SECOND_WIND: [-28.0, 0.9, Look.ENDURANCE],  # hands on knees, catching its breath
+	Action.PICK: [-35.0, 0.85, NO_GLOW],  # Foraging: bent to the plant
+	Action.BUTCHER: [-25.0, 0.75, NO_GLOW],  # kneeling at the carcass
+	Action.LAY_FIRE: [-20.0, 0.75, NO_GLOW],  # crouched at the hearth
+	Action.LIGHT_FIRE: [-20.0, 0.75, NO_GLOW],
+	Action.BANDAGE: [-15.0, 1.0, NO_GLOW],  # First Aid: bent to the wound
+	Action.BOARD: [-8.0, 1.0, NO_GLOW],  # Carpentry: at the door, hammering
+	Action.UNBOARD: [-8.0, 1.0, NO_GLOW],
+	Action.CRAFT: [-15.0, 1.0, NO_GLOW],  # bent over what's being made
+}
 const FIRE := Look.EMBER
 const CINDERS := Look.ASH
 ## How far a burning body's light reaches, in tiles: rules.toml's [burning] light, plus a tile
@@ -48,6 +75,10 @@ var _remains := 0
 var _fire: OmniLight3D  # made when it first catches
 var _title: Label3D  # a rare's name, over its head
 var _beast := false  # on four legs: it falls on its side
+var _size := 1.0  # the body's own scale (a rare's is bigger)
+var _low := 1.0  # how low it goes now: 1 standing, eased toward a pose's
+var _glow := NO_GLOW  # a power's glow, while it's called on
+var _aura: CPUParticles3D  # motes rising round it while it glows, made the first time
 
 
 ## A rare: its name over its head, in the gold of a named thing, and a little bigger than its
@@ -64,7 +95,8 @@ func set_title(name: String) -> void:
 		_title.modulate = Look.RARE
 		_title.position.y = _mark.position.y + 0.45
 		add_child(_title)
-		_body.scale = Vector3.ONE * 1.12
+		_size = 1.12
+		_body.scale = Vector3.ONE * _size
 	_title.text = name
 
 
@@ -149,27 +181,85 @@ func _material(colour: Color) -> StandardMaterial3D:
 	return material
 
 
-## Its state (0 standing, 1 knocked down, 2 dead, 3 asleep, from DuskWorld.actor_states()) and
-## how far through a swing's wind-up it is (0 to 1; -1 when it isn't winding one up).
-func show_pose(state: int, wind_up: float, delta: float) -> void:
+## Its state (codes.gd's State, from DuskWorld.actor_states()) and the act it's doing (codes.gd's
+## Action, from actor_actions()) with how far through its wind-up it is (0 to 1): its pose.
+func show_pose(state: int, kind: int, progress: float, delta: float) -> void:
 	if state != _state:
 		_state = state
-		_skin.albedo_color = _colour.darkened(0.55) if state == 2 else _colour
-		_mark.visible = state == 0 or state == State.ASLEEP
+		_skin.albedo_color = _colour.darkened(0.55) if state == State.DEAD else _colour
+		_mark.visible = state == State.STANDING or state == State.ASLEEP
 		_show_mark()
 	var target := _stoop
-	if state != 0:
+	var low := 1.0
+	var glow := NO_GLOW
+	if state != State.STANDING:
 		target = -88.0  # flat on the ground
-	elif wind_up >= 0.0:
-		target = _stoop - 22.0 * wind_up  # leaning in to strike
+	elif kind == Action.SWING and progress < 1.0:
+		target = _stoop - 22.0 * progress  # leaning in to strike
+	elif kind == Action.HEAVY and progress < 1.0:
+		# Its weight behind it: it rears back first, then throws itself in, further than a swing.
+		target = _stoop + (16.0 * progress / 0.6 if progress < 0.6 else 16.0 - 46.0 * (progress - 0.6) / 0.4)
+	elif POSES.has(kind):
+		var pose: Array = POSES[kind]
+		target = _stoop + pose[0]
+		low = pose[1]
+		glow = pose[2]
 	if _beast:
 		# A beast doesn't lean in or pitch over: down, it rolls onto its side.
 		var roll := 85.0 if state != 0 else 0.0
 		var now := _body.rotation_degrees.z
 		_body.rotation_degrees.z = lerpf(now, roll, 1.0 - exp(-16.0 * delta)) if delta > 0.0 else roll
 		return
-	_pitch = lerpf(_pitch, target, 1.0 - exp(-16.0 * delta)) if delta > 0.0 else target
+	var blend := 1.0 - exp(-16.0 * delta) if delta > 0.0 else 1.0
+	_pitch = lerpf(_pitch, target, blend)
 	_body.rotation_degrees.x = _pitch
+	if state == State.STANDING:
+		_low = lerpf(_low, low, blend)
+		_body.scale = Vector3(_size, _size * _low, _size)
+	_show_glow(glow)
+
+
+## A power's glow (a colour, or NO_GLOW): its body lit in it, gently throbbing (steady with less
+## motion), and motes rising round it, both gone when the power's done.
+func _show_glow(colour: Color) -> void:
+	if colour == _glow:
+		if colour.a > 0.0:
+			var throb := 0.0 if Look.reduce_motion else 0.2 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
+			_skin.emission_energy_multiplier = 0.45 + throb
+		return
+	_glow = colour
+	if colour.a == 0.0:
+		if _remains != Remains.BURNING:
+			_skin.emission_enabled = false
+		if _aura != null:
+			_aura.emitting = false
+		return
+	_skin.emission_enabled = true
+	_skin.emission = colour
+	if _aura == null:
+		_aura = CPUParticles3D.new()
+		_aura.amount = 7 if Look.reduce_motion else 14
+		_aura.lifetime = 0.9
+		_aura.mesh = Effects.dot()
+		_aura.material_override = Effects.mote()
+		_aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_aura.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		_aura.emission_sphere_radius = 0.35
+		_aura.direction = Vector3.UP
+		_aura.spread = 25.0
+		_aura.initial_velocity_min = 0.4
+		_aura.initial_velocity_max = 0.8
+		_aura.gravity = Vector3(0, 0.3, 0)
+		_aura.scale_amount_min = 0.12
+		_aura.scale_amount_max = 0.22
+		var fade := Gradient.new()
+		fade.set_color(0, Color.WHITE)
+		fade.set_color(1, Color(1, 1, 1, 0))
+		_aura.color_ramp = fade
+		_aura.position = Vector3(0, 0.9, 0)
+		add_child(_aura)
+	_aura.color = colour
+	_aura.emitting = true
 
 
 ## What's become of its body (DuskWorld.actor_remains(): 0 nothing, 1 burning, 2 ash, 4 hallowed).

@@ -2,7 +2,7 @@
 //! test (`codes_gd_is_current`) fails when the two differ, and with `DUSK_WRITE_CODES` set it
 //! writes the file instead. So a code added here reaches the client by name, and can't drift.
 
-use dusk_core::Moodle;
+use dusk_core::{Moodle, SpellKind};
 
 /// A group of codes: a constant each, and the group's table (`ALL`), for `codes.gd`.
 macro_rules! codes {
@@ -250,6 +250,17 @@ pub mod remains {
     }
 }
 
+/// A spell's kind (`spell_info`, `spell_zones`): the core's `SpellKind`.
+pub mod spell {
+    use super::SpellKind;
+    codes! {
+        LIGHT = SpellKind::Light as i32,
+        SILENCE = SpellKind::Silence as i32,
+        FOG = SpellKind::Fog as i32,
+        FIREBALL = SpellKind::Fireball as i32,
+    }
+}
+
 /// What a number key holds (`character_powers`: this, then a spell's number).
 pub mod power {
     codes! {
@@ -318,6 +329,11 @@ pub const GROUPS: &[Group] = &[
         "Edge",
         "An edge's kind (DuskWorld.chunk_edges(): & 15; >> 4 is its boards).",
         edge::ALL,
+    ),
+    (
+        "Spell",
+        "A spell's kind (DuskWorld.spell_info(), spell_zones()).",
+        spell::ALL,
     ),
     (
         "Power",

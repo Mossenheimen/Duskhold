@@ -32,7 +32,7 @@ use godot::prelude::*;
 pub mod codes;
 
 use codes::event::*;
-use codes::{action, edge, item, power, remains, state};
+use codes::{action, edge, item, power, remains, spell, state};
 
 struct DuskExtension;
 
@@ -2178,6 +2178,20 @@ impl DuskWorld {
         }
     }
 
+    /// How far your turning reaches, in tiles (the rules', and what your talents add; 0 for a
+    /// class that doesn't turn): for drawing the holy wave as far as it goes.
+    #[func]
+    fn turn_reach(&self) -> i32 {
+        let Some(world) = &self.world else { return 0 };
+        world.character().map_or(0, |me| {
+            if world.can_turn(me) == Err(dusk_core::NoFaith::NotYours) {
+                0
+            } else {
+                world.turn_reach(me)
+            }
+        })
+    }
+
     /// Holds up the holy symbol and turns the dead (see `turn_check`).
     #[func]
     fn turn(&mut self) {
@@ -2866,10 +2880,10 @@ impl DuskWorld {
             });
             out.extend([
                 match s.kind {
-                    SpellKind::Light => 0,
-                    SpellKind::Silence => 1,
-                    SpellKind::Fog => 2,
-                    SpellKind::Fireball => 3,
+                    SpellKind::Light => spell::LIGHT,
+                    SpellKind::Silence => spell::SILENCE,
+                    SpellKind::Fog => spell::FOG,
+                    SpellKind::Fireball => spell::FIREBALL,
                 },
                 i32::from(s.slots),
                 cast as i32,
@@ -2973,10 +2987,10 @@ impl DuskWorld {
         let mut out = Vec::new();
         for z in world.zones() {
             let kind = match z.kind {
-                SpellKind::Light => 0,
-                SpellKind::Silence => 1,
-                SpellKind::Fog => 2,
-                SpellKind::Fireball => 3,
+                SpellKind::Light => spell::LIGHT,
+                SpellKind::Silence => spell::SILENCE,
+                SpellKind::Fog => spell::FOG,
+                SpellKind::Fireball => spell::FIREBALL,
             };
             let left = z.until.saturating_sub(world.tick).min(i32::MAX as u64) as i32;
             out.extend([kind, z.at.x, z.at.y, z.radius, left]);

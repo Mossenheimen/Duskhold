@@ -285,6 +285,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | A body burning, ash, hallowed | Embers that glow and light the ground; a dark smear of ash; a body consecrated lies pale | ember, holy |
 | Your own state | Edge darkening for dread; a red flash for a hurt; a gold flash for a level; a veil for sleep | §4 |
 | A spell on its spot | Light: a pale light with a glowing mote over the spot, reaching as far as the core says. Silence: a ring at its reach. Fog: a low cloud as wide as it reaches. A spell's words: the tell, on the spot it's cast on | `magic.arcane`, `magic.fog`, `signal.yours` |
+| A power called on, a skill used | The body's pose: casting leans back, turning holds the symbol high, praying and consecrating kneel, picking, butchering and tending a fire bend or kneel, a heavy swing rears back before it lunges. A power glows in its colour with motes rising (arcane, holy, good, endurance), and lands as a burst (§12, Effects) | `magic.arcane`, `signal.holy`, `signal.good`, `bar.endurance`, `signal.gold`, ember |
 
 **Should:** a new sense or state reuses a token above. A new colour needs a new row here first.
 
@@ -516,6 +517,22 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 - **Must:** nothing flickers faster than 3 Hz, and any flash can be turned off (§13). **Today** (2026-11-12): "Fewer flashes, less motion" turns off the hurt and level flashes, dread's breathing (it still darkens), and the pops of moodles and of marks over heads. The bleeding part's slow pulse on the body diagram stays: it's how bleeding is told without colour.
 - **Should:** one flash at a time; a newer one replaces the last.
 
+### Effects
+
+A power or a spell as it happens: glowing motes, rings and a flash of light, brief, in the colour of what it means. Magic is the only thing that glows by itself (§1), so a glow in the world always says "a power".
+
+- **One colour, one meaning:** arcane for a Wizard's (the words, a Light, a Silence), holy for a Cleric's (turning, prayer, consecration, a ward), good for Mending, endurance for the Second Wind (the bar it fills), gold for a skill or a level rising, fire and ember for a fireball. Smoke is ash's colour.
+- **Short:** a burst lives at most 1.8 s, a wave 0.9 s; a power's glow and its motes last while the act does.
+- **Where you are:** only your own powers make effects, so nothing is drawn where you can't see.
+- **Fewer flashes, less motion** (§13): half as many motes, and no flash of light.
+
+**Today** (2026-11-13): `client/effects.gd`, from the core's events, and each actor's pose and glow (`actor_view.gd`'s `POSES`).
+- **Spells:** a Light's pale motes rise from its spot; a Silence's ring draws in to it; a Fog puffs out; a Fireball flies from the hand as a trail of fire, then flashes, with flames, embers falling, smoke rising and an ember ring out to its reach. The words broken: the motes fall away. While the words are said, the Wizard glows arcane, leaning back, motes rising round it.
+- **The Cleric's:** turning sends a holy wave out to as far as it reaches (`DuskWorld.turn_reach()`, its talents in it); prayer and consecration lift holy motes from the body, a ward puts them on the door. Mending lifts motes in good's green.
+- **The Fighter's:** the Second Wind blows a breath out round you.
+- **Skills and levels:** gold motes round your feet as a skill rises a level or is mastered; a level of your own, more, and a gold ring.
+- **Motes** are soft dots made in code (a radial gradient), drawn additively as light or blended as smoke (`Effects.mote`), CPU particles, so a run with no window draws them too.
+
 ---
 
 ## 13. Settings for everyone
@@ -599,6 +616,9 @@ These are standard pictures for checking the look. Each takes no special data. A
 | The settings screen, two switches on | `--seed=7 --hour=12 --look=colour_blind,show_numbers --do=1:settings --shot=PNG --shot-after=2.5` |
 | Every setting on, in a fight at the near farm | `--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --shot=PNG --shot-after=14` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
+| A fireball flying (its trail, the ember ring where it lands; the spot three tiles east is under trees) | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=3.75` |
+| A Wizard's words: the arcane glow and its motes | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=2.6` |
+| A Cleric kneeling in prayer at the abbey's altar, glowing holy | `--seed=7 --hour=22 --class=cleric --walk=74,114 --do=9:use --shot=PNG --shot-after=12` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
 - `[hunger]`: `rise = 600.0`, `levels = [5, 10, 95]`;

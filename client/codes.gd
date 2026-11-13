@@ -238,6 +238,14 @@ enum Edge {
 	WINDOW_BROKEN = 7,
 }
 
+## A spell's kind (DuskWorld.spell_info(), spell_zones()).
+enum Spell {
+	LIGHT = 0,
+	SILENCE = 1,
+	FOG = 2,
+	FIREBALL = 3,
+}
+
 ## What a number key holds (DuskWorld.character_powers(): this, then a spell's number).
 enum Power {
 	TURN = 0,

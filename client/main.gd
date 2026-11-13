@@ -35,6 +35,7 @@ const ActorView = preload("res://actor_view.gd")
 const NoiseRings = preload("res://noise_rings.gd")
 const Hud = preload("res://hud.gd")
 const Tells = preload("res://tells.gd")
+const Effects = preload("res://effects.gd")
 const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
 const Litter = preload("res://litter.gd")
@@ -134,6 +135,7 @@ var dusk: Node  # the DuskWorld
 var map_view: MapView
 var rings: NoiseRings
 var tells: Tells
+var effects: Effects  # a power or a spell as it happens: bursts, waves, a fireball's flight
 var threats: Threats
 var bag: Bag
 var litter: Litter
@@ -252,6 +254,8 @@ func _ready() -> void:
 	add_child(rings)
 	tells = Tells.new()
 	add_child(tells)
+	effects = Effects.new()
+	add_child(effects)
 	threats = Threats.new()
 	add_child(threats)
 	bag = Bag.new()
@@ -1041,9 +1045,9 @@ func _draw_actors(delta: float) -> void:
 		actors[i].position = Vector3(where[i].x + 0.5, lift, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
-		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
-		var swinging := actions[i * 4] in [Action.SWING, Action.HEAVY] and actions[i * 4 + 1] < 1000
-		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
+		# How it holds itself through what it's doing: a swing's lean (the tell, on the body as well
+		# as the ground), a heavy swing rearing back, kneeling to pray, a power's glow.
+		actors[i].show_pose(states[i], actions[i * 4], actions[i * 4 + 1] / 1000.0, delta)
 		actors[i].show_remains(remains[i], delta)
 	tells.show_actions(actions, me, seen)
 	var drawn := []
@@ -1147,15 +1151,18 @@ func _read_events() -> void:
 			Event.CAST:
 				if who == me:
 					hud.say("You cast %s." % _spell_name(extra))
+					_spell_effect(extra, events[i + 3], events[i + 4])
 			Event.SCORCHED:
 				if target == me:
 					hud.say("Your own fireball burns you!" if who == me else "Fire burns you!")
 			Event.SPELL_BROKE:
 				if who == me:
 					hud.say("The blow breaks your words: the %s is lost. Nothing's spent." % _spell_name(extra))
+					effects.spell_broke(actors[me].position)
 			Event.SLOTS_BACK:
 				if who == me:
 					hud.say("Rested, your spell slots are all back.")
+					effects.rise(actors[me].position, Look.ARCANE)
 			Event.GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
 				# plus the level).
@@ -1239,6 +1246,7 @@ func _read_events() -> void:
 			Event.SKILL_UP:
 				if who == me:
 					hud.say(Prompts.keyed("%s rose to level %d.  ({skills}: skills)") % [_skill_name(extra), extra % 100])
+					effects.gold(actors[me].position, false)
 			Event.SKILL_AT_CAP:
 				if who == me:
 					if dusk.masteries_left() > 0:
@@ -1248,6 +1256,7 @@ func _read_events() -> void:
 			Event.MASTERED:
 				if who == me:
 					hud.say("You mastered %s: level %d, and on to 10." % [_skill_name(extra), extra % 100])
+					effects.gold(actors[me].position, false)
 			Event.BOARDED:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
@@ -1271,8 +1280,9 @@ func _read_events() -> void:
 					hud.say("Brought home: %s, %d XP." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
 			Event.LEVEL_UP:
 				if who == me:
-					hud.say("You reached level %d. A little more health, and a talent to choose: K." % extra)
+					hud.say(Prompts.keyed("You reached level %d. A little more health, and a talent to choose: {skills}.") % extra)
 					hud.flash_good()
+					effects.gold(actors[me].position, true)
 			Event.FEVERED:
 				if who == me:
 					hud.say("The wound burns. You've caught ghoul fever: three days to find a cure.")
@@ -1339,11 +1349,13 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You catch your second wind.")
 					hud.flash_good()
+					effects.second_wind(actors[me].position)
 			Event.CLASS_CHOSEN:
 				if who == me and extra * 2 < class_texts.size():
 					hud.say("You take up the %s's way." % class_texts[extra * 2])
 			Event.TURNED:
 				if who == me:
+					effects.turn(actors[me].position, dusk.turn_reach())
 					var turned := extra % 1000
 					var fell := floori(extra / 1000.0)
 					if turned + fell == 0:
@@ -1361,16 +1373,20 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("You pray. Your faith comes back, and your dread eases." if extra == 1 else "You pray, and your dread eases.")
 					hud.flash_good()
+					effects.rise(actors[me].position, Look.HOLY)
 			Event.CONSECRATED:
 				if who == me:
 					hud.say("You pour the holy water over it. It won't get up again." if extra == 1 else "You say the rites over it. It won't get up again.")
+					effects.rise(Vector3(events[i + 3] + 0.5, 0.0, events[i + 4] + 0.5), Look.HOLY)
 			Event.HEALED:
 				if who == me:
 					hud.say("Your faith closes the wound.")
 					hud.flash_good()
+					effects.rise(actors[me].position, Look.GOOD)
 			Event.WARDED:
 				if who == me:
 					hud.say("You ward the door. The dead won't beat on it tonight.")
+					effects.ward(events[i + 3], events[i + 4], extra)
 			Event.PICKED:
 				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
@@ -2216,6 +2232,14 @@ func _ready_spell(spell: int) -> void:
 func _let_go() -> void:
 	readied = -1
 	hud.say("You let the spell go.")
+
+
+## A spell of yours landing on tile (x, y) (Event.CAST): its effect, by its kind and how far it
+## reaches (DuskWorld.spell_info(): eight numbers a spell, its kind first and its reach fifth).
+func _spell_effect(spell: int, x: int, y: int) -> void:
+	var info: PackedInt32Array = dusk.spell_info()
+	if spell * 8 + 4 < info.size():
+		effects.spell(info[spell * 8], x, y, info[spell * 8 + 4], actors[me].position)
 
 
 ## The readied spell, cast on `tile`: the core says whether it can be, and this says why not.

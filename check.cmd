@@ -28,13 +28,13 @@ rem The prompts, E's list and E tapped, at seed 1's chamomile by the pond.
 call :run 4000 "--seed=1 --walk=57,119 --do=12:here,13:esc,14:use"
 rem A Cleric praying by E at the abbey's altar, then its powers.
 call :run 6000 "--seed=7 --class=cleric --walk=74,114 --do=9:use,11:power2,22:power1"
-rem A Wizard's spells by number, then every panel and the settings, opened and closed.
-call :run 1500 "--seed=7 --class=wizard --do=1:power1,2:power4,3:esc,4:spells,5:skills,6:craft,7:keys,7.5:keys,8:settings,9:esc"
+rem A Wizard's spells by number, every panel and the settings, opened and closed; then two cast.
+call :run 2500 "--seed=7 --class=wizard --do=1:power1,2:power4,3:esc,4:spells,5:skills,6:craft,7:keys,7.5:keys,8:settings,9:esc,9.5:cast_light,10:cast_fireball"
 rem Every setting on, through the near farm and its fight.
 call :run 6000 "--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --do=20:here,21:esc"
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You pick it" "You pray" "Fireball ready" "Pick the bramble") do (
+for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

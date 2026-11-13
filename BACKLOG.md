@@ -70,7 +70,8 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 **The look** (`VISUALS.md` §16)
 - Slice 8, looks as data; slice 9, screens (both in the queue); slice 10, icons, by kind and then each item's own; slice 11, shapes: heads, shoulders and the thing in hand for people and the dead; slice 12, regions.
 - Wear showing: blood, dirt and scorch on gear and the character, damage on bases.
-- Poses: a climb, a heavy swing, one turned by the holy symbol; armour and bags drawn on the character and the dead.
+- Poses: a climb, one turned by the holy symbol (it's marked, not posed); armour and bags drawn on the character and the dead.
+- Effects for the fight: sparks off a shield's block, dust where a heavy blow fells one, a sneak attack's own mark; the dead's (a wight putting out lights, a revenant rising), the Tolling's bell; a fireball's flames seen through trees between it and the camera (crowns aren't cut away for a spell's spot).
 
 **Saves and tools**
 - More than one save; the camera and the speed dial saved.

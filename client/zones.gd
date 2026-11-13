@@ -5,9 +5,8 @@ extends Node3D
 
 const Look = preload("res://look.gd")
 
-const LIGHT := 0
-const SILENCE := 1
-const FOG := 2
+## A spell's kind, by name (codes.gd).
+const Spell = preload("res://codes.gd").Spell
 ## Five numbers a zone: kind, x, y, reach, ticks left.
 const ZONE := 5
 
@@ -59,7 +58,7 @@ func clear() -> void:
 func _make(kind: int, x: int, y: int, reach: int) -> Node3D:
 	var centre := Vector3(x + 0.5, 0.0, y + 0.5)
 	match kind:
-		LIGHT:
+		Spell.LIGHT:
 			var light := OmniLight3D.new()
 			light.light_color = Look.ARCANE
 			light.light_energy = 2.4
@@ -76,7 +75,7 @@ func _make(kind: int, x: int, y: int, reach: int) -> Node3D:
 			mote.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			light.add_child(mote)
 			return light
-		SILENCE:
+		Spell.SILENCE:
 			var plane := PlaneMesh.new()
 			plane.size = Vector2.ONE * (reach * 2.0 + 0.5)
 			var ring := MeshInstance3D.new()
@@ -87,7 +86,7 @@ func _make(kind: int, x: int, y: int, reach: int) -> Node3D:
 			ring.set_instance_shader_parameter("reach", float(reach))
 			ring.set_instance_shader_parameter("age", 0.3)  # spread out, not yet fading
 			return ring
-		FOG:
+		Spell.FOG:
 			var cloud := MeshInstance3D.new()
 			var drum := CylinderMesh.new()
 			drum.top_radius = reach + 0.5
