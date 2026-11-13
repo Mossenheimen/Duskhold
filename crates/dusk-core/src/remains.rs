@@ -19,7 +19,7 @@ use crate::actor::{ActionKind, ActorId, Mind, Remains};
 use crate::body::Body;
 use crate::geom::{Dir8, TilePos};
 use crate::hash::{Purpose, below, roll};
-use crate::items::{ItemKind, within_reach};
+use crate::items::{ItemKind, tiles_beside, within_reach};
 use crate::world::{Event, World};
 
 /// Burning's numbers, in the core's units.
@@ -107,15 +107,7 @@ impl World {
     /// clockwise from its facing. Only one it can reach (no wall between).
     pub fn body_beside(&self, id: ActorId) -> Option<ActorId> {
         let a = self.actors.get(id)?;
-        let (pos, facing) = (a.pos, a.facing);
-        let ahead = std::iter::once(pos.step(facing));
-        let round = (1..8).map(|t| pos.step(facing.turned(t)));
-        let mut tiles = ahead.chain(std::iter::once(pos)).chain(round);
-        tiles.find_map(|at| {
-            within_reach(&self.grid, pos, at)
-                .then(|| self.bodies_on(at).next())
-                .flatten()
-        })
+        tiles_beside(&self.grid, a.pos, a.facing, true).find_map(|at| self.bodies_on(at).next())
     }
 
     /// Whether `id` can burn a body now, and which: one beside it, oil in its pack, and a light

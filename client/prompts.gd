@@ -22,6 +22,50 @@ const MOST := 9  # the held list's longest: a number key each
 ## Keys' names as a key cap says them, where Godot's are long.
 const SHORT := {"Escape": "Esc", "Minus": "-", "Equal": "="}
 
+## Why each check refuses (DuskWorld's *_check codes, the core's reasons), worded once:
+## [as a prompt says it, as the news says it when you try anyway]. The news's "" is the prompt's
+## reason as a sentence; the prompt's "" means it isn't prompted (there's nothing there).
+const REFUSED := {
+	"door": {
+		-1: ["", "There's no door or window beside you."],
+		-2: ["it's boarded up", "It's boarded up. Hold {use} to pry a board off (with a hammer)."],
+		-3: ["", "Its glass is broken: it won't shut. Climb through it, or board it up."],
+	},
+	"board": {
+		-1: ["", "There's no door or window beside you to board up."],
+		-2: ["shut it first", ""],
+		-3: ["", "It won't take another board."],
+		-4: ["you need a hammer", ""],
+		-5: ["you need a plank", ""],
+		-6: ["you need nails: two a board", ""],
+	},
+	"unboard": {
+		-1: ["", "There's nothing boarded up beside you."],
+		-4: ["you need a hammer", "You need a hammer to pry it off."],
+	},
+	"butcher": {-2: ["you need a knife or an axe", "You need a knife or an axe to butcher it."]},
+	"burn": {
+		-1: ["", "There's no body beside you to burn."],
+		-2: ["you need oil", "You need oil to burn it."],
+		-3: ["hold up a light to set it alight {light}", "You need a flame: hold up a lit torch or candle {light}."],
+	},
+	"consecrate": {
+		-1: ["", "There's no body beside you to consecrate."],
+		-2: ["you need holy water", "You need holy water to consecrate it: the abbey sells it, and the chapel's fonts hold it."],
+	},
+	"ward": {
+		-1: ["", "No warding: it takes the talent (a Cleric's)."],
+		-2: ["", "There's no shut door beside you to ward."],
+		-3: ["not enough faith: pray at an altar", "Not enough faith to ward the door. Pray at an altar."],
+	},
+	"fire": {
+		-1: ["", "There's no hearth, stove or forge beside you."],
+		-2: ["", "It won't take more just now: let it burn down a while."],
+		-3: ["you have nothing that burns", "You have nothing that burns: split logs (a hearth or stove keeps a few by it) or planks."],
+		-4: ["hold up a lit torch or candle {light}", "The fire's laid. Hold up a lit torch or candle {light} to light it."],
+	},
+}
+
 ## "{use}" in a line of text: an action's key cap; "{pack|all}" every key it's on.
 static var _braces := RegEx.create_from_string("\\{([a-z_0-9]+)(\\|all)?\\}")
 
@@ -42,22 +86,18 @@ static func here(dusk: Node, creatures: PackedStringArray, fixtures: PackedStrin
 	if carcass >= 0:
 		all.append(_entry("burn", "Butcher the " + _creature(carcass, creatures, kinds)))
 	elif carcass == -2:
-		all.append(_entry("burn", "Butcher the carcass", "you need a knife or an axe"))
+		all.append(_entry("burn", "Butcher the carcass", why("butcher", -2)))
 	else:
-		match dusk.burn_check():
-			-1:
-				pass
-			-2:
-				all.append(_entry("burn", "Burn the body", "you need oil"))
-			-3:
-				all.append(_entry("burn", "Burn the body", "hold up a light to set it alight {light}"))
-			_:
-				all.append(_entry("burn", "Burn the body"))
+		var burn: int = dusk.burn_check()
+		if burn in [-2, -3]:
+			all.append(_entry("burn", "Burn the body", why("burn", burn)))
+		elif burn != -1:
+			all.append(_entry("burn", "Burn the body"))
 	var body: int = dusk.consecrate_check()
 	if body >= 0:
 		all.append(_entry("consecrate", "Consecrate the body"))
 	elif body == -2:
-		all.append(_entry("consecrate", "Consecrate the body", "you need holy water"))
+		all.append(_entry("consecrate", "Consecrate the body", why("consecrate", -2)))
 	var plant: int = dusk.pick_check()
 	if plant > 0:
 		all.append(_entry("pick", "Pick the " + _fixture(plant, fixtures)))
@@ -75,9 +115,9 @@ static func here(dusk: Node, creatures: PackedStringArray, fixtures: PackedStrin
 				all.append(_entry("tend_fire", "Light " + it))
 			-3:
 				if not alight:
-					all.append(_entry("tend_fire", "Lay a fire in " + it, "you have nothing that burns"))
+					all.append(_entry("tend_fire", "Lay a fire in " + it, why("fire", -3)))
 			-4:
-				all.append(_entry("tend_fire", "Light " + it, "hold up a lit torch or candle {light}"))
+				all.append(_entry("tend_fire", "Light " + it, why("fire", -4)))
 		if alight:
 			all.append(_entry("smother_fire", "Put out " + it, "", MORE))
 	if dusk.water_in_reach():
@@ -85,32 +125,37 @@ static func here(dusk: Node, creatures: PackedStringArray, fixtures: PackedStrin
 	if door.size() >= 4 and not faced:
 		_door(all, door, QUIET)
 	# The boards, on the door or window beside you (the core picks which: the one you face first).
-	match dusk.board_check(false):
-		-1, -3:
-			pass  # none beside you, or it takes no more
-		-2:
-			all.append(_entry("board", "Board it up", "shut it first", LISTED))
-		-4:
-			all.append(_entry("board", "Board it up", "you need a hammer", LISTED))
-		-5:
-			all.append(_entry("board", "Board it up", "you need a plank", LISTED))
-		-6:
-			all.append(_entry("board", "Board it up", "you need nails: two a board", LISTED))
-		_:
-			all.append(_entry("board", "Board it up", "", MORE))
-	match dusk.board_check(true):
-		-1:
-			pass
-		-4:
-			all.append(_entry("unboard", "Pry a board off", "you need a hammer", LISTED))
-		_:
-			all.append(_entry("unboard", "Pry a board off", "", MORE))
-	match dusk.ward_check():
-		1:
-			all.append(_entry("ward", "Ward the door", "", MORE))
-		-3:
-			all.append(_entry("ward", "Ward the door", "not enough faith: pray at an altar", LISTED))
+	# None beside you (-1), or it takes no more (-3): nothing to offer.
+	var board: int = dusk.board_check(false)
+	if board >= 0:
+		all.append(_entry("board", "Board it up", "", MORE))
+	elif board not in [-1, -3]:
+		all.append(_entry("board", "Board it up", why("board", board), LISTED))
+	var pry: int = dusk.board_check(true)
+	if pry >= 0:
+		all.append(_entry("unboard", "Pry a board off", "", MORE))
+	elif pry != -1:
+		all.append(_entry("unboard", "Pry a board off", why("unboard", pry), LISTED))
+	var ward: int = dusk.ward_check()
+	if ward == 1:
+		all.append(_entry("ward", "Ward the door", "", MORE))
+	elif ward == -3:
+		all.append(_entry("ward", "Ward the door", why("ward", ward), LISTED))
 	return all.slice(0, MOST)
+
+
+## The prompt's reason `check` refused with `code` ("you need a hammer"), from REFUSED.
+static func why(check: String, code: int) -> String:
+	return keyed(REFUSED.get(check, {}).get(code, ["", ""])[0])
+
+
+## The news's sentence for it ("You need a hammer."): its own, else the reason made a sentence.
+static func refusal(check: String, code: int) -> String:
+	var both: Array = REFUSED.get(check, {}).get(code, ["", ""])
+	if both[1] != "":
+		return keyed(both[1])
+	var reason: String = both[0]
+	return keyed(reason.left(1).to_upper() + reason.substr(1) + ".") if reason != "" else ""
 
 
 ## The entry E does (an index in `entries`): the first that can be done and is E's to do (LIKELY
@@ -212,7 +257,7 @@ static func _door(all: Array, door: PackedInt32Array, place: int) -> void:
 		1:
 			all.append(_entry("door", what, "", place))
 		-2:
-			all.append(_entry("door", what, "it's boarded up", place))
+			all.append(_entry("door", what, why("door", -2), place))
 
 
 static func _entry(verb: String, what: String, why := "", place := LIKELY) -> Array:

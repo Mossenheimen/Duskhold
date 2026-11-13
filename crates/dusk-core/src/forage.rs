@@ -21,7 +21,7 @@ use crate::actor::{ActionKind, ActorId};
 use crate::geom::{Dir8, TilePos};
 use crate::grid::Tile;
 use crate::hash::{Purpose, below, roll};
-use crate::items::{Item, within_reach};
+use crate::items::{Item, tiles_beside, within_reach};
 use crate::skills::{On, Skill};
 use crate::world::{Event, World};
 
@@ -57,13 +57,7 @@ impl World {
     /// clockwise from its facing. Only one it can reach.
     pub fn plant_beside(&self, id: ActorId) -> Option<TilePos> {
         let a = self.actors.get(id).filter(|a| !a.dead)?;
-        let (pos, facing) = (a.pos, a.facing);
-        let ahead = std::iter::once(pos.step(facing));
-        let round = (1..8).map(|t| pos.step(facing.turned(t)));
-        ahead
-            .chain(std::iter::once(pos))
-            .chain(round)
-            .find(|&at| self.plant_at(at).is_some() && within_reach(&self.grid, pos, at))
+        tiles_beside(&self.grid, a.pos, a.facing, true).find(|&at| self.plant_at(at).is_some())
     }
 
     /// The picking's start: which way, and how long.

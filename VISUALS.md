@@ -318,7 +318,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Left-aligned** in its box, even when the box sits on the right edge. Centred only for one-line banners and titles.
 - **Lines of 80 characters at most** (news, tooltips, descriptions).
 - **Numbers:** counts as "×2", weights as "0.6 kg", times as "3h 50m", and a percentage only for condition. Figures are lining and tabular (the fonts are imported with OpenType `lnum` and `tnum`): Alegreya Sans's own old-style figures sit low among the letters, and a ticking clock or weight would shift.
-- **Words:** plain and short, in the game's voice (`CONCEPT.md`). An act and its key are said together: "Y to pick it".
+- **Words:** plain and short, in the game's voice (`CONCEPT.md`). An act and its key are said together: "[E] Pick the yarrow".
 
 ---
 
@@ -377,7 +377,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 
 | Zone | What | Where, how big | Shows | Today |
 |---|---|---|---|---|
-| **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here |
+| **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here since 2026-11-13 (it was two lines: a title with the newest feature, and the seed). A trial run adds its seed at the end, for pictures and bugs |
 | **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; the bars 350 wide, the body diagram beside them | always (faith only for a class that has it) | as here: out of breath and the wounds in words under the bars, beside the diagram |
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |

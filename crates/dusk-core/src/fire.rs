@@ -16,7 +16,7 @@
 use crate::actor::{ActionKind, ActorId, Mind};
 use crate::barricade::spend;
 use crate::geom::{Dir8, TilePos};
-use crate::items::within_reach;
+use crate::items::{tiles_beside, within_reach};
 use crate::world::{Event, World};
 
 /// The fire's numbers, in the core's units.
@@ -97,12 +97,8 @@ impl World {
     /// between).
     pub fn hearth_beside(&self, id: ActorId, lit: bool) -> Option<TilePos> {
         let a = self.actors.get(id).filter(|a| !a.dead)?;
-        let (pos, facing) = (a.pos, a.facing);
-        (0..8).map(|t| pos.step(facing.turned(t))).find(|&at| {
-            self.hearth_reach(at) > 0
-                && (!lit || self.hearth(at).lit)
-                && within_reach(&self.grid, pos, at)
-        })
+        tiles_beside(&self.grid, a.pos, a.facing, false)
+            .find(|&at| self.hearth_reach(at) > 0 && (!lit || self.hearth(at).lit))
     }
 
     /// The fuel `id` would put on next: the longest-burning in its pack, and how long it burns.

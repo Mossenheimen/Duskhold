@@ -334,6 +334,22 @@ impl Defs {
     }
 }
 
+/// The tiles round `pos` a verb looks at for what it acts on, in the order it looks: the one
+/// faced, then (with `own`) `pos` itself, then the rest clockwise from the faced one; only those
+/// within reach (`within_reach`). One order for every verb (a plant, a carcass, a body, a fire, a
+/// counter), so what E does beside you is decided the same way whichever thing it is.
+pub(crate) fn tiles_beside(
+    grid: &Grid,
+    pos: TilePos,
+    facing: Dir8,
+    own: bool,
+) -> impl Iterator<Item = TilePos> + '_ {
+    std::iter::once(pos.step(facing))
+        .chain(own.then_some(pos))
+        .chain((1..8).map(move |t| pos.step(facing.turned(t))))
+        .filter(move |&at| within_reach(grid, pos, at))
+}
+
 /// Where a container or a floor can be reached from: the tile itself, or one beside it with no
 /// wall or shut door between (furniture is solid, so this isn't `reaches`).
 pub(crate) fn within_reach(grid: &Grid, from: TilePos, to: TilePos) -> bool {

@@ -22,7 +22,7 @@
 
 use crate::actor::ActorId;
 use crate::geom::{Dir8, TilePos};
-use crate::items::{Defs, Item, ItemKind, NEW, within_reach};
+use crate::items::{Defs, Item, ItemKind, NEW, tiles_beside, within_reach};
 use crate::world::{Event, World};
 
 /// What a holdout sells: an item, its price in coin, and how many it has a game day.
@@ -140,12 +140,8 @@ impl World {
     /// A counter within `id`'s reach, and its holdout: the one it faces, else the first round it.
     pub fn counter_in_reach(&self, id: ActorId) -> Option<(TilePos, u16)> {
         let a = self.actors.get(id).filter(|a| !a.dead)?;
-        (0..8)
-            .map(|t| a.pos.step(a.facing.turned(t)))
-            .find_map(|at| {
-                let h = self.counter_at(at)?;
-                within_reach(&self.grid, a.pos, at).then_some((at, h))
-            })
+        tiles_beside(&self.grid, a.pos, a.facing, false)
+            .find_map(|at| self.counter_at(at).map(|h| (at, h)))
     }
 
     /// The game day, for the holdouts' stock: from 0.

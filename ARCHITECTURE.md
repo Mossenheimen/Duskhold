@@ -124,6 +124,8 @@ impl World {
 }
 ```
 
+*Today (2026-11-13):* a world is `World::new(seed)` (or `from_text` for tests), with `intent`, `step`, `events` and `state_hash` as above, and a save is bytes (`save.rs`). `from_scenario`, `observe` and `mask` are the bot's, still to come (build step 7); what the player can do now is asked through each verb's own check (`can_board`, `can_use_door`, ...).
+
 An `Intent` is anything a controller can ask for:
 
 - idle;
@@ -420,6 +422,7 @@ obs, rew, term, trunc, info = sim.step(actions)   # 5 ticks a step, 16 worlds on
 - **Benchmarks** (`criterion`): ticks a second for fixed scenarios (a quiet farmhouse, a street with 100 dead, the Tolling with 500).
 - **Python:** Gymnasium's environment checker, stable input names, masks that agree with what the actions do, and a toy training run.
 - **No fake game needed:** ZomboidRL's `lua_harness.py` had to fake the game; here the core is the game.
+- **Today** (2026-11-13): `check.cmd` runs every check before a commit: formatting, lints (none allowed), every test, the data, then the game with no window through four scripted runs (the prompts and E's list, a Cleric's prayer and powers, a Wizard's spells and every panel, every setting through a fight), failing on any script error or on a run that didn't get where it was going. Golden replays, property tests, criterion benchmarks and the Python checks are still to come.
 
 ## Setup on this PC
 
@@ -437,6 +440,7 @@ State on 2026-11-05:
   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--passive --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
   ```
 - **Godot 4.7.2** (standard build), installed 2026-11-06 in `%LOCALAPPDATA%\Programs\Godot`, outside OneDrive. It came from the official GitHub release, checked against its SHA-512 sum. `Godot_v4.7.2-stable_win64.exe` is the editor; `Godot_v4.7.2-stable_win64_console.exe` is the same program printing to the terminal (for scripts and `--version`).
+- **Updated 2026-11-13:** Rust 1.100.0 (`rustup update`), and the extension built against Godot 4.7's API (gdext 0.5.5's `api-4-7`; it was 4.6, gdext's default), so `play.cmd` writes 4.7 as the extension's minimum.
 - **`play.cmd`** (2026-11-06) builds the extension and starts the game with the console build, so Godot's messages land in the terminal. The first time, it also has Godot import the project (`--headless --import`), which registers the extension in `client/.godot/`. It's a batch file rather than a PowerShell script, so PowerShell's script policy doesn't come into it.
 
 ## Performance budget (per world, one thread)
@@ -1455,7 +1459,7 @@ Game first: every step ends with something to look at or play.
        - **key caps everywhere come from the InputMap** (`Prompts.keyed`: "{use}" is "[E]", "{pack|all}" "[Tab] or [I]", Ctrl+N with its modifier): the prompts, the news, the moodles' tips, the asleep banner, the death screen, the keys panel. The talents' lines in `data/talents.toml` name no keys now;
        - **the keys panel** (F1): five groups (move and fight; here; your powers; panels; the game) in three columns, the keys in a column of their own; zone F hides while it's open, since it showed through the panel's ground;
        - **checked:** four new tests (the door's check; the Cleric's, Fighter's and Wizard's powers); headless runs: E tapped and held at the chamomile (the pond's "Drink your fill" in the list), praying by E at the abbey, the Cleric's turning on 1 and "Nothing on [2] yet", a Wizard's Light on 1 and Fireball on 4, the near farm's bramble, doors and stove. Two pictures: the keys panel (the first, with a 130 px key column, wrapped every line; now 80) and E's list at the abbey door;
-       - **not yet:** remapping (visual slice 7), a gamepad, and a bar on screen showing the powers.
+       - **not yet:** a gamepad, and a bar on screen showing the powers. *(Remapping came the same day, with the settings.)*
      - **Settings** (2026-11-12; the seventh visual slice of `VISUALS.md` §16; 377 tests):
        - **the screen** (`client/settings.gd`, F10): over the world dimmed (`Look.DIM`, new: `ui.dim`) and paused, on a ground at 95% whatever high contrast says, so the world's prompts and banners don't show through. The GUI's size (− and +, as - and = do), four switches, and all 30 keys but Esc. Esc closes it first (`_close_top`), and while it's open the game takes no keys or clicks. The player's own game keeps it all in `user://settings.cfg` (the GUI's size moved here from `main.gd`); a trial run keeps nothing, and `--look=` turns switches on for pictures;
        - **colour-blind mode:** the alert states (`Look.CALM`, `ALERT`, `DANGER`, `DANGER_TEXT`) became static vars, swapped for the Okabe–Ito set by `Look.set_look`, danger's text a lighter vermillion (`#F07F45`, 7.1:1). `Look.version` moves on with any setting, and what copied a colour copies it again: the sight shader's parameters (`map_view.gd`), the marks over heads, the threat lines and tells (now read as drawn), the held banner and "out of breath";
@@ -1465,8 +1469,24 @@ Game first: every step ends with something to look at or play.
        - **remapping:** click a key's button, press the new key. Esc keeps the old one; a modifier alone is bound when let go, Ctrl with a key goes with it; the new key replaces the first, so walking keeps its arrows; a key taken from another action leaves that one without it, and the screen says so. "Back to the defaults" puts all back. Only changes are kept. The defaults (`KEYS`) moved from `main.gd` here. The next survivor stopped being an action sharing R: it's the light's key when dead, so no key is ever on two actions. After a remap the keys panel builds itself again (`hud.rebuild_keys`); the prompts, news and tips read the keys as they're said;
        - **checked:** headless runs with every switch on through the farm's fight, opening and closing the screen; a script driving the remapping (a key taken from swing, walking's arrow kept, Alt alone, Ctrl+S, Esc, the defaults back, colour-blind there and back). Two pictures: the screen (the first showed the world's prompt through its 72% ground, hence 95%), and every switch on at the farm, where the "within reach" panel still said "H lays a fire" from before the keys: its fire lines now read their key;
        - **not yet:** text size on its own; sound; the menu that reaches the settings without F10 (slice 9); a gamepad.
+     - **The 2026-11-13 review, and a cleanup** (the user: "review the plan and current code. Find where we're [falling] behind, what can be updated, and what can be merged/combined"; 379 tests). The review's findings that are decisions are under "Open questions", below. The cleanup changed no rule and no number in play:
+       - **one place for the numbers that cross to GDScript** (`crates/dusk-godot/src/codes.rs`): the event kinds (111, written out twice before), item kinds (three times, with bare 8s and 9s), actions, moodles, actor states, remains, edges and powers, each named once. `client/codes.gd` is made from it as GDScript enums (`Event.HEARD`, `Item.BOW`), and its test (`codes_gd_is_current`) fails when the two differ; with `DUSK_WRITE_CODES` set, it writes the file. The client reads them by name everywhere (`main.gd`, `bag.gd`, `actor_view.gd`, `chunk_view.gd`, `tells.gd`, `spells.gd`), and `hud.gd` asserts its moodles' words are as many as the core's moodles. `ASLEEP` no longer means two things;
+       - **one table of refusals** (`prompts.gd`'s `REFUSED`): each check's reasons, as a prompt says them and as the news does, side by side, read by both the prompts (`why`) and `main.gd`'s handlers (`refusal`), which now ask the core and say the table's line;
+       - **the book panels' base** (`client/book_panel.gd`): skills, making and spells share the panel, opening and closing, and drawing only when what they show changes (`_awake`, `_changed`); `Look.line` and `Look.button` are every panel's text and buttons (the pack's and the settings' too);
+       - **one order for what's beside you** (`items.rs`'s `tiles_beside`): the faced tile, your own, then round clockwise, within reach. A plant, a carcass, a body, a hearth and a counter were found by five copies of it; the door's side reuses boarding's (`sides_from`). The tests on each kept passing, unchanged;
+       - **zone A** is one line, as `VISUALS.md` §10 has it, led by the region's name (`DuskWorld.region_name()`); the title with the newest feature and the seed are gone (a trial run keeps its seed at the end);
+       - **stale words:** the speed dial's old keys and a stranded comment in `main.gd`; Mending's "M" and foraging's "Y" in `CONCEPT.md`; `VISUALS.md`'s "Y to pick it"; `CLAUDE.md`'s classes; the keys' "not yet" listing remapping;
+       - **`check.cmd`** (above, under Tests and tools). Its first run passed while the game hadn't run at all (`play.cmd` wasn't found from a subroutine), so it now calls it by its full path and fails unless each run's news shows it got where it was going;
+       - **updated:** Rust 1.100.0, gdext against Godot 4.7's API (see Setup), and `dusk-godot` says outright it doesn't take the workspace's lints (Cargo 1.100 asks);
+       - **checked:** every check (`check.cmd`), and one picture: zone A in one line, the skills panel drawn through the base, the pack's buttons;
+       - **not yet** (the review's other merges): a guard shared by the bridge's functions (95 of 178 open the same way); `main.gd`'s news (431 lines) and its script runner (188) in files of their own; the build log out of this file, and one backlog in place of the 32 "not yet" lists.
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions
 
-None right now (2026-11-06). New ones get listed here.
+From the 2026-11-13 review (`ARCHITECTURE.md`'s build log and `CONCEPT.md` against the code); each is the user's to decide:
+
+- **A playtest before more content?** The concept's first question, whether surviving the Hushlands is tense and fun, hasn't been answered by play: the 46 slices since the 2026-11-09 review were checked by tests, headless runs and pictures. The Cleric's and the Wizard's numbers say "not yet played".
+- **What next, after the cleanup:** the Warren Hills (the concept's next step after the first playable, to prove the first pillar: enemies that see and think), base-building (walls and doors of your own, repairs, traps and decoys, the Hushlands' own base tool), or the Dusk Director and quests?
+- **Saves that survive updates.** The format moved from version 1 to 32 in three days, and each move sets your world aside (`world.dusk.old`). Postcard can't skip a field it doesn't know, so a self-describing format with defaults for new fields, or migrations, would stop it; worth it before playing in earnest.
+- **The repo:** every Duskhold commit is on the `ppo-zombie` branch, and `main` has none (it can be fast-forwarded); GitHub's copy is behind by the commits since the Wizard.

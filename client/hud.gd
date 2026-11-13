@@ -197,6 +197,8 @@ func _ready() -> void:
 	_veil.visible = false
 	add_child(_veil)
 	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# MOODLES is in the core's order (codes.gd's Moodle): a moodle added there needs its words here.
+	assert(MOODLES.size() == preload("res://codes.gd").Moodle.size(), "hud.gd's MOODLES and codes.gd's Moodle differ")
 	for moodle: Array in MOODLES:
 		_glyphs.append(load("res://icons/moodles/%s.svg" % moodle[3]))
 	_build_left_column()
@@ -255,36 +257,39 @@ func _process(delta: float) -> void:
 			_show_detail()
 
 
-## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
-## the region's pressure (DuskWorld.pressure(): how many of the dead the patch holds, against
-## how many it began with). Bodies that get up raise it; burning them lowers it. Then the
-## Tolling's countdown (DuskWorld.tolling()), so you can build for it; the rain
-## (DuskWorld.rain(): 0 dry, 1 rain, 2 heavy); and the building you're in (DuskWorld.place(),
-## "" out of doors).
-func show_state(world_seed: int, clock: PackedInt32Array, speed: int, paused: bool,
-		pressure: PackedInt32Array, tolling: PackedInt32Array, rain: int, place: String) -> void:
-	var dead := ""
+## Zone A (VISUALS.md §10), one line: the region (DuskWorld.region_name()), the clock
+## (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), the region's pressure
+## (DuskWorld.pressure(): how many of the dead the patch holds, against how many it began with;
+## bodies that get up raise it, burning them lowers it), the Tolling's countdown
+## (DuskWorld.tolling()), so you can build for it, the rain (DuskWorld.rain(): 0 dry, 1 rain,
+## 2 heavy), and the building you're in (DuskWorld.place(), "" out of doors). `world_seed` is
+## said only when it's 0 or more: a trial run's, for pictures and bugs.
+func show_state(region: String, clock: PackedInt32Array, speed: int, paused: bool,
+		pressure: PackedInt32Array, tolling: PackedInt32Array, rain: int, place: String,
+		world_seed := -1) -> void:
+	var parts := PackedStringArray([region, time_of_day(clock), "%d×" % speed])
 	if pressure.size() >= 3 and pressure[0] > 0:
-		dead = "  ·  the dead %d%%" % roundi(pressure[0] / 10.0)
-	var weather: String = ["", "  ·  rain", "  ·  heavy rain"][clampi(rain, 0, 2)]
-	var inside := "" if place.is_empty() else "  ·  in %s" % place
-	_state.text = "DUSKHOLD  ·  new: the Wizard\n%s%s%s  ·  Seed %d  ·  %d×%s%s" % [
-		time_of_day(clock), inside, weather, world_seed, speed, dead, _countdown(tolling)]
+		parts.append("the dead %d%%" % roundi(pressure[0] / 10.0))
+	parts.append(_countdown(tolling))
+	parts.append(["", "rain", "heavy rain"][clampi(rain, 0, 2)])
+	parts.append("" if place.is_empty() else "in %s" % place)
+	parts.append("seed %d" % world_seed if world_seed >= 0 else "")
+	_state.text = "  ·  ".join(Array(parts).filter(func(part: String) -> bool: return part != ""))
 	_paused.visible = paused
 
 
-## "the Tolling in 2 days", "the Tolling tonight", "THE TOLLING": from DuskWorld.tolling()'s
-## minutes until it begins, and whether it's on.
+## "the Tolling in 2 days", "the Tolling in 3h 20m", "THE TOLLING, till dawn" (or "" with none),
+## from DuskWorld.tolling()'s minutes until it begins, and whether it's on.
 static func _countdown(tolling: PackedInt32Array) -> String:
 	if tolling.size() < 2:
 		return ""
 	if tolling[1] == 1:
-		return "  ·  THE TOLLING, till dawn"
+		return "THE TOLLING, till dawn"
 	var minutes := tolling[0]
 	if minutes < 24 * 60:
-		return "  ·  the Tolling in %dh %02dm" % [minutes / 60, minutes % 60]
+		return "the Tolling in %dh %02dm" % [minutes / 60, minutes % 60]
 	var days := ceili(minutes / 1440.0)
-	return "  ·  the Tolling in %d days" % days
+	return "the Tolling in %d days" % days
 
 
 ## "Day 2  ·  06:45", from DuskWorld.clock().

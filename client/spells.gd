@@ -1,11 +1,11 @@
-extends CanvasLayer
+extends "res://book_panel.gd"
 ## Spells (P): the ones you know, each with what it costs, how long its words take and how far it
-## reaches, and a Ready button (or its number key: your powers). A readied spell is cast on the next spot you
-## click (main.gd); right-click lets it go. The core decides what can be cast and does it; this
-## only shows it and asks.
+## reaches, and a Ready button (or its number key: your powers). A readied spell is cast on the
+## next spot you click (main.gd); right-click lets it go. The core decides what can be cast and
+## does it; this only shows it and asks.
 
-const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
+const Power = preload("res://codes.gd").Power
 
 ## The numbers a spell takes in DuskWorld.spell_info().
 const INFO := 8
@@ -13,64 +13,27 @@ const INFO := 8
 ## Readies a spell, by its number (main.gd's).
 var ready_spell: Callable
 
-var _dusk: Node
-var _panel: PanelContainer
-var _list: VBoxContainer
 var _names := PackedStringArray()
 var _lines := PackedStringArray()
 var _items := PackedStringArray()
-var _shown := []  # what you know, your slots and what's readied, as last drawn
-
-
-func _ready() -> void:
-	_panel = PanelContainer.new()
-	_panel.add_theme_stylebox_override("panel", Look.panel_style())
-	_list = VBoxContainer.new()
-	_list.add_theme_constant_override("separation", 3)
-	_panel.add_child(_list)
-	add_child(_panel)
-	# Zone J, the left middle, where skills and making open too: one book panel at a time.
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, Look.MARGIN)
-	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_panel.visible = false
 
 
 ## A new world: the spells' names and lines come from the core.
 func start(dusk: Node) -> void:
-	_dusk = dusk
+	super(dusk)
 	_names = dusk.spell_names()
 	_lines = dusk.spell_lines()
 	_items = dusk.item_names()
-	_shown = []
 
 
-func close() -> void:
-	_panel.visible = false
-
-
-func toggle() -> void:
-	_panel.visible = not _panel.visible
-
-
-func is_open() -> bool:
-	return _panel.visible
-
-
-## Each frame: redraw if anything changed (only while it's open). `readied`: the spell readied
-## now, -1 none.
+## Each frame: redraw if anything changed (only while it's open): what you know, your slots, and
+## `readied`, the spell readied now (-1 none).
 func refresh(dead: bool, readied: int) -> void:
-	if _dusk == null:
-		return
-	if dead:
-		_panel.visible = false
-		return
-	if not _panel.visible:
+	if not _awake(dead):
 		return
 	var now := [_dusk.character_spells(), _dusk.character_slots(), _dusk.spell_info(), readied]
-	if now == _shown:
-		return
-	_shown = now
-	_draw(now[0], now[1], now[2], readied)
+	if _changed(now):
+		_draw(now[0], now[1], now[2], readied)
 
 
 ## What a spell costs, its words and its range: "2 slots and sulphur  ·  2.5 s  ·  8 tiles".
@@ -87,14 +50,12 @@ func describe(spell: int, info: PackedInt32Array) -> String:
 
 func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Array,
 		readied: int) -> void:
-	for child in _list.get_children():
-		child.queue_free()
 	if known.is_empty():
-		_list.add_child(_label("Spells  ·  only a Wizard casts them", Look.HEADING))
+		_list.add_child(Look.line("Spells  ·  only a Wizard casts them", Look.HEADING))
 		return
 	var left := slots[0] if slots.size() > 1 else 0
 	var most := slots[1] if slots.size() > 1 else 0
-	_list.add_child(_label("Spells  ·  %d of %d slots  ·  all back with a night's sleep" % [left, most], Look.HEADING))
+	_list.add_child(Look.line("Spells  ·  %d of %d slots  ·  all back with a night's sleep" % [left, most], Look.HEADING))
 	for k in known.size():
 		var spell := known[k]
 		var row := HBoxContainer.new()
@@ -105,17 +66,17 @@ func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Ar
 		lines.custom_minimum_size = Vector2(340, 0)
 		row.add_child(lines)
 		var key := _key_for(spell)
-		var called := _label(key + (_names[spell] if spell < _names.size() else "?") + "  ·  " + describe(spell, info), Look.BODY)
+		var called := Look.line(key + (_names[spell] if spell < _names.size() else "?") + "  ·  " + describe(spell, info), Look.BODY)
 		if spell == readied:
 			called.add_theme_color_override("font_color", Look.ARCANE)
 		lines.add_child(called)
-		var what := _label(_lines[spell] if spell < _lines.size() else "", Look.SMALL)
+		var what := Look.line(_lines[spell] if spell < _lines.size() else "", Look.SMALL)
 		what.modulate = Look.TEXT_DIM
 		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lines.add_child(what)
-		var label := "Readied" if spell == readied else "Ready"
-		row.add_child(_button(label, func() -> void: ready_spell.call(spell)))
-	var hint := _label("Ready one, then click the spot to cast it on. Right-click lets it go. A blow breaks the words.", Look.SMALL)
+		var word := "Readied" if spell == readied else "Ready"
+		row.add_child(Look.button(word, func() -> void: ready_spell.call(spell)))
+	var hint := Look.line("Ready one, then click the spot to cast it on. Right-click lets it go. A blow breaks the words.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
 	_list.add_child(hint)
 
@@ -125,22 +86,6 @@ func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Ar
 func _key_for(spell: int) -> String:
 	var powers: PackedInt32Array = _dusk.character_powers()
 	for p in range(0, mini(powers.size(), 8), 2):
-		if powers[p] == 3 and powers[p + 1] == spell:
+		if powers[p] == Power.SPELL and powers[p + 1] == spell:
 			return Prompts.keyed("{power_%d} " % (p / 2 + 1))
 	return ""
-
-
-func _button(text: String, pressed: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", Look.SMALL)
-	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game
-	button.pressed.connect(pressed)
-	return button
-
-
-func _label(text: String, size: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	Look.sized(label, size)
-	return label

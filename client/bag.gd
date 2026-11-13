@@ -18,18 +18,8 @@ extends CanvasLayer
 const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
 
-const WEAPON := 1
-const BANDAGE := 2
-const FOOD := 3
-const DRINK := 4
-const LIGHT := 5
-const CURE := 6
-const OIL := 7
-const SHIELD := 8
-const BOW := 9
-const HOLY := 10
-const ARMOUR := 11
-const BAG := 12
+## An item's kind, by name (codes.gd).
+const Item = preload("res://codes.gd").Item
 ## The places armour covers, by DuskWorld.item_covers()' bits.
 const PLACES := [[1, "head"], [2, "torso"], [4, "arms"], [8, "legs"]]
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
@@ -265,36 +255,36 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 	var label := _describe(def, count, items[i + 3] == 1)
 	if 2 + slot < labels.size() and labels[2 + slot] != _name(def):
 		label = labels[2 + slot] + label.substr(_name(def).length())  # magic: what you know of it
-	if _kind(def) == LIGHT and items[i + 2] < 1000:
+	if _kind(def) == Item.LIGHT and items[i + 2] < 1000:
 		label += "  ·  %d%% left" % roundi(items[i + 2] / 10.0)  # a part-burnt light
-	if _kind(def) == FOOD and items[i + 2] < 1000:
+	if _kind(def) == Item.FOOD and items[i + 2] < 1000:
 		label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
-	if _kind(def) == ARMOUR:
+	if _kind(def) == Item.ARMOUR:
 		label += "  ·  " + _places(def)  # where it goes
 	var row := _row(_pack, "   " + label)
 	_tint(row, rarity, 2 + slot)
 	match _kind(def):
-		WEAPON:
+		Item.WEAPON:
 			_button(row, "Wield", func() -> void: _wield(slot, def))
-		SHIELD:
+		Item.SHIELD:
 			_button(row, "Take up", func() -> void: _dusk.wield(slot, def))
-		BOW:
+		Item.BOW:
 			_button(row, "Wield", func() -> void: _wield(slot, def))
-		BANDAGE:
+		Item.BANDAGE:
 			_button(row, "Use", func() -> void: _dusk.use_item(slot, def))
-		FOOD:
+		Item.FOOD:
 			_button(row, "Eat", func() -> void: _dusk.use_item(slot, def))
-		DRINK:
+		Item.DRINK:
 			_button(row, "Drink", func() -> void: _dusk.use_item(slot, def))
-		LIGHT:
+		Item.LIGHT:
 			_button(row, "Light", func() -> void: _dusk.light(slot, def))
-		CURE:
+		Item.CURE:
 			_button(row, "Take", func() -> void: _take_cure(slot, def))
-		OIL:
+		Item.OIL:
 			_button(row, "Burn a body", func() -> void: burn.call())
-		HOLY:
+		Item.HOLY:
 			_button(row, "Consecrate a body", func() -> void: hallow.call())
-		ARMOUR, BAG:
+		Item.ARMOUR, Item.BAG:
 			_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
 	if wearing:
 		_button(row, "To pockets" if in_bag else "To bag", func() -> void: _shift(slot, def, in_bag))
@@ -640,12 +630,7 @@ func _row(parent: Control, text: String) -> HBoxContainer:
 
 
 func _button(row: HBoxContainer, text: String, pressed: Callable) -> void:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", Look.SMALL)
-	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game (Space, WASD)
-	button.pressed.connect(pressed)
-	row.add_child(button)
+	row.add_child(Look.button(text, pressed))
 
 
 ## How fresh food is, from its condition (out of 1000): it's gone at none (the core's `cooking.rs`).

@@ -500,23 +500,16 @@ impl World {
             .then_some(other)
     }
 
-    /// The side of a tile with a door or a window: the one faced (or, facing a diagonal, either
-    /// of its sides), else the first of north, east, south and west.
+    /// The side of a tile with a door or a window, in the order boarding looks too
+    /// (`World::sides_from`): the one faced (or, facing a diagonal, either of its sides), else
+    /// the first of north, east, south and west.
     fn door_beside(&self, pos: TilePos, facing: Dir8) -> Option<Dir8> {
-        let faced = match facing.split() {
-            Some((a, b)) => [Some(a), Some(b)],
-            None => [Some(facing), None],
-        };
-        faced
-            .into_iter()
-            .flatten()
-            .chain([Dir8::N, Dir8::E, Dir8::S, Dir8::W])
-            .find(|&d| {
-                matches!(
-                    self.grid.edge(pos, d),
-                    Edge::Door { .. } | Edge::Window { .. }
-                )
-            })
+        World::sides_from(facing).find(|&d| {
+            matches!(
+                self.grid.edge(pos, d),
+                Edge::Door { .. } | Edge::Window { .. }
+            )
+        })
     }
 
     /// The side of `id`'s tile with the door or window it would open or shut (`door_beside`):

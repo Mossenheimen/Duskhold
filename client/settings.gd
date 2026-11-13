@@ -447,11 +447,6 @@ func _dim_text(text: String) -> Label:
 	return label
 
 
+## A button at least `width` wide, and 32 px high: a click target's least (§11).
 func _button(text: String, pressed: Callable, width := 0.0) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", Look.SMALL)
-	button.custom_minimum_size = Vector2(width, 32)  # a click target at least 32 px (§11)
-	button.focus_mode = Control.FOCUS_NONE  # keys stay with the game, and with the remapping
-	button.pressed.connect(pressed)
-	return button
+	return Look.button(text, pressed, Vector2(width, 32))

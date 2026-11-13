@@ -29,6 +29,11 @@ use dusk_core::{
 use dusk_data::Data;
 use godot::prelude::*;
 
+pub mod codes;
+
+use codes::event::*;
+use codes::{action, edge, item, power, remains, state};
+
 struct DuskExtension;
 
 #[gdextension]
@@ -51,119 +56,6 @@ fn stack_row(i: Item) -> [i32; 4] {
         i32::from(i.found),
     ]
 }
-
-/// The event kinds `take_events` reports.
-const HEARD: i32 = 1;
-const SAW: i32 = 2;
-const REACHED: i32 = 3;
-const NO_WAY: i32 = 4;
-const STRUCK: i32 = 5;
-const MISSED: i32 = 6;
-const SHOVED: i32 = 7;
-const DIED: i32 = 8;
-const DOOR: i32 = 9;
-const EXHAUSTED: i32 = 10;
-const GRABBED: i32 = 11;
-const FREED: i32 = 12;
-const STRUGGLED: i32 = 13;
-const THUMPED: i32 = 14;
-const DOOR_BROKE: i32 = 15;
-const DRAGGED_DOWN: i32 = 16;
-const TOOK: i32 = 17;
-const DROPPED: i32 = 18;
-const WIELDED: i32 = 19;
-const WEAPON_BROKE: i32 = 20;
-const BANDAGED: i32 = 21;
-const ATE: i32 = 22;
-const DRANK: i32 = 23;
-const DRANK_WATER: i32 = 24;
-const FELL_ASLEEP: i32 = 25;
-const WOKE: i32 = 26;
-const LIT: i32 = 27;
-const DOUSED: i32 = 28;
-const BURNT_OUT: i32 = 29;
-const NIGHTFALL: i32 = 30;
-const DAYBREAK: i32 = 31;
-const SKILL_UP: i32 = 32;
-const SKILL_AT_CAP: i32 = 33;
-const MASTERED: i32 = 34;
-const BOARDED: i32 = 35;
-const UNBOARDED: i32 = 36;
-const BOARD_BROKE: i32 = 37;
-const MADE_HOME: i32 = 38;
-const STASHED: i32 = 39;
-const PUT: i32 = 40;
-const BROUGHT_HOME: i32 = 41;
-const LEVEL_UP: i32 = 42;
-const SMELLED: i32 = 43;
-const FEVERED: i32 = 44;
-const FEVER_WORSE: i32 = 45;
-const FEVER_TOOK: i32 = 46;
-const CURED: i32 = 47;
-const GOT_UP: i32 = 48;
-const KINDLED: i32 = 49;
-const CAUGHT: i32 = 50;
-const BURNT: i32 = 51;
-const BOUGHT: i32 = 52;
-const SOLD: i32 = 53;
-const SUPPLIED: i32 = 54;
-const MENDED: i32 = 55;
-const TOLLING_TONIGHT: i32 = 56;
-const TOLLING_BEGAN: i32 = 57;
-const TOLLED: i32 = 58;
-const TOLLING_ENDED: i32 = 59;
-const RISEN: i32 = 60;
-const CAME: i32 = 61;
-const LIGHT_EATEN: i32 = 62;
-const BOUNTY_CLAIMED: i32 = 63;
-const IDENTIFIED: i32 = 64;
-const CURSE_CLINGS: i32 = 65;
-const CURSE_LIFTED: i32 = 66;
-const RAIN_BEGAN: i32 = 67;
-const RAIN_ENDED: i32 = 68;
-const RAINED_OUT: i32 = 69;
-const TALENT_CHOSEN: i32 = 70;
-const SECOND_WIND: i32 = 71;
-const LAID: i32 = 72;
-const FIRE_LIT: i32 = 73;
-const SMOTHERED: i32 = 74;
-const FIRE_OUT: i32 = 75;
-const SAW_FIRE: i32 = 76;
-const DREAD: i32 = 77;
-const BALKED: i32 = 78;
-const RESISTED: i32 = 79;
-const CRAFTED: i32 = 80;
-const BROKE_DOWN: i32 = 81;
-const SNEAKING: i32 = 82;
-const SNEAK_ATTACK: i32 = 83;
-const BRACING: i32 = 84;
-const BLOCKED: i32 = 85;
-const SHOT: i32 = 86;
-const SPOILED: i32 = 87;
-const STARTLED: i32 = 88;
-const BUTCHERED: i32 = 89;
-const CLASS_CHOSEN: i32 = 90;
-const TURNED: i32 = 91;
-const PRAYED: i32 = 92;
-const CONSECRATED: i32 = 93;
-const HEALED: i32 = 94;
-const WARDED: i32 = 95;
-const WARD_FADED: i32 = 96;
-const PICKED: i32 = 97;
-const REGREW: i32 = 98;
-const GLANCED: i32 = 99;
-const WORE: i32 = 100;
-const TOOK_OFF: i32 = 101;
-const CLIMBED: i32 = 102;
-const WINDOW_BROKE: i32 = 103;
-const FELLED: i32 = 104;
-const GREW: i32 = 105;
-const WET: i32 = 106;
-const COLD: i32 = 107;
-const CAST: i32 = 108;
-const SCORCHED: i32 = 109;
-const SPELL_BROKE: i32 = 110;
-const SLOTS_BACK: i32 = 111;
 
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
@@ -649,19 +541,19 @@ fn ground_code(ground: Ground) -> i32 {
     }
 }
 
-/// An edge's kind (`chunk_edges`), plus 16 for each board nailed across it.
-fn edge_code(edge: Edge) -> i32 {
-    let kind = match edge {
-        Edge::Open => 0,
-        Edge::Wall => 1,
-        Edge::Door { open: false, .. } => 2,
-        Edge::Door { open: true, .. } => 3,
-        Edge::Window { broken: true, .. } => 7,
-        Edge::Window { open: false, .. } => 4,
-        Edge::Window { open: true, .. } => 5,
-        Edge::Fence => 6,
+/// An edge's kind (`chunk_edges`), plus `edge::BOARD` for each board nailed across it.
+fn edge_code(e: Edge) -> i32 {
+    let kind = match e {
+        Edge::Open => edge::OPEN,
+        Edge::Wall => edge::WALL,
+        Edge::Door { open: false, .. } => edge::DOOR_SHUT,
+        Edge::Door { open: true, .. } => edge::DOOR_OPEN,
+        Edge::Window { broken: true, .. } => edge::WINDOW_BROKEN,
+        Edge::Window { open: false, .. } => edge::WINDOW_SHUT,
+        Edge::Window { open: true, .. } => edge::WINDOW_OPEN,
+        Edge::Fence => edge::FENCE,
     };
-    kind + 16 * i32::from(edge.boards())
+    kind + edge::BOARD * i32::from(e.boards())
 }
 
 #[godot_api]
@@ -846,6 +738,15 @@ impl DuskWorld {
     #[func]
     fn world_seed(&self) -> i64 {
         self.world.as_ref().map_or(0, |w| w.seed as i64)
+    }
+
+    /// The region the world is a patch of, by name ("The Hushlands"); "" for the demo town.
+    #[func]
+    fn region_name(&self) -> GString {
+        self.data
+            .as_ref()
+            .and_then(|d| d.region(&self.region))
+            .map_or_else(GString::new, |r| GString::from(r.name.as_str()))
     }
 
     /// The building the character is in ("the smithy"), or "" out of doors.
@@ -1186,19 +1087,19 @@ impl DuskWorld {
             .items
             .iter()
             .map(|i| match i.kind {
-                ItemKind::Other => 0,
-                ItemKind::Weapon { .. } => 1,
-                ItemKind::Bandage { .. } => 2,
-                ItemKind::Food { .. } => 3,
-                ItemKind::Drink { .. } => 4,
-                ItemKind::Light { .. } => 5,
-                ItemKind::Cure { .. } => 6,
-                ItemKind::Oil => 7,
-                ItemKind::Shield(_) => 8,
-                ItemKind::Bow(_) => 9,
-                ItemKind::Holy => 10,
-                ItemKind::Armour(_) => 11,
-                ItemKind::Bag(_) => 12,
+                ItemKind::Other => item::OTHER,
+                ItemKind::Weapon { .. } => item::WEAPON,
+                ItemKind::Bandage { .. } => item::BANDAGE,
+                ItemKind::Food { .. } => item::FOOD,
+                ItemKind::Drink { .. } => item::DRINK,
+                ItemKind::Light { .. } => item::LIGHT,
+                ItemKind::Cure { .. } => item::CURE,
+                ItemKind::Oil => item::OIL,
+                ItemKind::Shield(_) => item::SHIELD,
+                ItemKind::Bow(_) => item::BOW,
+                ItemKind::Holy => item::HOLY,
+                ItemKind::Armour(_) => item::ARMOUR,
+                ItemKind::Bag(_) => item::BAG,
             })
             .collect()
     }
@@ -1377,26 +1278,15 @@ impl DuskWorld {
             .iter()
             .flat_map(|w| w.actors())
             .map(|(_, a)| match (a.dead, a.prone_until > 0, a.body.asleep) {
-                (true, _, _) => 2,
-                (false, true, _) => 1,
-                (false, false, true) => 3,
-                (false, false, false) => 0,
+                (true, _, _) => state::DEAD,
+                (false, true, _) => state::DOWN,
+                (false, false, true) => state::ASLEEP,
+                (false, false, false) => state::STANDING,
             })
             .collect()
     }
 
-    /// Each actor's timed action, four numbers an actor: its kind (0 none, 1 a swing, 2 a shove,
-    /// 3 a door, 4 a blow at a shut door, 5 a struggle, 6 taking, 7 dropping, 8 bandaging,
-    /// 9 taking a weapon in hand, 10 putting it away, 11 lying down to sleep, 12 drinking from
-    /// water, 13 eating, 14 drinking a drink, 15 lighting a light, 16 putting it out, 17 boarding
-    /// up, 18 prying a board off, 19 marking a stash, 20 putting something into a container,
-    /// 21 taking the cure, 22 setting a body alight, 23 buying, 24 selling,
-    /// 25 having a weapon mended, 26 claiming a bounty, 27 having an item read, 28 having a curse
-    /// lifted, 29 catching a second wind, 30 laying a fire, 31 lighting it, 32 putting it out, 33 making
-    /// something, 34 breaking furniture down, 36 drawing a bow, 37 butchering, 38 turning the
-    /// dead, 39 praying, 40 consecrating a body, 41 mending a wound, 42 warding a door, 44 putting
-    /// armour on, 45 taking it off, 46 a heavy swing; moving a stack to or from the bag is 6, as
-    /// a take, and dropping the bag 7, as a drop),
+    /// Each actor's timed action, four numbers an actor: its kind (`codes::action`),
     /// how far through its wind-up it is (0 to 1000; 1000 once it has struck), and the tile it's
     /// aimed at. The client draws the wind-up of a swing or a shove
     /// as its tell.
@@ -1413,71 +1303,71 @@ impl DuskWorld {
                 _ => a.pos.step(a.action.map_or(a.facing, |act| act.dir)),
             };
             out.extend(match a.action {
-                None => [0, 0, at.x, at.y],
+                None => [action::NONE, 0, at.x, at.y],
                 Some(act) => [
                     match act.kind {
                         ActionKind::Attack | ActionKind::Heavy
                             if act.dir.split().is_none()
                                 && world.grid.edge(a.pos, act.dir).beatable() =>
                         {
-                            4
+                            action::BEAT
                         }
-                        ActionKind::Attack => 1,
-                        ActionKind::Heavy => 46,
-                        ActionKind::Shove => 2,
-                        ActionKind::Door => 3,
-                        ActionKind::Struggle => 5,
-                        ActionKind::Take { .. } => 6,
-                        ActionKind::Drop { .. } => 7,
+                        ActionKind::Attack => action::SWING,
+                        ActionKind::Heavy => action::HEAVY,
+                        ActionKind::Shove => action::SHOVE,
+                        ActionKind::Door => action::DOOR,
+                        ActionKind::Struggle => action::STRUGGLE,
+                        ActionKind::Take { .. } => action::TAKE,
+                        ActionKind::Drop { .. } => action::DROP,
                         ActionKind::Use { def, .. } => {
                             match world.defs.item(def).map(|d| &d.kind) {
-                                Some(ItemKind::Food { .. }) => 13,
-                                Some(ItemKind::Drink { .. }) => 14,
-                                Some(ItemKind::Cure { .. }) => 21,
-                                _ => 8,
+                                Some(ItemKind::Food { .. }) => action::EAT,
+                                Some(ItemKind::Drink { .. }) => action::DRINK,
+                                Some(ItemKind::Cure { .. }) => action::CURE,
+                                _ => action::BANDAGE,
                             }
                         }
-                        ActionKind::Wield { .. } => 9,
-                        ActionKind::Unwield | ActionKind::Unshield => 10,
-                        ActionKind::Shoot { .. } => 36,
-                        ActionKind::Light { .. } => 15,
-                        ActionKind::Douse => 16,
-                        ActionKind::Sleep => 11,
-                        ActionKind::DrinkWater => 12,
-                        ActionKind::Board => 17,
-                        ActionKind::Unboard => 18,
-                        ActionKind::Stash { .. } => 19,
-                        ActionKind::Put { .. } => 20,
-                        ActionKind::Burn { .. } => 22,
-                        ActionKind::Buy { .. } => 23,
-                        ActionKind::Sell { .. } => 24,
-                        ActionKind::Mend { .. } => 25,
-                        ActionKind::Claim { .. } => 26,
-                        ActionKind::Identify { .. } => 27,
-                        ActionKind::Uncurse { .. } => 28,
-                        ActionKind::SecondWind => 29,
+                        ActionKind::Wield { .. } => action::WIELD,
+                        ActionKind::Unwield | ActionKind::Unshield => action::PUT_AWAY,
+                        ActionKind::Shoot { .. } => action::SHOOT,
+                        ActionKind::Light { .. } => action::LIGHT,
+                        ActionKind::Douse => action::DOUSE,
+                        ActionKind::Sleep => action::SLEEP,
+                        ActionKind::DrinkWater => action::DRINK_WATER,
+                        ActionKind::Board => action::BOARD,
+                        ActionKind::Unboard => action::UNBOARD,
+                        ActionKind::Stash { .. } => action::STASH,
+                        ActionKind::Put { .. } => action::PUT,
+                        ActionKind::Burn { .. } => action::BURN,
+                        ActionKind::Buy { .. } => action::BUY,
+                        ActionKind::Sell { .. } => action::SELL,
+                        ActionKind::Mend { .. } => action::MEND,
+                        ActionKind::Claim { .. } => action::CLAIM,
+                        ActionKind::Identify { .. } => action::IDENTIFY,
+                        ActionKind::Uncurse { .. } => action::UNCURSE,
+                        ActionKind::SecondWind => action::SECOND_WIND,
                         ActionKind::Tend {
                             tend: Tend::Lay { .. },
                             ..
-                        } => 30,
+                        } => action::LAY_FIRE,
                         ActionKind::Tend {
                             tend: Tend::Light, ..
-                        } => 31,
-                        ActionKind::Smother { .. } => 32,
-                        ActionKind::Craft { .. } => 33,
-                        ActionKind::BreakDown { .. } => 34,
-                        ActionKind::Butcher { .. } => 37,
-                        ActionKind::Turn => 38,
-                        ActionKind::Pray { .. } => 39,
-                        ActionKind::Consecrate { .. } => 40,
-                        ActionKind::Heal => 41,
-                        ActionKind::Ward => 42,
-                        ActionKind::Pick { .. } => 43,
-                        ActionKind::Wear { .. } => 44,
-                        ActionKind::TakeOff { .. } => 45,
-                        ActionKind::Shift { .. } => 6,
-                        ActionKind::DropBag => 7,
-                        ActionKind::Cast { .. } => 47,
+                        } => action::LIGHT_FIRE,
+                        ActionKind::Smother { .. } => action::SMOTHER,
+                        ActionKind::Craft { .. } => action::CRAFT,
+                        ActionKind::BreakDown { .. } => action::BREAK_DOWN,
+                        ActionKind::Butcher { .. } => action::BUTCHER,
+                        ActionKind::Turn => action::TURN,
+                        ActionKind::Pray { .. } => action::PRAY,
+                        ActionKind::Consecrate { .. } => action::CONSECRATE,
+                        ActionKind::Heal => action::HEAL,
+                        ActionKind::Ward => action::WARD,
+                        ActionKind::Pick { .. } => action::PICK,
+                        ActionKind::Wear { .. } => action::WEAR,
+                        ActionKind::TakeOff { .. } => action::TAKE_OFF,
+                        ActionKind::Shift { .. } => action::TAKE,
+                        ActionKind::DropBag => action::DROP,
+                        ActionKind::Cast { .. } => action::CAST,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -1643,11 +1533,11 @@ impl DuskWorld {
             .iter()
             .flat_map(|w| w.actors())
             .map(|(_, a)| match a.remains {
-                Remains::Lying | Remains::GetsUp { .. } => 0,
-                Remains::Burning { .. } => 1,
-                Remains::Ash => 2,
-                Remains::Risen | Remains::Butchered => 3,
-                Remains::Hallowed => 4,
+                Remains::Lying | Remains::GetsUp { .. } => remains::NONE,
+                Remains::Burning { .. } => remains::BURNING,
+                Remains::Ash => remains::ASH,
+                Remains::Risen | Remains::Butchered => remains::GONE,
+                Remains::Hallowed => remains::HALLOWED,
             })
             .collect()
     }
@@ -3008,8 +2898,8 @@ impl DuskWorld {
         })
     }
 
-    /// What the number keys hold for you (the core's `powers`), two numbers each: [what (0
-    /// turning the dead, 1 the Second Wind, 2 Mending, 3 a spell), the spell's number (else 0)].
+    /// What the number keys hold for you (the core's `powers`), two numbers each: [what
+    /// (`codes::power`), the spell's number (else 0)].
     #[func]
     fn character_powers(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -3022,10 +2912,10 @@ impl DuskWorld {
             .powers(me)
             .into_iter()
             .flat_map(|p| match p {
-                Power::Turn => [0, 0],
-                Power::SecondWind => [1, 0],
-                Power::Mend => [2, 0],
-                Power::Spell(s) => [3, i32::from(s)],
+                Power::Turn => [power::TURN, 0],
+                Power::SecondWind => [power::SECOND_WIND, 0],
+                Power::Mend => [power::MEND, 0],
+                Power::Spell(s) => [power::SPELL, i32::from(s)],
             })
             .collect()
     }

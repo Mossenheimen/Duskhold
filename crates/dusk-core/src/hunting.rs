@@ -21,7 +21,7 @@ use crate::actor::{ActionKind, ActorId, ActorKind, Intent, Mind, Remains};
 use crate::creature::Creature;
 use crate::geom::{Dir8, TilePos};
 use crate::hash::{Purpose, below, roll};
-use crate::items::{ItemKind, within_reach};
+use crate::items::{ItemKind, tiles_beside};
 use crate::skills::Skill;
 use crate::world::{Event, World};
 
@@ -152,14 +152,7 @@ impl World {
     /// it, clockwise from its facing. Only one it can reach.
     pub fn carcass_beside(&self, id: ActorId) -> Option<ActorId> {
         let a = self.actors.get(id).filter(|a| !a.dead)?;
-        let (pos, facing) = (a.pos, a.facing);
-        let ahead = std::iter::once(pos.step(facing));
-        let round = (1..8).map(|t| pos.step(facing.turned(t)));
-        let mut tiles = ahead.chain(std::iter::once(pos)).chain(round);
-        tiles.find_map(|at| {
-            if !within_reach(&self.grid, pos, at) {
-                return None;
-            }
+        tiles_beside(&self.grid, a.pos, a.facing, true).find_map(|at| {
             self.actors
                 .iter()
                 .filter(|(_, b)| b.pos == at)

@@ -46,7 +46,15 @@ const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
 const Settings = preload("res://settings.gd")
-## The GUI sizes - and = step through, and where the player's own game keeps its choice.
+## The numbers DuskWorld hands over, by name (codes.gd, made from the bridge's codes.rs).
+const Codes = preload("res://codes.gd")
+const Event = Codes.Event
+const Item = Codes.Item
+const Action = Codes.Action
+const Moodle = Codes.Moodle
+const State = Codes.State
+const Remains = Codes.Remains
+const Power = Codes.Power
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -54,162 +62,69 @@ const CAMERA_YAW := 45.0
 const CAMERA_DISTANCE := 40.0
 const ZOOM_MIN := 6.0
 const ZOOM_MAX := 40.0
-## The speed dial: keys 1, 2 and 3.
+## The speed dial (F2, F3 and F4 by default).
 const SPEEDS: Array[int] = [1, 2, 5]
 
-## Event kinds, from DuskWorld.take_events().
-const HEARD := 1
-const SAW := 2
-const REACHED := 3
-const NO_WAY := 4
-const STRUCK := 5
-const MISSED := 6
-const SHOVED := 7
-const DIED := 8
-const DOOR := 9
-const EXHAUSTED := 10
-const GRABBED := 11
-const FREED := 12
-const STRUGGLED := 13
-const THUMPED := 14
-const DOOR_BROKE := 15
-const DRAGGED_DOWN := 16
-const TOOK := 17
-const DROPPED := 18
-const WIELDED := 19
-const WEAPON_BROKE := 20
-const BANDAGED := 21
-const ATE := 22
-const DRANK := 23
-const DRANK_WATER := 24
-const FELL_ASLEEP := 25
-const WOKE := 26
-const LIT := 27
-const DOUSED := 28
-const BURNT_OUT := 29
-const NIGHTFALL := 30
-const DAYBREAK := 31
-const SKILL_UP := 32
-const SKILL_AT_CAP := 33
-const MASTERED := 34
-const BOARDED := 35
-const UNBOARDED := 36
-const BOARD_BROKE := 37
-const MADE_HOME := 38
-const STASHED := 39
-const PUT := 40
-const BROUGHT_HOME := 41
-const LEVEL_UP := 42
-const SMELLED := 43
-const FEVERED := 44
-const FEVER_WORSE := 45
-const FEVER_TOOK := 46
-const CURED := 47
-const GOT_UP := 48
-const KINDLED := 49
-const CAUGHT := 50
-const BURNT := 51
-const BOUGHT := 52
-const SOLD := 53
-const SUPPLIED := 54
-const MENDED := 55
-const TOLLING_TONIGHT := 56
-const TOLLING_BEGAN := 57
-const TOLLED := 58
-const TOLLING_ENDED := 59
-const RISEN := 60
-const CAME := 61
-const LIGHT_EATEN := 62
-const BOUNTY_CLAIMED := 63
-const IDENTIFIED := 64
-const CURSE_CLINGS := 65
-const CURSE_LIFTED := 66
-const RAIN_BEGAN := 67
-const RAIN_ENDED := 68
-const RAINED_OUT := 69
-const TALENT_CHOSEN := 70
-const SECOND_WIND := 71
-const LAID := 72
-const FIRE_LIT := 73
-const SMOTHERED := 74
-const FIRE_OUT := 75
-const SAW_FIRE := 76
-const DREAD := 77
-const BALKED := 78
-const RESISTED := 79
-const CRAFTED := 80
-const BROKE_DOWN := 81
-const SNEAK_ATTACK := 83
-const BLOCKED := 85
-const SHOT := 86
-const SPOILED := 87
-const STARTLED := 88
-const BUTCHERED := 89
-const CLASS_CHOSEN := 90
-const TURNED := 91
-const PRAYED := 92
-const CONSECRATED := 93
-const HEALED := 94
-const WARDED := 95
-const WARD_FADED := 96
-const PICKED := 97
-const REGREW := 98
-const GLANCED := 99
-const WORE := 100
-const TOOK_OFF := 101
-const CLIMBED := 102
-const WINDOW_BROKE := 103
-const FELLED := 104
-const GREW := 105
-const WET := 106
-const COLD := 107
-const CAST := 108
-const SCORCHED := 109
-const SPELL_BROKE := 110
-const SLOTS_BACK := 111
-## A heavy swing, by DuskWorld.actor_actions(): it leans in and tells as a swing does.
-const HEAVY_SWING := 46
-## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
-const ARMOUR := 11
-const BAG := 12  # an item kind (DuskWorld.item_kinds())
-const BANDAGE := 2
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
-## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
-const DOING := {5: "Struggling", 6: "Taking", 7: "Dropping", 8: "Bandaging", 9: "Taking it in hand",
-	10: "Putting it away", 11: "Lying down", 12: "Drinking", 13: "Eating", 14: "Drinking",
-	15: "Lighting it", 16: "Putting it out", 17: "Boarding it up", 18: "Prying a board off",
-	19: "Making it your stash", 20: "Putting it away", 21: "Taking the cure",
-	22: "Setting it alight", 23: "Buying", 24: "Selling", 25: "Having it mended",
-	26: "Claiming the bounty", 27: "Having it read", 28: "Having the curse lifted",
-	29: "Catching your breath", 30: "Laying the fire", 31: "Lighting the fire",
-	32: "Putting the fire out", 33: "Making it", 34: "Breaking it down", 36: "Drawing the bow",
-	37: "Butchering it", 38: "Holding up the holy symbol", 39: "Praying", 40: "Consecrating it",
-	41: "Mending the wound", 42: "Warding the door", 43: "Picking it", 44: "Putting it on",
-	45: "Taking it off", 47: "Casting"}
+## What your own timed actions are called, by their kind (DuskWorld.actor_actions()).
+const DOING := {
+	Action.STRUGGLE: "Struggling",
+	Action.TAKE: "Taking",
+	Action.DROP: "Dropping",
+	Action.BANDAGE: "Bandaging",
+	Action.WIELD: "Taking it in hand",
+	Action.PUT_AWAY: "Putting it away",
+	Action.SLEEP: "Lying down",
+	Action.DRINK_WATER: "Drinking",
+	Action.EAT: "Eating",
+	Action.DRINK: "Drinking",
+	Action.LIGHT: "Lighting it",
+	Action.DOUSE: "Putting it out",
+	Action.BOARD: "Boarding it up",
+	Action.UNBOARD: "Prying a board off",
+	Action.STASH: "Making it your stash",
+	Action.PUT: "Putting it away",
+	Action.CURE: "Taking the cure",
+	Action.BURN: "Setting it alight",
+	Action.BUY: "Buying",
+	Action.SELL: "Selling",
+	Action.MEND: "Having it mended",
+	Action.CLAIM: "Claiming the bounty",
+	Action.IDENTIFY: "Having it read",
+	Action.UNCURSE: "Having the curse lifted",
+	Action.SECOND_WIND: "Catching your breath",
+	Action.LAY_FIRE: "Laying the fire",
+	Action.LIGHT_FIRE: "Lighting the fire",
+	Action.SMOTHER: "Putting the fire out",
+	Action.CRAFT: "Making it",
+	Action.BREAK_DOWN: "Breaking it down",
+	Action.SHOOT: "Drawing the bow",
+	Action.BUTCHER: "Butchering it",
+	Action.TURN: "Holding up the holy symbol",
+	Action.PRAY: "Praying",
+	Action.CONSECRATE: "Consecrating it",
+	Action.HEAL: "Mending the wound",
+	Action.WARD: "Warding the door",
+	Action.PICK: "Picking it",
+	Action.WEAR: "Putting it on",
+	Action.TAKE_OFF: "Taking it off",
+	Action.CAST: "Casting",
+}
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
 	"chamomile": "Chamomile grows here: steeped at a fire, its tea calms",
 	"bramble": "A bramble, black with berries",
 	"feverfew": "Feverfew grows here, where the dead lie: brewed at a fire, it cures the fever"}
-## A body that rose as a revenant (DuskWorld.actor_remains()): nothing's left to draw.
-const RISEN_BODY := 3
 ## How high one climbing is lifted halfway over, in metres (a window's sill is 0.9).
 const CLIMB_LIFT := 0.55
-## A light, by DuskWorld.item_kinds().
-const LIGHT_KIND := 5
-## Moodles (DuskWorld.character_moodles()) the client acts on.
-const HUNGRY := 0
-const THIRSTY := 1
-const ASLEEP := 8
-const FEVER := 9
 ## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
 const SLEEP_SPEED := 60.0
 ## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
 const HOLD_MS := 350
 ## Seconds played before the news tells of the same level of dread again.
 const DREAD_TOLD_EVERY := 30.0
-## Why you woke, by WOKE's extra.
+## Why you woke, by Event.WOKE's extra.
 const WOKE_BY := ["You woke, rested.", "You got up.", "You woke to pain!", "A noise woke you.",
 	"The cold woke you, shivering. Get warm: a roof, a fire."]
 ## Numbers an event takes.
@@ -228,6 +143,7 @@ var rares := PackedInt32Array()  # 1 for each actor that's a rare (DuskWorld.act
 var told_get_up := false  # the first body you see fall says it'll get up
 var hallowed := false  # on hallowed ground, as last told
 var creature_names := PackedStringArray()  # by creature number: actor kind 1 + n is creature n
+var region_name := ""  # the region the world is a patch of (DuskWorld.region_name()), for zone A
 var kinds := PackedInt32Array()  # each actor's kind (DuskWorld.actor_kinds())
 var fever_took := false  # the fever killed you, for the death screen
 var skill_names := PackedStringArray()
@@ -383,6 +299,7 @@ func _start(carry_on := false) -> void:
 	actors.clear()
 	kinds = dusk.actor_kinds()
 	creature_names = dusk.creature_names()
+	region_name = dusk.region_name()
 	fixture_names = dusk.fixture_names()
 	hud.set_body_names(dusk.part_names(), dusk.wound_names())
 	fever_took = false
@@ -479,9 +396,10 @@ func _process(delta: float) -> void:
 		saved_hour = clock[1]
 		_save("")  # on the game hour
 	moodles = dusk.character_moodles()
-	var asleep := _moodle(ASLEEP) > 0
+	var asleep := _moodle(Moodle.ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(town_seed, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(), dusk.tolling(), dusk.rain(), dusk.place())
+	hud.show_state(region_name, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(),
+		dusk.tolling(), dusk.rain(), dusk.place(), -1 if save_path != "" else town_seed)
 	_mind_the_keys(clock)
 	hud.show_moodles(moodles)
 	hud.show_dread(0 if dead else dusk.character_dread(), delta)
@@ -683,7 +601,7 @@ func _foe_beside(tile: Vector2i) -> Vector2i:
 	if aim == Vector2i.ZERO or absi(aim.x) > 1 or absi(aim.y) > 1:
 		return Vector2i.ZERO
 	for i in kinds.size():
-		if kinds[i] >= 1 and states[i] != 2 and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
+		if kinds[i] >= 1 and states[i] != State.DEAD and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
 			return aim
 	return Vector2i.ZERO
 
@@ -708,7 +626,7 @@ func _set_speed(index: int) -> void:
 
 ## Sleep (Z): lie down to sleep, or get up. The core says whether you can; this says why not.
 func _sleep_or_wake() -> void:
-	if _moodle(ASLEEP) > 0:
+	if _moodle(Moodle.ASLEEP) > 0:
 		dusk.wake()
 		return
 	match dusk.sleep_check():
@@ -729,21 +647,11 @@ func _sleep_or_wake() -> void:
 ## Board it up (E's list): nail a board across the door or window beside you. The core says whether you can; this
 ## says why not.
 func _board_up() -> void:
-	match dusk.board_check(false):
-		-1:
-			hud.say("There's no door or window beside you to board up.")
-		-2:
-			hud.say("Shut the door first.")
-		-3:
-			hud.say("It won't take another board.")
-		-4:
-			hud.say("You need a hammer.")
-		-5:
-			hud.say("You need a plank.")
-		-6:
-			hud.say("You need nails: two a board.")
-		_:
-			dusk.board()
+	var code: int = dusk.board_check(false)
+	if code < 0:
+		hud.say(Prompts.refusal("board", code))
+	else:
+		dusk.board()
 
 
 ## Stepping onto hallowed ground, or off it: the news says so, once each way.
@@ -766,7 +674,7 @@ func _here_now(asleep: bool) -> void:
 	if dead or asleep or held > 0 or choosing_class:
 		here = []
 	else:
-		here = Prompts.here(dusk, creature_names, fixture_names, kinds, _moodle(THIRSTY) > 0)
+		here = Prompts.here(dusk, creature_names, fixture_names, kinds, _moodle(Moodle.THIRSTY) > 0)
 	if here.is_empty():
 		listing = false
 	hud.show_prompts(Prompts.lines(here, listing), listing)
@@ -775,7 +683,7 @@ func _here_now(asleep: bool) -> void:
 ## E, tapped: the likeliest thing here (Prompts.first). With nothing that's E's to do, the list
 ## of what there is.
 func _use_here() -> void:
-	_here_now(_moodle(ASLEEP) > 0)
+	_here_now(_moodle(Moodle.ASLEEP) > 0)
 	var e := Prompts.first(here)
 	if e >= 0:
 		_do(here[e][0])
@@ -787,14 +695,14 @@ func _use_here() -> void:
 ## closes it. It's worked out afresh as you move, like the prompts.
 func _open_here() -> void:
 	listing = true
-	_here_now(_moodle(ASLEEP) > 0)
+	_here_now(_moodle(Moodle.ASLEEP) > 0)
 	if not listing:
 		hud.say("There's nothing to do here.")
 
 
 func _close_here() -> void:
 	listing = false
-	_here_now(_moodle(ASLEEP) > 0)
+	_here_now(_moodle(Moodle.ASLEEP) > 0)
 
 
 ## The `n`th thing in E's list (from 0), done, and the list closed. A number past its end does
@@ -805,7 +713,7 @@ func _do_here(n: int) -> void:
 	var verb: String = here[n][0]
 	listing = false
 	_do(verb)
-	_here_now(_moodle(ASLEEP) > 0)
+	_here_now(_moodle(Moodle.ASLEEP) > 0)
 
 
 ## What each of Prompts.here's verbs does: its handler, which asks the core and says why not.
@@ -852,12 +760,9 @@ func _mind_held_buttons() -> void:
 ## E at a door or window: open or shut it. The core says whether it can be; this says why not.
 func _use_door() -> void:
 	var door: PackedInt32Array = dusk.door_check()
-	if door.size() < 4:
-		hud.say("There's no door or window beside you.")
-	elif door[2] == -2:
-		hud.say(Prompts.keyed("It's boarded up. Hold {use} to pry a board off (with a hammer)."))
-	elif door[2] == -3:
-		hud.say("Its glass is broken: it won't shut. Climb through it, or board it up.")
+	var code: int = door[2] if door.size() >= 4 else -1
+	if code < 0:
+		hud.say(Prompts.refusal("door", code))
 	else:
 		dusk.use_door()
 
@@ -882,13 +787,13 @@ func _power(k: int) -> void:
 			hud.say(Prompts.keyed("Nothing on {power_%d} yet." % (k + 1)))
 		return
 	match powers[k * 2]:
-		0:
+		Power.TURN:
 			_turn_the_dead()
-		1:
+		Power.SECOND_WIND:
 			_second_wind()
-		2:
+		Power.MEND:
 			_mend()
-		3:
+		Power.SPELL:
 			_ready_spell(powers[k * 2 + 1])
 
 
@@ -916,24 +821,18 @@ func _mind_the_plants() -> void:
 ## E at a carcass or a body: cut up the beast's carcass beside you, if there's one; else pour oil on the body beside
 ## you and set it alight from the light you hold up.
 func _burn_body() -> void:
-	match dusk.butcher_check():
-		-1:
-			pass  # no carcass: burning, then
-		-2:
-			hud.say("You need a knife or an axe to butcher it.")
-			return
-		_:
-			dusk.butcher()
-			return
-	match dusk.burn_check():
-		-1:
-			hud.say("There's no body beside you to burn.")
-		-2:
-			hud.say("You need oil to burn it.")
-		-3:
-			hud.say(Prompts.keyed("You need a flame: hold up a lit torch or candle {light}."))
-		_:
-			dusk.burn()
+	var carcass: int = dusk.butcher_check()
+	if carcass >= 0:
+		dusk.butcher()
+		return
+	if carcass != -1:  # -1: no carcass, so a body to burn
+		hud.say(Prompts.refusal("butcher", carcass))
+		return
+	var code: int = dusk.burn_check()
+	if code < 0:
+		hud.say(Prompts.refusal("burn", code))
+	else:
+		dusk.burn()
 
 
 ## Who comes into the world: a new survivor takes up a class before it's under way. The player's
@@ -993,26 +892,20 @@ func _pray() -> void:
 
 ## E at a body: consecrate it with holy water (or a Cleric's faith), and it never gets up.
 func _consecrate() -> void:
-	var body: int = dusk.consecrate_check()
-	if body >= 0:
+	var code: int = dusk.consecrate_check()
+	if code >= 0:
 		dusk.consecrate()
-	elif body == -2:
-		hud.say("You need holy water to consecrate it: the abbey sells it, and the chapel's fonts hold it.")
 	else:
-		hud.say("There's no body beside you to consecrate.")
+		hud.say(Prompts.refusal("consecrate", code if code == -2 else -1))
 
 
 ## Ward the door (E's list): a Cleric with Warding wards the shut door beside you.
 func _ward() -> void:
-	match dusk.ward_check():
-		1:
-			dusk.ward()
-		-2:
-			hud.say("There's no shut door beside you to ward.")
-		-3:
-			hud.say("Not enough faith to ward the door. Pray at an altar.")
-		_:
-			hud.say("No warding: it takes the talent (a Cleric's).")
+	var code: int = dusk.ward_check()
+	if code == 1:
+		dusk.ward()
+	else:
+		hud.say(Prompts.refusal("ward", code))
 
 
 ## A power: mend your worst bleeding wound with faith (Mending, a Cleric's talent).
@@ -1040,17 +933,11 @@ func _pick() -> void:
 ## E at a fire: tend the hearth, stove or forge beside you: lay a piece of fuel on, or once it's laid,
 ## light it from the light you hold up. The core says which, or why not.
 func _tend_fire() -> void:
-	match dusk.fire_check():
-		-1:
-			hud.say("There's no hearth, stove or forge beside you.")
-		-2:
-			hud.say("It won't take more just now: let it burn down a while.")
-		-3:
-			hud.say("You have nothing that burns: split logs (a hearth or stove keeps a few by it) or planks.")
-		-4:
-			hud.say(Prompts.keyed("The fire's laid. Hold up a lit torch or candle {light} to light it."))
-		_:
-			dusk.tend_fire()
+	var code: int = dusk.fire_check()
+	if code < 0:
+		hud.say(Prompts.refusal("fire", code))
+	else:
+		dusk.tend_fire()
 
 
 ## Put it out (E's list): the fire beside you. What's left of the wood stays in it for the next time.
@@ -1087,13 +974,11 @@ func _near(x: int, y: int, tiles: float) -> bool:
 
 ## Pry a board off (E's list): the boarded door or window beside you.
 func _pry_board() -> void:
-	match dusk.board_check(true):
-		-1:
-			hud.say("There's nothing boarded up beside you.")
-		-4:
-			hud.say("You need a hammer to pry it off.")
-		_:
-			dusk.unboard()
+	var code: int = dusk.board_check(true)
+	if code < 0:
+		hud.say(Prompts.refusal("unboard", code))
+	else:
+		dusk.unboard()
 
 
 ## Asleep, time runs at SLEEP_SPEED; awake again, at the speed it was.
@@ -1150,14 +1035,14 @@ func _draw_actors(delta: float) -> void:
 	seen = dusk.actor_seen()
 	for i in actors.size():
 		# What you don't see isn't drawn (CONCEPT.md: never a live monster you can't see).
-		actors[i].visible = _seen(i) and remains[i] != RISEN_BODY
+		actors[i].visible = _seen(i) and remains[i] != Remains.GONE
 		# Climbing, it's lifted over the sill or the fence and down again.
 		var lift := sin(climbs[i] * PI) * CLIMB_LIFT if climbs[i] >= 0.0 else 0.0
 		actors[i].position = Vector3(where[i].x + 0.5, lift, where[i].y + 0.5)
 		actors[i].face(facing[i], delta)
 		actors[i].show_alert(alert[i], delta)
 		# Leaning in while a swing winds up: the tell, on the body as well as the ground.
-		var swinging := actions[i * 4] in [1, HEAVY_SWING] and actions[i * 4 + 1] < 1000
+		var swinging := actions[i * 4] in [Action.SWING, Action.HEAVY] and actions[i * 4 + 1] < 1000
 		actors[i].show_pose(states[i], actions[i * 4 + 1] / 1000.0 if swinging else -1.0, delta)
 		actors[i].show_remains(remains[i], delta)
 	tells.show_actions(actions, me, seen)
@@ -1176,10 +1061,10 @@ func _read_events() -> void:
 		var target := events[i + 2]
 		var extra := events[i + 5]
 		match events[i]:
-			HEARD:
+			Event.HEARD:
 				if _seen(who):
 					hud.say("%s heard something." % _a(who))
-			SAW:
+			Event.SAW:
 				# A wolf howls as it sees you, for the pack (DuskWorld.wild_kinds() 2).
 				var wild: PackedInt32Array = dusk.wild_kinds()
 				var n := kinds[who] - 1 if who < kinds.size() else -1
@@ -1187,16 +1072,16 @@ func _read_events() -> void:
 					hud.say("%s sees you, and howls for the pack!" % _a(who) if _seen(who) else "A howl: something out there has seen you.")
 				else:
 					hud.say("%s saw you!" % _a(who) if _seen(who) else "Something has seen you.")
-			SMELLED:
+			Event.SMELLED:
 				if target == me:
 					if _seen(who):
 						hud.say("%s has the scent of your blood! Bandage it, or it won't lose you." % _a(who))
 					else:
 						hud.say(Prompts.keyed("Something has the scent of your blood. Bandage it: {pack}."))
-			NO_WAY:
+			Event.NO_WAY:
 				if who == me:
 					hud.say("There's no way there.")
-			STRUCK:
+			Event.STRUCK:
 				if target == me and extra > 0:
 					var wound := wound_names[floori(extra / 100.0) - 1]
 					var part := part_names[extra % 100]
@@ -1206,98 +1091,98 @@ func _read_events() -> void:
 					hud.flash()
 				elif who == me:
 					hud.say("You hit it.")
-			MISSED:
+			Event.MISSED:
 				if who == me:
 					hud.say("You missed.")
 				elif target == me or _beside(who):
 					hud.say("%s reached for you and missed." % _a(who))
-			SHOVED:
+			Event.SHOVED:
 				if who == me:
 					hud.say("You shoved it down." if extra == 1 else "You shoved it back.")
-			DIED:
+			Event.DIED:
 				if who == me:
 					_die()
 				else:
 					hud.say("It's down for good.")
-			DOOR:
+			Event.DOOR:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					var what := "window" if extra & 2 else "door"
 					hud.say(("You opened the %s." if extra & 1 else "You shut the %s.") % what)
-			EXHAUSTED:
+			Event.EXHAUSTED:
 				if who == me:
 					hud.say("You're out of breath.")
-			GRABBED:
+			Event.GRABBED:
 				if target == me:
 					hud.say(Prompts.keyed("It has hold of you! {swing} to struggle, {shove} to shove it off."))
 					hud.flash()
-			FREED:
+			Event.FREED:
 				if who == me:
 					hud.say("You got free.")
-			STRUGGLED:
+			Event.STRUGGLED:
 				if who == me:
 					hud.say("You couldn't get free.")
-			THUMPED:
+			Event.THUMPED:
 				# Doors are loud: tell of it now and then, not at every blow (nor of your own).
 				var now: float = dusk.tick() / 10.0
 				if who != me and now - last_thump > 6.0:
 					last_thump = now
 					hud.say("Something is beating on a %s." % ("window" if extra & 2 else "door"))
-			DOOR_BROKE:
+			Event.DOOR_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("A door gave way!")
-			WINDOW_BROKE:
+			Event.WINDOW_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("Glass shatters!")
-			FELLED:
+			Event.FELLED:
 				if who == me:
 					hud.say("Your heavy blow knocks it down. Finish it!")
-			WET:
+			Event.WET:
 				# A new level of wet (cold.rs): only soaked through is news; the moodle says the rest.
 				if who == me and extra == 3:
 					hud.say("You're soaked through. Wet, you'll get cold: get under a roof, or by a fire.")
-			COLD:
+			Event.COLD:
 				if who == me:
 					_tell_cold(extra)
-			CAST:
+			Event.CAST:
 				if who == me:
 					hud.say("You cast %s." % _spell_name(extra))
-			SCORCHED:
+			Event.SCORCHED:
 				if target == me:
 					hud.say("Your own fireball burns you!" if who == me else "Fire burns you!")
-			SPELL_BROKE:
+			Event.SPELL_BROKE:
 				if who == me:
 					hud.say("The blow breaks your words: the %s is lost. Nothing's spent." % _spell_name(extra))
-			SLOTS_BACK:
+			Event.SLOTS_BACK:
 				if who == me:
 					hud.say("Rested, your spell slots are all back.")
-			GREW:
+			Event.GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
 				# plus the level).
 				if who == me:
 					var strength := extra < 100
 					hud.say(("You feel stronger: Strength %d." if strength else "You feel fitter: Fitness %d.") % (extra % 100))
-			DRAGGED_DOWN:
+			Event.DRAGGED_DOWN:
 				if who == me:
 					dragged_by = extra
-			TOOK:
+			Event.TOOK:
 				if who == me:
 					hud.say("You took %s." % _items(extra))
-			DROPPED:
+			Event.DROPPED:
 				if who == me:
 					hud.say("You dropped %s." % _items(extra))
-			WIELDED:
+			Event.WIELDED:
 				if who == me:
 					var kinds: PackedInt32Array = dusk.item_kinds()
-					var shield := extra < kinds.size() and kinds[extra] == 8
+					var shield := extra < kinds.size() and kinds[extra] == Item.SHIELD
 					hud.say(("You took up the %s on your arm. Hold the right mouse button to brace behind it." if shield
 						else "You took the %s in hand.") % _item_name(extra))
-			WEAPON_BROKE:
+			Event.WEAPON_BROKE:
 				if who == me:
 					var kinds: PackedInt32Array = dusk.item_kinds()
-					var worn := extra < kinds.size() and kinds[extra] == ARMOUR
+					var worn := extra < kinds.size() and kinds[extra] == Item.ARMOUR
 					hud.say(("Your %s falls apart!" if worn else "Your %s broke!") % _item_name(extra))
-			GLANCED:
+			Event.GLANCED:
 				# Every blow that glances would fill the news: now and then.
 				if who == me and played - glanced_at > 3.0:
 					glanced_at = played
@@ -1305,13 +1190,13 @@ func _read_events() -> void:
 				elif target == me and played - skidded_at > 15.0:
 					skidded_at = played
 					hud.say("Your blow glances off %s's %s. A point would go through." % [_a(who), _item_name(extra % 65536)])
-			WORE:
+			Event.WORE:
 				if who == me:
 					hud.say("You put on the %s." % _item_name(extra))
-			TOOK_OFF:
+			Event.TOOK_OFF:
 				if who == me:
 					hud.say("You take off the %s." % _item_name(extra))
-			CLIMBED:
+			Event.CLIMBED:
 				# One of the dead that tumbles over is a free blow while it's down: say so when
 				# you see it, now and then.
 				if who != me and extra & 2 and _seen(who) and played - tumbled_at > 10.0:
@@ -1320,144 +1205,144 @@ func _read_events() -> void:
 				elif who == me and extra & 4:
 					hud.say("The broken glass cut you as you climbed through. Bandage it!")
 					hud.flash()
-			BANDAGED:
+			Event.BANDAGED:
 				if who == me:
 					hud.say("You bandaged your %s." % part_names[extra])
-			ATE:
+			Event.ATE:
 				if who == me:
 					hud.say("You ate the %s." % _item_name(extra))
-			DRANK:
+			Event.DRANK:
 				if who == me:
 					hud.say("You drank the %s." % _item_name(extra))
-			DRANK_WATER:
+			Event.DRANK_WATER:
 				if who == me:
 					hud.say("You drank your fill.")
-			FELL_ASLEEP:
+			Event.FELL_ASLEEP:
 				if who == me:
 					hud.say("You fell asleep in the bed." if extra == 1 else "You fell asleep on the ground.")
-			WOKE:
+			Event.WOKE:
 				if who == me and extra >= 0 and extra < WOKE_BY.size():
 					hud.say(WOKE_BY[extra])
-			LIT:
+			Event.LIT:
 				if who == me:
 					hud.say("You lit the %s and held it up." % _item_name(extra))
-			DOUSED:
+			Event.DOUSED:
 				if who == me:
 					hud.say("You put out the %s." % _item_name(extra))
-			BURNT_OUT:
+			Event.BURNT_OUT:
 				if who == me:
 					hud.say("Your %s burnt out." % _item_name(extra))
-			NIGHTFALL:
+			Event.NIGHTFALL:
 				hud.say("The sun is going down. Night is coming.")
-			DAYBREAK:
+			Event.DAYBREAK:
 				hud.say("The sky is lightening. Dawn is coming.")
-			SKILL_UP:
+			Event.SKILL_UP:
 				if who == me:
 					hud.say(Prompts.keyed("%s rose to level %d.  ({skills}: skills)") % [_skill_name(extra), extra % 100])
-			SKILL_AT_CAP:
+			Event.SKILL_AT_CAP:
 				if who == me:
 					if dusk.masteries_left() > 0:
 						hud.say(Prompts.keyed("%s will rise no further unless you master it: {skills}.") % _skill_name(extra))
 					else:
 						hud.say("%s will rise no further: your masteries are taken." % _skill_name(extra))
-			MASTERED:
+			Event.MASTERED:
 				if who == me:
 					hud.say("You mastered %s: level %d, and on to 10." % [_skill_name(extra), extra % 100])
-			BOARDED:
+			Event.BOARDED:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You nailed a board across it: %d on it now." % extra)
-			UNBOARDED:
+			Event.UNBOARDED:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You pried a board off: %d left." % extra)
-			MADE_HOME:
+			Event.MADE_HOME:
 				if who == me:
 					hud.say("You slept the night through. This is home now: a container under its roof can be your stash.")
-			STASHED:
+			Event.STASHED:
 				if who == me:
 					hud.say("That's your stash. Finds put into it pay their worth.")
-			PUT:
+			Event.PUT:
 				if who == me:
 					hud.say("You put away %s." % _items(extra))
-			BROUGHT_HOME:
+			Event.BROUGHT_HOME:
 				# (x, y) carry the item and how many; extra is the XP.
 				if who == me:
 					hud.say("Brought home: %s, %d XP." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
-			LEVEL_UP:
+			Event.LEVEL_UP:
 				if who == me:
 					hud.say("You reached level %d. A little more health, and a talent to choose: K." % extra)
 					hud.flash_good()
-			FEVERED:
+			Event.FEVERED:
 				if who == me:
 					hud.say("The wound burns. You've caught ghoul fever: three days to find a cure.")
 					hud.flash()
-			FEVER_WORSE:
+			Event.FEVER_WORSE:
 				if who == me:
 					if extra >= 3:
 						hud.say("You're dying of the fever. A day left to find the cure.")
 					else:
 						hud.say("The fever has you weak: your breath comes back slowly.")
 					hud.flash()
-			FEVER_TOOK:
+			Event.FEVER_TOOK:
 				if who == me:
 					fever_took = true
-			CURED:
+			Event.CURED:
 				if who == me:
 					hud.say("You took the cure. The fever breaks.")
 					hud.flash_good()
-			DIED:
+			Event.DIED:
 				# The first of the dead you see go down: what happens next, and what stops it.
 				if who != me and _seen(who) and not told_get_up:
 					told_get_up = true
 					hud.say(Prompts.keyed("It'll get up again in a day or so, unless you burn it (oil and a flame) or consecrate it (holy water): {use} beside it."))
-			GOT_UP:
+			Event.GOT_UP:
 				if _seen(who):
 					hud.say("%s gets up again!" % _a(who))
-			KINDLED:
+			Event.KINDLED:
 				if who == me:
 					hud.say("You set it alight. It won't get up again.")
-			CAUGHT:
+			Event.CAUGHT:
 				if _seen(who):
 					hud.say("The fire spreads to another body.")
-			BOUGHT:
+			Event.BOUGHT:
 				if who == me:
 					hud.say("Bought %s for %d coin." % [_item_name(events[i + 3]), extra])
-			SOLD:
+			Event.SOLD:
 				if who == me:
 					hud.say("Sold %s for %d coin." % [_items(events[i + 3] * 1000 + events[i + 4]), extra])
-			SUPPLIED:
+			Event.SUPPLIED:
 				if who == me:
 					hud.say("The sisters were short of that. The dusk falls back a little (%.1f%%)." % (extra / 10.0))
 					hud.flash_good()
-			MENDED:
+			Event.MENDED:
 				if who == me:
 					hud.say("Your %s is mended, good as new." % _item_name(events[i + 3]))
-			TOLLING_TONIGHT:
+			Event.TOLLING_TONIGHT:
 				hud.say("Tonight the old chapel's bell will toll, at 22:00. The dead will come to it, and they won't give up till dawn.")
-			TOLLING_BEGAN:
+			Event.TOLLING_BEGAN:
 				hud.say("The bell is tolling! Every dead thing for miles is walking to the chapel.")
 				hud.flash()
-			TOLLING_ENDED:
+			Event.TOLLING_ENDED:
 				hud.say("Dawn. The bell is quiet, and the dead give up as they did.")
 				hud.flash_good()
-			LIGHT_EATEN:
+			Event.LIGHT_EATEN:
 				if target == me:
 					hud.say("%s puts out your light! It wants you in the dark." % dusk.actor_name(who))
 					hud.flash()
-			TALENT_CHOSEN:
+			Event.TALENT_CHOSEN:
 				if who == me:
 					var texts: PackedStringArray = dusk.talent_texts()
 					if extra * 2 + 1 < texts.size():
 						hud.say("Talent: %s. %s." % [texts[extra * 2], texts[extra * 2 + 1].left(1).to_upper() + texts[extra * 2 + 1].substr(1)])
-			SECOND_WIND:
+			Event.SECOND_WIND:
 				if who == me:
 					hud.say("You catch your second wind.")
 					hud.flash_good()
-			CLASS_CHOSEN:
+			Event.CLASS_CHOSEN:
 				if who == me and extra * 2 < class_texts.size():
 					hud.say("You take up the %s's way." % class_texts[extra * 2])
-			TURNED:
+			Event.TURNED:
 				if who == me:
 					var turned := extra % 1000
 					var fell := floori(extra / 1000.0)
@@ -1472,21 +1357,21 @@ func _read_events() -> void:
 						else:
 							hud.say("You hold up the holy symbol! %s%s." % [flee, ", and %s" % fall if fell > 0 else ""])
 						hud.flash_good()
-			PRAYED:
+			Event.PRAYED:
 				if who == me:
 					hud.say("You pray. Your faith comes back, and your dread eases." if extra == 1 else "You pray, and your dread eases.")
 					hud.flash_good()
-			CONSECRATED:
+			Event.CONSECRATED:
 				if who == me:
 					hud.say("You pour the holy water over it. It won't get up again." if extra == 1 else "You say the rites over it. It won't get up again.")
-			HEALED:
+			Event.HEALED:
 				if who == me:
 					hud.say("Your faith closes the wound.")
 					hud.flash_good()
-			WARDED:
+			Event.WARDED:
 				if who == me:
 					hud.say("You ward the door. The dead won't beat on it tonight.")
-			PICKED:
+			Event.PICKED:
 				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					var picked := extra / 65536
@@ -1494,86 +1379,86 @@ func _read_events() -> void:
 						hud.say("You pick it: %s ×%d." % [_item_name(extra % 65536), picked])
 					else:
 						hud.say("You pick it over, and find nothing worth taking.")
-			REGREW:
+			Event.REGREW:
 				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
-			WARD_FADED:
+			Event.WARD_FADED:
 				if _near(events[i + 3], events[i + 4], 16.0):
 					hud.say("The ward on the door has faded.")
-			RAIN_BEGAN:
+			Event.RAIN_BEGAN:
 				hud.say("It's raining hard. Lights gutter outdoors; sound and blood don't carry far." if extra == 1 else "It starts to rain: lights gutter outdoors, and the dead hear and smell less.")
-			RAIN_ENDED:
+			Event.RAIN_ENDED:
 				hud.say("The rain stops.")
-			RAINED_OUT:
+			Event.RAINED_OUT:
 				if who == me:
 					hud.say("The rain puts out your %s. Light it under a roof." % _item_name(extra))
-			IDENTIFIED:
+			Event.IDENTIFIED:
 				if who == me:
 					hud.say("You know what it is now: %s." % _known_as(extra))
 					hud.flash_good()
-			CURSE_CLINGS:
+			Event.CURSE_CLINGS:
 				if who == me:
 					hud.say("The %s clings to your hand: it's cursed! The abbey can lift a curse." % _item_name(extra))
 					hud.flash()
-			CURSE_LIFTED:
+			Event.CURSE_LIFTED:
 				if who == me:
 					hud.say("The sisters lift the curse. The %s lets go of your hand." % _item_name(extra))
 					hud.flash_good()
-			BOUNTY_CLAIMED:
+			Event.BOUNTY_CLAIMED:
 				if who == me:
 					hud.say("The sisters pay the bounty on %s: %d coin, and the dusk falls back." % [dusk.actor_name(target), extra])
 					hud.flash_good()
-			RISEN:
+			Event.RISEN:
 				# Your old body: you'd want to know, seen or not.
 				hud.say("Midnight. %s's body rises as a revenant, in the gear it fell in." % dusk.actor_name(who))
-			SHOT:
+			Event.SHOT:
 				_streak(Vector2i(extra / 4096, extra % 4096), Vector2i(events[i + 3], events[i + 4]))
-			BLOCKED:
+			Event.BLOCKED:
 				if who == me and played - blocked_at > 3.0:
 					blocked_at = played
 					hud.say("You take the blow on your shield.")
-			SNEAK_ATTACK:
+			Event.SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
-			STARTLED:
+			Event.STARTLED:
 				if who < seen.size() and seen[who] == 1:
 					hud.say("%s takes fright and bolts!" % _a(who))
-			BUTCHERED:
+			Event.BUTCHERED:
 				if who == me:
 					var count := extra / 65536
 					hud.say("You cut it up: %d %s." % [count, _item_name(extra % 65536)])
-			SPOILED:
+			Event.SPOILED:
 				if who == me:
 					hud.say("Your %s has gone off. You throw it away." % _item_name(extra))
-			CRAFTED:
+			Event.CRAFTED:
 				if who == me and extra * 2 < recipe_texts.size():
 					hud.say("You made a %s." % recipe_texts[extra * 2])
-			BROKE_DOWN:
+			Event.BROKE_DOWN:
 				map_view.refresh_tile(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You break it down: %d plank%s." % [extra, "" if extra == 1 else "s"])
-			BOARD_BROKE:
+			Event.BOARD_BROKE:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				hud.say("The last board gave way!" if extra == 0 else "A board gave way! %d left." % extra)
-			LAID:
+			Event.LAID:
 				if who == me:
 					var f: PackedInt32Array = dusk.fire_beside()
 					if f.size() >= 4 and f[3] == 1:
 						hud.say("You put another %s on the fire." % _item_name(extra))
 					else:
 						hud.say(Prompts.keyed("You lay the fire. Hold up a light {light}, and {use} lights it."))
-			FIRE_LIT:
+			Event.FIRE_LIT:
 				if who == me:
 					hud.say("The fire catches. The room is lit, and so is anything seen through its windows.")
-			SMOTHERED:
+			Event.SMOTHERED:
 				if who == me:
 					hud.say("You put the fire out. What's left of the wood stays in it.")
 				else:
 					hud.say("%s puts out the fire! It wants you in the dark." % dusk.actor_name(who))
 					hud.flash()
-			FIRE_OUT:
+			Event.FIRE_OUT:
 				if _near(events[i + 3], events[i + 4], 16.0):
 					hud.say("The fire has burnt out.")
-			SAW_FIRE:
+			Event.SAW_FIRE:
 				# Once in a while: a crowd seeing it would fill the news.
 				if played - fire_seen_at > 20.0:
 					fire_seen_at = played
@@ -1581,14 +1466,14 @@ func _read_events() -> void:
 						hud.say("%s has seen the firelight, and comes to it." % _a(who))
 					else:
 						hud.say("Something out in the dark has seen the firelight.")
-			DREAD:
+			Event.DREAD:
 				if who == me:
 					_tell_dread(extra)
-			BALKED:
+			Event.BALKED:
 				if who == me and played - balked_at > 4.0:
 					balked_at = played
 					hud.say("You can't make yourself go nearer the dead.")
-			RESISTED:
+			Event.RESISTED:
 				# Once in a while: every blow on bone would fill the news.
 				if who == me and played - resisted_at > 15.0:
 					resisted_at = played
@@ -1598,7 +1483,7 @@ func _read_events() -> void:
 						hud.say("Your blow glances off the bones. Something blunt would shatter them.")
 
 
-## An arrow's flight (the core's SHOT news): a thin streak from the bow to where it landed,
+## An arrow's flight (the core's Event.SHOT news): a thin streak from the bow to where it landed,
 ## fading in a moment. Only the look: where it went is the core's.
 func _streak(from: Vector2i, to: Vector2i) -> void:
 	var a := Vector3(from.x + 0.5, 1.2, from.y + 0.5)
@@ -1647,7 +1532,7 @@ func _brace(on: bool) -> void:
 	dusk.set_bracing(on)
 
 
-## How cold you are reached a new level (the core's COLD news, cold.rs): told as it rises, and
+## How cold you are reached a new level (the core's Event.COLD news, cold.rs): told as it rises, and
 ## when you're warm again. The cold drifts slowly, so it doesn't hover at a level's edge.
 func _tell_cold(level: int) -> void:
 	if level > cold_was:
@@ -1664,7 +1549,7 @@ func _tell_cold(level: int) -> void:
 	cold_was = level
 
 
-## Your dread reached a new level (the core's DREAD news): told as it rises, and when it lets go.
+## Your dread reached a new level (the core's Event.DREAD news): told as it rises, and when it lets go.
 ## It hovers at a level's edge as the dead come and go from sight, so each level is told at most
 ## once in DREAD_TOLD_EVERY seconds.
 func _tell_dread(level: int) -> void:
@@ -1713,8 +1598,8 @@ func _die() -> void:
 	dead = true
 	dread_was = 0  # the next survivor starts calm
 	var how := last_hurt
-	var starving := _moodle(HUNGRY) >= 3
-	var parched := _moodle(THIRSTY) >= 3
+	var starving := _moodle(Moodle.HUNGRY) >= 3
+	var parched := _moodle(Moodle.THIRSTY) >= 3
 	if fever_took:
 		how = "The ghoul fever took you."
 	elif dragged_by >= 3:
@@ -1725,7 +1610,7 @@ func _die() -> void:
 		pass  # the blow itself
 	elif dusk.character_body()[4] > 0:
 		how = "You bled to death."
-	elif _moodle(FEVER) >= 3:
+	elif _moodle(Moodle.FEVER) >= 3:
 		how = "The ghoul fever wore you down."
 	elif starving and parched:
 		how = "Hunger and thirst wore you down."
@@ -1965,7 +1850,7 @@ func _light_or_douse() -> void:
 	var items: PackedInt32Array = dusk.character_items()
 	var kinds: PackedInt32Array = dusk.item_kinds()
 	for i in range(0, items.size() - 3, 4):
-		if items[i] < kinds.size() and kinds[items[i]] == LIGHT_KIND:
+		if items[i] < kinds.size() and kinds[items[i]] == Item.LIGHT:
 			dusk.light(floori(i / 4.0), items[i])
 			return
 	hud.say("You have nothing to light.")
@@ -2152,7 +2037,7 @@ func _run_script() -> void:
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] == BANDAGE:
+					if items[k] < kinds.size() and kinds[items[k]] == Item.BANDAGE:
 						dusk.use_item(k / 4, items[k])
 						break
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
@@ -2170,14 +2055,14 @@ func _run_script() -> void:
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] == 8:
+					if items[k] < kinds.size() and kinds[items[k]] == Item.SHIELD:
 						dusk.wield(k / 4, items[k])
 						break
 			"wear":  # put on the first armour or bag in the pack
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] in [ARMOUR, BAG]:
+					if items[k] < kinds.size() and kinds[items[k]] in [Item.ARMOUR, Item.BAG]:
 						dusk.wear(k / 4, items[k])
 						break
 			"dropbag":  # the bag on your back, with what's in it
@@ -2239,7 +2124,7 @@ func _run_script() -> void:
 				for k in where.size():
 					if k == me or k >= kinds.size() or kinds[k] == 0 or where[k].distance_to(where[me]) > 12.0:
 						continue
-					if kinds[k] - 1 >= beasts.size() or beasts[kinds[k] - 1] != 1 or states[k] == 2:
+					if kinds[k] - 1 >= beasts.size() or beasts[kinds[k] - 1] != 1 or states[k] == State.DEAD:
 						continue
 					if best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me]):
 						best = k
@@ -2249,7 +2134,7 @@ func _run_script() -> void:
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] == 9:
+					if items[k] < kinds.size() and kinds[items[k]] == Item.BOW:
 						dusk.wield(k / 4, items[k])
 						break
 			"save":

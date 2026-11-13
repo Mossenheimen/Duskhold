@@ -90,13 +90,8 @@ const FURNITURE := {
 }
 
 const SIDE_WEST := 1
-const EDGE_WALL := 1
-const EDGE_DOOR_SHUT := 2
-const EDGE_DOOR_OPEN := 3
-const EDGE_WINDOW_SHUT := 4
-const EDGE_WINDOW_OPEN := 5
-const EDGE_FENCE := 6
-const EDGE_WINDOW_BROKEN := 7
+## An edge's kind, by name (codes.gd).
+const Edge = preload("res://codes.gd").Edge
 ## A broken window keeps a rim of glass in its frame, top and bottom: what cuts you climbing.
 const SHARDS := 0.1
 
@@ -168,20 +163,20 @@ func build_walls(low_walls: bool) -> void:
 		# Each piece of the edge: from, to (heights), and what it is.
 		var pieces := []
 		match kind:
-			EDGE_WALL:
+			Edge.WALL:
 				pieces = [[0.0, WALL_HEIGHT, "wall"]]
-			EDGE_DOOR_SHUT:
+			Edge.DOOR_SHUT:
 				pieces = [[DOOR_TOP, WALL_HEIGHT, "wall"], [0.0, DOOR_TOP, "door"]]
-			EDGE_DOOR_OPEN:
+			Edge.DOOR_OPEN:
 				pieces = [[DOOR_TOP, WALL_HEIGHT, "wall"]]
-			EDGE_WINDOW_SHUT:
+			Edge.WINDOW_SHUT:
 				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"], [SILL, WINDOW_TOP, "glass"]]
-			EDGE_WINDOW_OPEN:
+			Edge.WINDOW_OPEN:
 				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"]]
-			EDGE_WINDOW_BROKEN:
+			Edge.WINDOW_BROKEN:
 				pieces = [[0.0, SILL, "wall"], [WINDOW_TOP, WALL_HEIGHT, "wall"],
 					[SILL, SILL + SHARDS, "glass"], [WINDOW_TOP - SHARDS, WINDOW_TOP, "glass"]]
-			EDGE_FENCE:
+			Edge.FENCE:
 				pieces = [[0.0, FENCE_HEIGHT, "fence"]]
 		for piece in pieces:
 			var bottom: float = piece[0]
@@ -203,7 +198,7 @@ func build_walls(low_walls: bool) -> void:
 				colours.append({"wall": WALL, "door": DOOR, "fence": FENCE}[what].srgb_to_linear())
 				surfaces.append(PLASTER if what == "wall" else WOOD)
 		# Boards nailed across a door or window, sticking out a little on both sides.
-		var opening := Vector2(0.2, DOOR_TOP - 0.15) if kind in [EDGE_DOOR_SHUT, EDGE_DOOR_OPEN] \
+		var opening := Vector2(0.2, DOOR_TOP - 0.15) if kind in [Edge.DOOR_SHUT, Edge.DOOR_OPEN] \
 			else Vector2(SILL, WINDOW_TOP)
 		for b in boards:
 			var mid := opening.x + (b + 0.5) * (opening.y - opening.x) / BOARD_SLOTS

@@ -3,6 +3,8 @@ extends Node3D
 ## blow nears. Red for the dead's, pale for yours. From DuskWorld.actor_actions().
 
 const Look = preload("res://look.gd")
+## An actor's timed action, by name (codes.gd).
+const Action = preload("res://codes.gd").Action
 const YOURS := Look.YOURS
 
 var _material := ShaderMaterial.new()
@@ -24,7 +26,7 @@ func show_actions(actions: PackedInt32Array, me: int, seen: PackedByteArray) -> 
 		var progress := actions[i + 1]
 		# Swings (heavy ones too), shoves, blows on doors and spells (on the spot they're cast
 		# on) still winding up. Nothing else lands on a tile.
-		if kind not in [1, 2, 4, 46, 47] or progress >= 1000:
+		if kind not in [Action.SWING, Action.SHOVE, Action.BEAT, Action.HEAVY, Action.CAST] or progress >= 1000:
 			continue
 		if actor >= seen.size() or seen[actor] == 0:
 			continue

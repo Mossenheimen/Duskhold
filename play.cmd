@@ -18,7 +18,7 @@ if not exist client\dusk.gdextension (
   > client\dusk.gdextension (
     echo [configuration]
     echo entry_symbol = "gdext_rust_init"
-    echo compatibility_minimum = 4.6
+    echo compatibility_minimum = 4.7
     echo reloadable = true
     echo.
     echo [libraries]

@@ -24,11 +24,9 @@ const LOOKS := [
 const SLEEPING := Look.REST
 ## Turned by the holy symbol (DuskWorld.actor_alert() 3): it flees you.
 const TURNED := Look.HOLY
-const ASLEEP := 3
-## A body burning (DuskWorld.actor_remains() 1), burnt (2), and consecrated (4).
-const BURNING := 1
-const ASH := 2
-const HALLOWED := 4
+## An actor's state and what's become of a body, by name (codes.gd).
+const State = preload("res://codes.gd").State
+const Remains = preload("res://codes.gd").Remains
 const FIRE := Look.EMBER
 const CINDERS := Look.ASH
 ## How far a burning body's light reaches, in tiles: rules.toml's [burning] light, plus a tile
@@ -135,7 +133,7 @@ func show_alert(level: int, delta: float) -> void:
 
 ## The mark over its head: "z" asleep, else what it knows of you ("+" turned: it flees you).
 func _show_mark() -> void:
-	if _state == ASLEEP:
+	if _state == State.ASLEEP:
 		_mark.text = "z"
 		_mark.modulate = SLEEPING
 	else:
@@ -157,7 +155,7 @@ func show_pose(state: int, wind_up: float, delta: float) -> void:
 	if state != _state:
 		_state = state
 		_skin.albedo_color = _colour.darkened(0.55) if state == 2 else _colour
-		_mark.visible = state == 0 or state == ASLEEP
+		_mark.visible = state == 0 or state == State.ASLEEP
 		_show_mark()
 	var target := _stoop
 	if state != 0:
@@ -180,9 +178,9 @@ func show_pose(state: int, wind_up: float, delta: float) -> void:
 func show_remains(remains: int, _delta: float) -> void:
 	if remains != _remains:
 		_remains = remains
-		if remains == HALLOWED:
+		if remains == Remains.HALLOWED:
 			_skin.albedo_color = _colour.darkened(0.55).lerp(TURNED, 0.35)
-		elif remains == BURNING:
+		elif remains == Remains.BURNING:
 			_skin.albedo_color = _colour.darkened(0.7)
 			_skin.emission_enabled = true
 			_skin.emission = FIRE
@@ -194,13 +192,13 @@ func show_remains(remains: int, _delta: float) -> void:
 				_fire.position = Vector3(0.0, 0.5, 0.0)
 				add_child(_fire)
 			_fire.visible = true
-		elif remains == ASH:
+		elif remains == Remains.ASH:
 			_skin.emission_enabled = false
 			_skin.albedo_color = CINDERS
 			_body.scale = Vector3(1.15, 0.85, 0.35)  # lying, local z is up: flattened
 			if _fire != null:
 				_fire.visible = false
-	if _remains == BURNING:
+	if _remains == Remains.BURNING:
 		# Each body flickers on its own beat (its place in the world), not all in step.
 		var now := Time.get_ticks_msec() / 1000.0 + position.x * 0.37 + position.z * 0.61
 		var flicker := 1.0 + 0.12 * sin(now * 11.0) + 0.07 * sin(now * 27.0)

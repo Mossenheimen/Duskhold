@@ -12,7 +12,9 @@ crate-type = ["cdylib"]
 dusk-core = { path = "../dusk-core" }
 dusk-data = { path = "../dusk-data" }
 dusk-gen = { path = "../dusk-gen" }
-godot = "0.5.5"
+# Built against Godot 4.7's API, the version the game runs on (gdext's default is 4.6).
+godot = { version = "0.5.5", features = ["api-4-7"] }
 
 # Not the workspace lints: a Godot extension's entry point is an `unsafe impl`, which the
 # workspace forbids. The unsafe stays in this one crate.
+[lints]

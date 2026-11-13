@@ -252,6 +252,26 @@ static func contrast() -> Theme:
 	return theme
 
 
+## A line of a panel's text at `size`, in the face that size calls for (`sized`).
+static func line(words: String, size: int) -> Label:
+	var made := Label.new()
+	made.text = words
+	sized(made, size)
+	return made
+
+
+## A button (§11): its word at SMALL, `pressed` called when it's clicked, at least `least` in
+## size. It never takes the keyboard's focus, so the keys stay with the game.
+static func button(word: String, pressed: Callable, least := Vector2.ZERO) -> Button:
+	var made := Button.new()
+	made.text = word
+	made.add_theme_font_size_override("font_size", SMALL)
+	made.custom_minimum_size = least
+	made.focus_mode = Control.FOCUS_NONE
+	made.pressed.connect(pressed)
+	return made
+
+
 ## A bar's fill in `colour`, on the TRACK (§11).
 static func bar(progress: ProgressBar, colour: Color) -> ProgressBar:
 	var fill := StyleBoxFlat.new()
