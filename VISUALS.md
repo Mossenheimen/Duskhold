@@ -54,6 +54,7 @@ Duskhold looks at its world the way Project Zomboid does, but with a fantasy dus
   - An orthographic camera, pitched 30° down and turned 45° (`main.gd`: `CAMERA_PITCH`, `CAMERA_YAW`). Every asset is made for this view.
   - 1 tile = 1 metre = 1 world unit.
 - **Zoom:** `camera.size` is how many metres of the world fit the screen's height. The default is 14, the range 6 to 40.
+  - **Today** (2026-11-13), as Zomboid's: the wheel zooms a step of 12% a notch (a trackpad's finer scroll a part of one, and its pinch too), and so do `-` and `=`; the camera eases to it, centred on you. The player's own game keeps the zoom it was left at (`user://settings.cfg`). Zoomed out, what you've never seen stays near-black (the fog of war), so early on the far view is mostly dark.
   - At the default on a 1080p screen, a tile is a diamond about 109 × 55 px (2:1, classic isometric), and a person stands about 100 px tall.
   - **Must:** everything reads at 14 and 20. Fine detail may show only at 6 to 10.
 - **Cut-away:** walls near you and near the cursor are cut away with a dithered edge, so you see inside, and a shadow-only copy keeps the shadows right. V lowers every wall to 0.35 m.
@@ -408,7 +409,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light (dead, the next survivor); Z sleep | the left hand |
 | **Your powers** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order | the left hand, over WASD |
 | **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
-| **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
+| **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = zoom (as the wheel does); Ctrl+- and Ctrl+= the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
 
 **Rules:**
 
@@ -541,7 +542,7 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
 
 - **GUI scale:** 75% to 200% (`content_scale_factor`), and **text size** up to 200% on its own.
 
-  **Today** (2026-11-12): `-` and `=` step the GUI's size from 75% to 200%, and so do the settings screen's buttons. Text size on its own waits: every size is set as a label is made, so it needs them all made again.
+  **Today** (2026-11-12): Ctrl+- and Ctrl+= step the GUI's size from 75% to 200% (since 2026-11-13; `-` and `=` alone zoom, as Zomboid's do), and so do the settings screen's buttons. Text size on its own waits: every size is set as a label is made, so it needs them all made again.
 - **Colour-blind mode:** off, or the Okabe–Ito set for the alert states (§4).
 - **High contrast:** panels at 95%, and every text outlined.
 - **Reduce flashes and motion:** no screen flashes and no vignette breathing; marks and moodles change without popping.

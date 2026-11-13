@@ -74,7 +74,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - Effects for the fight: sparks off a shield's block, dust where a heavy blow fells one, a sneak attack's own mark; the dead's (a wight putting out lights, a revenant rising), the Tolling's bell; a fireball's flames seen through trees between it and the camera (crowns aren't cut away for a spell's spot).
 
 **Saves and tools**
-- More than one save; the camera and the speed dial saved.
+- More than one save; the speed dial saved (the zoom is kept since 2026-11-13).
 - Golden replays, property tests and criterion benchmarks (`ARCHITECTURE.md`, Tests and tools).
 - The Rust half of `check.cmd` on GitHub at each push.
 - Data reloaded without a restart in dev builds; mods as a folder of the same files.

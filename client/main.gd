@@ -17,7 +17,8 @@ extends Node3D
 ## beast within a bow's reach), turn (the dead), pray, consecrate, ward, mend,
 ## pick (the wild plant beside you), use (E tapped: the likeliest thing here), here (E held: all
 ## of it, listed), power1 to power4 (the number keys), keys (F1), moodle (the worst one's detail, as if hovered),
-## esc (closes what Esc would, never quits), settings (the screen, F10), body (the worst-wounded part's detail), bandage (the
+## esc (closes what Esc would, never quits), settings (the screen, F10), zoom_in and zoom_out (three
+## notches of the wheel), body (the worst-wounded part's detail), bandage (the
 ## first in the pack)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
@@ -61,8 +62,11 @@ const Power = Codes.Power
 const CAMERA_PITCH := 30.0
 const CAMERA_YAW := 45.0
 const CAMERA_DISTANCE := 40.0
+## The zoom, as Zomboid's: how much of the world the camera shows, in metres top to bottom, from
+## a room's worth to a few streets'. A notch of the wheel (or - and =) is a step of 12%, eased.
 const ZOOM_MIN := 6.0
 const ZOOM_MAX := 40.0
+const ZOOM_STEP := 1.12
 ## The speed dial (F2, F3 and F4 by default).
 const SPEEDS: Array[int] = [1, 2, 5]
 
@@ -456,6 +460,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if listing and number >= 0 and number < Prompts.MOST:
 		_do_here(number)
 		return
+	# A trackpad's pinch zooms too: fingers apart, in.
+	var pinch := event as InputEventMagnifyGesture
+	if pinch and pinch.factor > 0.0:
+		_zoom(-log(pinch.factor) / log(ZOOM_STEP))
+		return
 	var mouse := event as InputEventMouseButton
 	if mouse and mouse.pressed:
 		match mouse.button_index:
@@ -489,10 +498,11 @@ func _unhandled_input(event: InputEvent) -> void:
 						_brace(true)
 					else:
 						_shoot(_tile_under(mouse.position))
+			# The wheel zooms, a step a notch (a trackpad's finer scroll, a part of one).
 			MOUSE_BUTTON_WHEEL_UP:
-				zoom = maxf(ZOOM_MIN, zoom / 1.15)
+				_zoom(-(mouse.factor if mouse.factor > 0.0 else 1.0))
 			MOUSE_BUTTON_WHEEL_DOWN:
-				zoom = minf(ZOOM_MAX, zoom * 1.15)
+				_zoom(mouse.factor if mouse.factor > 0.0 else 1.0)
 	elif event.is_action_pressed("swing") and not dead:
 		# Held, the swing key struggles: you can't swing with one on you. With Shift, it's a
 		# heavy swing.
@@ -559,10 +569,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_book(spells)
 	elif event.is_action_pressed("keys"):
 		_toggle_keys()
+	# The GUI's size is Ctrl with - or =, so before the zoom, which is - or = alone.
 	elif event.is_action_pressed("gui_smaller"):
 		hud.say("GUI size %d%%." % settings.scale_gui(-1))
 	elif event.is_action_pressed("gui_larger"):
 		hud.say("GUI size %d%%." % settings.scale_gui(1))
+	elif event.is_action_pressed("zoom_in", true):
+		_zoom(-1.0)
+	elif event.is_action_pressed("zoom_out", true):
+		_zoom(1.0)
 	elif event.is_action_pressed("sneak") and not dead:
 		dusk.set_sneaking(not dusk.is_sneaking())
 	elif event.is_action_pressed("low_walls"):
@@ -1872,6 +1887,15 @@ func _light_or_douse() -> void:
 	hud.say("You have nothing to light.")
 
 
+## Zooms by `notches` (out for more, in for fewer; a part of one from a trackpad), within
+## ZOOM_MIN and ZOOM_MAX. The camera eases to it (`_move_camera`); the player's own game keeps it.
+func _zoom(notches: float) -> void:
+	zoom = clampf(zoom * pow(ZOOM_STEP, notches), ZOOM_MIN, ZOOM_MAX)
+	settings.keep_zoom(zoom)
+	if print_news:
+		print("zoom: ", snappedf(zoom, 0.01))
+
+
 ## Whether you see actor `i` now.
 func _seen(i: int) -> bool:
 	return i >= 0 and i < seen.size() and seen[i] == 1
@@ -1887,6 +1911,7 @@ func _settle_window() -> void:
 		return
 	get_window().mode = Window.MODE_MAXIMIZED
 	settings.load_kept()
+	zoom = clampf(settings.zoom, ZOOM_MIN, ZOOM_MAX)
 
 
 ## The settings screen opened or closed: the world waits while it's open, and goes on as it was.
@@ -2047,6 +2072,13 @@ func _run_script() -> void:
 				_close_top()
 			"settings":  # F10: the settings screen
 				settings.toggle()
+			"zoom_in", "zoom_out":  # three notches of the wheel, sent as a mouse sends them
+				for n in 3:
+					var wheel := InputEventMouseButton.new()
+					wheel.button_index = MOUSE_BUTTON_WHEEL_UP if action == "zoom_in" else MOUSE_BUTTON_WHEEL_DOWN
+					wheel.position = get_viewport().get_visible_rect().size / 2.0
+					wheel.pressed = true
+					Input.parse_input_event(wheel)
 			"body":  # the worst-wounded part's detail, as if the mouse rested on it
 				hud.hover_worst_part()
 			"bandage":  # put on the first bandage in the pack (the core picks the wound)

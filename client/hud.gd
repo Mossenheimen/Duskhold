@@ -34,7 +34,7 @@ const KEYS := [
 		["{run}+{swing}", "a heavy swing (or {run}-click): slower, and it may knock down"],
 		["{shove}", "shove"],
 		["right-click", "shoot a bow; with a shield on your arm, hold to brace"],
-		["wheel", "zoom"],
+		["wheel, {zoom_in} {zoom_out}", "zoom in and out"],
 	]],
 	["Here", [
 		["{use}", "the likeliest thing beside you: a door, a body, a plant, an altar, a fire"],

@@ -52,8 +52,10 @@ const KEYS := {
 	"speed_3": [KEY_F4],
 	"save": [KEY_F5],
 	"low_walls": [KEY_V],
-	"gui_smaller": [KEY_MINUS],
-	"gui_larger": [KEY_EQUAL],
+	"zoom_in": [KEY_EQUAL],  # Zomboid's; the wheel too
+	"zoom_out": [KEY_MINUS],
+	"gui_smaller": [KEY_MASK_CTRL | KEY_MINUS],  # as an app's text size is
+	"gui_larger": [KEY_MASK_CTRL | KEY_EQUAL],
 	"new_world": [KEY_MASK_CTRL | KEY_N],
 	"quit": [KEY_ESCAPE],
 }
@@ -67,7 +69,8 @@ const REMAP := [
 	["power_4", "Power 4"], ["pack", "Your pack"], ["craft", "Making"], ["skills", "Skills"],
 	["spells", "Spells"], ["keys", "The keys"], ["settings", "Settings"], ["pause", "Pause"],
 	["speed_1", "Speed 1×"], ["speed_2", "Speed 2×"], ["speed_3", "Speed 5×"], ["save", "Save"],
-	["low_walls", "Low walls"], ["gui_smaller", "Smaller GUI"], ["gui_larger", "Larger GUI"],
+	["low_walls", "Low walls"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"],
+	["gui_smaller", "Smaller GUI"], ["gui_larger", "Larger GUI"],
 	["new_world", "A new world"],
 ]
 ## The settings that are on or off: [its name, what it's called, what it does].
@@ -87,6 +90,9 @@ signal shown(open: bool)
 ## The player's own game keeps what's set here; a trial run doesn't.
 var keep := false
 var gui_scale := 1.0
+## How much of the world the camera shows, in metres top to bottom (main.gd's zoom), as it was
+## left: the player's own game comes back to it.
+var zoom := 14.0
 
 var _gui_size: Label
 var _toggles := {}  # a setting's name: its button
@@ -212,6 +218,7 @@ func load_kept() -> void:
 		return
 	gui_scale = float(file.get_value("gui", "scale", 1.0))
 	get_window().content_scale_factor = gui_scale
+	zoom = float(file.get_value("camera", "zoom", zoom))
 	for toggle: Array in TOGGLES:
 		_turn(toggle[0], bool(file.get_value("look", toggle[0], false)))
 	if file.has_section("keys"):
@@ -246,6 +253,13 @@ func scale_gui(step: int) -> int:
 	_refresh()
 	_save()
 	return roundi(gui_scale * 100.0)
+
+
+## The zoom the camera settled on (main.gd's): kept, for the next time.
+func keep_zoom(metres: float) -> void:
+	if not is_equal_approx(metres, zoom):
+		zoom = metres
+		_save()
 
 
 func open() -> void:
@@ -410,6 +424,7 @@ func _save() -> void:
 	var file := ConfigFile.new()
 	file.load(FILE)  # whatever else is kept there
 	file.set_value("gui", "scale", gui_scale)
+	file.set_value("camera", "zoom", zoom)
 	for toggle: Array in TOGGLES:
 		file.set_value("look", toggle[0], is_on(toggle[0]))
 	if file.has_section("keys"):
