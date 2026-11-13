@@ -4,7 +4,7 @@ extends Node3D
 ## matter because they cap the number of lines. From DuskWorld.character_threats().
 
 const Look = preload("res://look.gd")
-const ENGAGED := Color(Look.DANGER, 0.55)
+const ENGAGED := 0.55  # danger's colour (Look.DANGER: colour-blind mode changes it), this strong
 const HOLDING := Color(Look.GRIP, 0.9)
 
 var _engaged := StandardMaterial3D.new()
@@ -13,7 +13,7 @@ var _lines: Array[MeshInstance3D] = []
 
 
 func _init() -> void:
-	for pair in [[_engaged, ENGAGED], [_holding, HOLDING]]:
+	for pair in [[_engaged, Color(Look.DANGER, ENGAGED)], [_holding, HOLDING]]:
 		var material: StandardMaterial3D = pair[0]
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -24,6 +24,7 @@ func _init() -> void:
 ## `threats` holds two numbers each (actor index, 1 if it holds you); `where` the actors' drawn
 ## places in 3D; `me` your index.
 func show_threats(threats: PackedInt32Array, where: Array, me: int) -> void:
+	_engaged.albedo_color = Color(Look.DANGER, ENGAGED)
 	var used := 0
 	if me >= 0:
 		var mine: Vector3 = where[me]

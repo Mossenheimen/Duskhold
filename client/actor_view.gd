@@ -21,8 +21,6 @@ const LOOKS := [
 	[Look.DEER, 1.2, 0.0, true],  # a deer: brown, on four legs (a beast)
 	[Look.WOLF, 0.95, -0.3, true],  # a wolf: grey, smaller, its head low and forward
 ]
-const CURIOUS := Look.ALERT
-const HUNTING := Look.DANGER
 const SLEEPING := Look.REST
 ## Turned by the holy symbol (DuskWorld.actor_alert() 3): it flees you.
 const TURNED := Look.HOLY
@@ -47,6 +45,7 @@ var _state := 0
 var _mark: Label3D
 var _alert := 0
 var _pop := 0.0
+var _look := 0  # Look.version as the mark was coloured: colour-blind mode recolours it
 var _remains := 0
 var _fire: OmniLight3D  # made when it first catches
 var _title: Label3D  # a rare's name, over its head
@@ -126,7 +125,9 @@ func face(eighths: int, delta: float) -> void:
 func show_alert(level: int, delta: float) -> void:
 	if level != _alert:
 		_alert = level
-		_pop = 1.0
+		_pop = 0.0 if Look.reduce_motion else 1.0
+		_show_mark()
+	elif _look != Look.version:
 		_show_mark()
 	_pop = maxf(0.0, _pop - delta * 4.0)
 	_mark.scale = Vector3.ONE * (1.0 + _pop * 0.6)
@@ -139,7 +140,8 @@ func _show_mark() -> void:
 		_mark.modulate = SLEEPING
 	else:
 		_mark.text = ["", "?", "!", "+"][_alert]
-		_mark.modulate = [Color.WHITE, CURIOUS, HUNTING, TURNED][_alert]
+		_mark.modulate = [Color.WHITE, Look.ALERT, Look.DANGER, TURNED][_alert]
+	_look = Look.version
 
 
 func _material(colour: Color) -> StandardMaterial3D:

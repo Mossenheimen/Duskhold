@@ -17,13 +17,14 @@ extends Node3D
 ## beast within a bow's reach), turn (the dead), pray, consecrate, ward, mend,
 ## pick (the wild plant beside you), use (E tapped: the likeliest thing here), here (E held: all
 ## of it, listed), power1 to power4 (the number keys), keys (F1), moodle (the worst one's detail, as if hovered),
-## esc (closes what Esc would, never quits), body (the worst-wounded part's detail), bandage (the
+## esc (closes what Esc would, never quits), settings (the screen, F10), body (the worst-wounded part's detail), bandage (the
 ## first in the pack)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
 ## --news print the news too, and zone F's prompts as they change (for --headless); --hour=H start at that hour of the day;
-## --save=PATH carry on from that save if it's there, and save to it.
+## --save=PATH carry on from that save if it's there, and save to it;
+## --look=colour_blind,high_contrast,reduce_motion,show_numbers turn settings on (not kept: for pictures).
 ##
 ## With no flags at all, the game is saved (user://world.dusk) and carries on from its save. Any
 ## flag makes it a trial run, which neither loads nor saves unless --save says where: so pictures
@@ -44,9 +45,8 @@ const Zones = preload("res://zones.gd")
 const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
+const Settings = preload("res://settings.gd")
 ## The GUI sizes - and = step through, and where the player's own game keeps its choice.
-const GUI_SCALES := [0.75, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0]
-const SETTINGS := "user://settings.cfg"
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
 const CAMERA_PITCH := 30.0
@@ -242,8 +242,8 @@ var fixture_names := PackedStringArray()  # by fixture number (DuskWorld.fixture
 var fire_seen_at := -100.0  # when the news last told of the dead seeing a fire, in seconds played
 var dread_was := 0  # your dread's level, as the core last said
 var cold_was := 0  # how cold you are, its level, as the core last said (cold.rs)
-var craft: Node  # the crafting panel (T)
-var spells: Node  # the spells panel (I)
+var craft: Node  # the crafting panel (B)
+var spells: Node  # the spells panel (P)
 var zones: Node3D  # the spells lasting on their spots, drawn
 var readied := -1  # the spell readied, cast on the next spot clicked; -1 none
 var spell_names := PackedStringArray()
@@ -293,7 +293,9 @@ var restart_asked := -100.0  # when a new world was last asked for ("abandon thi
 var class_wanted := ""  # --class: the class a trial run's survivors take up
 var choose_asked := false  # --choose: a trial run asks who comes, as the player's own game does
 var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 shown, 2 hidden
-var gui_scale := 1.0  # the GUI's size over the screen's own (- and =)
+var settings: Settings  # the settings screen (F10), and the keys' defaults and remapping
+var paused_before := false  # whether the game was paused when the settings opened
+var look_flags := ""  # --look: settings a trial run turns on
 var choosing_class := false  # the game waits, paused, for a class to be chosen
 var class_texts := PackedStringArray()  # every class's name and line (DuskWorld.class_texts())
 var plants_told := {}  # the wild plants the news has named, by fixture number
@@ -307,12 +309,17 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().is_empty():
 		save_path = ProjectSettings.globalize_path("user://world.dusk")
 	_read_args()
-	_add_input_actions()
+	Settings.add_keys()
 	_build_stage()
+	settings = Settings.new()
+	settings.keep = OS.get_cmdline_user_args().is_empty()
+	add_child(settings)
+	settings.shown.connect(_on_settings)
 	_settle_window()
 	hud = Hud.new()
 	hud.echo = print_news
 	add_child(hud)
+	settings.keys_changed.connect(hud.rebuild_keys)
 	hud.chose.connect(_do_here)
 	if not ClassDB.class_exists("DuskWorld"):
 		hud.show_problem("The game's core (the Rust extension) isn't loaded.\n"
@@ -511,6 +518,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if dusk == null:
 		return
+	if event.is_action_pressed("settings"):
+		settings.toggle()
+		return
+	if settings.is_open():
+		return  # the settings screen has the keys (and Esc closes it)
 	var key := event as InputEventKey
 	var number := int(key.physical_keycode) - int(KEY_1) if key and key.pressed and not key.echo else -1
 	# Who comes into the world: a number takes up that class, and nothing else is heeded.
@@ -583,9 +595,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if use_down >= 0:
 			use_down = -1
 			_use_here()
-	elif event.is_action_pressed("next_survivor") and dead:
-		# Dead, R brings the next survivor into this same world.
-		_next_survivor()
 	elif event.is_action_pressed("new_world"):
 		# Alive in a saved world, it asks twice: the world you leave is gone for good.
 		if save_path != "" and not dead and played - restart_asked > 4.0:
@@ -594,8 +603,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			town_seed += 1
 			_start()
-	elif event.is_action_pressed("light") and not dead:
-		_light_or_douse()
+	elif event.is_action_pressed("light"):
+		# Dead, the light's key brings the next survivor into this same world.
+		if dead:
+			_next_survivor()
+		else:
+			_light_or_douse()
 	elif event.is_action_pressed("sleep") and not dead:
 		_sleep_or_wake()
 	elif event.is_action_pressed("power_1") and not dead:
@@ -625,9 +638,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("keys"):
 		_toggle_keys()
 	elif event.is_action_pressed("gui_smaller"):
-		_scale_gui(-1)
+		hud.say("GUI size %d%%." % settings.scale_gui(-1))
 	elif event.is_action_pressed("gui_larger"):
-		_scale_gui(1)
+		hud.say("GUI size %d%%." % settings.scale_gui(1))
 	elif event.is_action_pressed("sneak") and not dead:
 		dusk.set_sneaking(not dusk.is_sneaking())
 	elif event.is_action_pressed("low_walls"):
@@ -677,7 +690,7 @@ func _foe_beside(tile: Vector2i) -> Vector2i:
 
 ## WASD, as a heading on screen. The core turns it into a heading on the map.
 func _steer() -> void:
-	if dead or choosing_class:
+	if dead or choosing_class or settings.is_open():
 		return
 	var right := int(Input.is_action_pressed("walk_right")) - int(Input.is_action_pressed("walk_left"))
 	var up := int(Input.is_action_pressed("walk_up")) - int(Input.is_action_pressed("walk_down"))
@@ -1963,36 +1976,27 @@ func _seen(i: int) -> bool:
 	return i >= 0 and i < seen.size() and seen[i] == 1
 
 
-## The controls, as input actions on physical keys (so WASD is WASD on any keyboard layout).
-
-## The player's own game fills the screen, at the GUI size it was left at (VISUALS.md §13). A
-## trial run keeps the 1600 x 900 window and the defaults, so its pictures stay alike.
+## The player's own game fills the screen, with the settings it was left with (VISUALS.md §13):
+## the GUI's size, what's on or off, any keys remapped. A trial run keeps the 1600 x 900 window
+## and the defaults, so its pictures stay alike, with any --look settings on.
 func _settle_window() -> void:
 	if not OS.get_cmdline_user_args().is_empty():
 		keys_mode = 2
+		settings.turn_on(look_flags)
 		return
 	get_window().mode = Window.MODE_MAXIMIZED
-	var settings := ConfigFile.new()
-	if settings.load(SETTINGS) == OK:
-		gui_scale = float(settings.get_value("gui", "scale", 1.0))
-		get_window().content_scale_factor = gui_scale
+	settings.load_kept()
 
 
-## - and =: the GUI a step smaller or larger, over the screen's own scale; the player's own game
-## keeps it.
-func _scale_gui(step: int) -> void:
-	var at := GUI_SCALES.find(gui_scale)
-	if at < 0:
-		at = GUI_SCALES.find(1.0)
-	gui_scale = GUI_SCALES[clampi(at + step, 0, GUI_SCALES.size() - 1)]
-	get_window().content_scale_factor = gui_scale
-	hud.say("GUI size %d%%." % roundi(gui_scale * 100.0))
-	if OS.get_cmdline_user_args().is_empty():
-		var settings := ConfigFile.new()
-		settings.load(SETTINGS)  # whatever else is kept there
-		settings.set_value("gui", "scale", gui_scale)
-		settings.save(SETTINGS)
-
+## The settings screen opened or closed: the world waits while it's open, and goes on as it was.
+func _on_settings(open: bool) -> void:
+	if dusk == null:
+		return
+	if open:
+		paused_before = dusk.paused
+		dusk.paused = true
+	else:
+		dusk.paused = paused_before
 
 ## F1's keys (zone I): open while F1 has them; for a world's first game hour in the player's own
 ## game, until F1 is first pressed, a line saying they're there.
@@ -2021,10 +2025,13 @@ func _book(panel: Node) -> void:
 		keys_mode = 2
 
 
-## Esc backs out of what's open before it quits (VISUALS.md §10): E's list closes, a readied
-## spell is let go, then the keys close, then the book panel. True if it closed something. The
+## Esc backs out of what's open before it quits (VISUALS.md §10): the settings close, E's list
+## closes, a readied spell is let go, then the keys close, then the book panel. True if it closed something. The
 ## pack stays: it's open from the start, as part of the HUD, and Tab closes it.
 func _close_top() -> bool:
+	if settings != null and settings.is_open():
+		settings.close()
+		return true
 	if dusk == null:
 		return false
 	if listing:
@@ -2041,61 +2048,6 @@ func _close_top() -> bool:
 			panel.close()
 			return true
 	return false
-
-
-## Every key (VISUALS.md §10, the keys). The left hand stays on WASD: what's pressed in a fight
-## or a hurry is within reach of it (Shift, C, F, Q, E, R, Z, the number row). E does whatever is
-## beside you, as in Zomboid, so the world's verbs need no keys of their own. The right hand's
-## letters only open panels; the F keys are the game's own (the keys, speed, save). A key held
-## with Ctrl is KEY_MASK_CTRL | its key.
-func _add_input_actions() -> void:
-	var keys := {
-		# Moving and fighting.
-		"walk_up": [KEY_W, KEY_UP],
-		"walk_down": [KEY_S, KEY_DOWN],
-		"walk_left": [KEY_A, KEY_LEFT],
-		"walk_right": [KEY_D, KEY_RIGHT],
-		"run": [KEY_SHIFT],
-		"sneak": [KEY_C],
-		"swing": [KEY_F],
-		"shove": [KEY_Q],
-		# Here: E for whatever's beside you, held for all of it.
-		"use": [KEY_E],
-		"light": [KEY_R],
-		"sleep": [KEY_Z],
-		# Your powers: a class's own, its talents', its spells.
-		"power_1": [KEY_1],
-		"power_2": [KEY_2],
-		"power_3": [KEY_3],
-		"power_4": [KEY_4],
-		# The panels.
-		"pack": [KEY_TAB, KEY_I],
-		"craft": [KEY_B],
-		"skills": [KEY_K],
-		"spells": [KEY_P],
-		"keys": [KEY_F1],
-		# The game.
-		"pause": [KEY_SPACE],
-		"speed_1": [KEY_F2],
-		"speed_2": [KEY_F3],
-		"speed_3": [KEY_F4],
-		"save": [KEY_F5],
-		"low_walls": [KEY_V],
-		"gui_smaller": [KEY_MINUS],
-		"gui_larger": [KEY_EQUAL],
-		"next_survivor": [KEY_R],  # dead only, so it shares the light's key
-		"new_world": [KEY_MASK_CTRL | KEY_N],
-		"quit": [KEY_ESCAPE],
-	}
-	for action: String in keys:
-		if InputMap.has_action(action):
-			continue
-		InputMap.add_action(action)
-		for key: int in keys[action]:
-			var press := InputEventKey.new()
-			press.physical_keycode = (key & KEY_CODE_MASK) as Key
-			press.ctrl_pressed = key & KEY_MASK_CTRL != 0
-			InputMap.action_add_event(action, press)
 
 
 func _read_args() -> void:
@@ -2130,6 +2082,8 @@ func _read_args() -> void:
 			class_wanted = value
 		elif arg == "--choose":
 			choose_asked = true
+		elif arg.begins_with("--look="):
+			look_flags = value
 
 
 ## --shot: saves what's on the screen once the time has come, then quits.
@@ -2190,6 +2144,8 @@ func _run_script() -> void:
 				hud.hover_first_moodle()
 			"esc":  # what Esc closes first; a script never quits by it
 				_close_top()
+			"settings":  # F10: the settings screen
+				settings.toggle()
 			"body":  # the worst-wounded part's detail, as if the mouse rested on it
 				hud.hover_worst_part()
 			"bandage":  # put on the first bandage in the pack (the core picks the wound)

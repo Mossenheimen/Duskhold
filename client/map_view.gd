@@ -21,6 +21,7 @@ var _low_walls := false
 var _chunks := {}  # Vector2i: ChunkView
 var _materials := {}
 var _watched_material := ShaderMaterial.new()
+var _look := -1  # Look.version the sight's colours were set at
 var _watched_image: Image
 var _watched_texture: ImageTexture
 var _overlay: MeshInstance3D
@@ -44,9 +45,6 @@ func _init() -> void:
 	plain.roughness = 0.95
 	_materials = {"cut_away": cut_away, "solid": solid, "glass": glass, "plain": plain}
 	_watched_material.shader = preload("res://shaders/watched.gdshader")
-	_watched_material.set_shader_parameter("unaware", Look.CALM)
-	_watched_material.set_shader_parameter("curious", Look.ALERT)
-	_watched_material.set_shader_parameter("hunting", Look.DANGER)
 	_fog_material.shader = preload("res://shaders/fog_of_war.gdshader")
 	_fog_material.render_priority = Material.RENDER_PRIORITY_MIN  # before the cones and rings
 
@@ -70,6 +68,12 @@ func build(dusk: Node, low_walls: bool) -> void:
 func update(focus: Vector3) -> void:
 	if _dusk == null:
 		return
+	# The alert states' colours, again whenever a setting changes them (colour-blind mode).
+	if _look != Look.version:
+		_look = Look.version
+		_watched_material.set_shader_parameter("unaware", Look.CALM)
+		_watched_material.set_shader_parameter("curious", Look.ALERT)
+		_watched_material.set_shader_parameter("hunting", Look.DANGER)
 	var middle := Vector2i(floori(focus.x / _chunk_size), floori(focus.z / _chunk_size))
 	var chunks := Vector2i(ceili(map_size.x / float(_chunk_size)), ceili(map_size.y / float(_chunk_size)))
 	var wanted: Array[Vector2i] = []

@@ -3,7 +3,6 @@ extends Node3D
 ## blow nears. Red for the dead's, pale for yours. From DuskWorld.actor_actions().
 
 const Look = preload("res://look.gd")
-const THEIRS := Look.DANGER
 const YOURS := Look.YOURS
 
 var _material := ShaderMaterial.new()
@@ -34,7 +33,7 @@ func show_actions(actions: PackedInt32Array, me: int, seen: PackedByteArray) -> 
 		mark.visible = true
 		mark.position = Vector3(actions[i + 2] + 0.5, 0.035, actions[i + 3] + 0.5)
 		mark.set_instance_shader_parameter("progress", progress / 1000.0)
-		var tint := YOURS if actor == me else THEIRS
+		var tint := YOURS if actor == me else Look.DANGER  # colour-blind mode changes the dead's
 		mark.set_instance_shader_parameter("tint", Vector3(tint.srgb_to_linear().r,
 			tint.srgb_to_linear().g, tint.srgb_to_linear().b))
 	for k in range(used, _marks.size()):

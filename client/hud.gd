@@ -39,7 +39,7 @@ const KEYS := [
 	["Here", [
 		["{use}", "the likeliest thing beside you: a door, a body, a plant, an altar, a fire"],
 		["hold {use}", "all you can do here: board up, pry a board off, ward, put a fire out, drink"],
-		["{light}", "hold up a light, or put it away"],
+		["{light}", "hold up a light, or put it away; dead, the next survivor"],
 		["{sleep}", "sleep, or get up"],
 	]],
 	["Your powers", [
@@ -58,6 +58,7 @@ const KEYS := [
 		["{low_walls}", "low walls"],
 		["{gui_smaller} {gui_larger}", "a smaller or larger GUI"],
 		["{save}", "save"],
+		["{settings}", "settings: colour, flashes, numbers, every key"],
 		["{new_world}", "a new world (it asks twice)"],
 		["{quit}", "close what's open, else save and quit"],
 	]],
@@ -169,6 +170,9 @@ var _body: BodyView  # the body diagram, beside the bars
 var _body_part := -1  # the part of it hovered, -1 none
 var _hover_for := 0.0  # how long it's been there
 var _keys: PanelContainer  # every key, on F1 (zone I)
+var _bars: Array[ProgressBar] = []  # the body's bars, each with its numbers (§11)
+var _numbers: Array[Label] = []  # by _bars: shown on hover, or always (Look.show_numbers)
+var _look := -1  # Look.version the labels in a signal's colour were coloured at
 var _keys_hint: Label  # "F1: every key", for a world's first game hour
 
 
@@ -232,6 +236,17 @@ func _process(delta: float) -> void:
 		_flash.color = Color(Look.GOLD, 0.25 * _gold_left / FLASH_LIFE)
 	else:
 		_flash.color = Color(Look.HURT, 0.35 * _flash_left / FLASH_LIFE)
+	# Text in a signal's colour, again when a setting changes it (colour-blind mode).
+	if _look != Look.version:
+		_look = Look.version
+		_held.add_theme_color_override("font_color", Look.DANGER_TEXT)
+		_breath.add_theme_color_override("font_color", Look.ALERT)
+	# The bars' numbers: on hover, or always with them on.
+	for i in _bars.size():
+		var bar := _bars[i]
+		_numbers[i].visible = Look.show_numbers or bool(bar.get_meta("hovered", false))
+		if _numbers[i].visible:
+			_numbers[i].text = "%d / %d" % [roundi(bar.value), roundi(bar.max_value)]
 	# A moodle's detail, once the mouse has rested on it; placed each frame it shows, so a late
 	# layout can't leave it astray.
 	if _hovered != null:
@@ -290,13 +305,18 @@ func say(line: String) -> void:
 		_ages.remove_at(0)
 
 
+## A red flash at the screen's edge when you're hurt; none with fewer flashes (Look.reduce_motion).
 func flash() -> void:
+	if Look.reduce_motion:
+		return
 	_flash_left = FLASH_LIFE
 	_gold_left = 0.0
 
 
-## A warm glow, for something good: a level gained.
+## A warm glow, for something good: a level gained. None with fewer flashes.
 func flash_good() -> void:
+	if Look.reduce_motion:
+		return
 	_gold_left = FLASH_LIFE * 2.0
 
 
@@ -339,6 +359,15 @@ func show_keys(shown: bool, hint: bool) -> void:
 
 func keys_shown() -> bool:
 	return _keys.visible
+
+
+## The keys were remapped (settings.gd): the keys panel and its line are built again, to say them.
+func rebuild_keys() -> void:
+	var shown := _keys.visible
+	_keys.queue_free()
+	_keys_hint.queue_free()
+	_build_keys()
+	_keys.visible = shown
 
 
 ## Outlined text straight on the world, pinned to a corner or the middle of the screen and
@@ -499,7 +528,7 @@ func _moodle(code: int, level: int, pop: bool) -> void:
 	called.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(called)
 	_moodles.add_child(row)
-	if pop:
+	if pop and not Look.reduce_motion:
 		tile.scale = Vector2.ONE * Look.POP
 		tile.create_tween().tween_property(tile, "scale", Vector2.ONE, Look.POP_TIME) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -605,7 +634,9 @@ func _build_detail() -> void:
 ## toward, so a jump creeps in rather than snaps; dead, it lifts.
 func show_dread(per_mille: int, delta: float) -> void:
 	_dread_shown = move_toward(_dread_shown, per_mille / 1000.0, delta * 0.5)
-	(_dread.material as ShaderMaterial).set_shader_parameter("amount", _dread_shown)
+	var shade := _dread.material as ShaderMaterial
+	shade.set_shader_parameter("amount", _dread_shown)
+	shade.set_shader_parameter("breathe", 0.0 if Look.reduce_motion else 1.0)
 
 
 ## Asleep, the world is veiled and the clock runs fast; awake, the veil lifts.
@@ -630,7 +661,7 @@ func show_death(name: String, how: String, minutes: int, carried: String, rises:
 	if rises:
 		lines.append("The body lies where it fell. Unburned, at midnight it rises as a revenant, in that gear.")
 	lines.append("")
-	lines.append(Prompts.keyed("{next_survivor} The next survivor comes to the abbey, in this world.     {new_world} A new world."))
+	lines.append(Prompts.keyed("{light} The next survivor comes to the abbey, in this world.     {new_world} A new world."))
 	_death_title.text = name if name != "" else "You died"
 	_death_title.visible = true
 	_death.text = "\n".join(lines)
@@ -724,6 +755,20 @@ func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:
 	bar.max_value = 100.0
 	bar.value = 100.0
 	row.add_child(bar)
+	# Its numbers (§11), over the fill: on hover, or always with them on (_process). PASS: a
+	# click still goes through to the world.
+	bar.mouse_filter = Control.MOUSE_FILTER_PASS
+	bar.mouse_entered.connect(func() -> void: bar.set_meta("hovered", true))
+	bar.mouse_exited.connect(func() -> void: bar.set_meta("hovered", false))
+	var number := Look.text(Label.new(), Look.SMALL, Look.TEXT, true)
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	number.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	number.visible = false
+	bar.add_child(number)
+	number.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bars.append(bar)
+	_numbers.append(number)
 	return bar
 
 

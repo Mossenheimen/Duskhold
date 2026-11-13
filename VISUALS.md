@@ -91,7 +91,7 @@ Light here is a rule, not just a mood: the dead see by it (`light.rs`). So the p
 
 ## 4. Colour
 
-Colours are named tokens, and code uses the names (§14). In code each token is a constant in `client/look.gd`, named by its last word in capitals: `signal.calm` is `Look.CALM`, `moodle.mild` is `Look.MILD`, `ui.panel` is `Look.PANEL`. The ground is `Look.GROUND[code]`, and `moodle.good` is `Look.REST`.
+Colours are named tokens, and code uses the names (§14). In code each token is a constant in `client/look.gd`, named by its last word in capitals: `signal.calm` is `Look.CALM`, `moodle.mild` is `Look.MILD`, `ui.panel` is `Look.PANEL`. The few a setting changes (the alert states, and `ui.panel`) are static variables instead, and what copies one copies it again when `Look.version` moves on (§13). The ground is `Look.GROUND[code]`, and `moodle.good` is `Look.REST`.
 
 **Today** (2026-11-12): every colour the client draws with is a token in `look.gd`, merged as the tables below say. The one exception is the tables of furniture and plants (`chunk_view.gd`'s `FURNITURE` and `PLANTS`), which move to data with the looks of things (§14, §16).
 
@@ -204,9 +204,11 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 - **Colour-blind mode** (Default, §13) swaps the three alert states for an Okabe–Ito set that stays distinct across the common colour-vision deficiencies:
   - calm sky blue `#56B4E9`;
   - alert yellow `#F0E442`;
-  - danger vermillion `#D55E00`.
+  - danger vermillion `#D55E00`, and danger written as text a lighter vermillion, `#F07F45` (7.1:1 on a panel, where `#D55E00` itself is 5:1).
 
   The holds stay a heavier line, so they don't depend on hue.
+
+  **Today** (2026-11-12): as here (`Look.set_look`). The marks over heads, what the dead see on the ground, their tells, the lines of the dead on you, the held banner and "out of breath" all take the swap at once.
 - **A region shifts the world's colours, never the signals** (§15).
 
 ---
@@ -402,16 +404,17 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | Group | Keys | Where the hand is |
 |---|---|---|
 | **Move and fight** | WASD walk (and climb); Shift run; C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing; Q shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
-| **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light; Z sleep | the left hand |
+| **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light (dead, the next survivor); Z sleep | the left hand |
 | **Your powers** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order | the left hand, over WASD |
-| **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys | the right hand, in calm moments |
+| **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
 | **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
 
 **Rules:**
 
 - **The world's verbs are E's, not keys of their own.** A new thing to do beside you is a new line in E's list (`client/prompts.gd`), never a new key.
 - **E's choice is the one its prompt shows.** Both come from `Prompts.first`, over the core's own checks. The door or window you face comes first, then a body, a plant, an altar, a fire, and water when you're thirsty; a door beside you that you don't face comes last, with no prompt, as E did before. What's done on purpose (boarding up, prying off, a ward, putting a fire out) is never E's alone: holding E offers it, and the line under the prompt names it.
-- **Every key cap is read from the InputMap** (`Prompts.keyed`): the prompts, the news, the moodles' tips, the death screen and the keys panel. Remapping (§13) will change them all.
+- **Every key cap is read from the InputMap** (`Prompts.keyed`): the prompts, the news, the moodles' tips, the death screen and the keys panel. Remapping (§13) changes them all.
+- **One action a key.** A remapped key taken from another action leaves that one without it, so two actions never share a key by accident. The one that once shared R, the next survivor, is now what the light's key does when you're dead.
 
 **Today** (2026-11-12): as here.
 
@@ -423,7 +426,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | Who comes to the abbey? | each class, its line and its kit; a number or a click takes one | dims and pauses the world; today as text in the middle |
 | Paused | the world stilled under a dim; "Paused" banner; Space to go on | nothing else changes |
 | Menu (Esc) | Resume, Settings, Save and quit | centred; dims |
-| Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once |
+| Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once. **Today** (2026-11-12): on F10 (`client/settings.gd`), over the world dimmed (`ui.dim`) and paused, on a ground at 95% so nothing shows through: the GUI's size, the four switches, and all 30 keys. Esc closes it |
 | Death | "This is how you died": the cause, the days, the deeds, where the body lies; R for the next survivor | the serif title; the world behind, dimmed, the body in view |
 
 ---
@@ -437,7 +440,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - A panel never grows past 45% of the screen's height; past that it scrolls.
 - **Bar:**
   - A label 110 px wide, then a 240 × 18 bar: the fill's token on a `ui.track` back.
-  - Numbers show on hover, or always with "show numbers" on (§13).
+  - Numbers show on hover, or always with "show numbers" on (§13). **Today** (2026-11-12): as here, "80 / 100" over the fill, outlined.
   - Under 25%, the fill pulses in brightness once a second.
 - **Button:**
   - Its word, then its key: "Take all [T]".
@@ -510,7 +513,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | Dread when afraid | slower than 3 Hz | the edge vignette breathes |
 
 - **Must: every act answers within a tenth of a second.** Its tell, its bar, or its refusal shows at once.
-- **Must:** nothing flickers faster than 3 Hz, and any flash can be turned off (§13).
+- **Must:** nothing flickers faster than 3 Hz, and any flash can be turned off (§13). **Today** (2026-11-12): "Fewer flashes, less motion" turns off the hurt and level flashes, dread's breathing (it still darkens), and the pops of moodles and of marks over heads. The bleeding part's slow pulse on the body diagram stays: it's how bleeding is told without colour.
 - **Should:** one flash at a time; a newer one replaces the last.
 
 ---
@@ -521,12 +524,16 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
 
 - **GUI scale:** 75% to 200% (`content_scale_factor`), and **text size** up to 200% on its own.
 
-  **Today** (2026-11-12): `-` and `=` step the GUI's size from 75% to 200%, and the player's own game keeps it in `user://settings.cfg`. Text size on its own, and the rest of this list, wait for a settings screen.
+  **Today** (2026-11-12): `-` and `=` step the GUI's size from 75% to 200%, and so do the settings screen's buttons. Text size on its own waits: every size is set as a label is made, so it needs them all made again.
 - **Colour-blind mode:** off, or the Okabe–Ito set for the alert states (§4).
 - **High contrast:** panels at 95%, and every text outlined.
 - **Reduce flashes and motion:** no screen flashes and no vignette breathing; marks and moodles change without popping.
 - **Show numbers** on the bars.
 - **Keys:** every key can be remapped, and the GUI says the remapped key everywhere.
+
+  **Today** (2026-11-12): all five, on the settings screen (F10, `client/settings.gd`), each showing at once and kept in `user://settings.cfg` by the player's own game (a trial run keeps nothing; `--look=` turns them on for pictures).
+  - High contrast's panels change in place (`Look.restyle`). Its outline on every text is a theme on the window, so a text built later has it too, and a text's own outline stays.
+  - A key is remapped by clicking it and pressing the new one: Esc keeps the old one. A modifier alone (Shift, Alt) is bound when it's let go, and Ctrl held with a key goes with it ("Ctrl+S"). The new key replaces an action's first, so walking keeps its arrows. "Back to the defaults" puts every key back. Only the changes are kept, so a later default reaches anyone who didn't change that key.
 - **Game speed:** already there (pause, 1×, 2×, 3×).
 - **Sound:** separate volumes for effects, the world and music, once there's sound. Nothing is told by sound alone: every sound is also a ring (§7) and, when it matters, a line of news.
 
@@ -589,6 +596,8 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A prompt under you, by the abbey's altar | `--seed=7 --hour=12 --walk=74,114 --shot=PNG --shot-after=10` |
 | The keys opened over the spells panel: the panel closes | `--seed=7 --hour=12 --class=wizard --do=1:spells,2:keys --shot=PNG --shot-after=3` |
 | The body diagram in a fight: wounds, a bandage, a part's detail (each run's fight goes its own way) | `--seed=7 --hour=12 --speed=4 --walk=118,84 --do=12:bandage,14:body --shot=PNG --shot-after=14.5` |
+| The settings screen, two switches on | `--seed=7 --hour=12 --look=colour_blind,show_numbers --do=1:settings --shot=PNG --shot-after=2.5` |
+| Every setting on, in a fight at the near farm | `--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --shot=PNG --shot-after=14` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
@@ -636,7 +645,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
 5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
 6. *(Done 2026-11-12.)* **The body diagram** in zone B.
-7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
+7. *(Done 2026-11-12.)* **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
 8. **Looks as data:** `data/looks.toml`.
 9. **Screens:** title, the class choice as a screen, and death as a story.
 10. **Icons:** glyphs by kind, then each item's icon drawn from its own model.

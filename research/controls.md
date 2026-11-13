@@ -1,6 +1,6 @@
 # The keys: what similar games do, and the layout that came of it
 
-*2026-11-12. The user asked to "evaluate similar games and fix the complex key/button layout. It doesn't look practical." The layout below is built (`client/main.gd`'s `_add_input_actions`) and is described in `VISUALS.md` §10, "The keys". This file keeps the reasoning and the sources (at the end).*
+*2026-11-12. The user asked to "evaluate similar games and fix the complex key/button layout. It doesn't look practical." The layout below is built (`client/settings.gd`'s `KEYS`, with remapping on its settings screen since visual slice 7) and is described in `VISUALS.md` §10, "The keys". This file keeps the reasoning and the sources (at the end).*
 
 ## What was wrong
 
@@ -44,7 +44,7 @@ Zomboid has 84 bindings in all, but almost none are world verbs. Its keys are fo
 | L light, T making, I spells | R light, B making, P spells; I the pack too |
 | R new world (twice) | Ctrl+N (twice) |
 
-43 actions on all 26 letters became 31 on 16 (N only with Ctrl), and ten of those letters are within reach of WASD. Every key cap on screen is read from the InputMap, so the remapping still to come (`VISUALS.md` §16, slice 7) will change them everywhere.
+43 actions on all 26 letters became 31 on 16 (N only with Ctrl), and ten of those letters are within reach of WASD. Every key cap on screen is read from the InputMap, so remapping (built the same day: F10, the settings) changes them everywhere. Remapping also made the next survivor what the light's key does when you're dead, rather than an action of its own on R, and added F10 for the settings: still 31 actions.
 
 ## Sources
 

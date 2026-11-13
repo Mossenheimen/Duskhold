@@ -16,6 +16,7 @@ extends CanvasLayer
 ## your hand a Mend button.
 
 const Look = preload("res://look.gd")
+const Prompts = preload("res://prompts.gd")
 
 const WEAPON := 1
 const BANDAGE := 2
@@ -146,17 +147,18 @@ func refresh(busy: bool, dead: bool) -> void:
 
 
 ## The fire in the hearth, stove or forge on (x, y), if it's the one beside you: "  ·  alight,
-## 3h 20m of wood (J puts it out)", "  ·  laid, ...", "  ·  cold (H lays a fire)"; else "".
+## 3h 20m of wood (hold [E]: put it out)", "  ·  laid, ...", "  ·  cold ([E] lays a fire)"; else
+## "". The keys are read from the InputMap.
 func _fire_line(x: int, y: int) -> String:
 	var f := _shown_fire
 	if f.size() < 4 or f[0] != x or f[1] != y:
 		return ""
 	var wood := "%dh %02dm of wood" % [f[2] / 60, f[2] % 60]
 	if f[3] == 1:
-		return "  ·  alight, %s (J puts it out)" % wood
+		return Prompts.keyed("  ·  alight, %s (hold {use}: put it out)") % wood
 	if f[2] > 0:
-		return "  ·  laid, %s (H lights it)" % wood
-	return "  ·  cold (H lays a fire)"
+		return Prompts.keyed("  ·  laid, %s ({use} lights it)") % wood
+	return Prompts.keyed("  ·  cold ({use} lays a fire)")
 
 
 ## What's in the full bags within reach, every tile's stacks in turn (DuskWorld.store_holds()):

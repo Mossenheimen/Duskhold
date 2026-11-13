@@ -8,6 +8,25 @@ extends RefCounted
 ##
 ## Not here yet: the looks of things (furniture, plants: chunk_view.gd's FURNITURE and PLANTS),
 ## which move to data/looks.toml in a later slice (VISUALS.md §16).
+##
+## The settings that change the look (VISUALS.md §13; settings.gd sets them) live here too. A token
+## a setting changes is a static var, not a constant: the alert states (colour-blind mode) and the
+## panel's ground (high contrast). Whatever copies one (a shader's parameter, a material, a label's
+## colour) copies it again when `version` moves on; `restyle` brings the panels already built up
+## to date, and high contrast's outline on every text is a theme on the window (`contrast`).
+
+# The settings (§13).
+
+## Moves on whenever a setting changes a token, so what copied one copies it again.
+static var version := 0
+## The alert states in the Okabe–Ito set (§4, Colour rules).
+static var colour_blind := false
+## Panels at 95%, and every text outlined.
+static var high_contrast := false
+## No flash at the screen's edge, no breathing dread, nothing popping.
+static var reduce_motion := false
+## The bars say their numbers, not only on hover.
+static var show_numbers := false
 
 # The world: the Hushlands (§4).
 
@@ -53,10 +72,18 @@ const SHOT := Color("#D9CCA6")  # an arrow's flight
 
 # Signals: one meaning each, in the world and the GUI alike (§4, §7).
 
-const CALM := Color("#F5E699")  # one of the dead that isn't after you
-const ALERT := Color("#FFA733")  # it heard something: "?"
-const DANGER := Color("#FF3B2B")  # it sees you, it's after you: "!"; its tell; the lines on you
-const DANGER_TEXT := Color("#FF6A5C")  # danger written on a panel: keeps 4.5:1
+## The alert states, as set (colour-blind mode swaps them: `set_look`). Calm: one of the dead
+## that isn't after you. Alert: it heard something, "?". Danger: it sees you, it's after you, "!";
+## its tell; the lines on you. Danger written as text keeps 4.5:1 on a panel.
+static var CALM := Color("#F5E699")
+static var ALERT := Color("#FFA733")
+static var DANGER := Color("#FF3B2B")
+static var DANGER_TEXT := Color("#FF6A5C")
+## Calm, alert, danger and danger's text: as picked, and in the Okabe–Ito set, which stays
+## distinct across the common colour-vision deficiencies (sky blue, yellow, vermillion; the text a
+## lighter vermillion, 7.1:1 on a panel, where #D55E00 itself is 5:1).
+const SIGNALS: Array[Color] = [Color("#F5E699"), Color("#FFA733"), Color("#FF3B2B"), Color("#FF6A5C")]
+const SIGNALS_SEEN: Array[Color] = [Color("#56B4E9"), Color("#F0E442"), Color("#D55E00"), Color("#F07F45")]
 const GRIP := Color("#BF0D0D")  # a hold on you
 const SOUND := Color("#E6F2FF")  # a noise ring
 const HOLY := Color("#FFF2B3")  # turned "+", consecrated, hallowed
@@ -95,7 +122,9 @@ const DRESSING := Color("#F2EEE6")
 
 # The GUI (§4).
 
-const PANEL := Color("#0D0F14B8")  # every panel's ground, 72%
+static var PANEL := Color("#0D0F14B8")  # every panel's ground, 72%; 95% in high contrast
+const PANEL_SOLID := Color("#0D0F14F2")  # high contrast's
+const DIM := Color("#00000080")  # the world behind a choice or a menu, 50%
 const EDGE := Color("#FFFFFF1A")  # a panel's 1 px edge, 10%
 const TEXT := Color("#FFFFFF")
 const TEXT_DIM := Color("#FFFFFFB3")  # hints, secondary lines, what can't be done yet: 70%
@@ -135,6 +164,33 @@ const POP_TIME := 0.3  # ...and shrinks back over this many seconds
 const HOVER := 0.4  # seconds of hovering before a detail shows
 
 
+## The settings that change tokens (§13): `colour_blind` swaps the alert states for the
+## Okabe–Ito set, `high_contrast` the panels' ground for 95%. The panels already built are brought
+## up to date by `restyle`; what copies a token sees `version` move on.
+static func set_look(blind: bool, contrast: bool) -> void:
+	colour_blind = blind
+	high_contrast = contrast
+	var signals := SIGNALS_SEEN if blind else SIGNALS
+	CALM = signals[0]
+	ALERT = signals[1]
+	DANGER = signals[2]
+	DANGER_TEXT = signals[3]
+	PANEL = PANEL_SOLID if contrast else Color("#0D0F14B8")
+	version += 1
+
+
+## Every panel under `node` built before a setting changed (`panel_style`), with the ground it
+## would be built with now.
+static func restyle(node: Node) -> void:
+	var control := node as Control
+	if control != null and control.has_theme_stylebox_override("panel"):
+		var style := control.get_theme_stylebox("panel") as StyleBoxFlat
+		if style != null and style.has_meta("panel"):
+			style.bg_color = PANEL
+	for child in node.get_children():
+		restyle(child)
+
+
 ## A moodle's tile (§11): its severity's `colour`, 4 px corners, a 1 px OUTLINE to hold it apart
 ## from bright ground, and the glyph centred in it.
 static func tile_style(colour: Color) -> StyleBoxFlat:
@@ -151,6 +207,7 @@ static func tile_style(colour: Color) -> StyleBoxFlat:
 static func panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = PANEL
+	style.set_meta("panel", true)  # for restyle: high contrast changes its ground
 	style.border_color = EDGE
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(4)
@@ -173,7 +230,7 @@ static func sized(control: Control, size: int) -> Control:
 
 
 ## A label at `size`, in `colour`. Drawn straight on the world (`outlined`), it gets the outline
-## that keeps it readable on anything (§8).
+## that keeps it readable on anything (§8). In high contrast every text has it (`contrast`).
 static func text(label: Label, size: int, colour := TEXT, outlined := false) -> Label:
 	sized(label, size)
 	if colour != TEXT:
@@ -182,6 +239,17 @@ static func text(label: Label, size: int, colour := TEXT, outlined := false) -> 
 		label.add_theme_constant_override("outline_size", OUTLINE_SIZE)
 		label.add_theme_color_override("font_outline_color", OUTLINE)
 	return label
+
+
+## High contrast's theme, for the window (settings.gd sets it): every label's and button's text
+## outlined, as text on the world is, whatever it's on and whenever it's built. A text's own
+## outline, where it has one, stays as it is.
+static func contrast() -> Theme:
+	var theme := Theme.new()
+	for type: String in ["Label", "Button"]:
+		theme.set_constant("outline_size", type, OUTLINE_SIZE)
+		theme.set_color("font_outline_color", type, OUTLINE)
+	return theme
 
 
 ## A bar's fill in `colour`, on the TRACK (§11).

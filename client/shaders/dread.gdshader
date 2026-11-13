@@ -5,6 +5,7 @@ shader_type canvas_item;
 
 uniform float amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 tint : source_color = vec3(0.02, 0.0, 0.04);  // Look.DREAD, set by hud.gd
+uniform float breathe : hint_range(0.0, 1.0) = 1.0;  // 0 with less motion (Look.reduce_motion)
 
 void fragment() {
 	// Round, whatever the screen's shape: across stretched by its width over its height.
@@ -12,6 +13,6 @@ void fragment() {
 	vec2 p = (UV - vec2(0.5)) * vec2(size.x / size.y, 1.0);
 	float edge = smoothstep(0.3, 0.95, length(p));
 	// A slow throb that quickens as it grows, like blood in the ears.
-	float beat = 1.0 + 0.08 * amount * sin(TIME * (2.0 + 4.0 * amount));
+	float beat = 1.0 + 0.08 * amount * breathe * sin(TIME * (2.0 + 4.0 * amount));
 	COLOR = vec4(tint, clamp(edge * amount * beat, 0.0, 0.92));
 }
