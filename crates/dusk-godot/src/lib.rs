@@ -24,7 +24,7 @@ use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
     Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoFaith, NoFire,
     NoSleep, NoStash, NoTake, Part, Remains, Rise, Skill, SpellKind, Tend, TilePos, View, World,
-    WoundKind, demo,
+    Wound, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -1477,19 +1477,43 @@ impl DuskWorld {
         ])
     }
 
-    /// Your wounds, worst first, as lines for the health panel ("bite, left arm, bleeding").
-    #[func]
-    fn character_wounds(&self) -> PackedStringArray {
+    /// Your wounds, worst first (the worst kind, then by part): for `character_wounds` and
+    /// `character_wound_parts`, which list them in the same order.
+    fn my_wounds(&self) -> Vec<Wound> {
         let Some(a) = self
             .world
             .as_ref()
             .and_then(|w| w.character().and_then(|id| w.actor(id)))
         else {
-            return PackedStringArray::new();
+            return Vec::new();
         };
         let mut wounds = a.body.wounds.clone();
         wounds.sort_by_key(|w| (std::cmp::Reverse(w.kind), w.part));
         wounds
+    }
+
+    /// Your wounds as numbers, for the body diagram, in `character_wounds`' order, four each:
+    /// the part (by `part_names`), the kind (by `wound_names`), 1 if it's bleeding, and 1 if
+    /// it's bandaged.
+    #[func]
+    fn character_wound_parts(&self) -> PackedInt32Array {
+        self.my_wounds()
+            .iter()
+            .flat_map(|w| {
+                [
+                    w.part as i32,
+                    w.kind as i32,
+                    i32::from(w.bleeding > 0),
+                    i32::from(w.bandaged),
+                ]
+            })
+            .collect()
+    }
+
+    /// Your wounds, worst first, as lines for the health panel ("bite, left arm, bleeding").
+    #[func]
+    fn character_wounds(&self) -> PackedStringArray {
+        self.my_wounds()
             .iter()
             .map(|w| {
                 let state = match (w.bleeding > 0, w.bandaged) {
@@ -1512,6 +1536,7 @@ impl DuskWorld {
             .collect()
     }
 
+    /// The names of the parts of the body, by number (`Part`'s order): "head", "left arm".
     #[func]
     fn part_names(&self) -> PackedStringArray {
         Part::ODDS

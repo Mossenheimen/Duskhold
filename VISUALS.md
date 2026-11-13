@@ -175,6 +175,8 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `moodle.good` | `#99B8FF` | a restful or good moodle (= `signal.rest`) |
 | `moodle.ink` | `#0D0F14` | a moodle's glyph on its tile. White fails 3:1 on three of the four tints (1.4:1 on mild); this is 5.8:1 on worst and 9:1 to 13.6:1 on the rest |
 | `ui.hurt_text` | `#FFD1C7` | your wounds, listed under the bars |
+| `body.whole` | `#5E6573` | a part of the body diagram with no wound (3.3:1 on the panel's own colour). A wounded part takes its worst wound's moodle tint: a scratch `moodle.mild`, a laceration `moodle.bad`, a bite `moodle.worst` |
+| `body.dressing` | `#F2EEE6` | the bands round a bandaged part, each on a dark `ui.outline` edge so it shows on any tint |
 
 ### The GUI
 
@@ -374,7 +376,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | Zone | What | Where, how big | Shows | Today |
 |---|---|---|---|---|
 | **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here |
-| **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; 380 wide | always (faith only for a class that has it) | no body diagram; wounds as text |
+| **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; the bars 350 wide, the body diagram beside them | always (faith only for a class that has it) | as here: out of breath and the wounds in words under the bars, beside the diagram |
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
@@ -463,6 +465,13 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
   - A front silhouette, 120 px high, its parts tinted by their worst wound: scratch, laceration or bite, plus bleeding and dressed.
   - Hovering a part lists its wounds.
   - It sits in zone B, beside the bars.
+
+  **Today** (2026-11-12): `client/body_view.gd`, on a small panel beside the bars. It's a front view, your right on the left, as a doctor's chart has it, with the core's ten parts: head, torso, each arm, hand, leg and foot, 2 px apart so each tint reads on its own.
+  - A wounded part takes its worst wound's moodle tint, and an unhurt one `body.whole`.
+  - A bleeding part pulses in brightness once a second, as a low bar does.
+  - A bandaged part is wrapped in `body.dressing` bands.
+
+  So bleeding and dressed aren't told by colour alone, and the wounds stay listed in words under the bars. Hovering a part (after 0.4 s) opens its detail to the diagram's right: the part, then each wound on it ("laceration, bleeding"), or "unhurt". A wound landing while you hover updates it at once.
 
 ---
 
@@ -556,6 +565,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | The class choice: the title's serif, the GUI's sans | `--seed=7 --hour=12 --choose --shot=PNG --shot-after=3` |
 | A prompt under you, by the abbey's altar | `--seed=7 --hour=12 --walk=74,114 --shot=PNG --shot-after=10` |
 | The keys opened over the spells panel: the panel closes | `--seed=7 --hour=12 --class=wizard --do=1:spells,2:keys --shot=PNG --shot-after=3` |
+| The body diagram in a fight: wounds, a bandage, a part's detail (each run's fight goes its own way) | `--seed=7 --hour=12 --speed=4 --walk=118,84 --do=12:bandage,14:body --shot=PNG --shot-after=14.5` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
@@ -602,7 +612,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 3. *(Done 2026-11-12.)* **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
 4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
 5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
-6. **The body diagram** in zone B.
+6. *(Done 2026-11-12.)* **The body diagram** in zone B.
 7. **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping.
 8. **Looks as data:** `data/looks.toml`.
 9. **Screens:** title, the class choice as a screen, and death as a story.

@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## What's drawn over the world (VISUALS.md §10): the status and your body down the top left
-## (zones A and B); the news, and Zomboid's moodle column under it as tiles, down the top right
+## (zones A and B, the body diagram beside the bars); the news, and Zomboid's moodle column under it as tiles, down the top right
 ## (D, E);
 ## the one thing you must answer now at the top centre (C: held, paused, asleep); just under you,
 ## the act under way, else what you can do there (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
@@ -8,6 +8,7 @@ extends CanvasLayer
 ## Look token.
 
 const Look = preload("res://look.gd")
+const BodyView = preload("res://body_view.gd")
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
@@ -121,10 +122,14 @@ var _prompts_shown := []  # as last given (show_prompts)
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
-var _detail: PanelContainer  # the hovered moodle's detail
+var _detail: PanelContainer  # a hovered moodle's or body part's detail
 var _detail_name: Label
 var _detail_lines: Label
-var _hovered: Control  # the moodle row under the mouse, if any
+var _hovered: Control  # what's under the mouse with a detail: a moodle's row, or the body
+var _hover_text := []  # its detail: [a title, its lines]
+var _hover_right := false  # the detail opens to its right (the body, at the left edge), else left
+var _body: BodyView  # the body diagram, beside the bars
+var _body_part := -1  # the part of it hovered, -1 none
 var _hover_for := 0.0  # how long it's been there
 var _keys: PanelContainer  # every key, on F1 (zone I)
 var _keys_hint: Label  # "F1: every key", for a world's first game hour
@@ -280,6 +285,8 @@ func reset() -> void:
 	_asleep.text = ""
 	_shown_moodles = PackedInt32Array()
 	show_moodles(PackedInt32Array())
+	_unhover()
+	_body.show_wounds(PackedInt32Array())
 
 
 func show_problem(text: String) -> void:
@@ -392,7 +399,8 @@ func show_moodles(moodles: PackedInt32Array) -> void:
 	for i in range(0, _shown_moodles.size() - 1, 2):
 		before[_shown_moodles[i]] = _shown_moodles[i + 1]
 	_shown_moodles = moodles
-	_unhover()
+	if _hovered != null and _hovered != _body:
+		_unhover()
 	for child in _moodles.get_children():
 		child.queue_free()
 	var rows := []  # [how bad, its place in the core's order, code, level, pops]
@@ -459,10 +467,34 @@ func _moodle(code: int, level: int, pop: bool) -> void:
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-## The mouse came onto a moodle's row: its detail shows once it has rested there (Look.HOVER).
+## The mouse came onto a moodle's row: its name, then what it does and what eases it, a line
+## each, to the row's left.
 func _hover(row: Control) -> void:
-	_hovered = row
-	_hover_for = 0.0
+	var what: Array = row.get_meta("moodle")
+	var moodle: Array = MOODLES[what[0]]
+	_hover_on(row, [moodle[0][what[1] - 1],
+		"\n".join((moodle[1][what[1] - 1] as String).split("  ·  "))], false)
+
+
+## A part of the body diagram under the mouse (-1: none now): its wounds, to the diagram's right.
+func _hover_part(part: int) -> void:
+	_body_part = part
+	if part < 0:
+		_unhover(_body)
+	else:
+		_hover_on(_body, _body.detail(part), true)
+
+
+## The mouse came onto `control`, whose detail is `text` ([a title, its lines]): it shows once the
+## mouse has rested there (Look.HOVER), or at once if that control's detail is up already (moving
+## from one part of the body to the next).
+func _hover_on(control: Control, text: Array, right: bool) -> void:
+	var showing := _detail.visible and _hovered == control
+	_hovered = control
+	_hover_text = text
+	_hover_right = right
+	if not showing:
+		_hover_for = 0.0
 
 
 ## The mouse left `row` (if it's the hovered one), or, with none, the rows are being rebuilt.
@@ -481,22 +513,40 @@ func hover_first_moodle() -> void:
 			return
 
 
-## The hovered moodle's detail (VISUALS.md §11, Tooltip): in a panel to the left of its row, so
-## it never hides the moodle; its name, then what it does and what eases it, a line each.
+## --do=S:body: the worst-wounded part's detail, as if hovered, for a picture.
+func hover_worst_part() -> void:
+	var part := _body.worst_part()
+	if part >= 0:
+		_hover_part(part)
+		_hover_for = Look.HOVER
+
+
+## The hovered thing's detail (VISUALS.md §11, Tooltip): in a panel beside it, never over it (a
+## moodle's to its left, the body's to its right).
 func _show_detail() -> void:
-	var what: Array = _hovered.get_meta("moodle")
-	var moodle: Array = MOODLES[what[0]]
-	_detail_name.text = moodle[0][what[1] - 1]
-	_detail_lines.text = "\n".join((moodle[1][what[1] - 1] as String).split("  ·  "))
+	_detail_name.text = _hover_text[0]
+	_detail_lines.text = _hover_text[1]
 	_detail.visible = true
 	_detail.reset_size()
 	var rect := _hovered.get_global_rect()
 	var bottom := get_viewport().get_visible_rect().size.y - Look.MARGIN
-	_detail.position = Vector2(rect.position.x - _detail.size.x - 10.0,
-		minf(rect.position.y, bottom - _detail.size.y))
+	var x := rect.end.x + 10.0 if _hover_right else rect.position.x - _detail.size.x - 10.0
+	_detail.position = Vector2(x, minf(rect.position.y, bottom - _detail.size.y))
 
 
-## The moodle detail's panel, hidden till a moodle is hovered.
+## The body diagram: your wounds (DuskWorld.character_wound_parts()), and, once a world is made,
+## the names of the parts and the kinds of wound.
+func show_wound_parts(wounds: PackedInt32Array) -> void:
+	# A wound landing on the part hovered: its detail says so at once.
+	if _body.show_wounds(wounds) and _hovered == _body and _body_part >= 0:
+		_hover_text = _body.detail(_body_part)
+
+
+func set_body_names(parts: PackedStringArray, kinds: PackedStringArray) -> void:
+	_body.set_names(parts, kinds)
+
+
+## The detail's panel, hidden till something with one is hovered.
 func _build_detail() -> void:
 	_detail = PanelContainer.new()
 	_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -556,7 +606,8 @@ func hide_death() -> void:
 	_death.text = ""
 
 
-## Zones A and B, down the top left: the status, then your level, body bars, breath and wounds.
+## Zones A and B, down the top left: the status, then your level, and the body's bars, breath and
+## wounds with the body diagram beside them.
 func _build_left_column() -> void:
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -567,16 +618,36 @@ func _build_left_column() -> void:
 	column.add_child(_state)
 	_level = Look.text(Label.new(), Look.BODY, Look.GOLD, true)
 	column.add_child(_level)
-	_health = _bar(column, "Health", Look.HEALTH)
-	_endurance = _bar(column, "Endurance", Look.ENDURANCE)
-	_faith = _bar(column, "Faith", Look.FAITH)
+	# The bars, and the body diagram beside them on a panel of its own.
+	var body_row := HBoxContainer.new()
+	body_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body_row.add_theme_constant_override("separation", 16)
+	column.add_child(body_row)
+	var bars := VBoxContainer.new()
+	bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bars.add_theme_constant_override("separation", 4)
+	body_row.add_child(bars)
+	_health = _bar(bars, "Health", Look.HEALTH)
+	_endurance = _bar(bars, "Endurance", Look.ENDURANCE)
+	_faith = _bar(bars, "Faith", Look.FAITH)
 	_faith.get_parent().visible = false
-	_slots = _bar(column, "Spells", Look.ARCANE)
+	_slots = _bar(bars, "Spells", Look.ARCANE)
 	_slots.get_parent().visible = false
+	var frame := PanelContainer.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := Look.panel_style()
+	style.set_content_margin_all(6.0)
+	frame.add_theme_stylebox_override("panel", style)
+	frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	body_row.add_child(frame)
+	_body = BodyView.new()
+	_body.hovered.connect(_hover_part)
+	frame.add_child(_body)
+	# Under the bars, beside the diagram: out of breath, and the wounds in words.
 	_breath = Look.text(Label.new(), Look.BODY, Look.ALERT, true)
-	column.add_child(_breath)
+	bars.add_child(_breath)
 	_wounds = Look.text(Label.new(), Look.SMALL, Look.HURT_TEXT, true)
-	column.add_child(_wounds)
+	bars.add_child(_wounds)
 
 
 ## Zones D and E, down the top right: the news, with room kept for its lines so the moodles

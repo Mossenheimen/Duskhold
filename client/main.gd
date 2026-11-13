@@ -16,7 +16,8 @@ extends Node3D
 ## that can be made), butcher (G), hunt (shoot the nearest
 ## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
 ## pick (the wild plant beside you: Y), keys (F1), moodle (the worst one's detail, as if hovered),
-## esc (closes what Esc would, never quits)
+## esc (closes what Esc would, never quits), body (the worst-wounded part's detail), bandage (the
+## first in the pack)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
@@ -170,6 +171,7 @@ const HEAVY_SWING := 46
 ## An item kind, by DuskWorld.item_kinds(): armour (armour.rs).
 const ARMOUR := 11
 const BAG := 12  # an item kind (DuskWorld.item_kinds())
+const BANDAGE := 2
 ## Rain streaks falling round the camera, by DuskWorld.rain() (dry, rain, heavy).
 const RAIN_DROPS := [0, 700, 1800]
 ## What your own timed actions are called, by DuskWorld.actor_actions() kind (5 on).
@@ -367,6 +369,7 @@ func _start(carry_on := false) -> void:
 	kinds = dusk.actor_kinds()
 	creature_names = dusk.creature_names()
 	fixture_names = dusk.fixture_names()
+	hud.set_body_names(dusk.part_names(), dusk.wound_names())
 	fever_took = false
 	told_get_up = false
 	hallowed = false  # so the first frame says where you are
@@ -470,6 +473,7 @@ func _process(delta: float) -> void:
 	var body: PackedInt32Array = dusk.character_body()
 	held = body[5] if body.size() > 5 else 0
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
+	hud.show_wound_parts(dusk.character_wound_parts())
 	hud.show_faith(dusk.faith())
 	hud.show_slots(dusk.character_slots())
 	hud.show_deeds(dusk.character_deeds())
@@ -2063,6 +2067,15 @@ func _run_script() -> void:
 				hud.hover_first_moodle()
 			"esc":  # what Esc closes first; a script never quits by it
 				_close_top()
+			"body":  # the worst-wounded part's detail, as if the mouse rested on it
+				hud.hover_worst_part()
+			"bandage":  # put on the first bandage in the pack (the core picks the wound)
+				var items: PackedInt32Array = dusk.character_items()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(0, items.size() - 3, 4):
+					if items[k] < kinds.size() and kinds[items[k]] == BANDAGE:
+						dusk.use_item(k / 4, items[k])
+						break
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
 				var texts: PackedStringArray = dusk.recipe_texts()

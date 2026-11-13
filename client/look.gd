@@ -88,6 +88,10 @@ const SEVERITY: Array[Color] = [MILD, BAD, WORST]
 ## to 13.6:1 on the rest.
 const INK := Color("#0D0F14")
 const HURT_TEXT := Color("#FFD1C7")  # your wounds, listed
+## The body diagram (§11): a part with no wound, and the bands round a bandaged one. A wounded
+## part takes its worst wound's SEVERITY: a scratch MILD, a laceration BAD, a bite WORST.
+const WHOLE := Color("#5E6573")
+const DRESSING := Color("#F2EEE6")
 
 # The GUI (§4).
 

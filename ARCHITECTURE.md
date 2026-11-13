@@ -1439,6 +1439,14 @@ Game first: every step ends with something to look at or play.
        - `skills.gd` and `spells.gd` gained `is_open()`, as `craft.gd` had; `--do=S:esc` does what Esc would, but a script never quits by it;
        - **checked:** headless through skills, keys, spells, keys, Esc, spells, Esc (clean, and the run went its full length), and one picture: the keys opened over the spells panel, which closed (its route is in `VISUALS.md` §14);
        - **not yet:** panels fading in and out (§12's 0.12 s); the Esc menu (slice 9).
+     - **The body diagram** (2026-11-12; the sixth visual slice of `VISUALS.md` §16; 373 tests):
+       - **the bridge:** `character_wound_parts()` hands over the wounds as numbers, four each (part, kind, bleeding, bandaged), in `character_wounds`' order: both now read one sorted list (`my_wounds`). `part_names()` got its doc comment;
+       - **the figure** (`client/body_view.gd`): a front view 118 px high, your right on the left as on a doctor's chart, with the core's ten parts (head, torso, arms, hands, legs, feet) drawn as rounded boxes, the head and hands round, 2 px apart. Each part takes its worst wound's moodle tint (scratch mild, laceration bad, bite worst), or `body.whole` (new, `Look.WHOLE`, 3.3:1 on the panel) unhurt. A bleeding part pulses in brightness once a second. A bandaged one gets `body.dressing` bands (new, `Look.DRESSING`) on a dark edge, so they show on any tint. Neither is told by colour alone;
+       - **zone B:** the diagram sits on its own small panel beside the bars, and out of breath and the wounds in words moved up under the bars, beside it. The list stays, so the words are there without hovering;
+       - **hovering:** the moodles' detail panel now serves both. A moodle's opens to its row's left, a part's to the diagram's right, with the part's name and each wound on it ("laceration, bleeding"), or "unhurt". Moving from part to part changes it at once, and a wound landing on the part you hover updates it. Rebuilding the moodles closes only a moodle's detail;
+       - `--do=S:body` opens the worst-wounded part's detail, and `--do=S:bandage` puts on the first bandage in the pack (the core picks the wound);
+       - **checked:** headless through a fight at the near farm (clean); two pictures of it. The first, before a bandage, showed the wounds list hanging below the bars, which is why it moved up beside the diagram. The second shows the bleeding torso, the scratched right hand, the bandaged left foot with its band, and the right hand's detail. That route is in `VISUALS.md` §14; a fight goes differently each run, since the game steps by real frame time. The same picture caught the stove's dimmed prompt;
+       - **not yet:** the figure for creatures; wounds healing shown as they close.
 7. **Last of all, the bot:** `dusk-py` and training with `ppo.py`, then trained policies as NPC controllers.
 
 ## Open questions
