@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the dread moodle: a ghost. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" fill-rule="evenodd" d="M12 58 L12 28 C12 14 21 6 32 6 C43 6 52 14 52 28 L52 58 L45.5 51 L39 58 L32 51 L25 58 L18.5 51 Z
+    M21 26 A4.5 6.5 0 1 0 30 26 A4.5 6.5 0 1 0 21 26 Z M34 26 A4.5 6.5 0 1 0 43 26 A4.5 6.5 0 1 0 34 26 Z
+    M28 41 A4 5 0 1 0 36 41 A4 5 0 1 0 28 41 Z"/>
+</svg>

@@ -28,10 +28,12 @@ if not exist client\dusk.gdextension (
 )
 
 rem The first time, Godot imports the project, which lists the extension in client\.godot. It
-rem imports again when there's a font it hasn't yet (client\fonts: a new one, or a fresh clone).
+rem imports again when there's a font or an icon it hasn't yet (client\fonts, client\icons: a new
+rem one, or a fresh clone).
 set "IMPORT="
 if not exist client\.godot\extension_list.cfg set "IMPORT=1"
 for %%f in (client\fonts\*.ttf) do if not exist "client\.godot\imported\%%~nxf-*" set "IMPORT=1"
+for /r client\icons %%f in (*.svg) do if not exist "client\.godot\imported\%%~nxf-*" set "IMPORT=1"
 if defined IMPORT "%GODOT%" --headless --path client --import
 
 "%GODOT%" --path client %*

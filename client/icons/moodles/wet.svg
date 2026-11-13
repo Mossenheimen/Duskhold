@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the wet moodle: a raincloud. A solid white silhouette (VISUALS.md, section 11). -->
+  <g fill="#fff"><circle cx="21" cy="27" r="11"/><circle cx="34" cy="21" r="14"/><circle cx="46" cy="28" r="10"/><rect x="10" y="27" width="46" height="11" rx="5.5"/></g>
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="M19 45 L15 55 M31 45 L27 58 M43 45 L39 55"/>
+</svg>

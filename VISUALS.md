@@ -173,6 +173,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `moodle.bad` | `#FF9940` | the second |
 | `moodle.worst` | `#FF4D40` | the third |
 | `moodle.good` | `#99B8FF` | a restful or good moodle (= `signal.rest`) |
+| `moodle.ink` | `#0D0F14` | a moodle's glyph on its tile. White fails 3:1 on three of the four tints (1.4:1 on mild); this is 5.8:1 on worst and 9:1 to 13.6:1 on the rest |
 | `ui.hurt_text` | `#FFD1C7` | your wounds, listed under the bars |
 
 ### The GUI
@@ -376,7 +377,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; 380 wide | always (faith only for a class that has it) | no body diagram; wounds as text |
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
-| **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names | while any is on | text only, no icons |
+| **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
 | **F** Here and now | what you can do beside you (at most two prompts), and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | the bar is here; prompts come only through the news |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
@@ -426,9 +427,12 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
   - Condition shows under 100%, and freshness for food.
   - The rows group by kind (weapons, food and drink, cures, light, materials), and sort by kind, weight or name.
 - **Moodle:**
-  - A 44 px tile in its severity's colour (`moodle.mild`, `moodle.bad`, `moodle.worst`, or `moodle.good`), with a white glyph of 32 px.
-  - Its name sits beside it in `type.body`, and what it does and what eases it shows on hover.
+  - A 44 px tile in its severity's colour (`moodle.mild`, `moodle.bad`, `moodle.worst`, or `moodle.good`), with a 1 px `ui.outline` edge, and its glyph of 32 px in `moodle.ink`. The glyph is white in its file and inked as it's drawn: white on the tints fails the 3:1 a part that carries meaning needs (§4).
+  - Its name sits beside it in `type.body`, and what it does and what eases it shows on hover, a line each.
   - A new or worsened moodle pops once (scale 1.25 back to 1 over 0.3 s).
+  - The column is worst first, and 250 px wide, so the tiles stay in one line however long the names are.
+
+  **Today** (2026-11-12): as here (`hud.gd`; `Look.tile_style`). A pop always plays; reducing motion waits for the settings (§13).
 - **Mark over a head:**
   - A glyph 0.45 m above the head, billboarded, in `type.banner` scaled to the zoom, with an outline.
   - It pops when it changes.
@@ -438,10 +442,14 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Tooltip:**
   - After 0.4 s of hovering, in a panel, at most 70 characters a line.
   - It never hides what it describes.
+
+  **Today** (2026-11-12): the moodles' detail is the first. It's our own panel rather than Godot's tooltip, so it takes `ui.panel` and opens beside its row, to the left. Godot's own delay (`gui/timers/tooltip_delay_sec`) is 0.4 s too, for any built-in tooltip later.
 - **Icons:**
   - SVG on a 64 × 64 canvas: a solid white silhouette, no text inside, legible at 32 px.
   - Moodles get a glyph each, and items get a glyph by kind until they have models; then each item's icon is drawn from its own model (§16).
   - Icons scale with the text, up to 200%.
+
+  **Today** (2026-11-12): the moodles' 19 glyphs are in `client/icons/moodles/`, drawn here, with nothing downloaded. Every texture is imported at twice its canvas with mipmaps (`project.godot`'s `[importer_defaults]`), so a glyph stays sharp from 75% to 200%. Their `.import` files are committed, and `play.cmd` imports any icon not yet imported.
 - **Body diagram:**
   - A front silhouette, 120 px high, its parts tinted by their worst wound: scratch, laceration or bite, plus bleeding and dressed.
   - Hovering a part lists its wounds.
@@ -490,7 +498,8 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
 - **Tokens:** `client/look.gd` holds every token in §4 and §8 as named constants, and the GUI's parts as functions:
   - `panel_style()`, a panel's ground;
   - `text()`, a label's size and colour, outlined when it's drawn on the world;
-  - `bar()`, a bar's fill on its track.
+  - `bar()`, a bar's fill on its track;
+  - `tile_style()`, a moodle's tile in its tint.
 
   Each script that draws preloads it (`const Look = preload("res://look.gd")`), as the client's scripts are. **Must:** code uses a token, never a new inline colour. A new colour is a new token in this guide and in `look.gd`.
 - **Looks of things:** `data/looks.toml` (Default) moves the creature, furniture and plant looks out of GDScript (`LOOKS`, `FURNITURE`, `PLANTS`, `SURFACES`). A person can then tune them without code, and a mod can add its own:
@@ -538,6 +547,13 @@ These are standard pictures for checking the look. Each takes no special data. A
 | The class choice: the title's serif, the GUI's sans | `--seed=7 --hour=12 --choose --shot=PNG --shot-after=3` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 
+The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:
+- `[hunger]`: `rise = 600.0`, `levels = [5, 10, 95]`;
+- `[thirst]`: `rise = 600.0`, `levels = [2, 4, 6]`;
+- `[fatigue]`: `rise = 600.0`, `levels = [5, 70, 90]`.
+
+Then run `--seed=7 --hour=12 --data=COPY --do=1:sneak,5:moodle --shot=PNG --shot-after=6`. It shows dying of thirst, hungry, drowsy and sneaking, and the worst one's detail.
+
 ### Done means
 
 - [ ] It uses tokens: no new inline colours or sizes.
@@ -572,7 +588,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 
 1. *(Done 2026-11-12.)* **Tokens, and a GUI that scales:** `client/look.gd` took every inline colour; the 1920 × 1080 base with `canvas_items` and `expand`; the GUI's size on `-` and `=`.
 2. *(Done 2026-11-12.)* **Type:** the fonts in: Alegreya Sans (Regular, and Medium for headings and banners) and the serif Alegreya for titles, with lining, tabular figures. *(The sizes of §8, and the held banner in sentence case, came first.)*
-3. **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
+3. *(Done 2026-11-12.)* **Moodles as tiles:** glyphs, severity tints, a pop on change, the detail on hover.
 4. **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1: done 2026-11-12.)*
 5. **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time: done 2026-11-12.)*
 6. **The body diagram** in zone B.

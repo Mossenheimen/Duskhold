@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the breath moodle: lungs. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M26 18 C16 16 6 30 6 46 C6 55 12 59 20 58 C26 57 28 52 28 46 L28 28 C28 23 28 19 26 18 Z"/>
+  <path fill="#fff" d="M38 18 C48 16 58 30 58 46 C58 55 52 59 44 58 C38 57 36 52 36 46 L36 28 C36 23 36 19 38 18 Z"/>
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="M32 4 L32 22"/>
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5" d="M23 30 L32 20 L41 30"/>
+</svg>

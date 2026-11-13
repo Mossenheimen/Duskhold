@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the cold moodle: a snowflake. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="M32 32 L32 5 M32 16 L25.11 10.21 M32 16 L38.89 10.21 M32 32 L55.38 18.5 M45.86 24 L47.42 15.14 M45.86 24 L54.31 27.08 M32 32 L55.38 45.5 M45.86 40 L54.31 36.92 M45.86 40 L47.42 48.86 M32 32 L32 59 M32 48 L38.89 53.79 M32 48 L25.11 53.79 M32 32 L8.62 45.5 M18.14 40 L16.58 48.86 M18.14 40 L9.69 36.92 M32 32 L8.62 18.5 M18.14 24 L9.69 27.08 M18.14 24 L16.58 15.14"/>
+</svg>

@@ -83,6 +83,10 @@ const MILD := Color("#F2D973")
 const BAD := Color("#FF9940")
 const WORST := Color("#FF4D40")
 const SEVERITY: Array[Color] = [MILD, BAD, WORST]
+## A moodle's glyph on its tile: the panel's own dark, opaque. White would fail the 3:1 a part
+## that carries meaning needs on three of the four (1.4:1 on MILD); this is 5.8:1 on WORST and 9:1
+## to 13.6:1 on the rest.
+const INK := Color("#0D0F14")
 const HURT_TEXT := Color("#FFD1C7")  # your wounds, listed
 
 # The GUI (§4).
@@ -116,6 +120,27 @@ const SERIF := preload("res://fonts/Alegreya-Variable.ttf")
 # Layout (§10).
 
 const MARGIN := 24  # every panel's distance from the screen's edges
+
+# Icons (§11): white SVG silhouettes on a 64 x 64 canvas (icons/), imported at twice that with
+# mipmaps (project.godot's importer_defaults), so they stay sharp at any GUI size.
+
+const TILE := 44  # a moodle's tile
+const GLYPH := 32  # the glyph on it
+const POP := 1.25  # a new or worsened moodle's tile starts this big...
+const POP_TIME := 0.3  # ...and shrinks back over this many seconds
+const HOVER := 0.4  # seconds of hovering before a detail shows
+
+
+## A moodle's tile (§11): its severity's `colour`, 4 px corners, a 1 px OUTLINE to hold it apart
+## from bright ground, and the glyph centred in it.
+static func tile_style(colour: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = colour
+	style.border_color = OUTLINE
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all((TILE - GLYPH) / 2.0)
+	return style
 
 
 ## A panel's ground (§11): PANEL with a 1 px EDGE, 4 px corners, 12 px across and 10 down.

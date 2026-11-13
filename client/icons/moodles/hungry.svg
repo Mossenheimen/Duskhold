@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the hungry moodle: an apple. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M32 21 C38 15 53 14 56 30 C58 44 48 58 40 58 C36 58 35 56 32 56 C29 56 28 58 24 58 C16 58 6 44 8 30 C11 14 26 15 32 21 Z"/>
+  <path fill="#fff" d="M30.5 19 L32.5 7 L36 7.5 L34 19.5 Z"/>
+  <path fill="#fff" d="M37 13 C38 5 46 2 53 3 C51 10 44 14 37 13 Z"/>
+</svg>

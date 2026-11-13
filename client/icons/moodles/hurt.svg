@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the hurt moodle: a cracked heart. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" transform="translate(-2.5 0)" d="M32 20 C29 15 24 11 17 12 C6 14 5 27 12 34 L32 54 L29 46 L35 38 L28 29 Z"/>
+  <path fill="#fff" transform="translate(2.5 0)" d="M32 20 C35 15 40 11 47 12 C58 14 59 27 52 34 L32 54 L29 46 L35 38 L28 29 Z"/>
+</svg>

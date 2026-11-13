@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the arm moodle: a bent arm. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="13" d="M9 52 L36 50 L41 24"/>
+  <circle fill="#fff" cx="42" cy="15" r="10.5"/>
+  <ellipse fill="#fff" cx="22" cy="42" rx="13" ry="10.5"/>
+</svg>

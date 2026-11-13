@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## What's drawn over the world (VISUALS.md §10): the status and your body down the top left
-## (zones A and B); the news, and Zomboid's moodle column under it, down the top right (D, E);
+## (zones A and B); the news, and Zomboid's moodle column under it as tiles, down the top right
+## (D, E);
 ## the one thing you must answer now at the top centre (C: held, paused, asleep); the act under
 ## way just under you (F); and the keys, on F1 (I). Then a red flash when the dead hurt you, a
 ## dark veil while you sleep, how you died, and who comes next. Every colour and size is a
@@ -30,53 +31,58 @@ const KEYS := [
 ]
 const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  amber, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
 
-## The moodles, by DuskWorld.character_moodles() code: a name for each level, what it does to
-## you, and how bad its first level already is (0 mild, 1 bad, 2 dire; -1 a restful one).
+## The moodles, by DuskWorld.character_moodles() code: a name for each level; what it does to you
+## and what eases it (shown on hover, a line for each part between "  ·  "); how bad its first
+## level already is (0 mild, 1 bad, 2 dire; -1 a restful one); and its glyph, in icons/moodles/.
 const MOODLES := [
 	[["Peckish", "Hungry", "Starving"],
-		["eat something soon", "your breath comes back slower", "losing health"], 0],
+		["eat something soon: Tab", "your breath comes back slower  ·  eat something: Tab",
+			"losing health  ·  eat something: Tab"], 0, "hungry"],
 	[["Thirsty", "Parched", "Dying of thirst"],
-		["drink something soon", "your breath comes back slower", "losing health"], 0],
+		["drink something soon: X at water, or Tab", "your breath comes back slower  ·  X at water, or Tab",
+			"losing health  ·  X at water, or Tab"], 0, "thirsty"],
 	[["Drowsy", "Tired", "Falling asleep"],
-		["Z to sleep", "slower swings  ·  Z to sleep", "much slower swings  ·  Z to sleep"], 0],
+		["Z to sleep", "slower swings  ·  Z to sleep", "much slower swings  ·  Z to sleep"], 0, "tired"],
 	[["Hurt", "Badly hurt", "Near death"],
-		["fed, watered and not bleeding, you heal", "sleep heals fastest", "sleep heals fastest"], 0],
+		["fed, watered and not bleeding, you heal", "sleep heals fastest", "sleep heals fastest"], 0, "hurt"],
 	[["Bleeding", "Bleeding badly", "Bleeding heavily"],
 		["bandage it: Tab  ·  ghouls smell it", "bandage them: Tab  ·  ghouls smell them",
-			"bandage them: Tab  ·  ghouls smell them"], 1],
-	[["Out of breath"], ["no running, weak swings"], 1],
-	[["Heavy load"], ["no running"], 0],
-	[["Held", "Held by two", "Held by three"], ["F struggle  ·  Q shove", "F struggle  ·  Q shove", "F struggle  ·  Q shove"], 2],
-	[["Asleep"], ["Z to get up"], -1],
+			"bandage them: Tab  ·  ghouls smell them"], 1, "bleeding"],
+	[["Out of breath"], ["no running, weak swings  ·  it comes back fastest standing still"], 1, "breath"],
+	[["Heavy load"], ["no running  ·  drop something, or carry it in a bag on your back"], 0, "load"],
+	[["Held", "Held by two", "Held by three"], ["F struggle  ·  Q shove", "F struggle  ·  Q shove", "F struggle  ·  Q shove"], 2, "held"],
+	[["Asleep"], ["Z to get up"], -1, "asleep"],
 	[["Ghoul fever", "Weak with fever", "Dying of fever"],
 		["thirstier, and nothing heals  ·  find a cure", "your breath comes back slowly  ·  find a cure",
-			"the cure, today, or death"], 1],
+			"the cure, today, or death"], 1, "fever"],
 	[["Sore", "In pain", "Agony"],
 		["a bandage on the wound eases it: Tab", "everything costs more breath  ·  dress your wounds: Tab",
-			"everything costs far more breath, and no sleep  ·  dress your wounds: Tab"], 0],
+			"everything costs far more breath, and no sleep  ·  dress your wounds: Tab"], 0, "pain"],
 	[["Uneasy", "Afraid", "Frightened"],
 		["your aim shakes  ·  light, food and rest ease it", "your aim shakes more  ·  get into the light",
-			"you can't step nearer the dead  ·  back away, get to the light"], 0],
+			"you can't step nearer the dead  ·  back away, get to the light"], 0, "dread"],
 	[["Hurt arm", "Badly hurt arm"],
 		["swings a little slower and less sure  ·  dress it: Tab",
-			"swings slower and less sure  ·  dress it: Tab"], 0],
+			"swings slower and less sure  ·  dress it: Tab"], 0, "arm"],
 	[["Limping", "Lame"],
 		["slower on your feet, and running costs more  ·  dress it: Tab",
-			"much slower: a ghoul will run you down  ·  dress it: Tab"], 0],
+			"much slower: a ghoul will run you down  ·  dress it: Tab"], 0, "leg"],
 	[["Head wound", "Bad head wound"],
 		["your aim, and how far you see, a little worse  ·  dress it: Tab",
-			"your aim and how far you see, worse  ·  dress it: Tab"], 0],
-	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1],
-	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1],
+			"your aim and how far you see, worse  ·  dress it: Tab"], 0, "head"],
+	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  Ctrl to stand"], -1, "sneaking"],
+	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of Alt"], -1, "bracing"],
 	[["Chilly", "Cold", "Freezing"],
 		["get under a roof, or by a fire, before it's worse",
 			"shivering: your aim is worse, and everything costs more breath  ·  a roof, a fire",
-			"nothing heals, health drains, no sleep  ·  get to a fire"], 0],
+			"nothing heals, health drains, no sleep  ·  get to a fire"], 0, "cold"],
 	[["Damp", "Wet", "Soaked"],
 		["wet makes you colder  ·  dry off under a roof",
 			"wet makes you colder  ·  dry off under a roof, faster by a fire",
-			"much colder, and your clothes keep half their warmth  ·  dry off by a fire"], 0],
+			"much colder, and your clothes keep half their warmth  ·  dry off by a fire"], 0, "wet"],
 ]
+## The moodle column's width: the tiles stay in one line down the screen, however long the names.
+const MOODLE_WIDTH := 250.0
 ## How many of the dead have hold of you, in words, for the held banner.
 const HOW_MANY := ["", "One", "Two", "Three", "Four", "Five"]
 
@@ -112,6 +118,12 @@ var _doing: Label
 var _doing_bar: ProgressBar
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
+var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
+var _detail: PanelContainer  # the hovered moodle's detail
+var _detail_name: Label
+var _detail_lines: Label
+var _hovered: Control  # the moodle row under the mouse, if any
+var _hover_for := 0.0  # how long it's been there
 var _keys: PanelContainer  # every key, on F1 (zone I)
 var _keys_hint: Label  # "F1: every key", for a world's first game hour
 
@@ -137,6 +149,8 @@ func _ready() -> void:
 	_veil.visible = false
 	add_child(_veil)
 	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for moodle: Array in MOODLES:
+		_glyphs.append(load("res://icons/moodles/%s.svg" % moodle[3]))
 	_build_left_column()
 	_build_right_column()
 	# Zone C: the one thing you must answer now, at the top centre.
@@ -158,6 +172,7 @@ func _ready() -> void:
 	_choice = choice[1]
 	_build_action_bar()
 	_build_keys()
+	_build_detail()  # last: over everything
 
 
 func _process(delta: float) -> void:
@@ -173,6 +188,12 @@ func _process(delta: float) -> void:
 		_flash.color = Color(Look.GOLD, 0.25 * _gold_left / FLASH_LIFE)
 	else:
 		_flash.color = Color(Look.HURT, 0.35 * _flash_left / FLASH_LIFE)
+	# A moodle's detail, once the mouse has rested on it; placed each frame it shows, so a late
+	# layout can't leave it astray.
+	if _hovered != null:
+		_hover_for += delta
+		if _hover_for >= Look.HOVER:
+			_show_detail()
 
 
 ## The seed, the clock (DuskWorld.clock()), the speed dial (1, 2, 5; more while you sleep), and
@@ -360,49 +381,134 @@ func show_choice(title: String, text: String) -> void:
 	_choice.text = text
 
 
-## The moodle column, from DuskWorld.character_moodles(): rebuilt only when it changes.
+## The moodle column (zone E), from DuskWorld.character_moodles(): worst first, rebuilt only when
+## it changes. One that's new, or worse than it was, pops.
 func show_moodles(moodles: PackedInt32Array) -> void:
 	if moodles == _shown_moodles:
 		return
+	var before := {}  # code: level, as last shown
+	for i in range(0, _shown_moodles.size() - 1, 2):
+		before[_shown_moodles[i]] = _shown_moodles[i + 1]
 	_shown_moodles = moodles
+	_unhover()
 	for child in _moodles.get_children():
 		child.queue_free()
+	var rows := []  # [how bad, its place in the core's order, code, level, pops]
 	for i in range(0, moodles.size() - 1, 2):
 		var code := moodles[i]
 		if code < 0 or code >= MOODLES.size():
 			continue
-		var moodle: Array = MOODLES[code]
-		var names: Array = moodle[0]
-		var level := clampi(moodles[i + 1], 1, names.size())
-		var colour := Look.REST if moodle[2] < 0 else Look.SEVERITY[mini(level - 1 + moodle[2], 2)]
-		_moodle(names[level - 1], moodle[1][level - 1], colour)
+		var level := clampi(moodles[i + 1], 1, (MOODLES[code][0] as Array).size())
+		rows.append([_how_bad(code, level), i, code, level, moodles[i + 1] > before.get(code, 0)])
+	# Worst first; alike, in the core's order (sort_custom isn't stable by itself).
+	rows.sort_custom(func(a: Array, b: Array) -> bool:
+		return a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
+	for row: Array in rows:
+		_moodle(row[2], row[3], row[4])
 
 
-## One moodle: a panel edged in its severity's colour, its name in that colour, what it does
-## under it. (Icons on tinted tiles come later: VISUALS.md §11.)
-func _moodle(heading: String, effect: String, colour: Color) -> void:
-	var panel := PanelContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := Look.panel_style()
-	style.border_color = colour
-	style.set_border_width_all(0)
-	style.border_width_left = 4
-	style.content_margin_top = 4.0
-	style.content_margin_bottom = 5.0
-	panel.add_theme_stylebox_override("panel", style)
+## How bad a moodle is at `level`: 0 mild, 1 bad, 2 the worst; -1 a restful one.
+static func _how_bad(code: int, level: int) -> int:
+	var first: int = MOODLES[code][2]
+	return -1 if first < 0 else mini(level - 1 + first, 2)
+
+
+## One moodle (VISUALS.md §11): a tile in its severity's colour with its glyph in INK, and its name
+## beside it; what it does and what eases it show on hover. `pop`: it's new, or worse.
+func _moodle(code: int, level: int, pop: bool) -> void:
+	var how_bad := _how_bad(code, level)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP  # hovered for its detail; a click here walks nowhere
+	row.set_meta("moodle", [code, level])
+	row.mouse_entered.connect(_hover.bind(row))
+	row.mouse_exited.connect(_unhover.bind(row))
+	# The tile sits in a plain Control, not straight in the row: a container sets its children's
+	# scale back to 1 whenever it lays them out, which would cut a pop short.
+	var slot := Control.new()
+	slot.custom_minimum_size = Vector2(Look.TILE, Look.TILE)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(slot)
+	var tile := PanelContainer.new()
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_theme_stylebox_override("panel",
+		Look.tile_style(Look.REST if how_bad < 0 else Look.SEVERITY[how_bad]))
+	tile.size = Vector2(Look.TILE, Look.TILE)
+	tile.pivot_offset = tile.size / 2.0
+	slot.add_child(tile)
+	var glyph := TextureRect.new()
+	glyph.texture = _glyphs[code]
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.custom_minimum_size = Vector2(Look.GLYPH, Look.GLYPH)
+	glyph.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	glyph.self_modulate = Look.INK  # the white silhouette, inked
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(glyph)
+	var called := Look.text(Label.new(), Look.BODY, Look.TEXT, true)
+	called.text = MOODLES[code][0][level - 1]
+	called.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	called.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(called)
+	_moodles.add_child(row)
+	if pop:
+		tile.scale = Vector2.ONE * Look.POP
+		tile.create_tween().tween_property(tile, "scale", Vector2.ONE, Look.POP_TIME) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+## The mouse came onto a moodle's row: its detail shows once it has rested there (Look.HOVER).
+func _hover(row: Control) -> void:
+	_hovered = row
+	_hover_for = 0.0
+
+
+## The mouse left `row` (if it's the hovered one), or, with none, the rows are being rebuilt.
+func _unhover(row: Control = null) -> void:
+	if row == null or row == _hovered:
+		_hovered = null
+		_detail.visible = false
+
+
+## --do=S:moodle: the first (worst) moodle's detail, as if hovered, for a picture.
+func hover_first_moodle() -> void:
+	for row: Node in _moodles.get_children():
+		if not row.is_queued_for_deletion():
+			_hover(row as Control)
+			_hover_for = Look.HOVER
+			return
+
+
+## The hovered moodle's detail (VISUALS.md §11, Tooltip): in a panel to the left of its row, so
+## it never hides the moodle; its name, then what it does and what eases it, a line each.
+func _show_detail() -> void:
+	var what: Array = _hovered.get_meta("moodle")
+	var moodle: Array = MOODLES[what[0]]
+	_detail_name.text = moodle[0][what[1] - 1]
+	_detail_lines.text = "\n".join((moodle[1][what[1] - 1] as String).split("  ·  "))
+	_detail.visible = true
+	_detail.reset_size()
+	var rect := _hovered.get_global_rect()
+	var bottom := get_viewport().get_visible_rect().size.y - Look.MARGIN
+	_detail.position = Vector2(rect.position.x - _detail.size.x - 10.0,
+		minf(rect.position.y, bottom - _detail.size.y))
+
+
+## The moodle detail's panel, hidden till a moodle is hovered.
+func _build_detail() -> void:
+	_detail = PanelContainer.new()
+	_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail.add_theme_stylebox_override("panel", Look.panel_style())
 	var lines := VBoxContainer.new()
-	lines.add_theme_constant_override("separation", 0)
+	lines.add_theme_constant_override("separation", 2)
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(lines)
-	var title := Look.text(Label.new(), Look.BODY, colour)
-	title.text = heading
-	lines.add_child(title)
-	var what := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
-	what.text = effect
-	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	what.custom_minimum_size = Vector2(320, 0)
-	lines.add_child(what)
-	_moodles.add_child(panel)
+	_detail.add_child(lines)
+	_detail_name = Look.text(Label.new(), Look.BODY)
+	lines.add_child(_detail_name)
+	_detail_lines = Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
+	lines.add_child(_detail_lines)
+	_detail.visible = false
+	add_child(_detail)
 
 
 ## Your dread (DuskWorld.character_dread(), per mille) darkens the screen's edges. It's eased
@@ -487,7 +593,8 @@ func _build_right_column() -> void:
 	column.add_child(_news)
 	_moodles = VBoxContainer.new()
 	_moodles.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_moodles.add_theme_constant_override("separation", 4)
+	_moodles.add_theme_constant_override("separation", 6)
+	_moodles.custom_minimum_size = Vector2(MOODLE_WIDTH, 0)
 	_moodles.size_flags_horizontal = Control.SIZE_SHRINK_END
 	column.add_child(_moodles)
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the head moodle: a head with a band round it. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M18.77 13 A16 16 0 0 1 45.23 13 Z"/>
+  <path fill="#fff" d="M16.39 18.5 A16 16 0 1 0 47.61 18.5 Z"/>
+  <path fill="#fff" d="M12 60 C12 48 20 43 32 43 C44 43 52 48 52 60 Z"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the asleep moodle: a crescent moon and stars. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M26.54 12.05 A22 22 0 1 0 49.32 39.39 A18 18 0 0 1 26.54 12.05 Z"/>
+  <path fill="#fff" d="M50 4 L52.2 9.8 L58 12 L52.2 14.2 L50 20 L47.8 14.2 L42 12 L47.8 9.8 Z"/>
+  <path fill="#fff" d="M57 23 L58.7 27.3 L63 29 L58.7 30.7 L57 35 L55.3 30.7 L51 29 L55.3 27.3 Z"/>
+</svg>

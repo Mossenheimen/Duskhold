@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the fever moodle: a ghoul's fangs. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M6 12 Q32 30 58 12 L58 21 Q32 39 6 21 Z"/>
+  <path fill="#fff" d="M14 22 L27 28 Q25 42 20 56 Q15 40 14 22 Z"/>
+  <path fill="#fff" d="M50 22 L37 28 Q39 42 44 56 Q49 40 50 22 Z"/>
+</svg>

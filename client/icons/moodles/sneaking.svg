@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the sneaking moodle: footprints. A solid white silhouette (VISUALS.md, section 11). -->
+  <g fill="#fff" transform="rotate(-12 21 44)"><ellipse cx="21" cy="37" rx="7.5" ry="10"/><ellipse cx="21" cy="53" rx="6" ry="5"/></g>
+  <g fill="#fff" transform="rotate(12 43 22)"><ellipse cx="43" cy="15" rx="7.5" ry="10"/><ellipse cx="43" cy="31" rx="6" ry="5"/></g>
+</svg>

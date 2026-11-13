@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the leg moodle: a leg and its foot. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="14" d="M28 6 L26 30 L31 48"/>
+  <path fill="#fff" d="M23 44 L37 44 L50 50 C55 52 56 58 51 58 L23 58 C21 58 21 56 21 54 Z"/>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the load moodle: a weight. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M16 58 L48 58 C51 58 52 56 51.5 53 L45.5 28 C45 26 44 25 42 25 L22 25 C20 25 19 26 18.5 28 L12.5 53 C12 56 13 58 16 58 Z"/>
+  <circle fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" cx="32" cy="15" r="9"/>
+</svg>

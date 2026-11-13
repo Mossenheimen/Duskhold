@@ -15,7 +15,8 @@ extends Node3D
 ## water), light, skills (the panel), board or unboard, sneak, shield (take one up), brace, bow (take one up), shoot (the nearest of the dead you see), cook (the last cooked recipe
 ## that can be made), butcher (G), hunt (shoot the nearest
 ## beast within a bow's reach), turn (the dead: U), pray (P), consecrate or ward (O), mend (M),
-## pick (the wild plant beside you: Y), keys (F1) S real seconds in;
+## pick (the wild plant beside you: Y), keys (F1), moodle (the worst one's detail, as if hovered)
+## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
 ## --news print the news too (for --headless); --hour=H start at that hour of the day;
@@ -2015,6 +2016,8 @@ func _run_script() -> void:
 				skills.close()
 			"keys":  # F1: the keys panel
 				_toggle_keys()
+			"moodle":  # the worst moodle's detail, as if the mouse rested on it
+				hud.hover_first_moodle()
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
 				var texts: PackedStringArray = dusk.recipe_texts()

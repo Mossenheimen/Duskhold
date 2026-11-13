@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the thirsty moodle: a drop falling into a cup. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M14 22 L50 22 C50 36 43 42 35.5 44 L35.5 51 C35.5 53 44 54 46 58 L18 58 C20 54 28.5 53 28.5 51 L28.5 44 C21 42 14 36 14 22 Z"/>
+  <path fill="#fff" d="M32 2 C35 7 38 10 38 12.5 A6 6 0 0 1 26 12.5 C26 10 29 7 32 2 Z"/>
+</svg>

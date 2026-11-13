@@ -27,6 +27,14 @@ window/stretch/aspect="expand"
 [gui]
 
 theme/custom_font="res://fonts/AlegreyaSans-Regular.ttf"
+timers/tooltip_delay_sec=0.4
+
+[importer_defaults]
+
+texture={
+"mipmaps/generate": true,
+"svg/scale": 2.0
+}
 
 [rendering]
 
