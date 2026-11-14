@@ -299,17 +299,22 @@ impl World {
             } else {
                 let share = self.stats(other).map_or(0, |c| c.turned);
                 let until = self.tick + self.turn_ticks(id, share);
-                // It lets go, and what it was winding up to do comes to nothing.
-                self.release(other);
-                if let Some(o) = self.actors.get_mut(other) {
-                    o.mind = Mind::Turned { by: id, until };
-                    o.action = None;
-                    o.intent = Intent::Idle;
-                    o.path.clear();
-                    o.path_goal = None;
-                }
+                self.send_fleeing(other, id, until);
             }
             self.train(id, Skill::Devotion, self.rules.skills.turn, On::Foe(other));
+        }
+    }
+
+    /// `other` turns from `by` until tick `until`: it lets go, and what it was winding up to do
+    /// comes to nothing.
+    pub(crate) fn send_fleeing(&mut self, other: ActorId, by: ActorId, until: u64) {
+        self.release(other);
+        if let Some(o) = self.actors.get_mut(other) {
+            o.mind = Mind::Turned { by, until };
+            o.action = None;
+            o.intent = Intent::Idle;
+            o.path.clear();
+            o.path_goal = None;
         }
     }
 

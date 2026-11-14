@@ -1191,7 +1191,10 @@ func _read_events() -> void:
 				hud.say("Glass shatters!")
 			Event.FELLED:
 				if who == me:
-					hud.say("Your heavy blow knocks it down. Finish it!")
+					hud.say("Your blow knocks it down. Finish it!")
+			Event.TERRIFIED:
+				if who == me:
+					hud.say("%s breaks and flees from your blow!" % _a(target))
 			Event.WET:
 				# A new level of wet (cold.rs): only soaked through is news; the moodle says the rest.
 				if who == me and extra == 3:
@@ -2329,6 +2332,9 @@ func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int)
 		Event.FELLED:
 			if who == me:
 				effects.fell(_drawn(target, x, y))
+		Event.TERRIFIED:
+			if who == me:
+				effects.terror(_drawn(target, x, y))
 		Event.SNEAK_ATTACK:
 			if who == me:
 				effects.sneak_attack(_drawn(target, x, y))

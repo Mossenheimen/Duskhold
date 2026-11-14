@@ -124,6 +124,8 @@ pub struct LootEntry {
     pub count: (u16, u16),
     /// Out of 10,000: how often what it gives is magic (`magic.rs`).
     pub magic: u32,
+    /// Out of 10,000: how often it's one of the uniques made on its item instead (`magic.rs`).
+    pub unique: u32,
 }
 
 /// What a kind of container holds: so many draws, each an entry picked by weight.
@@ -208,6 +210,8 @@ pub struct Defs {
     pub magic: crate::magic::MagicRules,
     /// How well weapons found were made (`quality.rs`).
     pub quality: crate::quality::QualityRules,
+    /// The uniques: weapons made by hand, each with a name of its own (`magic.rs`).
+    pub uniques: Vec<crate::magic::Unique>,
     /// The classes and their talents (`class.rs`). A character is the first class.
     pub classes: Vec<crate::class::Class>,
     pub talents: Vec<crate::class::Talent>,
@@ -260,6 +264,7 @@ impl Default for Defs {
             properties: Vec::new(),
             magic: crate::magic::MagicRules::default(),
             quality: crate::quality::QualityRules::default(),
+            uniques: Vec::new(),
             classes: Vec::new(),
             talents: Vec::new(),
             spells: Vec::new(),
@@ -456,8 +461,18 @@ impl World {
                 ) {
                     item.quality = self.defs.quality.roll(r(k, Purpose::Quality));
                 }
-                // Now and then, what's drawn is magic (`magic.rs`).
-                if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
+                // Now and then, what's drawn is one of the uniques made on it; else, now and
+                // then, magic (`magic.rs`).
+                let one = r(k, Purpose::Unique);
+                let uniques = if entry.unique > 0 && below(one, 10_000) < entry.unique {
+                    self.defs.uniques_on(entry.item)
+                } else {
+                    Vec::new()
+                };
+                let pick = below(mix64(one), uniques.len() as u32) as usize;
+                if let Some(made) = uniques.get(pick).and_then(|&u| self.defs.unique_item(u)) {
+                    item = Item { condition, ..made };
+                } else if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
                     item.magic = self.defs.roll_magic(&item, self.magic_roll(key, k));
                 }
                 self.defs.stow(&mut out, item);

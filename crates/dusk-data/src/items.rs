@@ -285,6 +285,9 @@ struct LootLine {
     /// The chance what it gives is magic (`properties.toml`); left out, never.
     #[serde(default)]
     magic: f64,
+    /// The chance it's one of the uniques made on it instead (`uniques.toml`); left out, never.
+    #[serde(default)]
+    unique: f64,
 }
 
 /// rules.toml's [items]: seconds each item action takes.
@@ -569,11 +572,12 @@ pub(crate) fn load_defs(
             }
             let mut entries = Vec::new();
             for line in &t.items {
-                if line.count.0 > line.count.1 || !(0.0..=1.0).contains(&line.magic) {
+                let chance = |x: f64| (0.0..=1.0).contains(&x);
+                if line.count.0 > line.count.1 || !chance(line.magic) || !chance(line.unique) {
                     return Err(fail(
                         &file,
                         format!(
-                            "loot {:?}: count is [fewest, most], magic a chance from 0 to 1",
+                            "loot {:?}: count is [fewest, most], magic and unique chances from 0 to 1",
                             t.id
                         ),
                     ));
@@ -583,6 +587,7 @@ pub(crate) fn load_defs(
                     weight: line.weight,
                     count: line.count,
                     magic: (line.magic * 10_000.0).round() as u32,
+                    unique: (line.unique * 10_000.0).round() as u32,
                 });
             }
             loot.push(LootTable {
@@ -694,8 +699,9 @@ pub(crate) fn load_defs(
         // Filled in by the loader, from properties.toml and rules.toml's [magic].
         properties: Vec::new(),
         magic: dusk_core::MagicRules::default(),
-        // Filled in by the loader, from rules.toml's [quality].
+        // Filled in by the loader, from rules.toml's [quality], and uniques.toml.
         quality: dusk_core::QualityRules::default(),
+        uniques: Vec::new(),
         // Filled in by the loader, from classes.toml and talents.toml, and spells.toml.
         classes: Vec::new(),
         talents: Vec::new(),

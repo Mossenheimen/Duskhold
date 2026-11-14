@@ -143,6 +143,10 @@ pub enum Purpose {
     Burst = 30,
     /// How well a weapon found was made (`quality.rs`).
     Quality = 31,
+    /// Whether a weapon found is one of the uniques made on it, and which (`magic.rs`).
+    Unique = 32,
+    /// Whether a blow from a weapon that frightens sends the dead it struck fleeing (`magic.rs`).
+    Terror = 33,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

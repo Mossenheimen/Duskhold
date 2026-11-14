@@ -44,6 +44,7 @@ func _run() -> void:
 	_fx.block(at, Vector3(6, 0, 5))
 	_fx.glance(at)
 	_fx.fell(at)
+	_fx.terror(at)
 	_fx.sneak_attack(at)
 	_fx.bone(at, true)
 	_fx.got_up(at)

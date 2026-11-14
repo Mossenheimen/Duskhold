@@ -2013,3 +2013,100 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
         "{err}"
     );
 }
+
+#[test]
+fn the_games_uniques_are_weapons_each_with_an_effect_and_rares_and_tombs_carry_them() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    assert!(d.uniques.len() >= 6);
+    for u in &d.uniques {
+        assert!(
+            matches!(
+                d.items[usize::from(u.item)].kind,
+                dusk_core::ItemKind::Weapon { .. }
+            ),
+            "{}",
+            u.id
+        );
+        assert!(!u.lore.is_empty(), "{}: a line of its story", u.id);
+    }
+    // Every effect is some unique's.
+    let any = |f: fn(&dusk_core::Property) -> bool| d.uniques.iter().any(|u| f(&u.effect));
+    assert!(any(|e| e.cleave) && any(|e| e.pyre) && any(|e| e.drain > 0));
+    assert!(any(|e| e.terror > 0) && any(|e| e.fell > 0) && any(|e| e.hearten > 0));
+    // The rares carry them, and the old tombs hold them; and a unique's worth the most.
+    for table in ["rare", "tomb"] {
+        let t = d.loot.iter().find(|t| t.id == table).unwrap();
+        assert!(t.entries.iter().any(|e| e.unique > 0), "{table}");
+    }
+    assert!(d.magic.worth[2] > d.magic.worth[1]);
+}
+
+#[test]
+fn a_unique_on_no_weapon_or_a_chance_where_none_is_made_is_refused() {
+    let items = r#"
+[[item]]
+id = "club"
+name = "club"
+weight = 1.0
+weapon = { wind_up = 0.4, recovery = 0.6, endurance = 9, hit = 0.85, damage = [8, 12], noise = 4, wear = 1.0, skill = "blunt" }
+[[item]]
+id = "bread"
+name = "bread"
+weight = 0.5
+food = { nutrition = 40, time = 4.0 }
+"#;
+    let properties = r#"
+[[property]]
+id = "keen"
+name = "Keen"
+line = "harder"
+on = "weapon"
+damage = 1.5
+"#;
+    let uniques = r#"
+[[unique]]
+id = "knotwood"
+name = "Knotwood"
+item = "club"
+grade = "fine"
+properties = ["keen"]
+effect = { name = "Thirst", line = "it drinks", drain = 0.25 }
+lore = "Old."
+"#;
+    let loot = r#"
+[[loot]]
+id = "chest"
+rolls = [1, 1]
+items = [{ item = "club", weight = 1, unique = 0.1 }]
+"#;
+    let try_with = |name: &str, uniques: &str, loot: &str| {
+        let mut files = test_files(PREFABS);
+        files.push(("items/things.toml", items));
+        files.push(("properties.toml", properties));
+        files.push(("uniques.toml", uniques));
+        files.push(("loot/chest.toml", loot));
+        load(&folder(name, &files))
+    };
+    let d = try_with("uniques", uniques, loot).unwrap().defs;
+    let u = &d.uniques[0];
+    assert_eq!(
+        (u.name.as_str(), u.quality, &u.props),
+        ("Knotwood", 2, &vec![0])
+    );
+    assert_eq!((u.effect.drain, u.effect.name.as_str()), (250, "Thirst"));
+    assert_eq!(d.loot[0].entries[0].unique, 1000);
+
+    let bread = uniques.replace("item = \"club\"", "item = \"bread\"");
+    let err = try_with("unique-bread", &bread, loot).unwrap_err();
+    assert!(err.message.contains("no weapon"), "{err}");
+    let typo = uniques.replace("[\"keen\"]", "[\"kean\"]");
+    let err = try_with("unique-typo", &typo, loot).unwrap_err();
+    assert!(err.message.contains("\"kean\""), "{err}");
+    let greedy = uniques.replace("drain = 0.25", "drain = 2.0");
+    let err = try_with("unique-greedy", &greedy, loot).unwrap_err();
+    assert!(err.message.contains("drain"), "{err}");
+    let none = loot.replace("item = \"club\"", "item = \"bread\"");
+    let err = try_with("unique-none", uniques, &none).unwrap_err();
+    assert!(err.message.contains("makes none"), "{err}");
+}

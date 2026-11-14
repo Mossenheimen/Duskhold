@@ -127,6 +127,7 @@ pub mod event {
         SCORCHED = 109,
         SPELL_BROKE = 110,
         SLOTS_BACK = 111,
+        TERRIFIED = 112,
     }
 }
 

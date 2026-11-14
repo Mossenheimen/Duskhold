@@ -498,6 +498,7 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
         Event::Felled { who, target } => (FELLED, Some(who), Some(target), at(target), 0),
+        Event::Terrified { who, target } => (TERRIFIED, Some(who), Some(target), at(target), 0),
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
@@ -2237,6 +2238,18 @@ impl DuskWorld {
             return false;
         };
         let defs = &world.defs;
+        // Or one of the uniques, by its id in uniques.toml: made as it's made, and known.
+        if let Some(u) = defs.uniques.iter().position(|u| u.id == item.to_string()) {
+            let Some(mut made) = defs.unique_item(u as u8) else {
+                return false;
+            };
+            made.magic.known = true;
+            made.magic.curse_shown = true;
+            let Some(me) = world.character() else {
+                return false;
+            };
+            return world.give(me, made);
+        }
         let Some(def) = defs.items.iter().position(|d| d.id == item.to_string()) else {
             return false;
         };

@@ -1,6 +1,7 @@
 # What the graveyard's tombs hold (prefabs/graveyard.toml): grave goods, read as hamlet.toml is.
 # Worth the walk past its skeletons with a mace in hand: old coin, and old arms, more often magic
-# than anything a house holds.
+# than anything a house holds, and now and then one of the uniques (uniques.toml). The barrows'
+# tombs hold the same.
 
 [[loot]]
 id = "tomb"
@@ -8,9 +9,9 @@ rolls = [1, 2]
 items = [
   { item = "coins", weight = 4, count = [5, 25] },
   { item = "candle", weight = 2, count = [1, 3] },
-  { item = "sword", weight = 1, magic = 0.4 },
-  { item = "mace", weight = 1, magic = 0.4 },
-  { item = "spear", weight = 1, magic = 0.4 },
+  { item = "sword", weight = 1, magic = 0.4, unique = 0.08 },
+  { item = "mace", weight = 1, magic = 0.4, unique = 0.08 },
+  { item = "spear", weight = 1, magic = 0.4, unique = 0.08 },
   { item = "heater_shield", weight = 1 },   # an old knight's, iron-rimmed
   { item = "iron_helm", weight = 1 },       # and his helm
 ]

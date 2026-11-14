@@ -46,6 +46,7 @@ fn defs() -> Defs {
                 weight: 1,
                 count: (5, 5),
                 magic: 0,
+                unique: 0,
             }],
         }],
         containers: vec![None, Some(0)],

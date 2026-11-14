@@ -1,10 +1,12 @@
 //! Magic items: their properties and curses (`data/properties.toml`) in a designer's units
-//! (multipliers, a chance added, tiles), rules.toml's `[magic]` (how they're rolled and learnt),
-//! and its `[quality]` (how well a weapon found was made).
+//! (multipliers, a chance added, tiles), the uniques (`data/uniques.toml`: weapons made by hand),
+//! rules.toml's `[magic]` (how they're rolled and learnt), and its `[quality]` (how well a weapon
+//! found was made).
 
 use std::path::Path;
 
-use dusk_core::{MagicRules, Property, QualityRules};
+use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
+use dusk_core::{Defs, ItemKind, MagicRules, Property, QualityRules, Unique};
 use serde::Deserialize;
 
 use crate::{DataError, check_unique, fail, read};
@@ -18,11 +20,14 @@ struct PropertiesFile {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PropertyFile {
+    /// A unique's effect has none: it's the unique's.
+    #[serde(default)]
     id: String,
     /// The word before an item's name, and its one line.
     name: String,
     line: String,
-    /// "weapon" (in hand) or "light" (held up).
+    /// "weapon" (in hand) or "light" (held up); a unique's effect is a weapon's, and needn't say.
+    #[serde(default)]
     on: String,
     #[serde(default)]
     curse: bool,
@@ -47,6 +52,49 @@ struct PropertyFile {
     /// A light's: how fast it burns down, as a multiplier.
     #[serde(default = "one")]
     wane: f64,
+    /// A weapon's, what a unique's effect does: a kill carries on into the next one beside you;
+    /// the share of a blow's harm that comes back as health (0 to 1); the dead it puts down
+    /// burn; the chance a blow sends the dead fleeing, and knocks down (0 to 1); and the dread a
+    /// kill eases, in points.
+    #[serde(default)]
+    cleave: bool,
+    #[serde(default)]
+    drain: f64,
+    #[serde(default)]
+    pyre: bool,
+    #[serde(default)]
+    terror: f64,
+    #[serde(default)]
+    fell: f64,
+    #[serde(default)]
+    hearten: f64,
+}
+
+/// `uniques.toml`: weapons made by hand, each with a name of its own.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UniquesFile {
+    unique: Vec<UniqueFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UniqueFile {
+    id: String,
+    name: String,
+    /// The kind of weapon it is (items/), and how well it was made: "crude", "plain", "fine" or
+    /// "masterwork" (left out: plain).
+    item: String,
+    #[serde(default)]
+    grade: String,
+    /// Properties from properties.toml, by id: a weapon's; a curse's too, as a cost it carries.
+    #[serde(default)]
+    properties: Vec<String>,
+    /// Its own effect, written as a property is (no id, and on a weapon).
+    effect: PropertyFile,
+    /// A line of its story.
+    #[serde(default)]
+    lore: String,
 }
 
 fn one() -> f64 {
@@ -60,8 +108,8 @@ pub(crate) struct MagicFile {
     /// Of the magic items, the share that's Rare, and the chance one is cursed.
     rare: f64,
     cursed: f64,
-    /// The XP a magic item adds to its kind's worth: Uncommon, Rare.
-    worth: (f64, f64),
+    /// The XP a magic item adds to its kind's worth: Uncommon, Rare, Unique.
+    worth: (f64, f64, f64),
     /// Blows on a foe with an unknown magic weapon before you know what it is.
     learn: u8,
 }
@@ -74,10 +122,11 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
             "magic: rare and cursed are chances from 0 to 1, learn at least 1 blow",
         ));
     }
-    if !(0.0..=10_000.0).contains(&m.worth.0) || !(0.0..=10_000.0).contains(&m.worth.1) {
+    let xp = |x: f64| (0.0..=10_000.0).contains(&x);
+    if !xp(m.worth.0) || !xp(m.worth.1) || !xp(m.worth.2) {
         return Err(fail(
             file,
-            "magic.worth is [Uncommon, Rare], 0 to 10,000 XP",
+            "magic.worth is [Uncommon, Rare, Unique], 0 to 10,000 XP",
         ));
     }
     Ok(MagicRules {
@@ -86,6 +135,7 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
         worth: [
             (m.worth.0 * 1000.0).round() as u32,
             (m.worth.1 * 1000.0).round() as u32,
+            (m.worth.2 * 1000.0).round() as u32,
         ],
         learn: m.learn,
     })
@@ -173,35 +223,123 @@ pub(crate) fn load(dir: &Path) -> Result<Vec<Property>, DataError> {
     let mut out = Vec::new();
     for p in &parsed.property {
         let bad = |m: &str| fail(&file, format!("property {:?}: {m}", p.id));
+        if p.id.trim().is_empty() {
+            return Err(fail(&file, "a property needs an id"));
+        }
         let on_light = match p.on.as_str() {
             "weapon" => false,
             "light" => true,
             _ => return Err(bad("on is \"weapon\" or \"light\"")),
         };
-        let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane];
-        if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
-            return Err(bad(
-                "noise, damage, swing, wear and wane are multipliers from 0 to 10",
-            ));
+        out.push(to_property(p, on_light).map_err(|m| bad(&m))?);
+    }
+    Ok(out)
+}
+
+/// A property (or a unique's effect) in the core's units, or what's wrong with it.
+fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
+    let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane];
+    if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
+        return Err("noise, damage, swing, wear and wane are multipliers from 0 to 10".into());
+    }
+    if !(-1.0..=1.0).contains(&p.hit) || !(0..=12).contains(&p.glow) {
+        return Err("hit is a chance from -1 to 1, glow 0 to 12 tiles".into());
+    }
+    let unit = |x: f64| (0.0..=1.0).contains(&x);
+    if !unit(p.drain) || !unit(p.terror) || !unit(p.fell) || !(0.0..=100.0).contains(&p.hearten) {
+        return Err("drain, terror and fell are from 0 to 1, hearten 0 to 100 points".into());
+    }
+    let effect = p.cleave || p.pyre || p.drain > 0.0 || p.terror > 0.0 || p.fell > 0.0;
+    if on_light && (effect || p.hearten > 0.0) {
+        return Err("cleave, drain, pyre, terror, fell and hearten are a weapon's".into());
+    }
+    let per = |m: f64| (m * 1000.0).round() as u32;
+    let chance = |x: f64| (x * 10_000.0).round() as u32;
+    Ok(Property {
+        id: p.id.clone(),
+        name: p.name.clone(),
+        line: p.line.clone(),
+        on_light,
+        curse: p.curse,
+        noise: per(p.noise),
+        damage: per(p.damage),
+        swing: per(p.swing),
+        hit: (p.hit * 10_000.0).round() as i32,
+        wear: per(p.wear),
+        hallowed: p.hallowed,
+        glow: p.glow,
+        wane: per(p.wane),
+        cleave: p.cleave,
+        drain: per(p.drain),
+        pyre: p.pyre,
+        terror: chance(p.terror),
+        hearten: (p.hearten * 1000.0).round() as i32,
+        fell: chance(p.fell),
+    })
+}
+
+/// Every unique in `uniques.toml` (left out: none), made on the items and properties loaded.
+pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError> {
+    let file = dir.join("uniques.toml");
+    if !file.exists() {
+        return Ok(Vec::new());
+    }
+    let parsed: UniquesFile = read(&file)?;
+    check_unique(&file, "unique", parsed.unique.iter().map(|u| &u.id))?;
+    if parsed.unique.len() > 250 {
+        return Err(fail(&file, "at most 250 uniques"));
+    }
+    let mut out = Vec::new();
+    for u in &parsed.unique {
+        let bad = |m: &str| fail(&file, format!("unique {:?}: {m}", u.id));
+        if u.name.trim().is_empty() {
+            return Err(bad("a name, its own"));
         }
-        if !(-1.0..=1.0).contains(&p.hit) || !(0..=12).contains(&p.glow) {
-            return Err(bad("hit is a chance from -1 to 1, glow 0 to 12 tiles"));
+        let item = defs
+            .items
+            .iter()
+            .position(|d| d.id == u.item && matches!(d.kind, ItemKind::Weapon { .. }))
+            .ok_or_else(|| bad(&format!("{:?} is no weapon in items/", u.item)))?;
+        let quality = match u.grade.as_str() {
+            "crude" => CRUDE,
+            "" | "plain" => PLAIN,
+            "fine" => FINE,
+            "masterwork" => MASTERWORK,
+            _ => return Err(bad("grade is crude, plain, fine or masterwork")),
+        };
+        let mut props = Vec::new();
+        for id in &u.properties {
+            let n = defs
+                .properties
+                .iter()
+                .position(|p| &p.id == id && !p.on_light)
+                .ok_or_else(|| {
+                    bad(&format!(
+                        "{id:?} is no weapon's property in properties.toml"
+                    ))
+                })?;
+            if props.contains(&(n as u8)) {
+                return Err(bad(&format!("{id:?} twice")));
+            }
+            props.push(n as u8);
         }
-        let per = |m: f64| (m * 1000.0).round() as u32;
-        out.push(Property {
-            id: p.id.clone(),
-            name: p.name.clone(),
-            line: p.line.clone(),
-            on_light,
-            curse: p.curse,
-            noise: per(p.noise),
-            damage: per(p.damage),
-            swing: per(p.swing),
-            hit: (p.hit * 10_000.0).round() as i32,
-            wear: per(p.wear),
-            hallowed: p.hallowed,
-            glow: p.glow,
-            wane: per(p.wane),
+        let e = &u.effect;
+        if !matches!(e.on.as_str(), "" | "weapon") || e.curse {
+            return Err(bad("its effect is a weapon's, and no curse"));
+        }
+        if e.name.trim().is_empty() || e.line.trim().is_empty() {
+            return Err(bad("its effect needs a name and a line"));
+        }
+        let mut effect = to_property(e, false).map_err(|m| bad(&format!("effect: {m}")))?;
+        effect.id = u.id.clone();
+        out.push(Unique {
+            id: u.id.clone(),
+            name: u.name.trim().to_string(),
+            item: item as u16,
+            quality,
+            props,
+            effect,
+            lore: u.lore.trim().to_string(),
         });
     }
     Ok(out)

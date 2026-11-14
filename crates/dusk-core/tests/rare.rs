@@ -67,6 +67,7 @@ fn defs() -> Defs {
                 weight: 1,
                 count: (12, 12),
                 magic: 0,
+                unique: 0,
             }],
         }],
         affixes: vec![

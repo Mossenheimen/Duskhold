@@ -555,6 +555,7 @@ impl World {
         let swing = self.swing_of(id);
         // Read now: the blow may break the weapon.
         let skill = self.weapon_skill(id);
+        let gifts = self.gifts(id);
         self.emit(Sound {
             at: pos,
             loudness: swing.noise,
@@ -712,6 +713,9 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
+        // What its weapon gives a blow past its swing (`magic.rs`): harm drunk back, the dead put
+        // to flight.
+        self.gifted_blow(id, target, damage, gifts);
         if fevered {
             self.catch_fever(target);
         }
@@ -723,9 +727,18 @@ impl World {
         // A character's blow that lands works toward its Strength, a heavy one twice.
         let work = self.rules.strength.blow * if self.heavy { 2 } else { 1 };
         self.strain(id, work);
-        // A heavy blow may knock down what it hits, and is harder on the weapon.
+        // A heavy blow may knock down what it hits, and so may a weapon made to (`magic.rs`). A
+        // heavy blow is harder on the weapon.
+        let fells = gifts.fell
+            + if self.heavy {
+                self.rules.heavy.knock_down
+            } else {
+                0
+            };
+        if !down && fells > 0 {
+            self.fell(id, target, fells.min(10_000));
+        }
         if self.heavy && !down {
-            self.fell(id, target);
             for _ in 1..self.rules.heavy.wear {
                 self.wear(id);
             }
@@ -738,9 +751,12 @@ impl World {
             // Put down with a Hallowed weapon (`magic.rs`), or by one with Last Rites
             // (`faith.rs`), it stays down.
             self.put_to_rest(id, target);
-            // Cleave: a blow that puts one down carries on into another beside you, once a swing.
+            // And what its weapon gives a kill (`magic.rs`): a pyre, dread eased.
+            self.gifted_kill(id, target, gifts);
+            // Cleave: a blow that puts one down carries on into another beside you, once a swing,
+            // by a talent or the weapon in hand.
             if !self.cleaving
-                && self.cleaves(id)
+                && (gifts.cleave || self.cleaves(id))
                 && let Some(next) = self.next_foe(id)
             {
                 self.cleaving = true;
@@ -811,11 +827,11 @@ impl World {
         }
     }
 
-    /// A heavy blow that landed on `target` may knock it down, by `[heavy] knock_down`, for its
-    /// kind's `down` time: if it's still standing to be knocked down.
-    fn fell(&mut self, id: ActorId, target: ActorId) {
+    /// A blow that landed on `target` may knock it down, by `chance` out of 10,000 (a heavy
+    /// blow's `[heavy] knock_down`, and a weapon's that fells), for its kind's `down` time: if
+    /// it's still standing to be knocked down.
+    fn fell(&mut self, id: ActorId, target: ActorId, chance: u32) {
         let (tick, seed) = (self.tick, self.seed);
-        let chance = self.rules.heavy.knock_down;
         if below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,

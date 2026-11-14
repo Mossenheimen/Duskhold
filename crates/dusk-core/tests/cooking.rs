@@ -53,6 +53,7 @@ fn defs(kit: Vec<Item>) -> Defs {
                 weight: 1,
                 count: (1, 1),
                 magic: 0,
+                unique: 0,
             }],
         }],
         containers: vec![None, None, Some(0)],

@@ -159,6 +159,13 @@ func fell(at: Vector3) -> void:
 	_wave(at, 1.2, Look.LITTER, 0.5)
 
 
+## A unique's blow putting one of the dead to flight: a ring off it in the unique's colour, and
+## motes thrown up.
+func terror(at: Vector3) -> void:
+	_wave(at, 1.4, Look.UNIQUE, 0.6)
+	_burst(at + Vector3(0, 1.2, 0), Look.UNIQUE, [14, 0.9, 1.2, 0.8, 0.3, 0.2])
+
+
 ## A sneak attack: a sharp burst where it lands, out fast and gone.
 func sneak_attack(at: Vector3) -> void:
 	var cut := _burst(at + Vector3(0, 1.0, 0), Look.YOURS, [18, 0.3, 1.0, 0.0, 0.1, 0.12])

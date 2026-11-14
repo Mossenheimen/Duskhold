@@ -427,6 +427,7 @@ One table of how things act on each other, written before the content, so the ga
 - **Magic items are few, and each one is better** (Diablo III's Loot 2.0). A magic item is an event, not noise.
   - A starting point for tuning: one early on, then one every day or two of play, with the rarer tiers farther out and deeper down.
   - They have D&D's rarities: Uncommon, Rare, Very Rare, Legendary, and Artifacts (boss uniques with a story).
+  - *(built 2026-11-13: uniques)* Diablo's and Path of Exile's uniques: weapons made by hand (`data/uniques.toml`), each with a name of its own ("Redhand", "The Last Vigil"), its kind and how well it was made, properties from the list (sometimes a cost among them, as Path of Exile's uniques carry), a line of its story, and an effect no rolled property has: its blows drink a share of their harm back as health, the dead it puts down catch fire, a kill carries on into the next, its blows knock down or send the dead fleeing, a kill eases your dread. The rares carry them now and then, and the old tombs hold them, the barrows' and the graveyard's. Found unknown, as any magic is, but it says it's a unique; its name in copper.
   - Any of them can be **cursed**.
 - **A short list of properties, each changing how you play** (Diablo IV's Season 4 cut the rest):
   - properties that work on the senses:

@@ -439,8 +439,14 @@ pub enum Event {
         stat: crate::fitness::Stat,
         level: u8,
     },
-    /// `who`'s heavy blow knocked `target` down (`combat::Heavy`).
+    /// `who`'s blow knocked `target` down: a heavy one (`combat::Heavy`), or one from a weapon
+    /// that fells (`magic.rs`).
     Felled {
+        who: ActorId,
+        target: ActorId,
+    },
+    /// `who`'s blow sent `target` fleeing, as turning does: its weapon frightens (`magic.rs`).
+    Terrified {
         who: ActorId,
         target: ActorId,
     },

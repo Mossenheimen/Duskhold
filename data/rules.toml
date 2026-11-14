@@ -407,7 +407,7 @@ noise = 1.5           # how far a splash carries, of a footstep's
 # with it on the dead, or, for a light, you've lit it.
 rare = 0.3            # of the magic items, the share that's Rare (two properties) not Uncommon (one)
 cursed = 0.2          # the chance one is cursed as well
-worth = [20, 50]      # the XP it adds to its kind's worth: Uncommon, Rare
+worth = [20, 50, 150] # the XP it adds to its kind's worth: Uncommon, Rare, Unique (uniques.toml)
 learn = 15            # blows on the dead with an unknown weapon before you know what it is
 
 [quality]

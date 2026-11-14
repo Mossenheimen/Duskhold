@@ -159,6 +159,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `signal.dread` | `#05000A` | the screen's edges darkening with dread | |
 | `magic.uncommon` | `#8CBFFF` | an uncommon magic item's name | |
 | `magic.rare` | `#FFCC59` | a rare magic item's name, and a rare monster's | |
+| `magic.unique` | `#E39A5B` | a unique's name (copper, as Path of Exile's), and what its effect does in the world: the dead sent fleeing | |
 | `magic.arcane` | `#B3A6FF` | a Wizard's: its spell slots bar, a Light spell's light, a Silence's ring, a readied spell in the panel | |
 | `magic.fog` | `#B8BEC7` at 50% | a Fog spell's cloud | |
 
@@ -455,6 +456,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - A find carries a small `signal.gold` dot until it's brought home.
   - A magic item's name is in its rarity's colour, with the rarity in words on hover.
   - Hovering a weapon or a magic item opens its card (Tooltip, below).
+  - A unique's name is in `magic.unique`, and says it's a unique in words too: "fine hand axe (unique, unknown)", then "Redhand (fine hand axe)".
   - Condition shows under 100%, and freshness for food.
   - The rows group by kind (weapons, food and drink, cures, light, materials), and sort by kind, weight or name.
 - **Moodle:**
@@ -543,7 +545,7 @@ A power or a spell as it happens: glowing motes, rings and a flash of light, bri
 - **Aiming a readied spell** (`client/aim.gd`): a faint arcane ring round you as far as you can cast it, and at the tile under the mouse a ring as far as it would reach there: arcane where it can be cast, grey where it can't (too far, unseen), danger's red where a fireball would burn you too (`DuskWorld.spell_catches()`). Zone F says the same in words, so the colours aren't alone: "[Click] Cast the Fireball here: it would burn you too", "Fog: too far", and "[Right-click] let it go".
 - **The lasting spells, alive** (`client/zones.gd`): a Light's motes drift round it; a Silence's edge sheds arcane dust; a Fog is a faint cloud full of drifting haze. Each fades over its last 3 s: the light dims, the ring and the cloud thin, the motes stop coming.
 - **Smoke, fog, dust and blood are lit as the world is** (only light-points glow by themselves): dark at night unless a light reaches them, so a Fog with a Light in it glows arcane.
-- **The fight's** (`main.gd`'s `_fight_effect`): a blow landing flicks blood (`actor.blood`), more for a wound, and bone chips off a skeleton (the bloodless); your shield taking a blow throws sparks toward the one who struck, armour turning one a few (`signal.yours`, the colour of your own); a heavy blow felling one throws up dust and a ring of it round its feet; a sneak attack bursts sharply where it lands; bone turned or shattered chips. The dead's: grave dust as one gets up, the dark off your old body as it rises a revenant, a curl of smoke as a wight eats your light. A door or the boards on it giving way: splinters, if you see the spot.
+- **The fight's** (`main.gd`'s `_fight_effect`): a blow landing flicks blood (`actor.blood`), more for a wound, and bone chips off a skeleton (the bloodless); your shield taking a blow throws sparks toward the one who struck, armour turning one a few (`signal.yours`, the colour of your own); a heavy blow felling one throws up dust and a ring of it round its feet (a unique's that topples, too); a unique's blow sending one of the dead fleeing throws a ring off it, and motes, in `magic.unique`; a sneak attack bursts sharply where it lands; bone turned or shattered chips. The dead's: grave dust as one gets up, the dark off your old body as it rises a revenant, a curl of smoke as a wight eats your light. A door or the boards on it giving way: splinters, if you see the spot.
 - **Motes** are soft dots made in code (a radial gradient), drawn additively as light or blended as smoke (`Effects.mote`), CPU particles, so a run with no window draws them too.
 - **Checked** by `check.cmd`: every effect made once with no window (`client/tests/check_effects.gd`), and none left after three seconds.
 
@@ -634,6 +636,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A Wizard's words: the arcane glow and its motes | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=2.6` |
 | A Cleric kneeling in prayer at the abbey's altar, glowing holy | `--seed=7 --hour=22 --class=cleric --walk=74,114 --do=9:use --shot=PNG --shot-after=12` |
 | A weapon's card: a masterwork Rare sword in the pack, set against the cudgel in hand | `--seed=7 --hour=12 --give=sword:masterwork:keen+swift,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
+| A unique's card: The Last Vigil in the pack, its name in copper, its effect and its story | `--seed=7 --hour=12 --give=last_vigil,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
 | A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power4 --shot=PNG --shot-after=2` |
 | The lasting spells at night, alive: a Light inside a Fog, a Silence round them | `--seed=7 --hour=22 --class=wizard --aim=0,4 --do=1:cast_light,3.5:cast_silence,6.5:cast_fog --shot=PNG --shot-after=10` |
 

@@ -1,0 +1,66 @@
+# Uniques (CONCEPT.md, loot; Diablo's and Path of Exile's): weapons made by hand, each with a name
+# of its own (crates/dusk-core/src/magic.rs). Its kind (items/), how well it was made (rules.toml's
+# [quality]: crude, plain, fine or masterwork; left out, plain), properties from properties.toml (a
+# weapon's; a curse's too, as a cost it carries, though it doesn't cling), and an effect of its own,
+# written as a property is, that no rolled property has:
+#   cleave = true    a blow that puts one down carries on into the next beside you
+#   drain = 0.25     that share of a blow's harm comes back to you as health
+#   pyre = true      the dead it puts down catch fire where they fall
+#   terror = 0.2     the chance a blow sends one of the dead fleeing, as turning does
+#   fell = 0.25      the chance a blow knocks down what it hits
+#   hearten = 10     the dread each of the dead it puts down eases, in points
+# A loot table's line says how often its item is one of the uniques made on it (unique = 0.06):
+# the rares carry them (loot/rares.toml), and the old tombs hold them (loot/graveyard.toml). Found
+# unknown, as any magic is, but "(unique, unknown)" says what it is; its lore shows once it's known.
+
+[[unique]]
+id = "redhand"
+name = "Redhand"
+item = "hand_axe"
+grade = "fine"
+properties = ["keen"]
+effect = { name = "Thirst", line = "a quarter of the harm it does comes back to you as health", drain = 0.25 }
+lore = "It drinks. So do you."
+
+[[unique]]
+id = "woodsmans_due"
+name = "The Woodsman's Due"
+item = "wood_axe"
+properties = ["enduring"]
+effect = { name = "Cleave", line = "a blow that puts one down carries on into the next beside you", cleave = true }
+lore = "He cleared the old wood, and then what came out of it."
+
+[[unique]]
+id = "hearthkeeper"
+name = "Hearthkeeper"
+item = "kitchen_knife"
+grade = "masterwork"
+properties = ["muffled"]
+effect = { name = "Heart", line = "each of the dead it puts down eases your dread", hearten = 10 }
+lore = "Still sharp. Still home."
+
+[[unique]]
+id = "last_vigil"
+name = "The Last Vigil"
+item = "sword"
+grade = "fine"
+properties = ["sure"]
+effect = { name = "Pyre", line = "the dead it puts down catch fire where they fall", pyre = true }
+lore = "Lit for a lord who never came home."
+
+[[unique]]
+id = "abbots_mercy"
+name = "Abbot's Mercy"
+item = "mace"
+properties = ["hallowed"]
+effect = { name = "Toppling", line = "a quarter of its blows knock down what they hit", fell = 0.25 }
+lore = "The abbey's last argument."
+
+[[unique]]
+id = "hollow_reed"
+name = "The Hollow Reed"
+item = "spear"
+grade = "fine"
+properties = ["swift", "clamorous"]
+effect = { name = "Dread Song", line = "one blow in five sends the dead it strikes fleeing", terror = 0.2 }
+lore = "It sings as it goes in. The dead don't care for the song."

@@ -830,7 +830,10 @@ fn describe(w: &World, e: Event) -> String {
             }
         ),
         Event::Felled { who, target } => {
-            format!("{}'s heavy blow knocked {} down", name(who), name(target))
+            format!("{}'s blow knocked {} down", name(who), name(target))
+        }
+        Event::Terrified { who, target } => {
+            format!("{}'s blow sent {} fleeing", name(who), name(target))
         }
         Event::WindowBroke { at, .. } => {
             format!("the window by ({}, {}) smashed", at.x, at.y)

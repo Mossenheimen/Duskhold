@@ -337,7 +337,7 @@ func _tint(row: HBoxContainer, rarity: PackedInt32Array, place: int) -> void:
 func _rarity_colour(code: int) -> Color:
 	if code == 0:
 		return Color(0, 0, 0, 0)
-	var colour := Look.UNCOMMON if code % 10 == 1 else Look.RARE
+	var colour: Color = [Look.UNCOMMON, Look.RARE, Look.UNIQUE][clampi(code % 10, 1, 3) - 1]
 	return colour if code < 10 else colour.darkened(0.25)
 
 

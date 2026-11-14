@@ -1,16 +1,17 @@
 //! Magic items: properties on a weapon or a light, curses that cling, learning by use or at a
-//! holdout's counter, and what a container's loot rolls; and a weapon's quality (`quality.rs`),
-//! and its card.
+//! holdout's counter, and what a container's loot rolls; a weapon's quality (`quality.rs`), and
+//! its card; and the uniques, with their effects.
 
 use std::sync::Arc;
 
 use dusk_core::hash::{Purpose, roll};
-use dusk_core::magic::NONE;
+use dusk_core::magic::{NONE, UNIQUE};
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Defs, Event, GetUp, HANDS, Holdout, Intent, Item, ItemDef, ItemKind,
-    LootEntry, LootTable, Magic, NoDeal, Part, Property, Tile, TilePos, World, WoundKind,
+    LootEntry, LootTable, Magic, NoDeal, Part, Property, Remains, Tile, TilePos, Unique, World,
+    WoundKind,
 };
 
 const COIN: u16 = 0;
@@ -30,6 +31,7 @@ const CHEST: TilePos = TilePos::new(1, 0, 0);
 fn magic(props: [u8; 2], curse: u8) -> Magic {
     Magic {
         rarity: if props[1] == NONE { 1 } else { 2 },
+        unique: NONE,
         props,
         curse,
         known: false,
@@ -113,6 +115,7 @@ fn defs(kit: Vec<Item>) -> Defs {
                 weight: 1,
                 count: (1, 1),
                 magic: 10_000,
+                unique: 0,
             }],
         }],
         containers: vec![None, None, Some(0)],
@@ -552,4 +555,244 @@ fn a_chests_weapons_are_made_well_or_badly_by_the_seed() {
         count[usize::from(PLAIN)] > count[usize::from(CRUDE)],
         "most are plain: {count:?}"
     );
+}
+
+/// The test's uniques, both made on the knife: Redhand, fine and Keen, that drinks a quarter of
+/// the harm it does; and Everything, plain, with every other effect.
+fn uniques() -> Vec<Unique> {
+    let effect = |name: &str| Property {
+        id: name.into(),
+        name: name.into(),
+        line: name.to_lowercase(),
+        ..Property::default()
+    };
+    vec![
+        Unique {
+            id: "redhand".into(),
+            name: "Redhand".into(),
+            item: KNIFE,
+            quality: FINE,
+            props: vec![KEEN],
+            effect: Property {
+                drain: 250,
+                ..effect("Thirst")
+            },
+            lore: "It drinks.".into(),
+        },
+        Unique {
+            id: "everything".into(),
+            name: "Everything".into(),
+            item: KNIFE,
+            quality: PLAIN,
+            props: Vec::new(),
+            effect: Property {
+                cleave: true,
+                pyre: true,
+                terror: 10_000,
+                fell: 10_000,
+                hearten: 10_000,
+                ..effect("All")
+            },
+            lore: String::new(),
+        },
+    ]
+}
+
+/// One of the uniques (by number) as you'd carry it, known or not.
+fn unique(u: u8, known: bool) -> Item {
+    Item {
+        quality: if u == 0 { FINE } else { PLAIN },
+        magic: Magic {
+            rarity: UNIQUE,
+            unique: u,
+            known,
+            curse_shown: known,
+            ..Magic::MUNDANE
+        },
+        ..Item::new(KNIFE, 1)
+    }
+}
+
+/// The field from a seed, with the uniques, and the chest's line as `chest` makes it.
+fn unique_field(seed: u64, kit: Vec<Item>, chest: impl Fn(&mut LootEntry)) -> (World, ActorId) {
+    let (mut w, me) = field_of(seed, kit);
+    let mut d = (*w.defs).clone();
+    d.uniques = uniques();
+    chest(&mut d.loot[0].entries[0]);
+    w.defs = Arc::new(d);
+    // It sees all round: no blow here is a sneak attack (`stealth.rs`).
+    w.creature_mut(0).cone = dusk_core::senses::Cone { cos: -10_000 };
+    (w, me)
+}
+
+/// Swings south until a blow of yours lands: what happened meanwhile.
+fn land_a_blow(w: &mut World, me: ActorId) -> Vec<Event> {
+    let mut seen = Vec::new();
+    while !seen
+        .iter()
+        .any(|e| matches!(e, Event::Struck { who, .. } if *who == me))
+    {
+        w.intent(
+            me,
+            Intent::Attack {
+                dir: Some(dusk_core::Dir8::S),
+            },
+        );
+        seen.extend(run(w, 10));
+    }
+    seen
+}
+
+#[test]
+fn a_unique_is_named_once_known_and_worth_the_most() {
+    let (w, _) = unique_field(12, Vec::new(), |_| {});
+    let d = &w.defs;
+    let found = d.unique_item(0).unwrap();
+    assert!(found.found && !found.magic.known);
+    assert_eq!(
+        (found.def, found.quality),
+        (KNIFE, FINE),
+        "made as its data says"
+    );
+    assert_eq!(d.label(&found), "fine knife (unique, unknown)");
+    assert_eq!(
+        d.lines(&found),
+        vec!["Unique: what it does, you don't know yet"]
+    );
+    // Unknown, its card shows how well it was made, and none of its magic.
+    assert_eq!(d.card(&found).unwrap().swing.damage, (110, 110));
+    let known = Item {
+        magic: Magic {
+            known: true,
+            curse_shown: true,
+            ..found.magic
+        },
+        ..found
+    };
+    assert_eq!(d.label(&known), "Redhand (fine knife)");
+    assert_eq!(
+        d.lines(&known),
+        vec!["Unique", "Keen: Keen", "Thirst: thirst", "\"It drinks.\""]
+    );
+    assert_eq!(
+        d.card(&known).unwrap().swing.damage,
+        (165, 165),
+        "fine, and Keen"
+    );
+    // The knife's worth as fine, and a unique's on top: more than a Rare's.
+    assert_eq!(d.worth(&known), 4000 * 1500 / 1000 + 150_000);
+}
+
+#[test]
+fn a_tables_unique_chance_gives_one_made_on_what_it_drew() {
+    let always = |e: &mut LootEntry| {
+        e.unique = 10_000;
+        e.magic = 0;
+    };
+    // Both are made on the knife: from place to place (here, seed to seed), the chest gives each.
+    let mut seen = [false; 2];
+    for seed in 0..40 {
+        let (w, _) = unique_field(seed, Vec::new(), always);
+        let got = w.store(CHEST);
+        assert_eq!(got.len(), 1);
+        let u = got[0];
+        assert_eq!(u.magic.rarity, UNIQUE);
+        assert!(u.found && !u.magic.known, "a find, unknown");
+        let made = &w.defs.uniques[usize::from(u.magic.unique)];
+        assert_eq!((u.def, u.quality), (made.item, made.quality));
+        seen[usize::from(u.magic.unique)] = true;
+    }
+    assert_eq!(seen, [true, true]);
+    // None is made on the cudgel: it's only a cudgel.
+    let (w, _) = unique_field(12, Vec::new(), |e| {
+        always(e);
+        e.item = CUDGEL;
+    });
+    assert_eq!(w.store(CHEST)[0].magic, Magic::MUNDANE);
+}
+
+#[test]
+fn a_unique_that_drinks_gives_back_a_share_of_the_harm_it_does() {
+    // The same fight twice: Redhand, unknown, and a Redhand that doesn't drink. What's between
+    // your health in the two is what it drank.
+    let fight = |drinks: bool| {
+        let (mut w, me) = unique_field(12, vec![unique(0, false)], |_| {});
+        if !drinks {
+            let mut d = (*w.defs).clone();
+            d.uniques[0].effect.drain = 0;
+            w.defs = Arc::new(d);
+        }
+        // Hurt first, so there's health to give back; and a shambler too tough to fall.
+        w.rules.combat.wounds[WoundKind::Scratch as usize].damage = 400;
+        w.wound(me, WoundKind::Scratch, Part::Torso);
+        w.creature_mut(0).health = 1_000_000;
+        wield(&mut w, me, KNIFE);
+        w.spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+            .unwrap();
+        let mut harm = Vec::new();
+        while harm.len() < 3 {
+            harm.extend(land_a_blow(&mut w, me).iter().filter_map(|e| match *e {
+                Event::Struck { who, damage, .. } if who == me => Some(damage),
+                _ => None,
+            }));
+        }
+        (w.actor(me).unwrap().body.health, harm)
+    };
+    let ((drank, harm), (dry, same)) = (fight(true), fight(false));
+    assert_eq!(harm, same, "the same blows");
+    assert!(harm.iter().all(|&h| h == 165), "fine and Keen: {harm:?}");
+    assert_eq!(
+        drank - dry,
+        3 * (165 * 250 / 1000),
+        "a quarter of each blow's harm"
+    );
+}
+
+#[test]
+fn a_uniques_blows_topple_and_frighten_and_its_kills_burn_ease_dread_and_carry_on() {
+    // A tough one: struck, it's knocked down, and it breaks and flees.
+    let (mut w, me) = unique_field(12, vec![unique(1, true)], |_| {});
+    w.creature_mut(0).health = 1_000_000;
+    wield(&mut w, me, KNIFE);
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    let seen = land_a_blow(&mut w, me);
+    assert!(seen.contains(&Event::Felled { who: me, target: z }));
+    assert!(seen.contains(&Event::Terrified { who: me, target: z }));
+    assert!(w.is_turned(z), "it flees, as from the holy symbol");
+
+    // Two weak ones, in the dark. Dread is let rise, then held: only a kill moves it now.
+    let (mut w, me) = unique_field(12, vec![unique(1, true)], |_| {});
+    w.rules.dread.dark_below = 101;
+    let minute = w.rules.clock.ticks_per_minute;
+    run(&mut w, 10 * minute);
+    let before = w.dread(me);
+    assert!(before >= 20_000, "{before}");
+    (w.rules.dread.rise, w.rules.dread.fall) = (0, 0);
+    // Nor does it shake your aim: every blow lands, the one carried on too.
+    w.rules.dread.aim = [1000; 3];
+    w.creature_mut(0).health = 1;
+    w.creature_mut(0).get_up = GetUp {
+        chance: 10_000,
+        after: (60, 60),
+    };
+    wield(&mut w, me, KNIFE);
+    let a = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    let b = w
+        .spawn(ActorKind::Creature(0), TilePos::new(-1, 0, 0))
+        .unwrap();
+    let seen = land_a_blow(&mut w, me);
+    // One blow put the first down, and carried on into the second.
+    for z in [a, b] {
+        assert!(w.actor(z).unwrap().dead);
+        assert!(seen.contains(&Event::Kindled { who: me, body: z }));
+        assert!(
+            matches!(w.actor(z).unwrap().remains, Remains::Burning { .. }),
+            "alight where it fell"
+        );
+    }
+    assert_eq!(w.dread(me), before - 2 * 10_000, "ten points a kill");
 }

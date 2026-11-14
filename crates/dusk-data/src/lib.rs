@@ -434,6 +434,24 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     legacy::load(dir, &rules_file, raw.revenant.as_ref(), &mut defs)?;
     defs.affixes = rare::load(dir)?;
     defs.properties = magic::load(dir)?;
+    defs.uniques = magic::uniques(dir, &defs)?;
+    // A loot line that gives a unique needs one made on its item.
+    for t in &defs.loot {
+        if let Some(e) = t
+            .entries
+            .iter()
+            .find(|e| e.unique > 0 && defs.uniques_on(e.item).is_empty())
+        {
+            let item = &defs.items[usize::from(e.item)].id;
+            return Err(fail(
+                &dir.join("loot"),
+                format!(
+                    "loot {:?}: a unique chance on {item:?}, but uniques.toml makes none on it",
+                    t.id
+                ),
+            ));
+        }
+    }
     // The spells before the classes: a class knows some of them.
     defs.spells = spells::load(dir, &defs)?;
     (defs.classes, defs.talents) = class::load(dir, &defs)?;
