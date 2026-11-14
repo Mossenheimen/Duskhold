@@ -17,3 +17,18 @@ rare = [
   "Rattlebones", "Gaunt", "Morrow", "Crook", "Sallowface", "Tallow", "Old Harrow", "Wormwood",
   "Sorrow", "Cinderhand", "Mother Ash", "Long Tom",
 ]
+
+# Rare things' made-up names (crates/dusk-core/src/magic.rs; Path of Exile's rares): a first word,
+# and a second by what the thing is, "Grim Bite". Rolled with the thing, as it's found.
+[things]
+first = [
+  "Grim", "Dusk", "Grave", "Ash", "Hollow", "Bitter", "Pale", "Mourn", "Blight", "Raven",
+  "Cold", "Hush", "Barrow", "Gloom", "Thorn", "Wraith", "Dread", "Ember", "Rot", "Sorrow",
+  "Bone", "Wither", "Gallows", "Night",
+]
+blade = ["Edge", "Fang", "Song", "Needle", "Tongue", "Sliver", "Kiss", "Tooth"]
+blunt = ["Knell", "Maul", "Knock", "Mallet", "Weight", "Brow", "Fist"]
+axe = ["Bite", "Cleaver", "Hew", "Beak", "Reaver", "Chop"]
+spear = ["Thorn", "Pike", "Spike", "Reach", "Sting", "Prong"]
+weapon = ["Brand", "Bane", "Hand", "Ward", "Toll"]   # any other: a scythe, a staff
+light = ["Glim", "Lamp", "Eye", "Star", "Gleam", "Wick"]

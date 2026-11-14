@@ -1,6 +1,7 @@
 //! Magic items: properties on a weapon or a light, curses that cling, learning by use or at a
 //! holdout's counter, and what a container's loot rolls; a weapon's quality (`quality.rs`), and
-//! its card; and the uniques, with their effects.
+//! its card; the uniques, with their effects; and Rares as Path of Exile's: tiers by how far out,
+//! families, and made-up names.
 
 use std::sync::Arc;
 
@@ -10,8 +11,8 @@ use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Defs, Event, GetUp, HANDS, Holdout, Intent, Item, ItemDef, ItemKind,
-    LootEntry, LootTable, Magic, NoDeal, Part, Property, Remains, Tile, TilePos, Unique, World,
-    WoundKind,
+    LootEntry, LootTable, Magic, NoDeal, Part, Property, Remains, ThingNames, Tile, TilePos,
+    Unique, World, WoundKind,
 };
 
 const COIN: u16 = 0;
@@ -32,7 +33,8 @@ fn magic(props: [u8; 2], curse: u8) -> Magic {
     Magic {
         rarity: if props[1] == NONE { 1 } else { 2 },
         unique: NONE,
-        props,
+        props: [props[0], props[1], NONE, NONE],
+        name: [NONE; 2],
         curse,
         known: false,
         curse_shown: false,
@@ -110,6 +112,7 @@ fn defs(kit: Vec<Item>) -> Defs {
         loot: vec![LootTable {
             id: "chest".into(),
             rolls: (1, 1),
+            level: 0,
             entries: vec![LootEntry {
                 item: KNIFE,
                 weight: 1,
@@ -259,7 +262,7 @@ fn enough_blows_on_a_foe_teach_you_what_it_is() {
     let (mut w, me) = field(vec![knife]);
     wield(&mut w, me, KNIFE);
     let held = w.actor(me).unwrap().hands.unwrap();
-    assert_eq!(w.defs.label(&held), "knife (magic, unknown)");
+    assert_eq!(w.defs.label(&held), "knife (uncommon, unknown)");
     // Blows into the air teach nothing: a shambler to learn on, too tough to fall.
     w.creature_mut(0).health = 1_000_000;
     w.spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
@@ -315,7 +318,7 @@ fn a_cursed_weapon_clings_until_the_abbey_lifts_it() {
     assert_eq!(w.actor(me).unwrap().hands.unwrap().def, KNIFE);
     // Its curse shows in its name now; the rest is still unknown.
     let held = w.actor(me).unwrap().hands.unwrap();
-    assert_eq!(w.defs.label(&held), "Clamorous knife (magic, unknown)");
+    assert_eq!(w.defs.label(&held), "Clamorous knife (uncommon, unknown)");
     assert_eq!(w.can_uncurse(me, COUNTER), Ok(20));
     w.intent(me, Intent::Uncurse { at: COUNTER });
     let seen = run(&mut w, 20);
@@ -488,7 +491,7 @@ fn quality_changes_a_blows_harm_its_wear_and_worth_and_goes_before_the_name() {
         magic: magic([KEEN, NONE], NONE),
         ..made(KNIFE, FINE)
     };
-    assert_eq!(d.label(&keen), "fine knife (magic, unknown)");
+    assert_eq!(d.label(&keen), "fine knife (uncommon, unknown)");
     keen.magic.known = true;
     assert_eq!(d.label(&keen), "Keen fine knife");
     // Not a weapon, no card.
@@ -795,4 +798,163 @@ fn a_uniques_blows_topple_and_frighten_and_its_kills_burn_ease_dread_and_carry_o
         );
     }
     assert_eq!(w.dread(me), before - 2 * 10_000, "ten points a kill");
+}
+
+/// The field from a seed, its chest's knife always magic (always Rare, or never), plainly made,
+/// never cursed; a weapon's properties in families of three tiers (harm, pace, aim), one in a
+/// family of one at the second tier (breath), and two with no tier; and words for Rares' names.
+fn tiered(seed: u64, rare: bool) -> (World, ActorId) {
+    let (mut w, me) = field_of(seed, Vec::new());
+    let mut d = (*w.defs).clone();
+    let prop = |id: &str, family: &str, tier: u8| Property {
+        id: id.into(),
+        name: id.into(),
+        line: id.into(),
+        family: family.into(),
+        tier,
+        ..Property::default()
+    };
+    d.properties = vec![
+        prop("sharp", "harm", 1),
+        prop("keen", "harm", 2),
+        prop("cruel", "harm", 3),
+        prop("quick", "pace", 1),
+        prop("swift", "pace", 2),
+        prop("darting", "pace", 3),
+        prop("true", "aim", 1),
+        prop("sure", "aim", 2),
+        prop("unerring", "aim", 3),
+        prop("muffled", "", 0),
+        prop("blazing", "", 0),
+        Property {
+            endurance: 500,
+            ..prop("poised", "breath", 2)
+        },
+    ];
+    d.thing_names = ThingNames {
+        first: vec!["Grim".into(), "Pale".into()],
+        second: [
+            vec!["Fang".into()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec!["Brand".into()],
+            Vec::new(),
+        ],
+    };
+    d.magic.rare = if rare { 10_000 } else { 0 };
+    d.magic.cursed = 0;
+    d.quality.chance = [0; 4];
+    w.defs = Arc::new(d);
+    (w, me)
+}
+
+#[test]
+fn a_rare_has_three_or_four_properties_each_of_its_own_family_and_a_made_up_name() {
+    let mut counts = [0; 5];
+    for seed in 0..40 {
+        let (w, _) = tiered(seed, true);
+        let knife = w.store(CHEST)[0];
+        assert_eq!(knife.magic.rarity, 2);
+        let props: Vec<&Property> = w.defs.properties_of(&knife).collect();
+        counts[props.len()] += 1;
+        let mut families: Vec<&str> = props.iter().map(|p| p.family_of()).collect();
+        families.sort_unstable();
+        families.dedup();
+        assert_eq!(families.len(), props.len(), "at most one of a family");
+        // The knife needs no skill: its second word is any other weapon's.
+        let name = w.defs.thing_name(&knife).expect("a made-up name");
+        assert!(name == "Grim Brand" || name == "Pale Brand", "{name}");
+        // Unknown, it says how rare it is; known, it's called by its name.
+        assert_eq!(w.defs.label(&knife), "knife (rare, unknown)");
+        let known = Item {
+            magic: Magic {
+                known: true,
+                ..knife.magic
+            },
+            ..knife
+        };
+        assert_eq!(w.defs.label(&known), format!("{name} (knife)"));
+    }
+    assert!(counts[3] > 0 && counts[4] > 0, "{counts:?}");
+    assert_eq!(counts[0] + counts[1] + counts[2], 0, "{counts:?}");
+}
+
+#[test]
+fn how_far_out_a_find_was_made_sets_the_best_tier_it_rolls() {
+    // Where you come in is `far` tiles west of the chest; and a table may reach `more` further.
+    let best = |far: i32, more: u8| {
+        let mut best = 0;
+        for seed in 0..40 {
+            let (mut w, _) = tiered(seed, true);
+            w.region.start = Some(TilePos::new(1 - far, 0, 0));
+            let mut d = (*w.defs).clone();
+            d.loot[0].level = more;
+            w.defs = Arc::new(d);
+            let knife = w.store(CHEST)[0];
+            let tier = w.defs.properties_of(&knife).map(|p| p.tier).max();
+            best = best.max(tier.unwrap());
+        }
+        best
+    };
+    assert_eq!(best(0, 0), 1, "where you come in, only the first tier");
+    assert_eq!(best(100, 0), 2, "out about the hamlet, the second");
+    assert_eq!(best(200, 0), 3, "far out, the third");
+    assert_eq!(
+        best(0, 1),
+        2,
+        "a rare's pack, or a tomb, reaches one further"
+    );
+    let (w, _) = tiered(12, true);
+    assert_eq!(
+        w.find_level(TilePos::new(500, 0, 0), 2),
+        3,
+        "never past the third"
+    );
+}
+
+#[test]
+fn an_uncommon_has_one_property_or_two_and_its_lines_give_each_ones_tier() {
+    let mut counts = [0; 5];
+    for seed in 0..40 {
+        let (w, _) = tiered(seed, false);
+        let knife = w.store(CHEST)[0];
+        assert_eq!(knife.magic.rarity, 1);
+        assert_eq!(knife.magic.name, [NONE; 2], "no made-up name");
+        assert_eq!(w.defs.label(&knife), "knife (uncommon, unknown)");
+        counts[w.defs.properties_of(&knife).count()] += 1;
+    }
+    assert!(counts[1] > 0 && counts[2] > 0, "{counts:?}");
+    assert_eq!(counts[0] + counts[3] + counts[4], 0, "{counts:?}");
+    // Known, it's called by its properties; a tier shows after the name, and none for no tier.
+    let (w, _) = tiered(12, false);
+    let d = &w.defs;
+    let known = Item {
+        magic: Magic {
+            rarity: 1,
+            props: [1, 9, NONE, NONE],
+            known: true,
+            ..Magic::MUNDANE
+        },
+        ..Item::new(KNIFE, 1)
+    };
+    assert_eq!(d.label(&known), "keen muffled knife");
+    assert_eq!(
+        d.lines(&known),
+        vec!["Uncommon", "keen (II): keen", "muffled: muffled"]
+    );
+    // Poised: half the breath a blow.
+    let poised = Item {
+        magic: Magic {
+            props: [11, NONE, NONE, NONE],
+            ..known.magic
+        },
+        ..known
+    };
+    let swing = d.card(&poised).unwrap().swing;
+    let blow = Swing {
+        endurance: 100,
+        ..swing
+    };
+    assert_eq!(d.made_swing(&poised, blow, false).endurance, 50);
 }

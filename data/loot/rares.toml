@@ -5,6 +5,7 @@
 [[loot]]
 id = "rare"
 rolls = [2, 3]
+level = 1             # its magic reaches a tier further than where it walks (properties.toml)
 items = [
   { item = "coins", weight = 4, count = [10, 30] },
   { item = "tincture", weight = 2 },

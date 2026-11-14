@@ -1,16 +1,21 @@
 //! Magic items (`CONCEPT.md`, loot): few, and each one an event.
 //!
-//! - **Rarity:** Uncommon (one property) or Rare (two), or Unique. The rarer tiers wait for the
-//!   dungeons.
+//! - **Rarity:** Uncommon (one property or two), Rare (three or four, and a made-up name: "Grim
+//!   Bite", Path of Exile's), or Unique. The rarer tiers wait for the dungeons.
 //! - **Properties are data** (`data/properties.toml`): each reads in one line and changes how
 //!   you play. On a weapon, while it's in your hand: quieter swings, harder or surer blows, a
 //!   quicker tell, less wear, a glow round you (a trade: the dead see it too), and Hallowed: what
 //!   it puts down stays down. On a light, held up: farther, or slower to burn down.
+//! - **Tiers** (Path of Exile's): most properties are one of a family's tiers ("Sharp", "Keen",
+//!   "Cruel": harder blows, each more than the last), and a thing has at most one of a family.
+//!   How far out a find was made sets the best tier it can roll (`World::find_level`): near where
+//!   you come in, the first; out about the hamlet, the second; far out, the third. A rare's pack
+//!   and an old tomb reach a tier further (`LootTable::level`).
 //! - **Curses** are properties too, the bad kind. A cursed weapon clings: taken in hand, it
 //!   can't be put away or changed for another until its curse is lifted (the abbey does it, for
 //!   coin). Its curse shows itself the moment you take it in hand: the hard way.
-//! - **Unknown until identified:** a magic item found works from the first, but says only that
-//!   it's magic. The abbey reads it for coin; or strike enough blows with it in hand and you
+//! - **Unknown until identified:** a magic item found works from the first, but says only how
+//!   rare it is ("a sword (rare, unknown)"), as its colour does. The abbey reads it for coin; or strike enough blows with it in hand and you
 //!   know it; a light, you know as soon as you light it.
 //! - **Where they come from:** a loot table's line can say how often its item is magic
 //!   (`LootEntry::magic`), rolled with the container's seed like everything in it. Rares carry
@@ -24,6 +29,7 @@
 //!   any magic is, but "(unique, unknown)" says what it is.
 
 use crate::actor::ActorId;
+use crate::geom::TilePos;
 use crate::hash::{Purpose, below, roll};
 use crate::items::{Defs, Item, ItemKind};
 use crate::skills::Skill;
@@ -45,8 +51,11 @@ pub struct Magic {
     /// unique's, and `props` and `curse` are none.
     pub unique: u8,
     /// Its properties and its curse, by their numbers in `Defs::properties` (`NONE`: none).
-    pub props: [u8; 2],
+    pub props: [u8; 4],
     pub curse: u8,
+    /// A Rare's made-up name: its first word and its second, by their numbers in
+    /// `Defs::thing_names` (`NONE`: it has none, and is called by its properties).
+    pub name: [u8; 2],
     /// Whether you know what it is (its properties and any curse).
     pub known: bool,
     /// Whether its curse has shown itself (it clung to your hand).
@@ -59,8 +68,9 @@ impl Magic {
     pub const MUNDANE: Magic = Magic {
         rarity: 0,
         unique: NONE,
-        props: [NONE; 2],
+        props: [NONE; 4],
         curse: NONE,
+        name: [NONE; 2],
         known: true,
         curse_shown: true,
         uses: 0,
@@ -105,6 +115,11 @@ pub struct Property {
     /// The word it puts before an item's name, and its one line.
     pub name: String,
     pub line: String,
+    /// Its family: a thing has at most one of a family (empty: its own, by its id). And its tier
+    /// in it, 1 to 3: a find rolls it only as far out as that reaches (0: a property with no
+    /// tiers, found anywhere).
+    pub family: String,
+    pub tier: u8,
     /// On a light (held up); else on a weapon (in hand).
     pub on_light: bool,
     pub curse: bool,
@@ -115,6 +130,8 @@ pub struct Property {
     pub swing: u32,
     pub hit: i32,
     pub wear: u32,
+    /// A weapon's: per mille the breath a blow costs.
+    pub endurance: u32,
     /// What it puts down stays down (`remains.rs`): as good as burning.
     pub hallowed: bool,
     /// Tiles of light: a weapon's glows round you in hand; a light's adds to its reach.
@@ -135,6 +152,26 @@ pub struct Property {
     pub hearten: i32,
     /// Out of 10,000: the chance a blow that lands knocks down what it hits, as a heavy blow may.
     pub fell: u32,
+}
+
+impl Property {
+    /// Its family: its own, by its id, when it names none.
+    pub fn family_of(&self) -> &str {
+        if self.family.is_empty() {
+            &self.id
+        } else {
+            &self.family
+        }
+    }
+}
+
+/// Words for Rares' made-up names (`names.toml`'s `[things]`; Path of Exile's rares): a first
+/// word, and a second by what the thing is.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ThingNames {
+    pub first: Vec<String>,
+    /// By what it is: a blade, a blunt weapon, an axe, a spear, any other weapon, a light.
+    pub second: [Vec<String>; 6],
 }
 
 /// A unique (`data/uniques.toml`): a weapon made by hand, with a name of its own.
@@ -172,6 +209,8 @@ impl Default for Property {
             id: String::new(),
             name: String::new(),
             line: String::new(),
+            family: String::new(),
+            tier: 0,
             on_light: false,
             curse: false,
             noise: 1000,
@@ -179,6 +218,7 @@ impl Default for Property {
             swing: 1000,
             hit: 0,
             wear: 1000,
+            endurance: 1000,
             hallowed: false,
             glow: 0,
             wane: 1000,
@@ -198,6 +238,10 @@ pub struct MagicRules {
     /// Out of 10,000: of the magic items, how many are Rare; and how many are cursed.
     pub rare: u32,
     pub cursed: u32,
+    /// How many properties an Uncommon has (the fewest and the most), and a Rare.
+    pub count: [(u8, u8); 2],
+    /// Tiles from where you come in at which a find reaches the second tier, and the third.
+    pub far: [u32; 2],
     /// The worth a magic item adds to its kind's, by rarity (Uncommon, Rare, Unique), in
     /// thousandths.
     pub worth: [u32; 3],
@@ -210,6 +254,8 @@ impl Default for MagicRules {
         MagicRules {
             rare: 3000,
             cursed: 2000,
+            count: [(1, 2), (3, 4)],
+            far: [60, 140],
             worth: [20_000, 50_000, 150_000],
             learn: 15,
         }
@@ -279,9 +325,61 @@ impl Defs {
         base + more
     }
 
-    /// What an item is called, as far as you know it: "cudgel", "cudgel (magic, unknown)",
-    /// "Muffled Keen cudgel", with its curse's word once it's shown; a unique's, "fine hand axe
-    /// (unique, unknown)", then "Redhand (fine hand axe)".
+    /// A magic item's rarity in a word: "Uncommon", "Rare" or "Unique".
+    pub fn rarity_word(&self, item: &Item) -> &'static str {
+        match item.magic.rarity {
+            _ if self.unique_of(item).is_some() => "Unique",
+            1 => "Uncommon",
+            _ => "Rare",
+        }
+    }
+
+    /// What a thing is, for a Rare's made-up name: a blade, a blunt weapon, an axe, a spear, any
+    /// other weapon, or a light (`ThingNames::second`); None for anything else.
+    fn name_class(&self, def: u16) -> Option<usize> {
+        match &self.item(def)?.kind {
+            ItemKind::Weapon { skill, .. } => Some(match skill {
+                Some(Skill::Blade) => 0,
+                Some(Skill::Blunt) => 1,
+                Some(Skill::Axe) => 2,
+                Some(Skill::Spear) => 3,
+                _ => 4,
+            }),
+            ItemKind::Light { .. } => Some(5),
+            _ => None,
+        }
+    }
+
+    /// A Rare's made-up name for a kind of thing, by a roll's keys (14 and 15): its words'
+    /// numbers, or none with no words to make one from.
+    pub fn roll_name(&self, def: u16, r: impl Fn(u64) -> u64) -> [u8; 2] {
+        let words = &self.thing_names;
+        let Some(second) = self.name_class(def).map(|c| &words.second[c]) else {
+            return [NONE; 2];
+        };
+        if words.first.is_empty() || second.is_empty() {
+            return [NONE; 2];
+        }
+        let pick = |k: u64, n: usize| below(r(k), n.min(usize::from(NONE)) as u32) as u8;
+        [pick(14, words.first.len()), pick(15, second.len())]
+    }
+
+    /// A Rare's made-up name, if it has one: "Grim Bite".
+    pub fn thing_name(&self, item: &Item) -> Option<String> {
+        let [a, b] = item.magic.name;
+        if a == NONE || b == NONE {
+            return None;
+        }
+        let words = &self.thing_names;
+        let first = words.first.get(usize::from(a))?;
+        let second = words.second[self.name_class(item.def)?].get(usize::from(b))?;
+        Some(format!("{first} {second}"))
+    }
+
+    /// What an item is called, as far as you know it: "cudgel", "cudgel (uncommon, unknown)",
+    /// "Muffled Keen cudgel", with its curse's word once it's shown; a Rare's, "fine sword (rare,
+    /// unknown)", then "Grim Edge (fine sword)"; a unique's, "fine hand axe (unique, unknown)",
+    /// then "Redhand (fine hand axe)".
     pub fn label(&self, item: &Item) -> String {
         let kind = self.item(item.def).map_or("something", |d| d.name.as_str());
         // How well it was made goes first: "fine sword", "Keen fine sword".
@@ -295,7 +393,7 @@ impl Defs {
         }
         let unique = self.unique_of(item);
         if !m.known {
-            let what = if unique.is_some() { "unique" } else { "magic" };
+            let what = self.rarity_word(item).to_lowercase();
             let curse = if m.cursed() && m.curse_shown {
                 self.properties
                     .get(usize::from(m.curse))
@@ -308,33 +406,36 @@ impl Defs {
         if let Some(u) = unique {
             return format!("{} ({name})", u.name);
         }
+        if let Some(called) = self.thing_name(item) {
+            return format!("{called} ({name})");
+        }
         let words: Vec<&str> = self.properties_of(item).map(|p| p.name.as_str()).collect();
         format!("{} {name}", words.join(" "))
     }
 
-    /// An item's lines, as far as you know it: its rarity, what each property does, and a
-    /// unique's story.
+    /// An item's lines, as far as you know it: its rarity, what each property does (its tier,
+    /// "Keen (II)"), and a unique's story.
     pub fn lines(&self, item: &Item) -> Vec<String> {
         let m = item.magic;
         if !m.is_magic() {
             return Vec::new();
         }
         let unique = self.unique_of(item);
-        let rarity = match m.rarity {
-            _ if unique.is_some() => "Unique",
-            1 => "Uncommon",
-            _ => "Rare",
-        };
+        let rarity = self.rarity_word(item);
         let mut out = vec![if m.known {
             rarity.to_string()
-        } else if unique.is_some() {
-            "Unique: what it does, you don't know yet".to_string()
         } else {
-            "Magic: what it does, you don't know yet".to_string()
+            format!("{rarity}: what it does, you don't know yet")
         }];
         for p in self.properties_of(item) {
             if m.known || (p.curse && m.curse_shown) {
-                out.push(format!("{}: {}", p.name, p.line));
+                out.push(match p.tier {
+                    t @ 1..=3 => {
+                        let tier = ["I", "II", "III"][usize::from(t) - 1];
+                        format!("{} ({tier}): {}", p.name, p.line)
+                    }
+                    _ => format!("{}: {}", p.name, p.line),
+                });
             }
         }
         if let Some(u) = unique.filter(|u| m.known && !u.lore.is_empty()) {
@@ -365,6 +466,7 @@ impl Defs {
             swing.wind_up = per(swing.wind_up, p.swing).max(1);
             swing.recovery = per(swing.recovery, p.swing);
             swing.hit = (swing.hit as i32 + p.hit).clamp(0, 10_000) as u32;
+            swing.endurance = per(swing.endurance.max(0) as u32, p.endurance) as i32;
         }
         swing
     }
@@ -393,18 +495,19 @@ impl Defs {
         })
     }
 
-    /// A magic item for a loot table's line, by a roll's key: its rarity, its properties (that
-    /// fit its kind), and maybe a curse. Unknown.
-    pub(crate) fn roll_magic(&self, item: &Item, r: impl Fn(u64) -> u64) -> Magic {
+    /// A magic item for a loot table's line, by a roll's keys, found where it reaches tier
+    /// `level` (1 to 3): its rarity, its properties (that fit its kind, at most one of a family,
+    /// each of a tier it reaches), maybe a curse, and a Rare's made-up name. Unknown.
+    pub(crate) fn roll_magic(&self, item: &Item, level: u8, r: impl Fn(u64) -> u64) -> Magic {
         let on_light = matches!(
             self.item(item.def).map(|d| &d.kind),
             Some(ItemKind::Light { .. })
         );
         let fits = |curse: bool| -> Vec<u8> {
-            (0..self.properties.len().min(255))
+            (0..self.properties.len().min(usize::from(NONE)))
                 .filter(|&k| {
                     let p = &self.properties[k];
-                    p.on_light == on_light && p.curse == curse
+                    p.on_light == on_light && p.curse == curse && p.tier <= level
                 })
                 .map(|k| k as u8)
                 .collect()
@@ -414,22 +517,36 @@ impl Defs {
             return Magic::MUNDANE;
         }
         let rare = below(r(1), 10_000) < self.magic.rare;
+        let (fewest, most) = self.magic.count[usize::from(rare)];
+        let count = fewest + below(r(9), u32::from(most.saturating_sub(fewest)) + 1) as u8;
         let mut magic = Magic {
             rarity: if rare { 2 } else { 1 },
             known: false,
             curse_shown: false,
             ..Magic::MUNDANE
         };
-        for (slot, k) in (0..usize::from(magic.rarity)).zip(2u64..) {
-            if good.is_empty() {
+        // A family first, then one of its tiers it reaches: so a family of three tiers comes up
+        // no more often than a property on its own.
+        let family = |k: u8| self.properties[usize::from(k)].family_of();
+        let keys = [(2, 10), (3, 11), (7, 12), (8, 13)];
+        for (slot, (fk, tk)) in keys.into_iter().enumerate().take(usize::from(count)) {
+            let mut families: Vec<&str> = good.iter().map(|&k| family(k)).collect();
+            families.sort_unstable();
+            families.dedup();
+            if families.is_empty() {
                 break;
             }
-            let pick = below(r(k), good.len() as u32) as usize;
-            magic.props[slot] = good.remove(pick);
+            let f = families[below(r(fk), families.len() as u32) as usize];
+            let tiers: Vec<u8> = good.iter().copied().filter(|&k| family(k) == f).collect();
+            magic.props[slot] = tiers[below(r(tk), tiers.len() as u32) as usize];
+            good.retain(|&k| family(k) != f);
         }
         let curses = fits(true);
         if !curses.is_empty() && below(r(5), 10_000) < self.magic.cursed {
             magic.curse = curses[below(r(6), curses.len() as u32) as usize];
+        }
+        if rare {
+            magic.name = self.roll_name(item.def, &r);
         }
         magic
     }
@@ -444,6 +561,19 @@ impl World {
     /// How fast a weapon wears, per mille, by its quality and its properties.
     pub(crate) fn magic_wear(&self, item: &Item) -> u32 {
         self.defs.made_wear(item, false)
+    }
+
+    /// The best tier of property a find at `at` can roll, 1 to 3: by how far it is from where you
+    /// come in (`MagicRules::far`), and `more` for what holds it (`LootTable::level`).
+    pub fn find_level(&self, at: TilePos, more: u8) -> u8 {
+        let from = self.region.start.unwrap_or(TilePos::new(0, 0, at.z));
+        let d2 = at.dist2(from);
+        let far = self.defs.magic.far;
+        let past = far
+            .iter()
+            .filter(|&&f| d2 >= i64::from(f) * i64::from(f))
+            .count() as u8;
+        (1 + past).saturating_add(more).min(3)
     }
 
     /// What the weapon in `id`'s hand gives a blow past its swing, all its properties together.

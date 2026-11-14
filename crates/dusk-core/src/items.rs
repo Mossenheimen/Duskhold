@@ -133,6 +133,9 @@ pub struct LootEntry {
 pub struct LootTable {
     pub id: String,
     pub rolls: (u32, u32),
+    /// Tiers its magic reaches past where it lies (`World::find_level`): a rare's pack, an old
+    /// tomb.
+    pub level: u8,
     pub entries: Vec<LootEntry>,
 }
 
@@ -205,6 +208,8 @@ pub struct Defs {
     /// Rares' affixes and given names (`rare.rs`).
     pub affixes: Vec<crate::rare::Affix>,
     pub rare_names: Vec<String>,
+    /// Words for Rare things' made-up names (`magic.rs`).
+    pub thing_names: crate::magic::ThingNames,
     /// Magic items' properties and curses, and how magic is rolled and learnt (`magic.rs`).
     pub properties: Vec<crate::magic::Property>,
     pub magic: crate::magic::MagicRules,
@@ -261,6 +266,7 @@ impl Default for Defs {
             revenant: None,
             affixes: Vec::new(),
             rare_names: Vec::new(),
+            thing_names: crate::magic::ThingNames::default(),
             properties: Vec::new(),
             magic: crate::magic::MagicRules::default(),
             quality: crate::quality::QualityRules::default(),
@@ -435,6 +441,8 @@ impl World {
             return out;
         }
         let hours = self.hours();
+        // How far out it lies, and what holds it: the best tier its magic reaches.
+        let level = self.find_level(at, t.level);
         for k in 1..=u64::from(draws) {
             let mut pick = below(r(k, Purpose::Loot), total);
             let Some(entry) = t.entries.iter().find(|e| {
@@ -473,7 +481,7 @@ impl World {
                 if let Some(made) = uniques.get(pick).and_then(|&u| self.defs.unique_item(u)) {
                     item = Item { condition, ..made };
                 } else if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
-                    item.magic = self.defs.roll_magic(&item, self.magic_roll(key, k));
+                    item.magic = self.defs.roll_magic(&item, level, self.magic_roll(key, k));
                 }
                 self.defs.stow(&mut out, item);
             }

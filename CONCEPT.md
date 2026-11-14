@@ -448,6 +448,9 @@ One table of how things act on each other, written before the content, so the ga
     - **Unknown until known:** a magic item found works but reads "(magic, unknown)". The abbey reads it for 5 coin; fifteen blows on the dead with it teach you; a light shows itself when lit.
     - **The hard way:** a cursed weapon shows its curse as you take it in hand, and clings there until the abbey lifts it for 20 coin.
     - **How many:** two to six a patch, most on the rares.
+  - *(built 2026-11-14: Path of Exile's rares)*
+    - **More to a Rare:** an Uncommon has one property or two, a Rare three or four, and a made-up name from two words, the second by what it is ("Sorrow Fang", a sword; "Grim Bite", an axe: `names.toml`'s `[things]`). Unknown, a thing says how rare it is, as its colour does: "a sword (rare, unknown)".
+    - **Tiers:** the properties come in families of three tiers (harm: Sharp, Keen, Cruel; quiet: Hushed, Muffled, Silent; pace, aim, wear, and breath, new: Balanced, Poised, Weightless; for lights, reach and burn), and a thing has at most one of a family. How far out a find was made sets the best tier it rolls: near where you come in the first, out about the hamlet the second, far out the third (rules.toml's `[magic] far`, 60 and 140 tiles). A rare's pack and an old tomb reach one further. Hallowed waits for the second; Blazing and the curses turn up anywhere. Its card shows each one's tier: "Cruel (III)".
 - **Attunement:** at most 3 attuned items (D&D), which caps power.
 - **Pity for named items:** each boss kill or deep vault that doesn't drop its unique raises the chance next time, so a long drought can't happen.
 - **Coin has sinks** (Path of Exile's lesson: money needs a use), so gold doesn't pile up with nothing to buy:

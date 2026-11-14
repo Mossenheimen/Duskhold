@@ -6,6 +6,7 @@
 [[loot]]
 id = "tomb"
 rolls = [1, 2]
+level = 1             # old arms: their magic reaches a tier further than where they lie
 items = [
   { item = "coins", weight = 4, count = [5, 25] },
   { item = "candle", weight = 2, count = [1, 3] },

@@ -272,6 +272,9 @@ struct LootsFile {
 struct LootFile {
     id: String,
     rolls: (u32, u32),
+    /// Tiers its magic reaches past where it lies (0 to 2; left out, none): a rare's pack, a tomb.
+    #[serde(default)]
+    level: u8,
     items: Vec<LootLine>,
 }
 
@@ -561,11 +564,11 @@ pub(crate) fn load_defs(
     let mut loot: Vec<LootTable> = Vec::new();
     for file in files_maybe(&dir.join("loot"))? {
         for t in read::<LootsFile>(&file)?.loot {
-            if t.rolls.0 > t.rolls.1 || t.items.iter().all(|l| l.weight == 0) {
+            if t.rolls.0 > t.rolls.1 || t.items.iter().all(|l| l.weight == 0) || t.level > 2 {
                 return Err(fail(
                     &file,
                     format!(
-                        "loot {:?}: rolls are [fewest, most], and some line needs a weight",
+                        "loot {:?}: rolls are [fewest, most], some line needs a weight, and level is 0 to 2",
                         t.id
                     ),
                 ));
@@ -593,6 +596,7 @@ pub(crate) fn load_defs(
             loot.push(LootTable {
                 id: t.id,
                 rolls: t.rolls,
+                level: t.level,
                 entries,
             });
         }
@@ -696,6 +700,7 @@ pub(crate) fn load_defs(
         // Filled in by the loader, from affixes.toml and names.toml.
         affixes: Vec::new(),
         rare_names: Vec::new(),
+        thing_names: dusk_core::ThingNames::default(),
         // Filled in by the loader, from properties.toml and rules.toml's [magic].
         properties: Vec::new(),
         magic: dusk_core::MagicRules::default(),

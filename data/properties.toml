@@ -1,73 +1,266 @@
 # Magic items' properties and curses (CONCEPT.md, loot): each reads in one line and changes how
-# you play (crates/dusk-core/src/magic.rs). An Uncommon item has one, a Rare two; a fifth or so are
-# cursed as well (rules.toml, [magic]). A weapon's work while it's in your hand, a light's while
-# it's held up. Multipliers are 1.0 for none.
+# you play (crates/dusk-core/src/magic.rs). An Uncommon item has one or two, a Rare three or four
+# and a made-up name (names.toml's [things]); a fifth or so are cursed as well (rules.toml,
+# [magic]). A weapon's work while it's in your hand, a light's while it's held up. Multipliers are
+# 1.0 for none.
+#
+# Tiers (Path of Exile's): most properties are one of a family's three tiers, each more than the
+# last, and a thing has at most one of a family. A find rolls a tier only as far out as it was
+# found (rules.toml's [magic] far): the first near where you come in, the second about the hamlet,
+# the third far out; a rare's pack and an old tomb reach one further (loot/, level). A property
+# with no tier is found anywhere. The card shows a tier after the name: "Keen (II)".
+
+# Quieter swings.
+
+[[property]]
+id = "hushed"
+name = "Hushed"
+line = "your swings make little more than half the noise"
+on = "weapon"
+family = "quiet"
+tier = 1
+noise = 0.6
 
 [[property]]
 id = "muffled"
 name = "Muffled"
 line = "your swings make a third of the noise"
 on = "weapon"
+family = "quiet"
+tier = 2
 noise = 0.35
+
+[[property]]
+id = "silent"
+name = "Silent"
+line = "your swings are all but silent: a sixth of the noise"
+on = "weapon"
+family = "quiet"
+tier = 3
+noise = 0.15
+
+# Harder blows.
+
+[[property]]
+id = "sharp"
+name = "Sharp"
+line = "its blows do a quarter more harm"
+on = "weapon"
+family = "harm"
+tier = 1
+damage = 1.25
 
 [[property]]
 id = "keen"
 name = "Keen"
 line = "its blows do half as much harm again"
 on = "weapon"
+family = "harm"
+tier = 2
 damage = 1.5
+
+[[property]]
+id = "cruel"
+name = "Cruel"
+line = "its blows do nearly twice the harm"
+on = "weapon"
+family = "harm"
+tier = 3
+damage = 1.8
+
+# A quicker tell and recovery.
+
+[[property]]
+id = "quick"
+name = "Quick"
+line = "your tell is a little shorter, and so's the recovery"
+on = "weapon"
+family = "pace"
+tier = 1
+swing = 0.85
 
 [[property]]
 id = "swift"
 name = "Swift"
 line = "your tell is a quarter shorter, and so's the recovery"
 on = "weapon"
+family = "pace"
+tier = 2
 swing = 0.75
+
+[[property]]
+id = "darting"
+name = "Darting"
+line = "your tell is two-fifths shorter, and so's the recovery"
+on = "weapon"
+family = "pace"
+tier = 3
+swing = 0.6
+
+# Surer blows.
+
+[[property]]
+id = "true"
+name = "True"
+line = "your blows land a little more often"
+on = "weapon"
+family = "aim"
+tier = 1
+hit = 0.08
 
 [[property]]
 id = "sure"
 name = "Sure"
 line = "your blows land more often"
 on = "weapon"
+family = "aim"
+tier = 2
 hit = 0.15
+
+[[property]]
+id = "unerring"
+name = "Unerring"
+line = "your blows land far more often"
+on = "weapon"
+family = "aim"
+tier = 3
+hit = 0.25
+
+# Slower wear.
+
+[[property]]
+id = "sturdy"
+name = "Sturdy"
+line = "it wears a little over half as fast"
+on = "weapon"
+family = "wear"
+tier = 1
+wear = 0.6
 
 [[property]]
 id = "enduring"
 name = "Enduring"
 line = "it wears a quarter as fast"
 on = "weapon"
+family = "wear"
+tier = 2
 wear = 0.25
+
+[[property]]
+id = "ageless"
+name = "Ageless"
+line = "it wears a tenth as fast"
+on = "weapon"
+family = "wear"
+tier = 3
+wear = 0.1
+
+# Less breath a blow.
+
+[[property]]
+id = "balanced"
+name = "Balanced"
+line = "your blows cost a fifth less breath"
+on = "weapon"
+family = "breath"
+tier = 1
+endurance = 0.8
+
+[[property]]
+id = "poised"
+name = "Poised"
+line = "your blows cost a third less breath"
+on = "weapon"
+family = "breath"
+tier = 2
+endurance = 0.65
+
+[[property]]
+id = "weightless"
+name = "Weightless"
+line = "your blows cost half the breath"
+on = "weapon"
+family = "breath"
+tier = 3
+endurance = 0.5
+
+# On their own.
 
 [[property]]
 id = "hallowed"
 name = "Hallowed"
 line = "what it puts down stays down"
 on = "weapon"
+tier = 2              # not on the abbey's doorstep
 hallowed = true
 
 [[property]]
 id = "blazing"
 name = "Blazing"
 line = "it lights 4 tiles round you, and the dead see you by it"
-on = "weapon"
+on = "weapon"         # a trade, found anywhere
 glow = 4
+
+# A light's: farther.
+
+[[property]]
+id = "glowing"
+name = "Glowing"
+line = "it reaches 2 tiles farther"
+on = "light"
+family = "reach"
+tier = 1
+glow = 2
 
 [[property]]
 id = "bright"
 name = "Bright"
 line = "it reaches 3 tiles farther"
 on = "light"
+family = "reach"
+tier = 2
 glow = 3
+
+[[property]]
+id = "radiant"
+name = "Radiant"
+line = "it reaches 5 tiles farther"
+on = "light"
+family = "reach"
+tier = 3
+glow = 5
+
+# A light's: slower to burn down.
+
+[[property]]
+id = "thrifty"
+name = "Thrifty"
+line = "it burns down a quarter slower"
+on = "light"
+family = "burn"
+tier = 1
+wane = 0.75
 
 [[property]]
 id = "lasting"
 name = "Lasting"
 line = "it burns down half as fast"
 on = "light"
+family = "burn"
+tier = 2
 wane = 0.5
 
-# Curses. A cursed weapon clings to your hand once you take it: it won't be put away or changed
-# for another until a holdout lifts the curse (holdouts.toml, uncurse).
+[[property]]
+id = "undying"
+name = "Undying"
+line = "it burns down at under a third the pace"
+on = "light"
+family = "burn"
+tier = 3
+wane = 0.3
+
+# Curses, found anywhere. A cursed weapon clings to your hand once you take it: it won't be put
+# away or changed for another until a holdout lifts the curse (holdouts.toml, uncurse).
 
 [[property]]
 id = "clamorous"

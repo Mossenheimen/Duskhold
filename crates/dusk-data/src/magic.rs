@@ -29,6 +29,13 @@ struct PropertyFile {
     /// "weapon" (in hand) or "light" (held up); a unique's effect is a weapon's, and needn't say.
     #[serde(default)]
     on: String,
+    /// Its family (left out: its own), and its tier in it, 1 to 3 (left out: none, found
+    /// anywhere): a thing has at most one of a family, and a find rolls a tier only as far out as
+    /// it reaches.
+    #[serde(default)]
+    family: String,
+    #[serde(default)]
+    tier: u8,
     #[serde(default)]
     curse: bool,
     /// A weapon's, as multipliers (1.0 for none): its noise, harm, wind-up and recovery, and
@@ -43,6 +50,9 @@ struct PropertyFile {
     wear: f64,
     #[serde(default)]
     hit: f64,
+    /// A weapon's: the breath a blow costs, as a multiplier.
+    #[serde(default = "one")]
+    endurance: f64,
     /// What it puts down stays down.
     #[serde(default)]
     hallowed: bool,
@@ -112,6 +122,10 @@ pub(crate) struct MagicFile {
     worth: (f64, f64, f64),
     /// Blows on a foe with an unknown magic weapon before you know what it is.
     learn: u8,
+    /// How many properties: an Uncommon's fewest and most, and a Rare's.
+    count: [(u8, u8); 2],
+    /// Tiles from where you come in at which finds reach the second tier, and the third.
+    far: (u32, u32),
 }
 
 pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataError> {
@@ -120,6 +134,19 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
         return Err(fail(
             file,
             "magic: rare and cursed are chances from 0 to 1, learn at least 1 blow",
+        ));
+    }
+    let counts = |(fewest, most): (u8, u8)| fewest >= 1 && fewest <= most && most <= 4;
+    if !counts(m.count[0]) || !counts(m.count[1]) {
+        return Err(fail(
+            file,
+            "magic.count is [[fewest, most], [fewest, most]]: an Uncommon's, a Rare's, 1 to 4",
+        ));
+    }
+    if m.far.0 > m.far.1 {
+        return Err(fail(
+            file,
+            "magic.far is [second tier, third]: nearer first",
         ));
     }
     let xp = |x: f64| (0.0..=10_000.0).contains(&x);
@@ -138,6 +165,8 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
             (m.worth.2 * 1000.0).round() as u32,
         ],
         learn: m.learn,
+        count: m.count,
+        far: [m.far.0, m.far.1],
     })
 }
 
@@ -238,9 +267,14 @@ pub(crate) fn load(dir: &Path) -> Result<Vec<Property>, DataError> {
 
 /// A property (or a unique's effect) in the core's units, or what's wrong with it.
 fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
-    let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane];
+    let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance];
     if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
-        return Err("noise, damage, swing, wear and wane are multipliers from 0 to 10".into());
+        return Err(
+            "noise, damage, swing, wear, wane and endurance are multipliers from 0 to 10".into(),
+        );
+    }
+    if p.tier > 3 {
+        return Err("tier is 1 to 3 (left out: none)".into());
     }
     if !(-1.0..=1.0).contains(&p.hit) || !(0..=12).contains(&p.glow) {
         return Err("hit is a chance from -1 to 1, glow 0 to 12 tiles".into());
@@ -259,6 +293,8 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         id: p.id.clone(),
         name: p.name.clone(),
         line: p.line.clone(),
+        family: p.family.trim().to_string(),
+        tier: p.tier,
         on_light,
         curse: p.curse,
         noise: per(p.noise),
@@ -266,6 +302,7 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         swing: per(p.swing),
         hit: (p.hit * 10_000.0).round() as i32,
         wear: per(p.wear),
+        endurance: per(p.endurance),
         hallowed: p.hallowed,
         glow: p.glow,
         wane: per(p.wane),

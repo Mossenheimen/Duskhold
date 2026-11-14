@@ -69,6 +69,7 @@ fn defs() -> Defs {
         loot: vec![LootTable {
             id: "kitchen".into(),
             rolls: (2, 4),
+            level: 0,
             entries: vec![
                 LootEntry {
                     item: BREAD,

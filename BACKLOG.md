@@ -50,7 +50,8 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - What you learned and the places you found carrying over to the next character; the holdouts remembering you; the revenant fighting the way you did (a bot trained on your play).
 
 **Items**
-- Weapons, after quality and the uniques (2026-11-13; the user: "take inspiration from Diablo and PoE 2"): rares as Path of Exile's (more properties, made-up names, tiers by how deep or far out it was found); each class of weapon's own small edge (an axe's bleed, a mace against bone).
+- Weapons, after quality, the uniques and Path of Exile's rares (2026-11-13 and 14; the user: "take inspiration from Diablo and PoE 2"): each class of weapon's own small edge (an axe's bleed, a mace against bone).
+- Rares, after the first cut: a tier weighted by how far out (the best less often, as Path of Exile's), not even odds; more light properties, so a Rare light has three; depth as well as distance, once there are dungeons; a holdout's crafting currency (re-rolling a property, Path of Exile's orbs) once there's a smith.
 - Uniques, after the first six: the barrows' own grave goods, richer than the graveyard's (a fixture of its own, so a table of its own); a unique's numbers rolled in a range, as Path of Exile's; each unique once in a world (where it lies decided by the seed); a drink of health seen (motes from the struck to you); uniques on armour and lights.
 - Quality on armour, tools and bags; making and mending raising it (a smith).
 - Attunement; the Lore skill and scrolls of identify; Very Rare and Legendary; a broken magic item kept, to be mended; magic on armour.

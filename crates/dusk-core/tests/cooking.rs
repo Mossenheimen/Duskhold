@@ -48,6 +48,7 @@ fn defs(kit: Vec<Item>) -> Defs {
         loot: vec![LootTable {
             id: "larder".into(),
             rolls: (1, 1),
+            level: 0,
             entries: vec![LootEntry {
                 item: RAW,
                 weight: 1,

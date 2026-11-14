@@ -405,10 +405,12 @@ noise = 1.5           # how far a splash carries, of a footstep's
 # Magic items (properties.toml): few, and each an event. Found unknown: it works, but you don't
 # know what it does until a holdout reads it (holdouts.toml, identify), you've struck enough blows
 # with it on the dead, or, for a light, you've lit it.
-rare = 0.3            # of the magic items, the share that's Rare (two properties) not Uncommon (one)
+rare = 0.3            # of the magic items, the share that's Rare, not Uncommon
 cursed = 0.2          # the chance one is cursed as well
 worth = [20, 50, 150] # the XP it adds to its kind's worth: Uncommon, Rare, Unique (uniques.toml)
 learn = 15            # blows on the dead with an unknown weapon before you know what it is
+count = [[1, 2], [3, 4]] # how many properties: an Uncommon's fewest and most, a Rare's (and its made-up name)
+far = [60, 140]       # tiles from where you come in at which finds reach tier II, and tier III
 
 [quality]
 # How well a weapon found was made (CONCEPT.md, loot; Diablo II's low-quality and superior weapons,

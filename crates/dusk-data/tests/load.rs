@@ -2110,3 +2110,86 @@ items = [{ item = "club", weight = 1, unique = 0.1 }]
     let err = try_with("unique-none", uniques, &none).unwrap_err();
     assert!(err.message.contains("makes none"), "{err}");
 }
+
+#[test]
+fn the_games_properties_come_in_families_of_three_tiers_and_rares_have_names() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let mut families: Vec<&str> = d
+        .properties
+        .iter()
+        .filter(|p| p.tier > 0)
+        .map(|p| p.family_of())
+        .collect();
+    families.sort_unstable();
+    // A family of one has a tier of its own (Hallowed: the second); the rest have three.
+    families.dedup();
+    let many: Vec<&str> = families
+        .iter()
+        .copied()
+        .filter(|f| d.properties.iter().filter(|p| p.family_of() == *f).count() > 1)
+        .collect();
+    assert!(many.len() >= 6, "{many:?}");
+    for f in &many {
+        let mut tiers: Vec<u8> = d
+            .properties
+            .iter()
+            .filter(|p| p.family_of() == *f)
+            .map(|p| p.tier)
+            .collect();
+        tiers.sort_unstable();
+        assert_eq!(tiers, vec![1, 2, 3], "{f}");
+    }
+    // A Rare's three or four need as many families of a weapon's at the first tier.
+    let first: Vec<&str> = d
+        .properties
+        .iter()
+        .filter(|p| !p.on_light && !p.curse && p.tier <= 1)
+        .map(|p| p.family_of())
+        .collect();
+    assert!(first.len() >= 4);
+    assert_eq!(d.magic.count, [(1, 2), (3, 4)]);
+    assert!(d.magic.far[0] < d.magic.far[1]);
+    let names = &d.thing_names;
+    assert!(!names.first.is_empty() && names.second.iter().all(|w| !w.is_empty()));
+    for table in ["rare", "tomb"] {
+        let t = d.loot.iter().find(|t| t.id == table).unwrap();
+        assert_eq!(t.level, 1, "{table} reaches a tier further");
+    }
+}
+
+#[test]
+fn a_fourth_tier_counts_out_of_order_and_an_empty_word_list_are_refused() {
+    let magic = "\n[magic]\nrare = 0.3\ncursed = 0.2\nworth = [20, 50, 150]\nlearn = 15\n\
+        count = [[1, 2], [3, 4]]\nfar = [60, 140]\n";
+    let properties = "[[property]]\nid = \"keen\"\nname = \"Keen\"\nline = \"harder\"\n\
+        on = \"weapon\"\nfamily = \"harm\"\ntier = 2\ndamage = 1.5\n";
+    let names = "given = [\"Edda\"]\nfamily = [\"Marsh\"]\n[things]\nfirst = [\"Grim\"]\n\
+        blade = [\"Edge\"]\nblunt = [\"Knell\"]\naxe = [\"Bite\"]\nspear = [\"Thorn\"]\n\
+        weapon = [\"Brand\"]\nlight = [\"Glim\"]\n";
+    let try_with = |name: &str, magic: &str, properties: &str, names: &str| {
+        let rules = format!("{RULES}{magic}");
+        let mut files = test_files(PREFABS);
+        files[0].1 = &rules;
+        files.push(("properties.toml", properties));
+        files.push(("names.toml", names));
+        load(&folder(name, &files))
+    };
+    let d = try_with("tiers", magic, properties, names).unwrap().defs;
+    assert_eq!(
+        (d.properties[0].tier, d.properties[0].family_of()),
+        (2, "harm")
+    );
+    assert_eq!(d.thing_names.second[3], vec!["Thorn".to_string()]);
+    assert_eq!(d.magic.far, [60, 140]);
+
+    let fourth = properties.replace("tier = 2", "tier = 4");
+    let err = try_with("tier-four", magic, &fourth, names).unwrap_err();
+    assert!(err.message.contains("tier"), "{err}");
+    let backwards = magic.replace("[[1, 2], [3, 4]]", "[[1, 2], [4, 3]]");
+    let err = try_with("count-backwards", &backwards, properties, names).unwrap_err();
+    assert!(err.message.contains("magic.count"), "{err}");
+    let wordless = names.replace("axe = [\"Bite\"]", "axe = []");
+    let err = try_with("names-empty", magic, properties, &wordless).unwrap_err();
+    assert!(err.message.contains("things"), "{err}");
+}

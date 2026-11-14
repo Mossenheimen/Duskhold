@@ -77,7 +77,7 @@ pub use grid::{Edge, Grid, Ground, Tile};
 pub use holdout::{Area, Bounty, HANDS, Holdout, NoDeal, Sale};
 pub use home::NoStash;
 pub use items::{Defs, Item, ItemDef, ItemKind, LootEntry, LootTable};
-pub use magic::{Card, Magic, MagicRules, Property, Unique};
+pub use magic::{Card, Magic, MagicRules, Property, ThingNames, Unique};
 pub use needs::{Moodle, NoSleep, Woke};
 pub use pressure::{Pressure, Region};
 pub use quality::QualityRules;

@@ -457,6 +457,8 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - A magic item's name is in its rarity's colour, with the rarity in words on hover.
   - Hovering a weapon or a magic item opens its card (Tooltip, below).
   - A unique's name is in `magic.unique`, and says it's a unique in words too: "fine hand axe (unique, unknown)", then "Redhand (fine hand axe)".
+  - Unknown, any magic thing says its rarity in words beside its colour: "(uncommon, unknown)", "(rare, unknown)". A Rare known is called by its made-up name, its kind after: "Sorrow Fang (masterwork arming sword)"; an Uncommon by its properties' words, "Keen fine sword".
+  - On the card, a property's tier follows its name: "Cruel (III): its blows do nearly twice the harm".
   - Condition shows under 100%, and freshness for food.
   - The rows group by kind (weapons, food and drink, cures, light, materials), and sort by kind, weight or name.
 - **Moodle:**
@@ -635,7 +637,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A fireball flying (its trail, the ember ring where it lands; the spot three tiles east is under trees) | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=3.75` |
 | A Wizard's words: the arcane glow and its motes | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=2.6` |
 | A Cleric kneeling in prayer at the abbey's altar, glowing holy | `--seed=7 --hour=22 --class=cleric --walk=74,114 --do=9:use --shot=PNG --shot-after=12` |
-| A weapon's card: a masterwork Rare sword in the pack, set against the cudgel in hand | `--seed=7 --hour=12 --give=sword:masterwork:keen+swift,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
+| A weapon's card: a masterwork Rare sword in the pack, its made-up name and four properties' tiers, set against the cudgel in hand | `--seed=7 --hour=12 --give=sword:masterwork:cruel+darting+unerring+poised,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
 | A unique's card: The Last Vigil in the pack, its name in copper, its effect and its story | `--seed=7 --hour=12 --give=last_vigil,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
 | A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power4 --shot=PNG --shot-after=2` |
 | The lasting spells at night, alive: a Light inside a Fog, a Silence round them | `--seed=7 --hour=22 --class=wizard --aim=0,4 --do=1:cast_light,3.5:cast_silence,6.5:cast_fog --shot=PNG --shot-after=10` |

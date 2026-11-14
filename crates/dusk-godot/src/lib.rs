@@ -2230,8 +2230,9 @@ impl DuskWorld {
 
     /// A trial run's `--give`: puts a find in your pack, the item by its id, made as `quality`
     /// says ("crude", "plain", "fine", "masterwork"; "" plain), with the properties named (by
-    /// their ids in properties.toml: one makes it Uncommon, two Rare, a curse's cursed), known.
-    /// False if any of it isn't so.
+    /// their ids in properties.toml: one or two make it Uncommon, three or four Rare, with a
+    /// made-up name; a curse's cursed), known. Or a unique, by its id in uniques.toml. False if
+    /// any of it isn't so.
     #[func]
     fn give(&mut self, item: GString, quality: GString, properties: PackedStringArray) -> bool {
         let Some(world) = self.world.as_mut() else {
@@ -2272,13 +2273,24 @@ impl DuskWorld {
                 props.push(n as u8);
             }
         }
-        if props.len() > 2 {
+        if props.len() > 4 {
             return false;
         }
         for (k, &p) in props.iter().enumerate() {
             magic.props[k] = p;
         }
-        magic.rarity = props.len() as u8;
+        // One or two make it Uncommon; three or four Rare, with a made-up name.
+        magic.rarity = match props.len() {
+            0 => 0,
+            1 | 2 => 1,
+            _ => 2,
+        };
+        if magic.rarity == 2 {
+            let seed = world.seed;
+            magic.name = defs.roll_name(def as u16, |k| {
+                dusk_core::hash::roll(seed, 0, k, dusk_core::hash::Purpose::Magic)
+            });
+        }
         magic.known = true;
         let made = Item {
             quality: grade,
