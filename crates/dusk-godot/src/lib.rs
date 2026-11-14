@@ -57,6 +57,48 @@ fn stack_row(i: Item) -> [i32; 4] {
     ]
 }
 
+/// A thing's card as the client gets it (`card_row`): its magic (0 mundane, 1 Uncommon, 2
+/// Rare, and 10 more while it's unknown), its quality (`quality.rs`: 0 crude to 3 masterwork),
+/// its condition (out of 1000), what it's worth in XP (rounded), 1 if it's a find; and, for a
+/// weapon (`Defs::card`: as made, and its magic as far as you know it), its harm (least, most,
+/// in tenths of a point), its wind-up and recovery (ticks), its chance to land (out of 10,000),
+/// its noise (tiles), the breath it costs (tenths), the condition a blow takes off it (out of
+/// 1000), and the skill it trains (by `skill_names`, -1 none).
+const CARD: usize = 5;
+const WEAPON_CARD: usize = CARD + 9;
+
+fn rarity_code(i: &Item) -> i32 {
+    i32::from(i.magic.rarity) + if i.magic.known { 0 } else { 10 }
+}
+
+fn card_row(world: &World, i: &Item) -> PackedInt32Array {
+    let mut out = vec![
+        rarity_code(i),
+        i32::from(i.quality),
+        i32::from(i.condition),
+        ((world.defs.worth(i) + 500) / 1000) as i32,
+        i32::from(i.found),
+    ];
+    if let Some(card) = world.defs.card(i) {
+        let s = card.swing;
+        out.extend([
+            s.damage.0,
+            s.damage.1,
+            s.wind_up as i32,
+            s.recovery as i32,
+            s.hit as i32,
+            s.noise,
+            s.endurance,
+            card.wear as i32,
+            card.skill
+                .and_then(|k| Skill::ALL.iter().position(|&s| s == k))
+                .map_or(-1, |n| n as i32),
+        ]);
+    }
+    debug_assert!(out.len() == CARD || out.len() == WEAPON_CARD);
+    PackedInt32Array::from(&out[..])
+}
+
 /// Numbers an event takes in `take_events`.
 const EVENT_SIZE: usize = 6;
 
@@ -1587,38 +1629,63 @@ impl DuskWorld {
         let Some(a) = world.character().and_then(|me| world.actor(me)) else {
             return PackedInt32Array::new();
         };
-        let code = |i: Option<&Item>| {
-            i.map_or(0, |i| {
-                i32::from(i.magic.rarity) + if i.magic.known { 0 } else { 10 }
-            })
-        };
+        let code = |i: Option<&Item>| i.map_or(0, rarity_code);
         let mut out = vec![code(a.hands.as_ref()), code(a.light.as_ref())];
         out.extend(a.items.iter().map(|i| code(Some(i))));
         PackedInt32Array::from(&out[..])
+    }
+
+    /// One of your things, by its place in `character_labels` (0 in hand, 1 held up, 2 on the
+    /// pack's stacks).
+    fn my_thing(&self, place: i32) -> Option<Item> {
+        let world = self.world.as_ref()?;
+        let a = world.character().and_then(|me| world.actor(me))?;
+        match place {
+            0 => a.hands,
+            1 => a.light,
+            n => usize::try_from(n - 2)
+                .ok()
+                .and_then(|i| a.items.get(i).copied()),
+        }
+    }
+
+    /// What's in a container or on the floor on (x, y), at `slot`.
+    fn stored(&self, x: i32, y: i32, slot: i32) -> Option<Item> {
+        let world = self.world.as_ref()?;
+        let held = world.store(TilePos::new(x, y, 0));
+        usize::try_from(slot)
+            .ok()
+            .and_then(|s| held.get(s).copied())
+    }
+
+    /// What a thing does, as far as you know it, a line each (`Defs::lines`).
+    fn lines_of(&self, item: Option<Item>) -> PackedStringArray {
+        let (Some(world), Some(i)) = (&self.world, item) else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .lines(&i)
+            .iter()
+            .map(|l| GString::from(l.as_str()))
+            .collect()
     }
 
     /// What one of your things does, as far as you know it, a line each: by its place in
     /// `character_labels` (0 in hand, 1 held up, 2 on the pack's stacks).
     #[func]
     fn character_lines(&self, place: i32) -> PackedStringArray {
-        let Some(world) = &self.world else {
-            return PackedStringArray::new();
-        };
-        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
-            return PackedStringArray::new();
-        };
-        let item = match place {
-            0 => a.hands,
-            1 => a.light,
-            n => usize::try_from(n - 2)
-                .ok()
-                .and_then(|i| a.items.get(i).copied()),
-        };
-        item.map(|i| world.defs.lines(&i))
-            .unwrap_or_default()
-            .iter()
-            .map(|l| GString::from(l.as_str()))
-            .collect()
+        self.lines_of(self.my_thing(place))
+    }
+
+    /// One of your things' card (the client's, on hover), by its place in `character_labels`:
+    /// its numbers as `card_row` lays them out (a weapon's are longer); empty for nothing there.
+    #[func]
+    fn item_card(&self, place: i32) -> PackedInt32Array {
+        match (&self.world, self.my_thing(place)) {
+            (Some(world), Some(i)) => card_row(world, &i),
+            _ => PackedInt32Array::new(),
+        }
     }
 
     /// What's on a container's or floor's tile is called, as far as you know it, by slot.
@@ -1631,6 +1698,31 @@ impl DuskWorld {
         held.iter()
             .map(|i| GString::from(world.defs.label(i).as_str()))
             .collect()
+    }
+
+    /// Each slot's magic on a container's or floor's tile, as `character_rarity` codes it.
+    #[func]
+    fn store_rarity(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let held = world.store(TilePos::new(x, y, 0));
+        held.iter().map(rarity_code).collect()
+    }
+
+    /// What the thing at `slot` on (x, y) does, as far as you know it, a line each.
+    #[func]
+    fn store_lines(&self, x: i32, y: i32, slot: i32) -> PackedStringArray {
+        self.lines_of(self.stored(x, y, slot))
+    }
+
+    /// The card of the thing at `slot` on (x, y), as `item_card`'s.
+    #[func]
+    fn store_card(&self, x: i32, y: i32, slot: i32) -> PackedInt32Array {
+        match (&self.world, self.stored(x, y, slot)) {
+            (Some(world), Some(i)) => card_row(world, &i),
+            _ => PackedInt32Array::new(),
+        }
     }
 
     /// Whether the weapon in your hand clings: cursed, it won't be put away.
@@ -2133,6 +2225,57 @@ impl DuskWorld {
         world
             .character()
             .is_some_and(|me| world.can_choose_class(me))
+    }
+
+    /// A trial run's `--give`: puts a find in your pack, the item by its id, made as `quality`
+    /// says ("crude", "plain", "fine", "masterwork"; "" plain), with the properties named (by
+    /// their ids in properties.toml: one makes it Uncommon, two Rare, a curse's cursed), known.
+    /// False if any of it isn't so.
+    #[func]
+    fn give(&mut self, item: GString, quality: GString, properties: PackedStringArray) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let defs = &world.defs;
+        let Some(def) = defs.items.iter().position(|d| d.id == item.to_string()) else {
+            return false;
+        };
+        let grade = match quality.to_string().as_str() {
+            "crude" => dusk_core::quality::CRUDE,
+            "" | "plain" => dusk_core::quality::PLAIN,
+            "fine" => dusk_core::quality::FINE,
+            "masterwork" => dusk_core::quality::MASTERWORK,
+            _ => return false,
+        };
+        let mut magic = dusk_core::Magic::MUNDANE;
+        let mut props = Vec::new();
+        for id in properties.as_slice() {
+            let Some(n) = defs.properties.iter().position(|p| p.id == id.to_string()) else {
+                return false;
+            };
+            if defs.properties[n].curse {
+                magic.curse = n as u8;
+            } else {
+                props.push(n as u8);
+            }
+        }
+        if props.len() > 2 {
+            return false;
+        }
+        for (k, &p) in props.iter().enumerate() {
+            magic.props[k] = p;
+        }
+        magic.rarity = props.len() as u8;
+        magic.known = true;
+        let made = Item {
+            quality: grade,
+            magic,
+            ..Item::found(def as u16, 1)
+        };
+        let Some(me) = world.character() else {
+            return false;
+        };
+        world.give(me, made)
     }
 
     /// Takes up a class, by number (see `class_texts`), before you're under way: its kit

@@ -440,6 +440,9 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     if let Some(m) = &raw.magic {
         defs.magic = magic::to_rules(&rules_file, m)?;
     }
+    if let Some(q) = &raw.quality {
+        defs.quality = magic::quality(&rules_file, q)?;
+    }
     let defs = Arc::new(defs);
 
     let mut prefabs = Vec::new();
@@ -535,6 +538,9 @@ struct RulesFile {
     /// Optional: with no [magic], magic items use the core's defaults (and need properties.toml).
     #[serde(default)]
     magic: Option<magic::MagicFile>,
+    /// Optional: with no [quality], weapons found use the core's grades.
+    #[serde(default)]
+    quality: Option<magic::QualityFile>,
     /// Optional: with no [revenant], a character's body stays down.
     #[serde(default)]
     revenant: Option<legacy::RevenantFile>,

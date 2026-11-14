@@ -26,7 +26,9 @@ extends Node3D
 ## --news print the news too, and zone F's prompts as they change (for --headless); --hour=H start at that hour of the day;
 ## --save=PATH carry on from that save if it's there, and save to it;
 ## --look=colour_blind,high_contrast,reduce_motion,show_numbers turn settings on (not kept: for pictures);
-## --aim=DX,DY aim a readied spell, and a script's spells, at your tile plus (DX, DY) (for pictures).
+## --aim=DX,DY aim a readied spell, and a script's spells, at your tile plus (DX, DY) (for pictures);
+## --give=ITEM:GRADE:PROP+PROP,... put finds in the pack at the start, made as GRADE says (crude,
+## plain, fine, masterwork) with those properties, known (by their ids: --give=sword:masterwork:keen).
 ##
 ## With no flags at all, the game is saved (user://world.dusk) and carries on from its save. Any
 ## flag makes it a trial run, which neither loads nor saves unless --save says where: so pictures
@@ -227,6 +229,7 @@ var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 sh
 var settings: Settings  # the settings screen (F10), and the keys' defaults and remapping
 var paused_before := false  # whether the game was paused when the settings opened
 var look_flags := ""  # --look: settings a trial run turns on
+var gives := PackedStringArray()  # --give: finds a trial run starts with
 ## --aim=DX,DY: for pictures, the tile aimed at is yours plus this, not the mouse's, and a script's
 ## spells land there. (0, 0) is the mouse, as in play.
 var aim_offset := Vector2i.ZERO
@@ -282,6 +285,8 @@ func _ready() -> void:
 	bag.say = hud.say
 	bag.burn = _burn_body
 	bag.hallow = _consecrate
+	bag.card = hud.hover_card
+	bag.uncard = hud.unhover_card
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -879,11 +884,13 @@ func _offer_classes() -> void:
 	class_texts = dusk.class_texts()
 	var count := class_texts.size() / 2
 	if count < 2 or not dusk.can_choose_class():
+		_give()
 		return
 	if not OS.get_cmdline_user_args().is_empty() and not choose_asked:
 		for c in count:
 			if class_texts[c * 2].to_lower() == class_wanted.to_lower():
 				_take_up_class(c)
+		_give()
 		return
 	choosing_class = true
 	dusk.paused = true
@@ -893,6 +900,16 @@ func _offer_classes() -> void:
 	lines.append("")
 	lines.append("Press a number.")
 	hud.show_choice("Who comes to the abbey?", "\n".join(lines))
+
+
+## --give: the finds a trial run starts with, after its class's kit (DuskWorld.give()).
+func _give() -> void:
+	for g in gives:
+		var parts := g.split(":")
+		var props := parts[2].split("+", false) if parts.size() > 2 else PackedStringArray()
+		if not dusk.give(parts[0], parts[1] if parts.size() > 1 else "", props):
+			push_warning("--give: no such thing as %s" % g)
+	gives = PackedStringArray()
 
 
 ## Takes up class `c` (by DuskWorld.class_texts()): its kit in place of the one you came with.
@@ -2029,6 +2046,8 @@ func _read_args() -> void:
 			choose_asked = true
 		elif arg.begins_with("--look="):
 			look_flags = value
+		elif arg.begins_with("--give="):
+			gives = value.split(",")
 		elif arg.begins_with("--aim="):
 			aim_offset = Vector2i(value.get_slice(",", 0).to_int(), value.get_slice(",", 1).to_int())
 
@@ -2089,6 +2108,10 @@ func _run_script() -> void:
 				_toggle_keys()
 			"moodle":  # the worst moodle's detail, as if the mouse rested on it
 				hud.hover_first_moodle()
+			"card":  # a weapon's card in the pack (else the one in hand), as if hovered
+				var shown: String = bag.card_first()
+				if print_news and shown != "":
+					print("Card: ", shown)
 			"esc":  # what Esc closes first; a script never quits by it
 				_close_top()
 			"settings":  # F10: the settings screen

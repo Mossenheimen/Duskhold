@@ -1,10 +1,10 @@
 //! Magic items: their properties and curses (`data/properties.toml`) in a designer's units
-//! (multipliers, a chance added, tiles), and rules.toml's `[magic]` (how they're rolled and
-//! learnt).
+//! (multipliers, a chance added, tiles), rules.toml's `[magic]` (how they're rolled and learnt),
+//! and its `[quality]` (how well a weapon found was made).
 
 use std::path::Path;
 
-use dusk_core::{MagicRules, Property};
+use dusk_core::{MagicRules, Property, QualityRules};
 use serde::Deserialize;
 
 use crate::{DataError, check_unique, fail, read};
@@ -89,6 +89,74 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
         ],
         learn: m.learn,
     })
+}
+
+/// rules.toml's `[quality]`: the four grades, worst first.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct QualityFile {
+    crude: GradeFile,
+    plain: GradeFile,
+    fine: GradeFile,
+    masterwork: GradeFile,
+}
+
+/// A grade: its word before a name ("" for plain), the chance a weapon found is of it (plain's is
+/// what's left, so it has none), and multipliers on its harm, its wear and its worth.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GradeFile {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    chance: f64,
+    damage: f64,
+    wear: f64,
+    worth: f64,
+}
+
+pub(crate) fn quality(file: &Path, q: &QualityFile) -> Result<QualityRules, DataError> {
+    let grades = [
+        ("crude", &q.crude),
+        ("plain", &q.plain),
+        ("fine", &q.fine),
+        ("masterwork", &q.masterwork),
+    ];
+    let mut out = QualityRules::default();
+    let mut odds = 0.0;
+    for (n, (id, g)) in grades.iter().enumerate() {
+        let bad = |m: &str| fail(file, format!("quality.{id}: {m}"));
+        if *id == "plain" {
+            if g.chance != 0.0 {
+                return Err(bad("plain has no chance: it's what's left"));
+            }
+        } else if g.name.trim().is_empty() {
+            return Err(bad("a name, the word before a weapon's"));
+        }
+        if !(0.0..=1.0).contains(&g.chance) {
+            return Err(bad("chance is from 0 to 1"));
+        }
+        if !(0.1..=5.0).contains(&g.damage) || !(0.1..=10.0).contains(&g.wear) {
+            return Err(bad("damage is a multiplier from 0.1 to 5, wear 0.1 to 10"));
+        }
+        if !(0.0..=100.0).contains(&g.worth) {
+            return Err(bad("worth is a multiplier from 0 to 100"));
+        }
+        odds += g.chance;
+        let per = |m: f64| (m * 1000.0).round() as u32;
+        out.names[n] = g.name.trim().to_string();
+        out.chance[n] = (g.chance * 10_000.0).round() as u32;
+        out.damage[n] = per(g.damage);
+        out.wear[n] = per(g.wear);
+        out.worth[n] = per(g.worth);
+    }
+    if odds > 1.0 + 1e-9 {
+        return Err(fail(
+            file,
+            "quality: crude, fine and masterwork's chances add up to more than 1",
+        ));
+    }
+    Ok(out)
 }
 
 /// Every property in `properties.toml` (left out: none, and no magic items).

@@ -1,9 +1,12 @@
 //! Magic items: properties on a weapon or a light, curses that cling, learning by use or at a
-//! holdout's counter, and what a container's loot rolls.
+//! holdout's counter, and what a container's loot rolls; and a weapon's quality (`quality.rs`),
+//! and its card.
 
 use std::sync::Arc;
 
+use dusk_core::hash::{Purpose, roll};
 use dusk_core::magic::NONE;
+use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Defs, Event, GetUp, HANDS, Holdout, Intent, Item, ItemDef, ItemKind,
@@ -135,7 +138,12 @@ fn defs(kit: Vec<Item>) -> Defs {
 
 /// A field, the counter north of you and a chest east, the needs stilled, no grabs.
 fn field(kit: Vec<Item>) -> (World, ActorId) {
-    let mut w = World::new(12);
+    field_of(12, kit)
+}
+
+/// The same field, from another seed.
+fn field_of(seed: u64, kit: Vec<Item>) -> (World, ActorId) {
+    let mut w = World::new(seed);
     w.defs = Arc::new(defs(kit));
     w.creature_mut(0).wander = 0;
     w.rules.needs.hunger.rise = 0;
@@ -427,4 +435,121 @@ fn a_containers_magic_comes_from_the_seed_and_fits_its_kind() {
     for p in knife.magic.all() {
         assert!(!w.defs.properties[usize::from(p)].on_light);
     }
+}
+
+fn made(def: u16, quality: u8) -> Item {
+    Item {
+        quality,
+        ..Item::new(def, 1)
+    }
+}
+
+#[test]
+fn quality_is_rolled_by_its_chances_and_most_are_plain() {
+    let rules = dusk_core::QualityRules::default();
+    let mut count = [0u32; 4];
+    for k in 0..10_000 {
+        count[usize::from(rules.roll(roll(7, 0, k, Purpose::Quality)))] += 1;
+    }
+    // Out of 10,000: crude 2,500, fine 1,500, masterwork 500, plain the 5,500 left.
+    let near = |n: u32, want: u32| n.abs_diff(want) < 200;
+    assert!(near(count[usize::from(CRUDE)], 2500), "{count:?}");
+    assert!(near(count[usize::from(PLAIN)], 5500), "{count:?}");
+    assert!(near(count[usize::from(FINE)], 1500), "{count:?}");
+    assert!(near(count[usize::from(MASTERWORK)], 500), "{count:?}");
+    // With no chances, everything is plain.
+    let none = dusk_core::QualityRules {
+        chance: [0; 4],
+        ..dusk_core::QualityRules::default()
+    };
+    assert!((0..500).all(|k| none.roll(roll(7, 0, k, Purpose::Quality)) == PLAIN));
+}
+
+#[test]
+fn quality_changes_a_blows_harm_its_wear_and_worth_and_goes_before_the_name() {
+    let d = defs(Vec::new());
+    // The cudgel: 100 harm, 10 condition off a blow, worth 4,000.
+    let card = |q: u8| d.card(&made(CUDGEL, q)).unwrap();
+    assert_eq!(card(PLAIN).swing.damage, (100, 100));
+    assert_eq!(card(PLAIN).wear, 10);
+    assert_eq!(card(CRUDE).swing.damage, (80, 80));
+    assert_eq!(card(CRUDE).wear, 15, "crude wears half as fast again");
+    assert_eq!(card(MASTERWORK).swing.damage, (125, 125));
+    assert_eq!(card(MASTERWORK).wear, 6);
+    assert_eq!(d.worth(&made(CUDGEL, CRUDE)), 2000);
+    assert_eq!(d.worth(&made(CUDGEL, MASTERWORK)), 12_000);
+    assert_eq!(d.label(&made(CUDGEL, PLAIN)), "cudgel");
+    assert_eq!(d.label(&made(CUDGEL, FINE)), "fine cudgel");
+    // Seen at a glance, as magic isn't: "a fine knife", magic unknown; then known, its words first.
+    let mut keen = Item {
+        magic: magic([KEEN, NONE], NONE),
+        ..made(KNIFE, FINE)
+    };
+    assert_eq!(d.label(&keen), "fine knife (magic, unknown)");
+    keen.magic.known = true;
+    assert_eq!(d.label(&keen), "Keen fine knife");
+    // Not a weapon, no card.
+    assert_eq!(d.card(&Item::new(CANDLE, 1)), None);
+}
+
+#[test]
+fn a_cards_magic_is_only_what_you_know_but_a_blow_has_all_of_it() {
+    let keen = Item {
+        magic: magic([KEEN, NONE], NONE),
+        ..made(KNIFE, MASTERWORK)
+    };
+    let (mut w, me) = field(vec![keen]);
+    // On its card, unknown: as made, masterwork's harm, and no more.
+    assert_eq!(w.defs.card(&keen).unwrap().swing.damage, (125, 125));
+    let mut known = keen;
+    known.magic.known = true;
+    assert_eq!(
+        w.defs.card(&known).unwrap().swing.damage,
+        (187, 187),
+        "Keen on top: 125 half as hard again"
+    );
+    // In hand it strikes with all of it, known or not.
+    wield(&mut w, me, KNIFE);
+    w.creature_mut(0).cone = dusk_core::senses::Cone { cos: -10_000 };
+    w.spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0));
+    w.intent(
+        me,
+        Intent::Attack {
+            dir: Some(dusk_core::Dir8::S),
+        },
+    );
+    let harm = run(&mut w, 12).iter().find_map(|e| match *e {
+        Event::Struck { who, damage, .. } if who == me => Some(damage),
+        _ => None,
+    });
+    assert_eq!(harm, Some(187));
+    // A curse that's shown itself is on the card too: Clamorous, twice the noise.
+    let loud = Item {
+        magic: Magic {
+            curse_shown: true,
+            ..magic([MUFFLED, NONE], CLAMOROUS)
+        },
+        ..made(KNIFE, PLAIN)
+    };
+    assert_eq!(w.defs.card(&loud).unwrap().swing.noise, 20);
+}
+
+#[test]
+fn a_chests_weapons_are_made_well_or_badly_by_the_seed() {
+    let mut count = [0u32; 4];
+    for seed in 0..120 {
+        let (w, _) = field_of(seed, Vec::new());
+        let (again, _) = field_of(seed, Vec::new());
+        let knife = w.store(CHEST)[0];
+        assert_eq!(knife.quality, again.store(CHEST)[0].quality);
+        count[usize::from(knife.quality)] += 1;
+    }
+    assert!(
+        count.iter().all(|&n| n > 0),
+        "every grade turns up: {count:?}"
+    );
+    assert!(
+        count[usize::from(PLAIN)] > count[usize::from(CRUDE)],
+        "most are plain: {count:?}"
+    );
 }

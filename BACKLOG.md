@@ -50,6 +50,8 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - What you learned and the places you found carrying over to the next character; the holdouts remembering you; the revenant fighting the way you did (a bot trained on your play).
 
 **Items**
+- Weapons, after quality (2026-11-13; the user: "take inspiration from Diablo and PoE 2"): uniques (named, made by hand in data, each with one effect no property has: lifesteal, a kill igniting, cleave), dropped by rares, wights and barrows; then rares as Path of Exile's (more properties, made-up names, tiers by how deep or far out it was found); each class of weapon's own small edge (an axe's bleed, a mace against bone).
+- Quality on armour, tools and bags; making and mending raising it (a smith).
 - Attunement; the Lore skill and scrolls of identify; Very Rare and Legendary; a broken magic item kept, to be mended; magic on armour.
 - Making armour (a hide jerkin from the deer); armour wet and cold in the rain; the Fighter's talents for armour.
 - A sack carried in hand; a container's own capacity; a dropped bag's things taken one by one.

@@ -608,6 +608,49 @@ remove_noise = 5
 }
 
 #[test]
+fn quality_is_read_in_the_cores_units_and_odds_past_one_are_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let q = &data.defs.quality;
+    // The game's: crude, plain, fine, masterwork, worst first.
+    assert_eq!(q.names[1], "", "plain has no word");
+    assert!(
+        q.damage.windows(2).all(|d| d[0] < d[1]),
+        "better made, harder blows"
+    );
+    assert!(q.wear.windows(2).all(|w| w[0] > w[1]), "and slower to wear");
+    assert!(
+        q.chance[0] + q.chance[2] + q.chance[3] < 10_000,
+        "plain is left some"
+    );
+
+    let grades = "\n[quality]\n\
+        crude = { name = \"crude\", chance = 0.25, damage = 0.8, wear = 1.5, worth = 0.5 }\n\
+        plain = { damage = 1.0, wear = 1.0, worth = 1.0 }\n\
+        fine = { name = \"fine\", chance = 0.15, damage = 1.1, wear = 0.85, worth = 1.5 }\n\
+        masterwork = { name = \"masterwork\", chance = 0.05, damage = 1.25, wear = 0.6, worth = 3.0 }\n";
+    let rules = format!("{RULES}{grades}");
+    let mut files = test_files(PREFABS);
+    files[0].1 = &rules;
+    let q = load(&folder("quality", &files))
+        .unwrap()
+        .defs
+        .quality
+        .clone();
+    assert_eq!(q.chance, [2500, 0, 1500, 500]);
+    assert_eq!(q.damage, [800, 1000, 1100, 1250]);
+    assert_eq!(q.names[3], "masterwork");
+
+    let greedy = rules.replace("chance = 0.25", "chance = 0.9");
+    files[0].1 = &greedy;
+    let err = load(&folder("quality-odds", &files)).unwrap_err();
+    assert!(err.message.contains("more than 1"), "{err}");
+    let plain = rules.replace("plain = { damage", "plain = { chance = 0.1, damage");
+    files[0].1 = &plain;
+    let err = load(&folder("quality-plain", &files)).unwrap_err();
+    assert!(err.message.contains("quality.plain"), "{err}");
+}
+
+#[test]
 fn skill_levels_that_dont_rise_are_refused() {
     let flat = RULES.replace("levels = [5, 20, 50,", "levels = [5, 5, 50,");
     let mut files = test_files(PREFABS);

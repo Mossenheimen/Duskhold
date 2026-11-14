@@ -694,6 +694,8 @@ pub(crate) fn load_defs(
         // Filled in by the loader, from properties.toml and rules.toml's [magic].
         properties: Vec::new(),
         magic: dusk_core::MagicRules::default(),
+        // Filled in by the loader, from rules.toml's [quality].
+        quality: dusk_core::QualityRules::default(),
         // Filled in by the loader, from classes.toml and talents.toml, and spells.toml.
         classes: Vec::new(),
         talents: Vec::new(),

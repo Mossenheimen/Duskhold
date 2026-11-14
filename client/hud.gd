@@ -163,9 +163,11 @@ var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
 var _detail: PanelContainer  # a hovered moodle's or body part's detail
 var _detail_name: Label
 var _detail_lines: Label
+var _detail_lore: Label  # a magic thing's card: what its magic does
 var _hovered: Control  # what's under the mouse with a detail: a moodle's row, or the body
 var _hover_text := []  # its detail: [a title, its lines]
 var _hover_right := false  # the detail opens to its right (the body, at the left edge), else left
+var _hover_colour := Color(0, 0, 0, 0)  # its title's colour (a magic thing's card); none: the text's
 var _body: BodyView  # the body diagram, beside the bars
 var _body_part := -1  # the part of it hovered, -1 none
 var _hover_for := 0.0  # how long it's been there
@@ -251,6 +253,8 @@ func _process(delta: float) -> void:
 			_numbers[i].text = "%d / %d" % [roundi(bar.value), roundi(bar.max_value)]
 	# A moodle's detail, once the mouse has rested on it; placed each frame it shows, so a late
 	# layout can't leave it astray.
+	if _hovered != null and not is_instance_valid(_hovered):
+		_unhover()  # its row was rebuilt under the mouse (the pack's, as it changed)
 	if _hovered != null:
 		_hover_for += delta
 		if _hover_for >= Look.HOVER:
@@ -559,14 +563,30 @@ func _hover_part(part: int) -> void:
 
 ## The mouse came onto `control`, whose detail is `text` ([a title, its lines]): it shows once the
 ## mouse has rested there (Look.HOVER), or at once if that control's detail is up already (moving
-## from one part of the body to the next).
-func _hover_on(control: Control, text: Array, right: bool) -> void:
+## from one part of the body to the next). `colour`: the title's, if not the text's.
+func _hover_on(control: Control, text: Array, right: bool, colour := Color(0, 0, 0, 0)) -> void:
 	var showing := _detail.visible and _hovered == control
 	_hovered = control
 	_hover_text = text
 	_hover_right = right
+	_hover_colour = colour
 	if not showing:
 		_hover_for = 0.0
+
+
+## A thing's card, from the pack or within reach (bag.gd): shown as a moodle's detail is, `title`
+## in `colour` (its magic's), its lines under it, then `lore` (what its magic does) in LORE, to
+## the right of `control` or to its left. `now`: at once, not once the mouse has rested (a trial
+## run's --do=S:card).
+func hover_card(control: Control, title: String, lines: String, right: bool, colour: Color,
+		lore: String, now := false) -> void:
+	_hover_on(control, [title, lines, lore], right, colour)
+	if now:
+		_hover_for = Look.HOVER
+
+
+func unhover_card(control: Control) -> void:
+	_unhover(control)
 
 
 ## The mouse left `row` (if it's the hovered one), or, with none, the rows are being rebuilt.
@@ -597,7 +617,14 @@ func hover_worst_part() -> void:
 ## moodle's to its left, the body's to its right).
 func _show_detail() -> void:
 	_detail_name.text = _hover_text[0]
+	if _hover_colour.a > 0.0:
+		_detail_name.add_theme_color_override("font_color", _hover_colour)
+	else:
+		_detail_name.remove_theme_color_override("font_color")
 	_detail_lines.text = _hover_text[1]
+	_detail_lines.visible = _hover_text[1] != ""
+	_detail_lore.text = _hover_text[2] if _hover_text.size() > 2 else ""
+	_detail_lore.visible = _detail_lore.text != ""
 	_detail.visible = true
 	_detail.reset_size()
 	var rect := _hovered.get_global_rect()
@@ -631,6 +658,8 @@ func _build_detail() -> void:
 	lines.add_child(_detail_name)
 	_detail_lines = Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 	lines.add_child(_detail_lines)
+	_detail_lore = Look.text(Label.new(), Look.SMALL, Look.LORE)
+	lines.add_child(_detail_lore)
 	_detail.visible = false
 	add_child(_detail)
 

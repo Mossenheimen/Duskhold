@@ -141,6 +141,8 @@ pub enum Purpose {
     Glass = 29,
     /// The harm a fireball does each one in its burst (`spell.rs`).
     Burst = 30,
+    /// How well a weapon found was made (`quality.rs`).
+    Quality = 31,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

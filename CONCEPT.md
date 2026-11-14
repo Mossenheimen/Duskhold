@@ -423,6 +423,7 @@ One table of how things act on each other, written before the content, so the ga
 ## Loot
 
 - **Mundane items are most of the loot** (as in Zomboid): food, tools, bandages, materials, in qualities from crude to standard, fine and masterwork.
+  - *(built 2026-11-13, for weapons)* A weapon found is crude, plain, fine or masterwork (Diablo II's low-quality and superior weapons, Path of Exile's quality), apart from any magic it holds: a quarter crude, a seventh fine, one in twenty a masterwork, the rest plain (rules.toml's `[quality]`). Better made, its blows land harder, it wears slower and it's worth more; the word goes before its name ("a fine sword", "Keen masterwork axe"), seen at a glance as magic isn't. What you start with, make or buy is plain. Hovering a weapon shows its card: its numbers as made, what you know of its magic, and how it stands against the one in your hand.
 - **Magic items are few, and each one is better** (Diablo III's Loot 2.0). A magic item is an event, not noise.
   - A starting point for tuning: one early on, then one every day or two of play, with the rarer tiers farther out and deeper down.
   - They have D&D's rarities: Uncommon, Rare, Very Rare, Legendary, and Artifacts (boss uniques with a story).

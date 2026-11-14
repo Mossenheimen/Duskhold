@@ -31,6 +31,8 @@ pub struct Item {
     pub found: bool,
     /// What makes it magic, if anything (`magic.rs`).
     pub magic: crate::magic::Magic,
+    /// How well it was made (`quality.rs`): plain for anything not found.
+    pub quality: u8,
     /// In the bag on its carrier's back, not its pockets (`bag.rs`): only ever so in a pack.
     pub bagged: bool,
     /// A bag lying full: what's in it is `World::held`'s, under this number (0: empty).
@@ -46,6 +48,7 @@ impl Item {
             condition: NEW,
             found: false,
             magic: crate::magic::Magic::MUNDANE,
+            quality: crate::quality::PLAIN,
             bagged: false,
             holds: 0,
         }
@@ -203,6 +206,8 @@ pub struct Defs {
     /// Magic items' properties and curses, and how magic is rolled and learnt (`magic.rs`).
     pub properties: Vec<crate::magic::Property>,
     pub magic: crate::magic::MagicRules,
+    /// How well weapons found were made (`quality.rs`).
+    pub quality: crate::quality::QualityRules,
     /// The classes and their talents (`class.rs`). A character is the first class.
     pub classes: Vec<crate::class::Class>,
     pub talents: Vec<crate::class::Talent>,
@@ -254,6 +259,7 @@ impl Default for Defs {
             rare_names: Vec::new(),
             properties: Vec::new(),
             magic: crate::magic::MagicRules::default(),
+            quality: crate::quality::QualityRules::default(),
             classes: Vec::new(),
             talents: Vec::new(),
             spells: Vec::new(),
@@ -317,6 +323,7 @@ impl Defs {
                     && held.condition == item.condition
                     && held.found == item.found
                     && held.magic == item.magic
+                    && held.quality == item.quality
                     && held.bagged == item.bagged
                     && held.holds == item.holds;
                 if same && held.count < stack && left > 0 {
@@ -380,6 +387,16 @@ fn place_key(at: TilePos) -> u64 {
 }
 
 impl World {
+    /// Puts a thing in an actor's pack as it is, at once and whatever it weighs (a trial run's
+    /// `--give`, for pictures and checks; tools). False for no such actor.
+    pub fn give(&mut self, id: ActorId, item: Item) -> bool {
+        let Some(a) = self.actors.get_mut(id) else {
+            return false;
+        };
+        self.defs.stow(&mut a.items, item);
+        true
+    }
+
     /// What a tile holds: its container's contents (worked out from the seed if nobody has
     /// changed them), or what lies on its floor.
     pub fn store(&self, at: TilePos) -> Vec<Item> {
@@ -432,6 +449,13 @@ impl World {
             if count > 0 {
                 let mut item = Item::found(entry.item, count);
                 item.condition = condition;
+                // A weapon was made well or badly (`quality.rs`).
+                if matches!(
+                    self.defs.item(entry.item).map(|d| &d.kind),
+                    Some(ItemKind::Weapon { .. })
+                ) {
+                    item.quality = self.defs.quality.roll(r(k, Purpose::Quality));
+                }
                 // Now and then, what's drawn is magic (`magic.rs`).
                 if entry.magic > 0 && below(r(k, Purpose::Magic), 10_000) < entry.magic {
                     item.magic = self.defs.roll_magic(&item, self.magic_roll(key, k));

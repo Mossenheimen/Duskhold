@@ -18,6 +18,7 @@
 use crate::actor::ActorId;
 use crate::hash::{Purpose, below, roll};
 use crate::items::{Defs, Item, ItemKind};
+use crate::skills::Skill;
 use crate::world::{Event, Swing, World};
 
 /// No property in this slot.
@@ -71,6 +72,15 @@ impl Default for Magic {
     fn default() -> Magic {
         Magic::MUNDANE
     }
+}
+
+/// A weapon as its card shows it (`Defs::card`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Card {
+    pub swing: Swing,
+    pub skill: Option<Skill>,
+    /// The condition a blow takes off it, out of `items::NEW`.
+    pub wear: u32,
 }
 
 /// A property (or a curse): what it does, in the core's units. Per mille is 1000 for none.
@@ -153,9 +163,12 @@ impl Defs {
             .filter_map(|p| self.properties.get(usize::from(p)))
     }
 
-    /// What an item is worth: its kind's, and more for magic.
+    /// What an item is worth: its kind's, as well or badly as it was made, and more for magic.
     pub fn worth(&self, item: &Item) -> u32 {
-        let base = self.item(item.def).map_or(0, |d| d.worth);
+        let base = per(
+            self.item(item.def).map_or(0, |d| d.worth),
+            self.quality.worth_of(item.quality),
+        );
         let more = match item.magic.rarity {
             0 => 0,
             r => self.magic.worth[usize::from(r.min(2)) - 1],
@@ -166,10 +179,15 @@ impl Defs {
     /// What an item is called, as far as you know it: "cudgel", "cudgel (magic, unknown)",
     /// "Muffled Keen cudgel", with its curse's word once it's shown.
     pub fn label(&self, item: &Item) -> String {
-        let name = self.item(item.def).map_or("something", |d| d.name.as_str());
+        let kind = self.item(item.def).map_or("something", |d| d.name.as_str());
+        // How well it was made goes first: "fine sword", "Keen fine sword".
+        let name = match self.quality.name_of(item.quality) {
+            "" => kind.to_string(),
+            made => format!("{made} {kind}"),
+        };
         let m = item.magic;
         if !m.is_magic() {
-            return name.to_string();
+            return name;
         }
         if !m.known {
             let curse = if m.cursed() && m.curse_shown {
@@ -203,6 +221,56 @@ impl Defs {
             }
         }
         out
+    }
+
+    /// A weapon's swing as it was made (its quality's harm) and as its magic changes it: every
+    /// property it has, or (`known_only`) those you know, as its card shows them (a curse once it
+    /// has shown itself).
+    pub fn made_swing(&self, item: &Item, mut swing: Swing, known_only: bool) -> Swing {
+        let made = self.quality.damage_of(item.quality);
+        swing.damage = (
+            per(swing.damage.0.max(0) as u32, made) as i32,
+            per(swing.damage.1.max(0) as u32, made) as i32,
+        );
+        let m = item.magic;
+        for p in self.properties_of(item) {
+            if known_only && !m.known && !(p.curse && m.curse_shown) {
+                continue;
+            }
+            swing.noise = per(swing.noise.max(0) as u32, p.noise) as i32;
+            swing.damage = (
+                per(swing.damage.0.max(0) as u32, p.damage) as i32,
+                per(swing.damage.1.max(0) as u32, p.damage) as i32,
+            );
+            swing.wind_up = per(swing.wind_up, p.swing).max(1);
+            swing.recovery = per(swing.recovery, p.swing);
+            swing.hit = (swing.hit as i32 + p.hit).clamp(0, 10_000) as u32;
+        }
+        swing
+    }
+
+    /// How fast a weapon wears, per mille: by its quality and its properties (`known_only`: those
+    /// you know, as on its card).
+    pub fn made_wear(&self, item: &Item, known_only: bool) -> u32 {
+        let m = item.magic;
+        self.properties_of(item)
+            .filter(|p| !known_only || m.known || (p.curse && m.curse_shown))
+            .fold(self.quality.wear_of(item.quality), |w, p| per(w, p.wear))
+    }
+
+    /// A weapon as its card shows it (the client's, on hover): its swing as made and as far as you
+    /// know its magic, the skill it trains, and the condition a blow takes off it (out of
+    /// `items::NEW`), before skill makes any of it better. None for what isn't a weapon.
+    pub fn card(&self, item: &Item) -> Option<Card> {
+        let Some(ItemKind::Weapon { swing, wear, skill }) = self.item(item.def).map(|d| &d.kind)
+        else {
+            return None;
+        };
+        Some(Card {
+            swing: self.made_swing(item, *swing, true),
+            skill: *skill,
+            wear: per(u32::from(*wear), self.made_wear(item, true)),
+        })
     }
 
     /// A magic item for a loot table's line, by a roll's key: its rarity, its properties (that
@@ -248,26 +316,14 @@ impl Defs {
 }
 
 impl World {
-    /// A swing as the weapon's properties change it.
-    pub(crate) fn magic_swing(&self, item: &Item, mut swing: Swing) -> Swing {
-        for p in self.defs.properties_of(item) {
-            swing.noise = per(swing.noise.max(0) as u32, p.noise) as i32;
-            swing.damage = (
-                per(swing.damage.0.max(0) as u32, p.damage) as i32,
-                per(swing.damage.1.max(0) as u32, p.damage) as i32,
-            );
-            swing.wind_up = per(swing.wind_up, p.swing).max(1);
-            swing.recovery = per(swing.recovery, p.swing);
-            swing.hit = (swing.hit as i32 + p.hit).clamp(0, 10_000) as u32;
-        }
-        swing
+    /// A swing as the weapon was made and as its properties change it, all of them.
+    pub(crate) fn magic_swing(&self, item: &Item, swing: Swing) -> Swing {
+        self.defs.made_swing(item, swing, false)
     }
 
-    /// How fast a weapon wears, per mille, by its properties.
+    /// How fast a weapon wears, per mille, by its quality and its properties.
     pub(crate) fn magic_wear(&self, item: &Item) -> u32 {
-        self.defs
-            .properties_of(item)
-            .fold(1000, |w, p| per(w, p.wear))
+        self.defs.made_wear(item, false)
     }
 
     /// Whether the weapon in `id`'s hand is Hallowed: what it puts down stays down.

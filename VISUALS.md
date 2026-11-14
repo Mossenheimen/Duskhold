@@ -454,6 +454,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - Name ×count, weight, then the actions on the right.
   - A find carries a small `signal.gold` dot until it's brought home.
   - A magic item's name is in its rarity's colour, with the rarity in words on hover.
+  - Hovering a weapon or a magic item opens its card (Tooltip, below).
   - Condition shows under 100%, and freshness for food.
   - The rows group by kind (weapons, food and drink, cures, light, materials), and sort by kind, weight or name.
 - **Moodle:**
@@ -484,6 +485,12 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - It never hides what it describes.
 
   **Today** (2026-11-12): the moodles' detail is the first. It's our own panel rather than Godot's tooltip, so it takes `ui.panel` and opens beside its row, to the left. Godot's own delay (`gui/timers/tooltip_delay_sec`) is 0.4 s too, for any built-in tooltip later.
+
+  **A thing's card** (2026-11-13, `bag.gd` through the HUD's panel): a weapon's line, or a magic thing's, in the pack or within reach. It opens to the pack's left, and to the right of what's within reach, so it never covers the panel it came from.
+  - Its title is the name as far as you know it ("Keen Swift masterwork arming sword"), in its rarity's colour.
+  - A weapon's numbers, as it was made and as far as you know its magic, before your skill: harm, a blow's pace, the chance it lands, its noise and breath, its wear and condition, and the skill it trains. Then how well it was made, in words, and how it stands against the weapon in your hand ("Against your cudgel: 15.3 more harm, 0.3 s quicker"), in words, not green and red.
+  - What it pays as a find.
+  - What its magic does, in `signal.lore`: its rarity in words, then each property's line. These were lines under the row; now the pack stays one line a thing.
 - **Icons:**
   - SVG on a 64 × 64 canvas: a solid white silhouette, no text inside, legible at 32 px.
   - Moodles get a glyph each, and items get a glyph by kind until they have models; then each item's icon is drawn from its own model (§16).
@@ -626,6 +633,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A fireball flying (its trail, the ember ring where it lands; the spot three tiles east is under trees) | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=3.75` |
 | A Wizard's words: the arcane glow and its motes | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=2.6` |
 | A Cleric kneeling in prayer at the abbey's altar, glowing holy | `--seed=7 --hour=22 --class=cleric --walk=74,114 --do=9:use --shot=PNG --shot-after=12` |
+| A weapon's card: a masterwork Rare sword in the pack, set against the cudgel in hand | `--seed=7 --hour=12 --give=sword:masterwork:keen+swift,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
 | A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power4 --shot=PNG --shot-after=2` |
 | The lasting spells at night, alive: a Light inside a Fog, a Silence round them | `--seed=7 --hour=22 --class=wizard --aim=0,4 --do=1:cast_light,3.5:cast_silence,6.5:cast_fog --shot=PNG --shot-after=10` |
 
