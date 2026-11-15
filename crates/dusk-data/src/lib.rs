@@ -451,6 +451,22 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
                 ),
             ));
         }
+        // And a magic chance, an item that takes properties: a weapon, a light, armour.
+        if let Some(e) = t
+            .entries
+            .iter()
+            .find(|e| e.magic > 0 && defs.fits(e.item).is_none())
+        {
+            let item = &defs.items[usize::from(e.item)].id;
+            return Err(fail(
+                &dir.join("loot"),
+                format!(
+                    "loot {:?}: a magic chance on {item:?}, which takes no properties (only a \
+                     weapon, a light or armour does)",
+                    t.id
+                ),
+            ));
+        }
     }
     // The spells before the classes: a class knows some of them.
     defs.spells = spells::load(dir, &defs)?;

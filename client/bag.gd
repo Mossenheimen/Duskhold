@@ -124,11 +124,12 @@ func refresh(busy: bool, dead: bool) -> void:
 	var rarity: PackedInt32Array = _dusk.character_rarity()
 	var shield: PackedInt32Array = _dusk.character_shield()
 	var worn: PackedInt32Array = _dusk.character_worn()
+	var worn_labels: PackedStringArray = _dusk.worn_labels()
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
 	var bagged: PackedInt32Array = _dusk.character_bagged()
 	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn,
-		bag, pockets, bagged]
+		worn_labels, bag, pockets, bagged]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -228,13 +229,19 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		var row := _row(_pack, "On your arm: %s (%d%%)  ·  hold right-click to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
 		_button(row, "Put away", func() -> void: _dusk.unshield())
 		_mine(row, -1, shield[0])
-	# What you wear (armour.rs): with nothing in hand, the first piece takes the Mend button.
+	# What you wear (armour.rs), called as far as you know it and in its magic's colour
+	# (DuskWorld.worn_labels(): a name and a rarity code a piece); with nothing in hand, the first
+	# piece takes the Mend button.
 	var worn: PackedInt32Array = _dusk.character_worn()
+	var called: PackedStringArray = _dusk.worn_labels()
 	var piece := -1
 	for i in range(0, worn.size(), STACK):
 		piece += 1
 		var def := worn[i]
-		var row := _row(_pack, "Worn: %s (%d%%)  ·  %s" % [_name(def), roundi(worn[i + 2] / 10.0), _places(def)])
+		var piece_name := called[piece * 2] if piece * 2 + 1 < called.size() else _name(def)
+		var row := _row(_pack, "Worn: %s (%d%%)  ·  %s" % [piece_name, roundi(worn[i + 2] / 10.0), _places(def)])
+		if piece * 2 + 1 < called.size():
+			_tint(row, PackedInt32Array([int(called[piece * 2 + 1])]), 0)
 		_button(row, "Take off", func() -> void: _dusk.take_off(piece, def))
 		if trading and piece == 0 and hands.size() < 2:
 			var cost: int = _dusk.mend_check(counter[0], counter[1])
@@ -382,15 +389,15 @@ func _hover(row: HBoxContainer, what: Callable, right: bool, now := false) -> St
 	return " | ".join(words)
 
 
-## --do=S:card: the card of a weapon in the pack, set against the one in hand, or else the hand's,
-## as if hovered; its words, or "" for none.
+## --do=S:card: the card of a weapon in the pack, set against the one in hand; else of armour in
+## the pack, against what's worn there; else the hand's: as if hovered. Its words, or "" for none.
 func card_first() -> String:
 	var standing := func(c: Array) -> bool:
 		return is_instance_valid(c[0]) and not (c[0] as Node).is_queued_for_deletion()
 	_cards = _cards.filter(standing)
-	for pack in [true, false]:
+	for kind: int in [Item.WEAPON, Item.ARMOUR, -1]:
 		for c: Array in _cards:
-			var here: bool = (c[3] >= 2 and _kind(c[4]) == Item.WEAPON) if pack else (c[3] == 0)
+			var here: bool = (c[3] >= 2 and _kind(c[4]) == kind) if kind >= 0 else (c[3] == 0)
 			if here:
 				var shown := _hover(c[0], c[1], c[2], true)
 				if shown != "":

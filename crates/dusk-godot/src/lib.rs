@@ -2876,6 +2876,23 @@ impl DuskWorld {
         PackedInt32Array::from(&out[..])
     }
 
+    /// What each piece you wear is called, as far as you know it (as `character_labels`), and its
+    /// magic (as `character_rarity` codes it): two to a piece, by `character_worn`'s order.
+    #[func]
+    fn worn_labels(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return PackedStringArray::new();
+        };
+        a.worn
+            .iter()
+            .flat_map(|i| [world.defs.label(i), rarity_code(i).to_string()])
+            .map(|s| GString::from(s.as_str()))
+            .collect()
+    }
+
     /// The places each actor's armour covers, by its index in the actor arrays, as
     /// `item_covers`' bits (for drawing it).
     #[func]

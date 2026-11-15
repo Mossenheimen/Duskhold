@@ -876,13 +876,13 @@ fn the_games_magic_has_properties_for_weapons_and_lights_and_curses_among_them()
     let weapon = |curse: bool| {
         d.properties
             .iter()
-            .filter(|p| !p.on_light && p.curse == curse)
+            .filter(|p| p.fits == dusk_core::Fits::Weapon && p.curse == curse)
             .count()
     };
     let light = |curse: bool| {
         d.properties
             .iter()
-            .filter(|p| p.on_light && p.curse == curse)
+            .filter(|p| p.fits == dusk_core::Fits::Light && p.curse == curse)
             .count()
     };
     // A Rare weapon has two properties, so it needs at least two to choose from.
@@ -2115,36 +2115,37 @@ items = [{ item = "club", weight = 1, unique = 0.1 }]
 fn the_games_properties_come_in_families_of_three_tiers_and_rares_have_names() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let d = &data.defs;
-    let mut families: Vec<&str> = d
+    // A family is a kind's: armour's "might" is its own, as a weapon's is.
+    let key = |p: &dusk_core::Property| (p.fits as u8, p.family_of().to_string());
+    let mut families: Vec<(u8, String)> = d
         .properties
         .iter()
         .filter(|p| p.tier > 0)
-        .map(|p| p.family_of())
+        .map(key)
         .collect();
     families.sort_unstable();
     // A family of one has a tier of its own (Hallowed: the second); the rest have three.
     families.dedup();
-    let many: Vec<&str> = families
-        .iter()
-        .copied()
-        .filter(|f| d.properties.iter().filter(|p| p.family_of() == *f).count() > 1)
+    let many: Vec<(u8, String)> = families
+        .into_iter()
+        .filter(|f| d.properties.iter().filter(|p| key(p) == *f).count() > 1)
         .collect();
-    assert!(many.len() >= 6, "{many:?}");
+    assert!(many.len() >= 13, "{many:?}");
     for f in &many {
         let mut tiers: Vec<u8> = d
             .properties
             .iter()
-            .filter(|p| p.family_of() == *f)
+            .filter(|p| key(p) == *f)
             .map(|p| p.tier)
             .collect();
         tiers.sort_unstable();
-        assert_eq!(tiers, vec![1, 2, 3], "{f}");
+        assert_eq!(tiers, vec![1, 2, 3], "{f:?}");
     }
     // A Rare's three or four need as many families of a weapon's at the first tier.
     let first: Vec<&str> = d
         .properties
         .iter()
-        .filter(|p| !p.on_light && !p.curse && p.tier <= 1)
+        .filter(|p| p.fits == dusk_core::Fits::Weapon && !p.curse && p.tier <= 1)
         .map(|p| p.family_of())
         .collect();
     assert!(first.len() >= 4);
@@ -2166,7 +2167,7 @@ fn a_fourth_tier_counts_out_of_order_and_an_empty_word_list_are_refused() {
         on = \"weapon\"\nfamily = \"harm\"\ntier = 2\ndamage = 1.5\n";
     let names = "given = [\"Edda\"]\nfamily = [\"Marsh\"]\n[things]\nfirst = [\"Grim\"]\n\
         blade = [\"Edge\"]\nblunt = [\"Knell\"]\naxe = [\"Bite\"]\nspear = [\"Thorn\"]\n\
-        weapon = [\"Brand\"]\nlight = [\"Glim\"]\n";
+        weapon = [\"Brand\"]\nlight = [\"Glim\"]\narmour = [\"Hide\"]\n";
     let try_with = |name: &str, magic: &str, properties: &str, names: &str| {
         let rules = format!("{RULES}{magic}");
         let mut files = test_files(PREFABS);
@@ -2412,6 +2413,116 @@ fn a_property_raising_no_such_skill_harm_out_of_order_or_doing_nothing_is_refuse
     .enumerate()
     {
         let err = try_with(&format!("bad-property-{n}"), &bad).unwrap_err();
+        assert!(err.message.contains(why), "{err}");
+    }
+}
+
+#[test]
+fn the_games_armour_is_made_well_or_badly_and_its_magic_is_numbers_on_its_card() {
+    use dusk_core::magic::Magic;
+    use dusk_core::quality::MASTERWORK;
+    use dusk_core::{CardStyle, Fits, Item, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = data.defs.clone();
+    let w = World::with_defs(1, data.rules, d.clone());
+    let def = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let prop = |id: &str| d.properties.iter().position(|p| p.id == id).unwrap() as u8;
+    // Armour has families of its own, and curses.
+    let armour = |curse: bool| {
+        d.properties
+            .iter()
+            .filter(|p| p.fits == Fits::Armour && p.curse == curse)
+            .count()
+    };
+    assert!(armour(false) >= 4 * 3 && armour(true) >= 1);
+    // A masterwork Rare iron helm, known: its turning changed (never past 95%), its making and
+    // its properties as numbers, and a made-up name for armour.
+    let helm = def("iron_helm");
+    let mut magic = Magic {
+        rarity: 2,
+        known: true,
+        curse_shown: true,
+        ..Magic::MUNDANE
+    };
+    for (k, id) in ["warded", "fleeced", "powerful", "fleet"]
+        .iter()
+        .enumerate()
+    {
+        magic.props[k] = prop(id);
+    }
+    magic.name = d.roll_name(helm, |k| k);
+    let item = Item {
+        quality: MASTERWORK,
+        magic,
+        ..Item::new(helm, 1)
+    };
+    let card = w.card(&item, None);
+    let line = |name: &str| {
+        let l = card.iter().find(|l| l.text == name).unwrap();
+        (l.style, l.value.as_str())
+    };
+    assert_eq!(line("Turns scratches"), (CardStyle::Changed, "95%"));
+    assert_eq!(line("Turns bites"), (CardStyle::Changed, "80%"));
+    assert_eq!(line("Warmth"), (CardStyle::Changed, "8"));
+    let mods: Vec<(&str, &str)> = card
+        .iter()
+        .filter(|l| l.style == CardStyle::Mod)
+        .map(|l| (l.text.as_str(), l.value.as_str()))
+        .collect();
+    assert_eq!(
+        mods,
+        [
+            ("+10% chance to turn blows", "Masterwork"),
+            ("-40% wear", "Masterwork"),
+            ("+10% chance to turn blows", "Warded II"),
+            ("+6 warmth", "Fleeced II"),
+            ("+2 to Strength", "Powerful II"),
+            ("+2 to Athletics", "Fleet II"),
+        ]
+    );
+    let title = &card[0].text;
+    let kind = &card[1].text;
+    assert!(
+        d.thing_names.second[6]
+            .iter()
+            .any(|w| title.ends_with(w.as_str())),
+        "{title}"
+    );
+    assert_eq!(kind, "Masterwork iron helm");
+}
+
+#[test]
+fn armour_taking_a_weapons_property_or_a_weapon_armours_is_refused() {
+    let magic = "\n[magic]\nrare = 0.3\ncursed = 0.2\nworth = [20, 50, 150]\nlearn = 15\n\
+        count = [[1, 2], [3, 4]]\nfar = [60, 140]\n";
+    let try_with = |name: &str, properties: &str| {
+        let rules = format!("{RULES}{magic}");
+        let mut files = test_files(PREFABS);
+        files[0].1 = &rules;
+        files.push(("properties.toml", properties));
+        load(&folder(name, &files))
+    };
+    let good = "[[property]]\nid = \"warded\"\nname = \"Warded\"\non = \"armour\"\n\
+        ward = 0.1\nwarmth = 3\nskill = \"stealth\"\nlevels = 1\n";
+    let d = try_with("armour-kinds", good).unwrap().defs;
+    let p = &d.properties[0];
+    assert_eq!(
+        (p.fits, p.ward, p.warmth),
+        (dusk_core::Fits::Armour, 1000, 3000)
+    );
+    for (n, (bad, why)) in [
+        (good.replace("\"stealth\"", "\"own\""), "armour's"),
+        (good.replace("ward = 0.1", "damage = 1.5"), "armour's"),
+        (
+            good.replace("on = \"armour\"", "on = \"weapon\""),
+            "armour's",
+        ),
+        (good.replace("ward = 0.1", "ward = 0.9"), "ward"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let err = try_with(&format!("bad-armour-{n}"), &bad).unwrap_err();
         assert!(err.message.contains(why), "{err}");
     }
 }

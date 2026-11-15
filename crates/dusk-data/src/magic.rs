@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
-use dusk_core::{Defs, ItemKind, MagicRules, Property, QualityRules, Raises, Skill, Unique};
+use dusk_core::{Defs, Fits, ItemKind, MagicRules, Property, QualityRules, Raises, Skill, Unique};
 use serde::Deserialize;
 
 use crate::{DataError, check_unique, fail, read};
@@ -28,7 +28,8 @@ struct PropertyFile {
     name: String,
     #[serde(default)]
     line: String,
-    /// "weapon" (in hand) or "light" (held up); a unique's effect is a weapon's, and needn't say.
+    /// "weapon" (in hand), "light" (held up) or "armour" (worn); a unique's effect is a weapon's,
+    /// and needn't say.
     #[serde(default)]
     on: String,
     /// Its family (left out: its own), and its tier in it, 1 to 3 (left out: none, found
@@ -96,6 +97,14 @@ struct PropertyFile {
     fire: (f64, f64),
     #[serde(default)]
     holy: (f64, f64),
+    /// Armour's, worn: a chance added to turn every kind of blow (0 to 0.5), warmth added (in
+    /// points), and tiles added to every footstep (a curse's: mail that clanks).
+    #[serde(default)]
+    ward: f64,
+    #[serde(default)]
+    warmth: f64,
+    #[serde(default)]
+    steps: i32,
 }
 
 /// `uniques.toml`: weapons made by hand, each with a name of its own.
@@ -198,8 +207,9 @@ pub(crate) struct QualityFile {
     masterwork: GradeFile,
 }
 
-/// A grade: its word before a name ("" for plain), the chance a weapon found is of it (plain's is
-/// what's left, so it has none), and multipliers on its harm, its wear and its worth.
+/// A grade: its word before a name ("" for plain), the chance a weapon or a piece of armour found
+/// is of it (plain's is what's left, so it has none), multipliers on its harm, its wear and its
+/// worth, and the chance added to armour's turning a blow (-0.5 to 0.5; left out, none).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct GradeFile {
@@ -210,6 +220,8 @@ struct GradeFile {
     damage: f64,
     wear: f64,
     worth: f64,
+    #[serde(default)]
+    turn: f64,
 }
 
 pub(crate) fn quality(file: &Path, q: &QualityFile) -> Result<QualityRules, DataError> {
@@ -239,6 +251,9 @@ pub(crate) fn quality(file: &Path, q: &QualityFile) -> Result<QualityRules, Data
         if !(0.0..=100.0).contains(&g.worth) {
             return Err(bad("worth is a multiplier from 0 to 100"));
         }
+        if !(-0.5..=0.5).contains(&g.turn) {
+            return Err(bad("turn is a chance added, from -0.5 to 0.5"));
+        }
         odds += g.chance;
         let per = |m: f64| (m * 1000.0).round() as u32;
         out.names[n] = g.name.trim().to_string();
@@ -246,6 +261,7 @@ pub(crate) fn quality(file: &Path, q: &QualityFile) -> Result<QualityRules, Data
         out.damage[n] = per(g.damage);
         out.wear[n] = per(g.wear);
         out.worth[n] = per(g.worth);
+        out.turn[n] = (g.turn * 10_000.0).round() as i32;
     }
     if odds > 1.0 + 1e-9 {
         return Err(fail(
@@ -273,18 +289,20 @@ pub(crate) fn load(dir: &Path) -> Result<Vec<Property>, DataError> {
         if p.id.trim().is_empty() {
             return Err(fail(&file, "a property needs an id"));
         }
-        let on_light = match p.on.as_str() {
-            "weapon" => false,
-            "light" => true,
-            _ => return Err(bad("on is \"weapon\" or \"light\"")),
+        let fits = match p.on.as_str() {
+            "weapon" => Fits::Weapon,
+            "light" => Fits::Light,
+            "armour" => Fits::Armour,
+            _ => return Err(bad("on is \"weapon\", \"light\" or \"armour\"")),
         };
-        out.push(to_property(p, on_light).map_err(|m| bad(&m))?);
+        out.push(to_property(p, fits).map_err(|m| bad(&m))?);
     }
     Ok(out)
 }
 
 /// A property (or a unique's effect) in the core's units, or what's wrong with it.
-fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
+fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
+    let on_light = fits == Fits::Light;
     let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance];
     if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
         return Err(
@@ -329,6 +347,33 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
     if on_light && (body || p.fire.1 > 0.0 || p.holy.1 > 0.0) {
         return Err("strength, fitness, skill, fire and holy are a weapon's".into());
     }
+    if !(0.0..=0.5).contains(&p.ward) || !(-30.0..=30.0).contains(&p.warmth) {
+        return Err("ward is a chance from 0 to 0.5, warmth -30 to 30 points".into());
+    }
+    if !(-5..=5).contains(&p.steps) {
+        return Err("steps are tiles, -5 to 5".into());
+    }
+    let worn = p.ward > 0.0 || p.warmth != 0.0 || p.steps != 0;
+    if worn && fits != Fits::Armour {
+        return Err("ward, warmth and steps are armour's".into());
+    }
+    // Armour takes the body, a skill by name, its own numbers, and slower wear; what's a blow's or
+    // a light's isn't its.
+    let swung = [p.noise, p.damage, p.swing, p.wane, p.endurance]
+        .iter()
+        .any(|&m| m != 1.0)
+        || p.hit != 0.0
+        || p.glow != 0
+        || p.hallowed
+        || effect
+        || p.hearten > 0.0
+        || p.fire.1 > 0.0
+        || p.holy.1 > 0.0;
+    if fits == Fits::Armour && (swung || raises == Raises::Own) {
+        return Err(
+            "armour's are ward, warmth, steps, wear, strength, fitness and a skill by name".into(),
+        );
+    }
     let numbers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance]
         .iter()
         .any(|&m| m != 1.0)
@@ -339,7 +384,8 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         || p.hearten > 0.0
         || body
         || p.fire.1 > 0.0
-        || p.holy.1 > 0.0;
+        || p.holy.1 > 0.0
+        || worn;
     if p.line.trim().is_empty() && !numbers {
         return Err("a property does something: numbers, or a line in words".into());
     }
@@ -352,7 +398,7 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         line: p.line.trim().to_string(),
         family: p.family.trim().to_string(),
         tier: p.tier,
-        on_light,
+        fits,
         curse: p.curse,
         noise: per(p.noise),
         damage: per(p.damage),
@@ -375,6 +421,9 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         levels: p.levels,
         fire: points(p.fire),
         holy: points(p.holy),
+        ward: chance(p.ward),
+        warmth: (p.warmth * 1000.0).round() as i32,
+        steps: p.steps,
     })
 }
 
@@ -412,7 +461,7 @@ pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError>
             let n = defs
                 .properties
                 .iter()
-                .position(|p| &p.id == id && !p.on_light)
+                .position(|p| &p.id == id && p.fits == Fits::Weapon)
                 .ok_or_else(|| {
                     bad(&format!(
                         "{id:?} is no weapon's property in properties.toml"
@@ -430,7 +479,7 @@ pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError>
         if e.name.trim().is_empty() || e.line.trim().is_empty() {
             return Err(bad("its effect needs a name and a line"));
         }
-        let mut effect = to_property(e, false).map_err(|m| bad(&format!("effect: {m}")))?;
+        let mut effect = to_property(e, Fits::Weapon).map_err(|m| bad(&format!("effect: {m}")))?;
         effect.id = u.id.clone();
         out.push(Unique {
             id: u.id.clone(),

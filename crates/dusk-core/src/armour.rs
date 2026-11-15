@@ -74,10 +74,11 @@ fn per(n: u32, x: u32) -> u32 {
 }
 
 impl World {
-    /// A piece's numbers, if its definition is armour.
+    /// A piece's numbers, if its definition is armour: as it was made, and as its magic changes
+    /// them, known or not (`Defs::made_armour`).
     fn armour_of(&self, item: &Item) -> Option<Armour> {
         match self.defs.item(item.def)?.kind {
-            ItemKind::Armour(a) => Some(a),
+            ItemKind::Armour(a) => Some(self.defs.made_armour(item, a, false)),
             _ => None,
         }
     }
@@ -258,6 +259,8 @@ impl World {
         }
         if self.don(id, item) {
             self.events.push(Event::Wore { who: id, item: def });
+            // Put on, a magic piece shows what it does (`magic.rs`).
+            self.know_piece(id);
         }
     }
 

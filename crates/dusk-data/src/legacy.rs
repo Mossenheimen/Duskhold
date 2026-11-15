@@ -32,6 +32,7 @@ struct ThingsFile {
     spear: Vec<String>,
     weapon: Vec<String>,
     light: Vec<String>,
+    armour: Vec<String>,
 }
 
 /// rules.toml's `[revenant]`.
@@ -62,11 +63,13 @@ pub(crate) fn load(
             return Err(fail(&file, "rare names: sensibly many"));
         }
         if let Some(t) = names.things {
-            let lists = [t.first, t.blade, t.blunt, t.axe, t.spear, t.weapon, t.light];
+            let lists = [
+                t.first, t.blade, t.blunt, t.axe, t.spear, t.weapon, t.light, t.armour,
+            ];
             if lists.iter().any(|l| l.is_empty() || l.len() >= 255) {
                 return Err(fail(
                     &file,
-                    "things: first, blade, blunt, axe, spear, weapon and light, each 1 to 254 words",
+                    "things: first, blade, blunt, axe, spear, weapon, light and armour, each 1 to                      254 words",
                 ));
             }
             let [first, second @ ..] = lists;

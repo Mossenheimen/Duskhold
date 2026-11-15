@@ -462,10 +462,10 @@ impl World {
             if count > 0 {
                 let mut item = Item::found(entry.item, count);
                 item.condition = condition;
-                // A weapon was made well or badly (`quality.rs`).
+                // A weapon or a piece of armour was made well or badly (`quality.rs`).
                 if matches!(
                     self.defs.item(entry.item).map(|d| &d.kind),
-                    Some(ItemKind::Weapon { .. })
+                    Some(ItemKind::Weapon { .. } | ItemKind::Armour(_))
                 ) {
                     item.quality = self.defs.quality.roll(r(k, Purpose::Quality));
                 }

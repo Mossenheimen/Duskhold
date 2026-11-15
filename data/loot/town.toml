@@ -17,9 +17,9 @@ items = [
 id = "anvil"          # the smith's last work, left on the anvil: always a piece of armour
 rolls = [1, 1]
 items = [
-  { item = "mail_shirt", weight = 1 },
-  { item = "iron_helm", weight = 1 },
-  { item = "leather_bracers", weight = 1 },
+  { item = "mail_shirt", weight = 1, magic = 0.2 },
+  { item = "iron_helm", weight = 1, magic = 0.2 },
+  { item = "leather_bracers", weight = 1, magic = 0.2 },
 ]
 
 [[loot]]

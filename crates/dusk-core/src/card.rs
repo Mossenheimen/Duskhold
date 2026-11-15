@@ -24,7 +24,7 @@ use crate::archery::Ranged;
 use crate::armour::Armour;
 use crate::body::Group;
 use crate::items::{Defs, Item, ItemKind, NEW};
-use crate::magic::{Property, Raises};
+use crate::magic::{Fits, Property, Raises};
 use crate::quality::PLAIN;
 use crate::shield::Guard;
 use crate::world::{Swing, TICKS_PER_SECOND, World};
@@ -169,6 +169,12 @@ fn share(n: u32) -> String {
     format!("{}%", number(f64::from(n) / 100.0, 1))
 }
 
+/// Out of 10,000, signed: "+10%", "-5%".
+fn signed_share(n: i32) -> String {
+    let sign = if n < 0 { "-" } else { "+" };
+    format!("{sign}{}", share(n.unsigned_abs()))
+}
+
 /// Per mille, as a share: "15%", "0.5%".
 fn mille(n: u32) -> String {
     format!("{}%", number(f64::from(n) / 10.0, 1))
@@ -264,8 +270,9 @@ fn tag(p: &Property) -> String {
     }
 }
 
-/// Where a property's lines go among the others: its harm first, then its pace and aim, the body
-/// and skills, then the rest (Path of Exile's order, roughly).
+/// Where a property's lines go among the others: a weapon's harm first, then its pace and aim, or
+/// armour's turning and warmth; then the body and skills, then the rest (Path of Exile's order,
+/// roughly).
 fn order(p: &Property) -> u8 {
     let does = [
         p.damage != 1000,
@@ -273,10 +280,13 @@ fn order(p: &Property) -> u8 {
         p.holy.1 > 0,
         p.swing != 1000,
         p.hit != 0,
+        p.ward > 0,
+        p.warmth != 0,
         p.strength > 0,
         p.fitness > 0,
         p.levels > 0,
         p.endurance != 1000,
+        p.steps != 0,
         p.noise != 1000,
         p.wear != 1000,
         p.glow != 0,
@@ -341,8 +351,21 @@ impl Defs {
         if p.wear != 1000 {
             out.push(format!("{} wear", pct(p.wear)));
         }
+        if p.ward > 0 {
+            out.push(format!("+{} chance to turn blows", share(p.ward)));
+        }
+        if p.warmth != 0 {
+            let warmer = number(f64::from(p.warmth.unsigned_abs()) / 1000.0, 1);
+            let sign = if p.warmth < 0 { "-" } else { "+" };
+            out.push(format!("{sign}{warmer} warmth"));
+        }
+        if p.steps != 0 {
+            let sign = if p.steps < 0 { "-" } else { "+" };
+            let by = tiles(p.steps.abs());
+            out.push(format!("{sign}{by} to every footstep"));
+        }
         if p.glow != 0 {
-            out.push(if p.on_light {
+            out.push(if p.fits == Fits::Light {
                 format!("+{} of light", tiles(p.glow))
             } else {
                 format!("Lights {} round you", tiles(p.glow))
@@ -527,7 +550,8 @@ impl World {
     }
 
     /// A piece of armour's numbers: where it goes, what it turns, and what it costs you.
-    fn armour_numbers(&self, c: &mut Lines, item: &Item, a: &Armour, grams: u32) {
+    fn armour_numbers(&self, c: &mut Lines, item: &Item, base: &Armour, grams: u32) {
+        let a = self.defs.made_armour(item, *base, true);
         let places: Vec<&str> = Group::ALL
             .iter()
             .filter(|g| a.covers & g.bit() != 0)
@@ -535,10 +559,11 @@ impl World {
             .collect();
         c.stat("Covers", places.join(", "), false);
         for (k, wound) in ["scratches", "lacerations", "bites"].iter().enumerate() {
-            c.stat(&format!("Turns {wound}"), share(a.turn[k]), false);
+            let changed = a.turn[k] != base.turn[k];
+            c.stat(&format!("Turns {wound}"), share(a.turn[k]), changed);
         }
         let warmth = number(f64::from(a.warmth) / 1000.0, 1);
-        c.stat("Warmth", warmth, false);
+        c.stat("Warmth", warmth, a.warmth != base.warmth);
         let worn = u64::from(grams) * u64::from(self.rules.armour.worn_weight) / 1000;
         c.stat("Weight worn", kg(worn), false);
         if a.endurance > 0 {
@@ -546,14 +571,15 @@ impl World {
             c.stat("Breath", format!("{more} on every cost"), false);
         }
         if a.noise > 0 {
-            c.stat("Footsteps", format!("+{}", tiles(a.noise)), false);
+            let louder = format!("+{}", tiles(a.noise));
+            c.stat("Footsteps", louder, a.noise != base.noise);
         }
         if a.sight < 1000 {
             c.stat("Sight", format!("{} of yours", mille(a.sight)), false);
         }
         c.stat("Puts on in", seconds(a.time), false);
         let worn = format!("{} a blow turned", wear_share(a.wear, 1000));
-        c.stat("Wear", worn, false);
+        c.stat("Wear", worn, a.wear != base.wear);
         c.stat("Condition", condition(item), false);
     }
 
@@ -573,16 +599,27 @@ impl World {
         }
     }
 
-    /// How well a weapon was made, as numbers (Diablo II's superior and low-quality weapons): a
-    /// plain one says nothing.
+    /// How well a weapon or a piece of armour was made, as numbers (Diablo II's superior and
+    /// low-quality weapons): a weapon's harm, armour's turning, and either's wear. A plain one
+    /// says nothing.
     fn made_lines(&self, c: &mut Lines, item: &Item) {
         let q = &self.defs.quality;
         if item.quality == PLAIN {
             return;
         }
         let word = capital(q.name_of(item.quality));
-        let harm = i64::from(q.damage_of(item.quality)) - 1000;
+        let armour = self.defs.fits(item.def) == Some(Fits::Armour);
+        let harm = if armour {
+            0
+        } else {
+            i64::from(q.damage_of(item.quality)) - 1000
+        };
+        let turn = if armour { q.turn_of(item.quality) } else { 0 };
         let wear = i64::from(q.wear_of(item.quality)) - 1000;
+        if turn != 0 {
+            let line = format!("{} chance to turn blows", signed_share(turn));
+            c.add(CardStyle::Mod, line, word.clone());
+        }
         if harm != 0 {
             c.add(
                 CardStyle::Mod,
@@ -641,6 +678,7 @@ impl World {
         if m.is_magic() && !m.known {
             let how = match d.item(item.def).map(|d| &d.kind) {
                 Some(ItemKind::Light { .. }) => "light it, or have a holdout read it".to_string(),
+                Some(ItemKind::Armour(_)) => "put it on, or have a holdout read it".to_string(),
                 _ => format!(
                     "have a holdout read it, or strike {} blows with it",
                     d.magic.learn
@@ -701,6 +739,10 @@ impl World {
                     ItemKind::Armour(t) if t.covers & arm.covers != 0 => Some((w, t)),
                     _ => None,
                 })?;
+                let (arm, worn) = (
+                    d.made_armour(item, arm, true),
+                    d.made_armour(piece, worn, true),
+                );
                 let mean = |t: &Armour| t.turn.iter().map(|&n| i64::from(n)).sum::<i64>() / 3;
                 let mut said = Vec::new();
                 // Out of 10,000 a turn, so a tenth of it is per mille.

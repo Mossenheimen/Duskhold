@@ -2,7 +2,8 @@
 //! holdout's counter, and what a container's loot rolls; a weapon's quality (`quality.rs`), and
 //! its card; the uniques, with their effects; Rares as Path of Exile's: tiers by how far out,
 //! families, and made-up names; and the card as numbers, with what a weapon in hand gives
-//! (Strength, Fitness, levels in skills) and its fire and holy harm.
+//! (Strength, Fitness, levels in skills) and its fire and holy harm; and armour as weapons are:
+//! made well or badly, magic, known once it's worn.
 
 use std::sync::Arc;
 
@@ -11,15 +12,16 @@ use dusk_core::magic::{NONE, UNIQUE};
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::world::Swing;
 use dusk_core::{
-    ActorId, ActorKind, CardLine, CardStyle, Defs, Event, GetUp, HANDS, Holdout, Intent, Item,
-    ItemDef, ItemKind, LootEntry, LootTable, Magic, NoDeal, Part, Property, Raises, Remains, Skill,
-    ThingNames, Tile, TilePos, Unique, World, WoundKind,
+    ActorId, ActorKind, Armour, CardLine, CardStyle, Defs, Event, Fits, GetUp, HANDS, Holdout,
+    Intent, Item, ItemDef, ItemKind, LootEntry, LootTable, Magic, NoDeal, Part, Property, Raises,
+    Remains, Skill, ThingNames, Tile, TilePos, Unique, World, WoundKind,
 };
 
 const COIN: u16 = 0;
 const CUDGEL: u16 = 1;
 const CANDLE: u16 = 2;
 const KNIFE: u16 = 3;
+const CAP: u16 = 4;
 // Properties.
 const MUFFLED: u8 = 0;
 const KEEN: u8 = 1;
@@ -83,6 +85,22 @@ fn defs(kit: Vec<Item>) -> Defs {
                 },
             ),
             item("knife", 1, weapon),
+            // On the head: turns four scratches in ten, a quarter of cuts; wears 3% a blow
+            // turned; 5 warmth.
+            item(
+                "cap",
+                1,
+                ItemKind::Armour(Armour {
+                    covers: 1,
+                    turn: [4000, 2500, 1500],
+                    wear: 30,
+                    noise: 0,
+                    endurance: 0,
+                    sight: 1000,
+                    time: 10,
+                    warmth: 5000,
+                }),
+            ),
         ],
         properties: vec![
             Property {
@@ -100,7 +118,7 @@ fn defs(kit: Vec<Item>) -> Defs {
             Property {
                 glow: 3,
                 wane: 500,
-                on_light: true,
+                fits: Fits::Light,
                 ..prop("Bright")
             },
             Property {
@@ -441,7 +459,7 @@ fn a_containers_magic_comes_from_the_seed_and_fits_its_kind() {
     assert!(knife.magic.is_magic() && !knife.magic.known);
     // A weapon's properties, never a light's.
     for p in knife.magic.all() {
-        assert!(!w.defs.properties[usize::from(p)].on_light);
+        assert_eq!(w.defs.properties[usize::from(p)].fits, Fits::Weapon);
     }
 }
 
@@ -861,6 +879,7 @@ fn tiered(seed: u64, rare: bool) -> (World, ActorId) {
             Vec::new(),
             vec!["Brand".into()],
             Vec::new(),
+            Vec::new(),
         ],
     };
     d.magic.rare = if rare { 10_000 } else { 0 };
@@ -1231,4 +1250,130 @@ fn fire_and_holy_harm_land_on_top_of_a_blow_and_a_beast_takes_no_holy_harm() {
             ("Adds 3 holy damage on the dead", "Holy")
         ]
     );
+}
+
+#[test]
+fn a_piece_of_armour_is_made_well_or_badly_its_magic_turns_more_and_its_known_once_worn() {
+    let worn = |name: &str| Property {
+        id: name.to_lowercase(),
+        name: name.into(),
+        fits: Fits::Armour,
+        ..Property::default()
+    };
+    let (mut w, me, first) = field_with(vec![
+        Property {
+            ward: 1000,
+            ..worn("Warded")
+        },
+        Property {
+            warmth: 6000,
+            ..worn("Lined")
+        },
+        Property {
+            strength: 1000,
+            ..worn("Brawny")
+        },
+        Property {
+            raises: Raises::Skill(Skill::Stealth),
+            levels: 2,
+            ..worn("Sly")
+        },
+        Property {
+            steps: 2,
+            curse: true,
+            ..worn("Clanking")
+        },
+    ]);
+    let cap = Item {
+        quality: FINE,
+        magic: Magic {
+            rarity: 2,
+            props: [first, first + 1, first + 2, first + 3],
+            curse: first + 4,
+            ..magic([NONE, NONE], NONE)
+        },
+        ..Item::new(CAP, 1)
+    };
+    // Unknown: how well it was made shows (fine: 5% more of every blow turned, slower wear), its
+    // magic doesn't.
+    let card = w.card(&cap, None);
+    assert_eq!(number(&card, "Turns scratches"), ("45%", true));
+    assert_eq!(number(&card, "Wear"), ("2.5% a blow turned", true));
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [("+5% chance to turn blows", "Fine"), ("-15% wear", "Fine")]
+    );
+    assert!(styled(&card, CardStyle::Curse).is_empty());
+    let note = styled(&card, CardStyle::Note);
+    assert!(
+        note[0].0.starts_with("Not known yet: put it on"),
+        "{note:?}"
+    );
+    // Put on, it shows what it does, its curse with it; and it works on you.
+    w.give(me, cap);
+    let s = slot(&w, me, CAP);
+    w.intent(me, Intent::Wear { slot: s, def: CAP });
+    let seen = run(&mut w, 30);
+    assert!(seen.contains(&Event::Identified { who: me, item: CAP }));
+    let piece = w.actor(me).unwrap().worn[0];
+    assert!(piece.magic.known && piece.magic.curse_shown);
+    assert_eq!(w.strength(me), 1000);
+    assert_eq!(w.skill_level(me, Skill::Stealth), 2);
+    let card = w.card(&piece, None);
+    for (name, value) in [
+        ("Turns scratches", "55%"),
+        ("Turns lacerations", "40%"),
+        ("Turns bites", "30%"),
+        ("Warmth", "11"),
+        ("Footsteps", "+2 tiles"),
+    ] {
+        assert_eq!(number(&card, name), (value, true), "{name}");
+    }
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+5% chance to turn blows", "Fine"),
+            ("-15% wear", "Fine"),
+            ("+10% chance to turn blows", "Warded"),
+            ("+6 warmth", "Lined"),
+            ("+1 to Strength", "Brawny"),
+            ("+2 to Stealth", "Sly")
+        ]
+    );
+    assert_eq!(
+        styled(&card, CardStyle::Curse),
+        [("+2 tiles to every footstep", "Clanking (curse)")]
+    );
+    // Its curse is a cost it carries: it doesn't cling. Taken off, it gives nothing.
+    w.intent(me, Intent::TakeOff { piece: 0, def: CAP });
+    run(&mut w, 30);
+    assert!(w.actor(me).unwrap().worn.is_empty());
+    assert_eq!((w.strength(me), w.skill_level(me, Skill::Stealth)), (0, 0));
+}
+
+#[test]
+fn a_chests_armour_is_made_well_or_badly_and_its_magic_is_armours() {
+    let mut fine = 0;
+    for seed in 0..60 {
+        let (mut w, _) = field_of(seed, Vec::new());
+        let mut d = (*w.defs).clone();
+        d.properties.push(Property {
+            id: "warded".into(),
+            name: "Warded".into(),
+            fits: Fits::Armour,
+            ward: 1000,
+            ..Property::default()
+        });
+        d.loot[0].entries[0].item = CAP;
+        d.magic.cursed = 0;
+        w.defs = Arc::new(d);
+        let cap = w.store(CHEST)[0];
+        assert_eq!(cap.def, CAP);
+        assert!(cap.magic.is_magic() && !cap.magic.known);
+        for p in cap.magic.all() {
+            assert_eq!(w.defs.properties[usize::from(p)].fits, Fits::Armour);
+        }
+        fine += usize::from(cap.quality != PLAIN);
+    }
+    assert!(fine > 0, "some made better or worse than plain");
 }

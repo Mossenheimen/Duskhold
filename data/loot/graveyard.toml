@@ -14,5 +14,5 @@ items = [
   { item = "mace", weight = 1, magic = 0.4, unique = 0.08 },
   { item = "spear", weight = 1, magic = 0.4, unique = 0.08 },
   { item = "heater_shield", weight = 1 },   # an old knight's, iron-rimmed
-  { item = "iron_helm", weight = 1 },       # and his helm
+  { item = "iron_helm", weight = 1, magic = 0.4 },   # and his helm
 ]

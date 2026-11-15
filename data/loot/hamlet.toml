@@ -34,9 +34,9 @@ items = [
   { item = "coins", weight = 6, count = [3, 20] },
   { item = "candle", weight = 2 },
   # What was worn about the place: armour, of a sort (items/armour.toml).
-  { item = "padded_jerkin", weight = 2 },
-  { item = "leather_cap", weight = 2 },
-  { item = "boots", weight = 2 },
+  { item = "padded_jerkin", weight = 2, magic = 0.05 },
+  { item = "leather_cap", weight = 2, magic = 0.05 },
+  { item = "boots", weight = 2, magic = 0.05 },
   { item = "satchel", weight = 2 },   # a bag (items/bags.toml): the first you'll find
   # About three in a patch, with the farms' bedrooms: rare, but nearly always one to find
   # (`dusk-cli gen` counts them). (4 against the wardrobe's clothes keeps its share.)
@@ -52,8 +52,8 @@ items = [
   { item = "plank", weight = 3, count = [1, 4] },
   { item = "firewood", weight = 2, count = [2, 5] },
   { item = "buckler", weight = 1 },
-  { item = "leather_jerkin", weight = 1 },   # a smith's or a tanner's apron, near enough
-  { item = "leather_bracers", weight = 1 },
+  { item = "leather_jerkin", weight = 1, magic = 0.08 },   # a smith's or a tanner's apron
+  { item = "leather_bracers", weight = 1, magic = 0.08 },
   { item = "hunting_bow", weight = 1 },
   { item = "arrow", weight = 2, count = [4, 12] },
   { item = "shovel", weight = 2, magic = 0.1 },

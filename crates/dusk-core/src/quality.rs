@@ -1,8 +1,9 @@
-//! A weapon's quality (`CONCEPT.md`, loot: "in qualities from crude to standard, fine and
-//! masterwork"; Diablo II's low-quality and superior weapons, Path of Exile's quality): how well it
-//! was made, apart from any magic it holds. It's rolled as a weapon is found, and changes how hard
-//! its blows land, how fast it wears and what it's worth; its word goes before its name ("a fine
-//! sword"). What you start with, make or buy is plain.
+//! A weapon's quality, or a piece of armour's (`CONCEPT.md`, loot: "in qualities from crude to
+//! standard, fine and masterwork"; Diablo II's low-quality and superior weapons, Path of Exile's
+//! quality): how well it was made, apart from any magic it holds. It's rolled as it's found, and
+//! changes how hard a weapon's blows land, how often armour turns a blow, how fast either wears and
+//! what it's worth; its word goes before its name ("a fine sword"). What you start with, make or
+//! buy is plain.
 
 use crate::hash::below;
 
@@ -14,8 +15,8 @@ pub const MASTERWORK: u8 = 3;
 
 /// The grades in the core's units (rules.toml's `[quality]`), each array by grade (crude, plain,
 /// fine, masterwork): its word before a name ("" for plain); out of 10,000, how many weapons
-/// found are of it (plain is what's left); and per mille, the harm its blows do, how fast it
-/// wears and what it's worth.
+/// found are of it (plain is what's left); per mille, the harm its blows do, how fast it wears
+/// and what it's worth; and, out of 10,000, the chance armour of it turns a blow, added.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QualityRules {
     pub names: [String; 4],
@@ -23,6 +24,7 @@ pub struct QualityRules {
     pub damage: [u32; 4],
     pub wear: [u32; 4],
     pub worth: [u32; 4],
+    pub turn: [i32; 4],
 }
 
 impl Default for QualityRules {
@@ -38,6 +40,7 @@ impl Default for QualityRules {
             damage: [800, 1000, 1100, 1250],
             wear: [1500, 1000, 850, 600],
             worth: [500, 1000, 1500, 3000],
+            turn: [-500, 0, 500, 1000],
         }
     }
 }
@@ -71,6 +74,11 @@ impl QualityRules {
 
     pub fn worth_of(&self, quality: u8) -> u32 {
         self.worth[Self::at(quality)]
+    }
+
+    /// Out of 10,000: what armour of it adds to its chance to turn a blow.
+    pub fn turn_of(&self, quality: u8) -> i32 {
+        self.turn[Self::at(quality)]
     }
 
     /// Its word before a name: "" for plain.

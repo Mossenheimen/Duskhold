@@ -12,6 +12,12 @@
 //!   stronger or fitter (`Boosts`: `fitness.rs` reads them), give levels in a skill (its own, the
 //!   Wizard's Arcana, the Cleric's Devotion: `World::skill_level`), and add fire's harm to its
 //!   blows, or holy harm on the dead (`World::elemental`).
+//! - **Armour too** (2026-11-15): a piece is made well or badly as a weapon is (its quality adds
+//!   to its chance to turn a blow, and changes its wear), and its properties (`Fits::Armour`)
+//!   turn more blows, warm more, wear slower, and make whoever wears it stronger, fitter, or
+//!   better at a skill (`Boosts`, as a weapon's in hand). Put on, it shows what it does, as a
+//!   light lit does. Its curses are costs it carries (louder footsteps, quicker wear): they don't
+//!   cling, as a weapon's do. A Rare piece has a made-up name too ("Grim Shroud").
 //! - **Tiers** (Path of Exile's): most properties are one of a family's tiers ("Sharp", "Keen",
 //!   "Cruel": harder blows, each more than the last), and a thing has at most one of a family.
 //!   How far out a find was made sets the best tier it can roll (`World::find_level`): near where
@@ -35,6 +41,7 @@
 //!   any magic is, but "(unique, unknown)" says what it is.
 
 use crate::actor::ActorId;
+use crate::armour::Armour;
 use crate::geom::TilePos;
 use crate::hash::{Purpose, below, mix64, roll};
 use crate::items::{Defs, Item, ItemKind};
@@ -114,6 +121,16 @@ pub struct Card {
     pub wear: u32,
 }
 
+/// What kind of thing a property goes on, and works on: a weapon in hand, a light held up, or
+/// armour worn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Fits {
+    #[default]
+    Weapon,
+    Light,
+    Armour,
+}
+
 /// The skill a property gives levels in (`Property::levels`): none, the one its weapon trains, or
 /// one by name.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -139,11 +156,11 @@ pub struct Property {
     /// tiers, found anywhere).
     pub family: String,
     pub tier: u8,
-    /// On a light (held up); else on a weapon (in hand).
-    pub on_light: bool,
+    /// What it goes on: a weapon (in hand), a light (held up) or armour (worn).
+    pub fits: Fits,
     pub curse: bool,
     /// A weapon's: per mille its swing's noise, harm, and wind-up and recovery; added to its
-    /// chance to land (out of 10,000); per mille its wear.
+    /// chance to land (out of 10,000); per mille its wear (a weapon's or a piece of armour's).
     pub noise: u32,
     pub damage: u32,
     pub swing: u32,
@@ -181,6 +198,11 @@ pub struct Property {
     /// anything; holy harm, on the dead only (`World::elemental`).
     pub fire: (i32, i32),
     pub holy: (i32, i32),
+    /// Armour's, worn (`Defs::made_armour`): a chance added to turn every kind of blow (out of
+    /// 10,000), warmth added (thousandths of a point), and tiles added to every footstep.
+    pub ward: u32,
+    pub warmth: i32,
+    pub steps: i32,
 }
 
 impl Property {
@@ -199,8 +221,9 @@ impl Property {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ThingNames {
     pub first: Vec<String>,
-    /// By what it is: a blade, a blunt weapon, an axe, a spear, any other weapon, a light.
-    pub second: [Vec<String>; 6],
+    /// By what it is: a blade, a blunt weapon, an axe, a spear, any other weapon, a light, a piece
+    /// of armour.
+    pub second: [Vec<String>; 7],
 }
 
 /// A unique (`data/uniques.toml`): a weapon made by hand, with a name of its own.
@@ -245,6 +268,18 @@ pub struct Boosts {
     pub levels: [u8; SKILLS],
 }
 
+impl Boosts {
+    /// Both together: a weapon's and what's worn.
+    fn and(mut self, other: Boosts) -> Boosts {
+        self.strength += other.strength;
+        self.fitness += other.fitness;
+        for (n, more) in self.levels.iter_mut().zip(other.levels) {
+            *n = n.saturating_add(more);
+        }
+        self
+    }
+}
+
 impl Default for Property {
     fn default() -> Property {
         Property {
@@ -253,7 +288,7 @@ impl Default for Property {
             line: String::new(),
             family: String::new(),
             tier: 0,
-            on_light: false,
+            fits: Fits::Weapon,
             curse: false,
             noise: 1000,
             damage: 1000,
@@ -276,6 +311,9 @@ impl Default for Property {
             levels: 0,
             fire: (0, 0),
             holy: (0, 0),
+            ward: 0,
+            warmth: 0,
+            steps: 0,
         }
     }
 }
@@ -420,7 +458,7 @@ impl Defs {
     }
 
     /// What a thing is, for a Rare's made-up name: a blade, a blunt weapon, an axe, a spear, any
-    /// other weapon, or a light (`ThingNames::second`); None for anything else.
+    /// other weapon, a light, or armour (`ThingNames::second`); None for anything else.
     fn name_class(&self, def: u16) -> Option<usize> {
         match &self.item(def)?.kind {
             ItemKind::Weapon { skill, .. } => Some(match skill {
@@ -431,8 +469,48 @@ impl Defs {
                 _ => 4,
             }),
             ItemKind::Light { .. } => Some(5),
+            ItemKind::Armour(_) => Some(6),
             _ => None,
         }
+    }
+
+    /// What kind of thing an item is for properties: a weapon, a light or armour. None for one
+    /// that takes none.
+    pub fn fits(&self, def: u16) -> Option<Fits> {
+        match self.item(def)?.kind {
+            ItemKind::Weapon { .. } => Some(Fits::Weapon),
+            ItemKind::Light { .. } => Some(Fits::Light),
+            ItemKind::Armour(_) => Some(Fits::Armour),
+            _ => None,
+        }
+    }
+
+    /// A piece of armour as it was made (its quality's turning and wear) and as its magic changes
+    /// it: every property it has, or (`known_only`) those you know, as its card shows them (a
+    /// curse once it has shown itself). Nothing turns every blow: 95% at most.
+    pub fn made_armour(&self, item: &Item, mut a: Armour, known_only: bool) -> Armour {
+        let q = &self.quality;
+        let turn = |a: &mut Armour, by: i64| {
+            for t in &mut a.turn {
+                *t = (i64::from(*t) + by).clamp(0, 9500) as u32;
+            }
+        };
+        let worn = a.wear;
+        turn(&mut a, i64::from(q.turn_of(item.quality)));
+        let mut wear = per(u32::from(worn), q.wear_of(item.quality));
+        let m = item.magic;
+        for p in self.properties_of(item) {
+            if known_only && !m.known && !(p.curse && m.curse_shown) {
+                continue;
+            }
+            turn(&mut a, i64::from(p.ward));
+            a.warmth += p.warmth;
+            a.noise += p.steps;
+            wear = per(wear, p.wear);
+        }
+        // Never none for a piece that wears at all.
+        a.wear = if worn > 0 { wear.max(1) as u16 } else { 0 };
+        a
     }
 
     /// A Rare's made-up name for a kind of thing, by a roll's keys (14 and 15): its words'
@@ -566,15 +644,14 @@ impl Defs {
     /// `level` (1 to 3): its rarity, its properties (that fit its kind, at most one of a family,
     /// each of a tier it reaches), maybe a curse, and a Rare's made-up name. Unknown.
     pub(crate) fn roll_magic(&self, item: &Item, level: u8, r: impl Fn(u64) -> u64) -> Magic {
-        let on_light = matches!(
-            self.item(item.def).map(|d| &d.kind),
-            Some(ItemKind::Light { .. })
-        );
+        let Some(kind) = self.fits(item.def) else {
+            return Magic::MUNDANE;
+        };
         let fits = |curse: bool| -> Vec<u8> {
             (0..self.properties.len().min(usize::from(NONE)))
                 .filter(|&k| {
                     let p = &self.properties[k];
-                    p.on_light == on_light && p.curse == curse && p.tier <= level
+                    p.fits == kind && p.curse == curse && p.tier <= level
                 })
                 .map(|k| k as u8)
                 .collect()
@@ -663,12 +740,30 @@ impl World {
             })
     }
 
-    /// What the weapon in `id`'s hand gives it (`Boosts`): Strength, Fitness, levels in skills.
+    /// What the weapon in `id`'s hand and what it wears give it (`Boosts`): Strength, Fitness,
+    /// levels in skills.
     pub fn boosts(&self, id: ActorId) -> Boosts {
-        self.actors
-            .get(id)
-            .and_then(|a| a.hands)
-            .map_or(Boosts::default(), |held| self.defs.boosts_of(&held))
+        let Some(a) = self.actors.get(id) else {
+            return Boosts::default();
+        };
+        a.hands
+            .iter()
+            .chain(&a.worn)
+            .fold(Boosts::default(), |b, i| b.and(self.defs.boosts_of(i)))
+    }
+
+    /// A piece just put on (the last `id` wears): you feel what it does, as a light lit shows
+    /// itself, and a curse with it.
+    pub(crate) fn know_piece(&mut self, id: ActorId) {
+        let Some(piece) = self.actors.get_mut(id).and_then(|a| a.worn.last_mut()) else {
+            return;
+        };
+        if piece.magic.is_magic() && !piece.magic.known {
+            piece.magic.known = true;
+            piece.magic.curse_shown = true;
+            let item = piece.def;
+            self.events.push(Event::Identified { who: id, item });
+        }
     }
 
     /// The fire's harm and the holy harm a blow from `id` on `target` adds, by what its weapon

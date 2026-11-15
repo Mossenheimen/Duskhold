@@ -1,5 +1,5 @@
 # Magic items' properties and curses (CONCEPT.md, loot): each changes how you play
-# (crates/dusk-core/src/magic.rs). An Uncommon item has one or two, a Rare three or four and a
+# (crates/dusk-core/src/magic.rs), on a weapon, a light or armour. An Uncommon item has one or two, a Rare three or four and a
 # made-up name (names.toml's [things]); a fifth or so are cursed as well (rules.toml, [magic]). A
 # weapon's work while it's in your hand, a light's while it's held up. Multipliers are 1.0 for
 # none.
@@ -470,3 +470,212 @@ on = "weapon"
 family = "holy"
 tier = 3
 holy = [4, 7]
+
+# Armour's, worn (2026-11-15): on = "armour". A chance added to turn every kind of blow (ward),
+# warmth added (in points), slower wear, a stronger or fitter body, and levels in a skill by name
+# (not "own": armour trains none). Put on, a piece shows what it does. Its curses are costs it
+# carries, and don't cling as a weapon's do.
+
+# Turns more blows: a chance added to each kind's (nothing turns more than 95%).
+
+[[property]]
+id = "reinforced"
+name = "Reinforced"
+on = "armour"
+family = "ward"
+tier = 1
+ward = 0.05
+
+[[property]]
+id = "warded"
+name = "Warded"
+on = "armour"
+family = "ward"
+tier = 2
+ward = 0.1
+
+[[property]]
+id = "unyielding"
+name = "Unyielding"
+on = "armour"
+family = "ward"
+tier = 3
+ward = 0.15
+
+# Warmer, against the cold (cold.rs: less, wet).
+
+[[property]]
+id = "lined"
+name = "Lined"
+on = "armour"
+family = "warmth"
+tier = 1
+warmth = 3
+
+[[property]]
+id = "fleeced"
+name = "Fleeced"
+on = "armour"
+family = "warmth"
+tier = 2
+warmth = 6
+
+[[property]]
+id = "hearthwarm"
+name = "Hearthwarm"
+on = "armour"
+family = "warmth"
+tier = 3
+warmth = 10
+
+# Slower to wear through.
+
+[[property]]
+id = "tough"
+name = "Tough"
+on = "armour"
+family = "wear"
+tier = 1
+wear = 0.6
+
+[[property]]
+id = "hardened"
+name = "Hardened"
+on = "armour"
+family = "wear"
+tier = 2
+wear = 0.35
+
+[[property]]
+id = "timeless"
+name = "Timeless"
+on = "armour"
+family = "wear"
+tier = 3
+wear = 0.15
+
+# Stronger while it's worn.
+
+[[property]]
+id = "brawny"
+name = "Brawny"
+on = "armour"
+family = "might"
+tier = 1
+strength = 1
+
+[[property]]
+id = "powerful"
+name = "Powerful"
+on = "armour"
+family = "might"
+tier = 2
+strength = 2
+
+[[property]]
+id = "colossal"
+name = "Colossal"
+on = "armour"
+family = "might"
+tier = 3
+strength = 3
+
+# Fitter while it's worn.
+
+[[property]]
+id = "spry"
+name = "Spry"
+on = "armour"
+family = "vigour"
+tier = 1
+fitness = 1
+
+[[property]]
+id = "lithe"
+name = "Lithe"
+on = "armour"
+family = "vigour"
+tier = 2
+fitness = 2
+
+[[property]]
+id = "tireless"
+name = "Tireless"
+on = "armour"
+family = "vigour"
+tier = 3
+fitness = 3
+
+# Levels in Stealth: sneaking quicker, sneak attacks harder.
+
+[[property]]
+id = "sly"
+name = "Sly"
+on = "armour"
+family = "stealth"
+tier = 1
+skill = "stealth"
+levels = 1
+
+[[property]]
+id = "shadowy"
+name = "Shadowy"
+on = "armour"
+family = "stealth"
+tier = 2
+skill = "stealth"
+levels = 2
+
+[[property]]
+id = "ghostly"
+name = "Ghostly"
+on = "armour"
+family = "stealth"
+tier = 3
+skill = "stealth"
+levels = 3
+
+# Levels in Athletics: running faster, for less breath.
+
+[[property]]
+id = "nimble"
+name = "Nimble"
+on = "armour"
+family = "athletics"
+tier = 1
+skill = "athletics"
+levels = 1
+
+[[property]]
+id = "fleet"
+name = "Fleet"
+on = "armour"
+family = "athletics"
+tier = 2
+skill = "athletics"
+levels = 2
+
+[[property]]
+id = "windborne"
+name = "Windborne"
+on = "armour"
+family = "athletics"
+tier = 3
+skill = "athletics"
+levels = 3
+
+# Armour's curses, found anywhere: costs it carries.
+
+[[property]]
+id = "clanking"
+name = "Clanking"
+on = "armour"
+curse = true
+steps = 2
+
+[[property]]
+id = "frayed"
+name = "Frayed"
+on = "armour"
+curse = true
+wear = 3.0
