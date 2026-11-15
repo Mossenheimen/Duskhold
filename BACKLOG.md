@@ -51,11 +51,11 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 
 **Items**
 - Weapons, after quality, the uniques and Path of Exile's rares (2026-11-13 and 14; the user: "take inspiration from Diablo and PoE 2"): each class of weapon's own small edge (an axe's bleed, a mace against bone).
-- The card and properties, after the numbers (2026-11-14) and armour's magic (2026-11-15): a bow's and a shield's quality and magic (range, draw; block, bash); uniques made on armour; a property's value rolled within its tier (Path of Exile's ranges: Cruel +70 to +89%, not +80%), with the tier's range shown on the card; Arcana's levels doing more than quicker words (a fireball's harm, a spell lasting longer), so "+3 to Arcana" matters; Dex and Int only if the body gets more stats than Zomboid's two.
+- The card and properties, after the numbers (2026-11-14), armour's magic and bows' and shields' (2026-11-15): uniques made on armour, bows and shields; a property's value rolled within its tier (Path of Exile's ranges: Cruel +70 to +89%, not +80%), with the tier's range shown on the card; Arcana's levels doing more than quicker words (a fireball's harm, a spell lasting longer), so "+3 to Arcana" matters; Dex and Int only if the body gets more stats than Zomboid's two.
 - Rares, after the first cut: a tier weighted by how far out (the best less often, as Path of Exile's), not even odds; more light properties, so a Rare light has three; depth as well as distance, once there are dungeons; a holdout's crafting currency (re-rolling a property, Path of Exile's orbs) once there's a smith.
 - Uniques, after the first six: the barrows' own grave goods, richer than the graveyard's (a fixture of its own, so a table of its own); a unique's numbers rolled in a range, as Path of Exile's; each unique once in a world (where it lies decided by the seed); a drink of health seen (motes from the struck to you); uniques on armour and lights.
-- Quality on armour, tools and bags; making and mending raising it (a smith).
-- Attunement; the Lore skill and scrolls of identify; Very Rare and Legendary; a broken magic item kept, to be mended; magic on armour.
+- Quality on tools and bags; making and mending raising it (a smith).
+- Attunement; the Lore skill and scrolls of identify; Very Rare and Legendary; a broken magic item kept, to be mended.
 - Making armour (a hide jerkin from the deer); armour wet and cold in the rain; the Fighter's talents for armour.
 - A sack carried in hand; a container's own capacity; a dropped bag's things taken one by one.
 

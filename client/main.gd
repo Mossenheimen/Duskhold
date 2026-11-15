@@ -2153,11 +2153,11 @@ func _run_script() -> void:
 					if items[k] < kinds.size() and kinds[items[k]] == Item.SHIELD:
 						dusk.wield(k / 4, items[k])
 						break
-			"wield":  # take the last weapon in the pack in hand (the last one --give gave)
+			"wield":  # take the last weapon or bow in the pack in hand (the last one --give gave)
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(items.size() - 4, -1, -4):
-					if items[k] < kinds.size() and kinds[items[k]] == Item.WEAPON:
+					if items[k] < kinds.size() and kinds[items[k]] in [Item.WEAPON, Item.BOW]:
 						dusk.wield(k / 4, items[k])
 						break
 			"wear":  # put on the first armour or bag in the pack
@@ -2295,6 +2295,16 @@ func _known_as(def: int) -> String:
 	var light: PackedInt32Array = dusk.character_light()
 	if light.size() >= 2 and light[0] == def:
 		return labels[1]
+	var shield: PackedInt32Array = dusk.character_shield()
+	var shield_label: PackedStringArray = dusk.shield_label()
+	if shield.size() >= 2 and shield[0] == def and shield_label.size() >= 2:
+		return shield_label[0]
+	var worn: PackedInt32Array = dusk.character_worn()
+	var worn_labels: PackedStringArray = dusk.worn_labels()
+	for i in range(0, worn.size(), 4):
+		var called := floori(i / 2.0)  # two labels to a piece's four numbers
+		if worn[i] == def and called < worn_labels.size():
+			return worn_labels[called]
 	var items: PackedInt32Array = dusk.character_items()
 	for i in range(0, items.size(), 4):
 		if items[i] == def:

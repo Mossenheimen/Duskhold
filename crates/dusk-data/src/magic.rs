@@ -28,8 +28,8 @@ struct PropertyFile {
     name: String,
     #[serde(default)]
     line: String,
-    /// "weapon" (in hand), "light" (held up) or "armour" (worn); a unique's effect is a weapon's,
-    /// and needn't say.
+    /// "weapon" (in hand), "light" (held up), "armour" (worn), "bow" (in hand) or "shield" (on
+    /// the arm); a unique's effect is a weapon's, and needn't say.
     #[serde(default)]
     on: String,
     /// Its family (left out: its own), and its tier in it, 1 to 3 (left out: none, found
@@ -105,6 +105,17 @@ struct PropertyFile {
     warmth: f64,
     #[serde(default)]
     steps: i32,
+    /// A bow's: tiles added to its range (-5 to 10), and how often its arrows break on a hit, as
+    /// a multiplier.
+    #[serde(default)]
+    range: i32,
+    #[serde(default = "one")]
+    arrows: f64,
+    /// A shield's: a chance added to its block, and to a bash's knocking down (0 to 0.5).
+    #[serde(default)]
+    block: f64,
+    #[serde(default)]
+    bash: f64,
 }
 
 /// `uniques.toml`: weapons made by hand, each with a name of its own.
@@ -293,20 +304,44 @@ pub(crate) fn load(dir: &Path) -> Result<Vec<Property>, DataError> {
             "weapon" => Fits::Weapon,
             "light" => Fits::Light,
             "armour" => Fits::Armour,
-            _ => return Err(bad("on is \"weapon\", \"light\" or \"armour\"")),
+            "bow" => Fits::Bow,
+            "shield" => Fits::Shield,
+            _ => {
+                return Err(bad(
+                    "on is \"weapon\", \"light\", \"armour\", \"bow\" or \"shield\"",
+                ));
+            }
         };
         out.push(to_property(p, fits).map_err(|m| bad(&m))?);
     }
     Ok(out)
 }
 
+/// "a weapon, a bow or a shield": what a number goes on, in words.
+fn kinds(on: &[Fits]) -> String {
+    let words: Vec<&str> = on.iter().map(|f| f.word()).collect();
+    match words.split_last() {
+        Some((last, [])) => (*last).to_string(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+        None => "nothing".into(),
+    }
+}
+
 /// A property (or a unique's effect) in the core's units, or what's wrong with it.
 fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
-    let on_light = fits == Fits::Light;
-    let multipliers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance];
+    let multipliers = [
+        p.noise,
+        p.damage,
+        p.swing,
+        p.wear,
+        p.wane,
+        p.endurance,
+        p.arrows,
+    ];
     if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
         return Err(
-            "noise, damage, swing, wear, wane and endurance are multipliers from 0 to 10".into(),
+            "noise, damage, swing, wear, wane, endurance and arrows are multipliers from 0 to 10"
+                .into(),
         );
     }
     if p.tier > 3 {
@@ -318,10 +353,6 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
     let unit = |x: f64| (0.0..=1.0).contains(&x);
     if !unit(p.drain) || !unit(p.terror) || !unit(p.fell) || !(0.0..=100.0).contains(&p.hearten) {
         return Err("drain, terror and fell are from 0 to 1, hearten 0 to 100 points".into());
-    }
-    let effect = p.cleave || p.pyre || p.drain > 0.0 || p.terror > 0.0 || p.fell > 0.0;
-    if on_light && (effect || p.hearten > 0.0) {
-        return Err("cleave, drain, pyre, terror, fell and hearten are a weapon's".into());
     }
     let level = |x: f64| (0.0..=5.0).contains(&x);
     if !level(p.strength) || !level(p.fitness) {
@@ -343,50 +374,60 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
     if !harm(p.fire) || !harm(p.holy) {
         return Err("fire and holy are [least, most], from 0 to 50 points".into());
     }
-    let body = p.strength > 0.0 || p.fitness > 0.0 || p.levels > 0;
-    if on_light && (body || p.fire.1 > 0.0 || p.holy.1 > 0.0) {
-        return Err("strength, fitness, skill, fire and holy are a weapon's".into());
-    }
     if !(0.0..=0.5).contains(&p.ward) || !(-30.0..=30.0).contains(&p.warmth) {
         return Err("ward is a chance from 0 to 0.5, warmth -30 to 30 points".into());
     }
-    if !(-5..=5).contains(&p.steps) {
-        return Err("steps are tiles, -5 to 5".into());
+    if !(-5..=5).contains(&p.steps) || !(-5..=10).contains(&p.range) {
+        return Err("steps are tiles, -5 to 5; range -5 to 10".into());
     }
-    let worn = p.ward > 0.0 || p.warmth != 0.0 || p.steps != 0;
-    if worn && fits != Fits::Armour {
-        return Err("ward, warmth and steps are armour's".into());
+    if !(0.0..=0.5).contains(&p.block) || !(0.0..=0.5).contains(&p.bash) {
+        return Err("block and bash are chances from 0 to 0.5".into());
     }
-    // Armour takes the body, a skill by name, its own numbers, and slower wear; what's a blow's or
-    // a light's isn't its.
-    let swung = [p.noise, p.damage, p.swing, p.wane, p.endurance]
-        .iter()
-        .any(|&m| m != 1.0)
-        || p.hit != 0.0
-        || p.glow != 0
-        || p.hallowed
-        || effect
-        || p.hearten > 0.0
-        || p.fire.1 > 0.0
-        || p.holy.1 > 0.0;
-    if fits == Fits::Armour && (swung || raises == Raises::Own) {
-        return Err(
-            "armour's are ward, warmth, steps, wear, strength, fitness and a skill by name".into(),
-        );
+    // What each number does, and what it goes on (Path of Exile's mods by item class): a blow's
+    // is a weapon's, a shot's a bow's, a block's a shield's, the body and a skill anything worn
+    // or held in a fight.
+    use Fits::{Armour, Bow, Light, Shield, Weapon};
+    let held: &[Fits] = &[Weapon, Armour, Bow, Shield];
+    let numbers: [(&str, bool, &[Fits]); 27] = [
+        ("noise", p.noise != 1.0, &[Weapon, Bow]),
+        ("damage", p.damage != 1.0, &[Weapon, Bow]),
+        ("swing", p.swing != 1.0, &[Weapon, Bow]),
+        ("hit", p.hit != 0.0, &[Weapon, Bow]),
+        ("endurance", p.endurance != 1.0, &[Weapon, Bow, Shield]),
+        ("wear", p.wear != 1.0, &[Weapon, Armour, Shield]),
+        ("hallowed", p.hallowed, &[Weapon]),
+        ("glow", p.glow != 0, &[Weapon, Light]),
+        ("wane", p.wane != 1.0, &[Light]),
+        ("cleave", p.cleave, &[Weapon]),
+        ("drain", p.drain > 0.0, &[Weapon]),
+        ("pyre", p.pyre, &[Weapon]),
+        ("terror", p.terror > 0.0, &[Weapon]),
+        ("fell", p.fell > 0.0, &[Weapon]),
+        ("hearten", p.hearten > 0.0, &[Weapon]),
+        ("strength", p.strength > 0.0, held),
+        ("fitness", p.fitness > 0.0, held),
+        ("skill", p.levels > 0, held),
+        ("fire", p.fire.1 > 0.0, &[Weapon, Bow]),
+        ("holy", p.holy.1 > 0.0, &[Weapon, Bow]),
+        ("ward", p.ward > 0.0, &[Armour]),
+        ("warmth", p.warmth != 0.0, &[Armour]),
+        ("steps", p.steps != 0, &[Armour]),
+        ("range", p.range != 0, &[Bow]),
+        ("arrows", p.arrows != 1.0, &[Bow]),
+        ("block", p.block > 0.0, &[Shield]),
+        ("bash", p.bash > 0.0, &[Shield]),
+    ];
+    for (name, does, on) in numbers {
+        if does && !on.contains(&fits) {
+            let (on, not) = (kinds(on), fits.word());
+            return Err(format!("{name} goes on {on}, not {not}"));
+        }
     }
-    let numbers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance]
-        .iter()
-        .any(|&m| m != 1.0)
-        || p.hit != 0.0
-        || p.glow != 0
-        || p.hallowed
-        || effect
-        || p.hearten > 0.0
-        || body
-        || p.fire.1 > 0.0
-        || p.holy.1 > 0.0
-        || worn;
-    if p.line.trim().is_empty() && !numbers {
+    // Armour trains no skill of its own: it names one.
+    if fits == Armour && raises == Raises::Own {
+        return Err("armour trains no skill of its own: skill names one".into());
+    }
+    if p.line.trim().is_empty() && !numbers.iter().any(|n| n.1) {
         return Err("a property does something: numbers, or a line in words".into());
     }
     let per = |m: f64| (m * 1000.0).round() as u32;
@@ -424,6 +465,10 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         ward: chance(p.ward),
         warmth: (p.warmth * 1000.0).round() as i32,
         steps: p.steps,
+        range: p.range,
+        arrows: per(p.arrows),
+        block: chance(p.block),
+        bash: chance(p.bash),
     })
 }
 

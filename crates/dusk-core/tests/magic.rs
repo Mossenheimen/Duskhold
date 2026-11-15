@@ -3,13 +3,15 @@
 //! its card; the uniques, with their effects; Rares as Path of Exile's: tiers by how far out,
 //! families, and made-up names; and the card as numbers, with what a weapon in hand gives
 //! (Strength, Fitness, levels in skills) and its fire and holy harm; and armour as weapons are:
-//! made well or badly, magic, known once it's worn.
+//! made well or badly, magic, known once it's worn; and bows and shields, each with its own.
 
 use std::sync::Arc;
 
+use dusk_core::archery::{NoShot, Ranged};
 use dusk_core::hash::{Purpose, roll};
 use dusk_core::magic::{NONE, UNIQUE};
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
+use dusk_core::shield::Guard;
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Armour, CardLine, CardStyle, Defs, Event, Fits, GetUp, HANDS, Holdout,
@@ -22,6 +24,9 @@ const CUDGEL: u16 = 1;
 const CANDLE: u16 = 2;
 const KNIFE: u16 = 3;
 const CAP: u16 = 4;
+const ARROW: u16 = 5;
+const BOW: u16 = 6;
+const BUCKLER: u16 = 7;
 // Properties.
 const MUFFLED: u8 = 0;
 const KEEN: u8 = 1;
@@ -99,6 +104,29 @@ fn defs(kit: Vec<Item>) -> Defs {
                     sight: 1000,
                     time: 10,
                     warmth: 5000,
+                }),
+            ),
+            item("arrow", 50, ItemKind::Other),
+            // Shoots 6 tiles, sure up close, an arrow broken every other hit.
+            item(
+                "bow",
+                1,
+                ItemKind::Bow(Ranged {
+                    swing: Swing { noise: 2, ..club },
+                    range: 6,
+                    ammo: ARROW,
+                    breaks: 5000,
+                }),
+            ),
+            // Blocks half the blows from ahead; 6 breath and 4% of it a block.
+            item(
+                "buckler",
+                1,
+                ItemKind::Shield(Guard {
+                    block: 5000,
+                    endurance: 60,
+                    wear: 40,
+                    bash: 1500,
                 }),
             ),
         ],
@@ -880,6 +908,8 @@ fn tiered(seed: u64, rare: bool) -> (World, ActorId) {
             vec!["Brand".into()],
             Vec::new(),
             Vec::new(),
+            Vec::new(),
+            Vec::new(),
         ],
     };
     d.magic.rare = if rare { 10_000 } else { 0 };
@@ -1376,4 +1406,235 @@ fn a_chests_armour_is_made_well_or_badly_and_its_magic_is_armours() {
         fine += usize::from(cap.quality != PLAIN);
     }
     assert!(fine > 0, "some made better or worse than plain");
+}
+
+/// A property for `fits`, by its name.
+fn on(fits: Fits, name: &str) -> Property {
+    Property {
+        id: name.to_lowercase(),
+        name: name.into(),
+        fits,
+        ..Property::default()
+    }
+}
+
+#[test]
+fn a_bow_is_made_well_or_badly_its_magic_shoots_farther_and_burns_and_shots_teach_it() {
+    let bow = |name: &str| on(Fits::Bow, name);
+    let (mut w, me, first) = field_with(vec![
+        Property {
+            range: 2,
+            ..bow("Far")
+        },
+        Property {
+            fire: (20, 20),
+            ..bow("Kindled")
+        },
+        Property {
+            raises: Raises::Own,
+            levels: 1,
+            ..bow("Fletcher's")
+        },
+        Property {
+            arrows: 500,
+            ..bow("Sparing")
+        },
+    ]);
+    let mut d = (*w.defs).clone();
+    d.magic.learn = 1;
+    w.defs = Arc::new(d);
+    let made = Item {
+        quality: MASTERWORK,
+        magic: Magic {
+            rarity: 2,
+            props: [first, first + 1, first + 2, first + 3],
+            ..magic([NONE, NONE], NONE)
+        },
+        ..Item::new(BOW, 1)
+    };
+    // Unknown: how well it was made shows (masterwork: a quarter harder; a bow doesn't wear),
+    // its magic doesn't.
+    let card = w.card(&made, None);
+    assert_eq!(number(&card, "Damage"), ("12.5", true));
+    assert_eq!(number(&card, "Range"), ("6 tiles", false));
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [("+25% damage", "Masterwork")]
+    );
+    let note = styled(&card, CardStyle::Note);
+    assert!(note[0].0.contains("land 1 shots"), "{note:?}");
+    // In hand, known or not: two tiles farther, and a level of Archery, its own skill.
+    w.give(me, made);
+    w.give(me, Item::new(ARROW, 20));
+    wield(&mut w, me, BOW);
+    assert_eq!(w.skill_level(me, Skill::Archery), 1);
+    assert_eq!(w.can_shoot(me, TilePos::new(0, 8, 0)), Ok(()));
+    assert_eq!(w.can_shoot(me, TilePos::new(0, 9, 0)), Err(NoShot::TooFar));
+    // An arrow that lands burns, and the first that lands teaches you what the bow is.
+    let c = w.creature_mut(0);
+    (c.health, c.attack.hit) = (1_000_000, 0);
+    c.cone = dusk_core::senses::Cone { cos: -10_000 };
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 3, 0))
+        .unwrap();
+    let mut seen = Vec::new();
+    for _ in 0..12 {
+        let at = w.actor(z).unwrap().pos;
+        w.intent(me, Intent::Shoot { at });
+        seen.extend(run(&mut w, 30));
+        if seen
+            .iter()
+            .any(|e| matches!(e, Event::Struck { who, .. } if *who == me))
+        {
+            break;
+        }
+    }
+    assert!(seen.contains(&Event::Seared {
+        who: me,
+        target: z,
+        fire: 20,
+        holy: 0
+    }));
+    assert!(seen.contains(&Event::Identified { who: me, item: BOW }));
+    // Its card now: farther, burning, fewer arrows broken, each marked; its properties as
+    // numbers, in their order.
+    let held = w.actor(me).unwrap().hands.unwrap();
+    let card = w.card(&held, None);
+    assert_eq!(number(&card, "Range"), ("8 tiles", true));
+    assert_eq!(number(&card, "Arrows break"), ("25% on a hit", true));
+    assert_eq!(styled(&card, CardStyle::Fire), [("Fire damage", "2")]);
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+25% damage", "Masterwork"),
+            ("Adds 2 fire damage", "Kindled"),
+            ("+2 tiles of range", "Far"),
+            ("+1 to Archery", "Fletcher's"),
+            ("-50% arrows broken", "Sparing")
+        ]
+    );
+}
+
+#[test]
+fn a_shield_is_made_well_or_badly_its_magic_blocks_more_and_its_known_once_taken_up() {
+    let shield = |name: &str| on(Fits::Shield, name);
+    let (mut w, me, first) = field_with(vec![
+        Property {
+            block: 1000,
+            ..shield("Steadfast")
+        },
+        Property {
+            bash: 1000,
+            ..shield("Spiked")
+        },
+        Property {
+            endurance: 800,
+            ..shield("Deft")
+        },
+        Property {
+            raises: Raises::Own,
+            levels: 1,
+            ..shield("Warden's")
+        },
+        Property {
+            wear: 3000,
+            curse: true,
+            ..shield("Rotten")
+        },
+    ]);
+    let made = Item {
+        quality: FINE,
+        magic: Magic {
+            rarity: 2,
+            props: [first, first + 1, first + 2, first + 3],
+            curse: first + 4,
+            ..magic([NONE, NONE], NONE)
+        },
+        ..Item::new(BUCKLER, 1)
+    };
+    // Unknown: how well it was made shows (fine: 5% more blocked, slower wear), its magic
+    // doesn't.
+    let card = w.card(&made, None);
+    assert_eq!(number(&card, "Chance to block"), ("55% braced", true));
+    assert_eq!(number(&card, "Wear"), ("3.4% a block", true));
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [("+5% chance to block", "Fine"), ("-15% wear", "Fine")]
+    );
+    let note = styled(&card, CardStyle::Note);
+    assert!(
+        note[0]
+            .0
+            .starts_with("Not known yet: take it up on your arm"),
+        "{note:?}"
+    );
+    // Taken up, it shows what it does, its curse with it; and a level of Shield, its own skill.
+    w.give(me, made);
+    let seen = wield(&mut w, me, BUCKLER);
+    assert!(seen.contains(&Event::Identified {
+        who: me,
+        item: BUCKLER
+    }));
+    let on_arm = w.actor(me).unwrap().shield.unwrap();
+    assert!(on_arm.magic.known && on_arm.magic.curse_shown);
+    assert_eq!(w.skill_level(me, Skill::Shield), 1);
+    let card = w.card(&on_arm, None);
+    for (name, value) in [
+        ("Chance to block", "65% braced"),
+        ("Bash", "+25% to knock down"),
+        ("Breath a block", "4.8"),
+        ("Wear", "10.2% a block"),
+    ] {
+        assert_eq!(number(&card, name), (value, true), "{name}");
+    }
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+5% chance to block", "Fine"),
+            ("-15% wear", "Fine"),
+            ("+10% chance to block", "Steadfast"),
+            ("+10% chance a bash knocks down", "Spiked"),
+            ("+1 to Shield", "Warden's"),
+            ("-20% breath a block", "Deft")
+        ]
+    );
+    assert_eq!(
+        styled(&card, CardStyle::Curse),
+        [("+200% wear", "Rotten (curse)")]
+    );
+    // Its curse is a cost it carries: it doesn't cling. Put away, it gives nothing.
+    w.intent(me, Intent::Unshield);
+    run(&mut w, 10);
+    assert!(w.actor(me).unwrap().shield.is_none());
+    assert_eq!(w.skill_level(me, Skill::Shield), 0);
+}
+
+#[test]
+fn a_chests_bows_and_shields_are_made_well_or_badly_and_their_magic_is_their_own() {
+    for (def, fits) in [(BOW, Fits::Bow), (BUCKLER, Fits::Shield)] {
+        let mut better = 0;
+        for seed in 0..60 {
+            let (mut w, _) = field_of(seed, Vec::new());
+            let mut d = (*w.defs).clone();
+            d.properties.push(Property {
+                range: 2,
+                ..on(Fits::Bow, "Far")
+            });
+            d.properties.push(Property {
+                block: 1000,
+                ..on(Fits::Shield, "Steadfast")
+            });
+            d.loot[0].entries[0].item = def;
+            d.magic.cursed = 0;
+            w.defs = Arc::new(d);
+            let found = w.store(CHEST)[0];
+            assert_eq!(found.def, def);
+            assert!(found.magic.is_magic() && !found.magic.known);
+            for p in found.magic.all() {
+                assert_eq!(w.defs.properties[usize::from(p)].fits, fits);
+            }
+            better += usize::from(found.quality != PLAIN);
+        }
+        assert!(better > 0, "some made better or worse than plain");
+    }
 }

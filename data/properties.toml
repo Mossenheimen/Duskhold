@@ -1,5 +1,5 @@
 # Magic items' properties and curses (CONCEPT.md, loot): each changes how you play
-# (crates/dusk-core/src/magic.rs), on a weapon, a light or armour. An Uncommon item has one or two, a Rare three or four and a
+# (crates/dusk-core/src/magic.rs), on a weapon, a light, armour, a bow or a shield. An Uncommon item has one or two, a Rare three or four and a
 # made-up name (names.toml's [things]); a fifth or so are cursed as well (rules.toml, [magic]). A
 # weapon's work while it's in your hand, a light's while it's held up. Multipliers are 1.0 for
 # none.
@@ -677,5 +677,366 @@ steps = 2
 id = "frayed"
 name = "Frayed"
 on = "armour"
+curse = true
+wear = 3.0
+
+# A bow's, in hand (2026-11-15): on = "bow" (Path of Exile's: a bow has its own). Harder shots, a
+# quicker draw (swing: the card says it as attack speed), surer, farther (range: tiles added),
+# fewer arrows broken (arrows: a multiplier on the chance one breaks on a hit), levels in Archery
+# (skill = "own"), and fire's harm added to an arrow. Shots that land teach you an unknown bow, as
+# blows do a weapon; a cursed one clings to your hand as a weapon does.
+
+# Harder shots.
+
+[[property]]
+id = "taut"
+name = "Taut"
+on = "bow"
+family = "harm"
+tier = 1
+damage = 1.25
+
+[[property]]
+id = "heavy"
+name = "Heavy"
+on = "bow"
+family = "harm"
+tier = 2
+damage = 1.5
+
+[[property]]
+id = "wicked"
+name = "Wicked"
+on = "bow"
+family = "harm"
+tier = 3
+damage = 1.8
+
+# A quicker draw and loose.
+
+[[property]]
+id = "supple"
+name = "Supple"
+on = "bow"
+family = "pace"
+tier = 1
+swing = 0.85
+
+[[property]]
+id = "springing"
+name = "Springing"
+on = "bow"
+family = "pace"
+tier = 2
+swing = 0.75
+
+[[property]]
+id = "thrumming"
+name = "Thrumming"
+on = "bow"
+family = "pace"
+tier = 3
+swing = 0.6
+
+# Surer shots: a chance added (half of it at the bow's range, as the bow's own).
+
+[[property]]
+id = "steady"
+name = "Steady"
+on = "bow"
+family = "aim"
+tier = 1
+hit = 0.08
+
+[[property]]
+id = "hawkeyed"
+name = "Hawk-eyed"
+on = "bow"
+family = "aim"
+tier = 2
+hit = 0.15
+
+[[property]]
+id = "deadeye"
+name = "Deadeye"
+on = "bow"
+family = "aim"
+tier = 3
+hit = 0.25
+
+# Farther: tiles added to its range (and so surer at any distance: half its chance at its range).
+
+[[property]]
+id = "reaching"
+name = "Reaching"
+on = "bow"
+family = "reach"
+tier = 1
+range = 2
+
+[[property]]
+id = "farflung"
+name = "Far-flung"
+on = "bow"
+family = "reach"
+tier = 2
+range = 4
+
+[[property]]
+id = "skyward"
+name = "Skyward"
+on = "bow"
+family = "reach"
+tier = 3
+range = 6
+
+# Fewer arrows broken on a hit.
+
+[[property]]
+id = "sparing"
+name = "Sparing"
+on = "bow"
+family = "arrows"
+tier = 1
+arrows = 0.7
+
+[[property]]
+id = "frugal"
+name = "Frugal"
+on = "bow"
+family = "arrows"
+tier = 2
+arrows = 0.45
+
+[[property]]
+id = "unfailing"
+name = "Unfailing"
+on = "bow"
+family = "arrows"
+tier = 3
+arrows = 0.2
+
+# Levels in Archery while it's in your hand (its own skill).
+
+[[property]]
+id = "fletchers"
+name = "Fletcher's"
+on = "bow"
+family = "archery"
+tier = 1
+skill = "own"
+levels = 1
+
+[[property]]
+id = "hunters"
+name = "Hunter's"
+on = "bow"
+family = "archery"
+tier = 2
+skill = "own"
+levels = 2
+
+[[property]]
+id = "rangers"
+name = "Ranger's"
+on = "bow"
+family = "archery"
+tier = 3
+skill = "own"
+levels = 3
+
+# Fire's harm added to every arrow that lands, [least, most] in points: bone and mail no help.
+
+[[property]]
+id = "kindled"
+name = "Kindled"
+on = "bow"
+family = "fire"
+tier = 1
+fire = [1, 2]
+
+[[property]]
+id = "flaming"
+name = "Flaming"
+on = "bow"
+family = "fire"
+tier = 2
+fire = [2, 4]
+
+[[property]]
+id = "infernal"
+name = "Infernal"
+on = "bow"
+family = "fire"
+tier = 3
+fire = [3, 6]
+
+# A bow's curses, found anywhere: it clings, as a cursed weapon does.
+
+[[property]]
+id = "warped"
+name = "Warped"
+on = "bow"
+curse = true
+hit = -0.15
+
+[[property]]
+id = "splintering"
+name = "Splintering"
+on = "bow"
+curse = true
+arrows = 2.0
+
+# A shield's, on the arm (2026-11-15): on = "shield". A chance added to its block (nothing blocks
+# more than 95%) and to a bash's knocking down, less breath a block, slower wear, and levels in
+# Shield (skill = "own"). Taken up, it shows what it does; its curses are costs it carries, and
+# don't cling.
+
+# Blocks more often, braced.
+
+[[property]]
+id = "stalwart"
+name = "Stalwart"
+on = "shield"
+family = "block"
+tier = 1
+block = 0.05
+
+[[property]]
+id = "steadfast"
+name = "Steadfast"
+on = "shield"
+family = "block"
+tier = 2
+block = 0.1
+
+[[property]]
+id = "bulwark"
+name = "Bulwark"
+on = "shield"
+family = "block"
+tier = 3
+block = 0.15
+
+# A bash that knocks down more often.
+
+[[property]]
+id = "studded"
+name = "Studded"
+on = "shield"
+family = "bash"
+tier = 1
+bash = 0.05
+
+[[property]]
+id = "spiked"
+name = "Spiked"
+on = "shield"
+family = "bash"
+tier = 2
+bash = 0.1
+
+[[property]]
+id = "battering"
+name = "Battering"
+on = "shield"
+family = "bash"
+tier = 3
+bash = 0.15
+
+# Less breath a block.
+
+[[property]]
+id = "deft"
+name = "Deft"
+on = "shield"
+family = "breath"
+tier = 1
+endurance = 0.8
+
+[[property]]
+id = "featherweight"
+name = "Featherweight"
+on = "shield"
+family = "breath"
+tier = 2
+endurance = 0.65
+
+[[property]]
+id = "effortless"
+name = "Effortless"
+on = "shield"
+family = "breath"
+tier = 3
+endurance = 0.5
+
+# Slower wear.
+
+[[property]]
+id = "banded"
+name = "Banded"
+on = "shield"
+family = "wear"
+tier = 1
+wear = 0.6
+
+[[property]]
+id = "ironbound"
+name = "Ironbound"
+on = "shield"
+family = "wear"
+tier = 2
+wear = 0.35
+
+[[property]]
+id = "unbreaking"
+name = "Unbreaking"
+on = "shield"
+family = "wear"
+tier = 3
+wear = 0.15
+
+# Levels in Shield while it's on your arm (its own skill).
+
+[[property]]
+id = "wardens"
+name = "Warden's"
+on = "shield"
+family = "guard"
+tier = 1
+skill = "own"
+levels = 1
+
+[[property]]
+id = "sentinels"
+name = "Sentinel's"
+on = "shield"
+family = "guard"
+tier = 2
+skill = "own"
+levels = 2
+
+[[property]]
+id = "champions"
+name = "Champion's"
+on = "shield"
+family = "guard"
+tier = 3
+skill = "own"
+levels = 3
+
+# A shield's curses, found anywhere: costs it carries.
+
+[[property]]
+id = "unwieldy"
+name = "Unwieldy"
+on = "shield"
+curse = true
+endurance = 2.0
+
+[[property]]
+id = "rotten"
+name = "Rotten"
+on = "shield"
 curse = true
 wear = 3.0

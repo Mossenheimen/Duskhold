@@ -12,6 +12,10 @@
 //!   up again. A loose is quiet: the bow's noise, at the shooter.
 //! - **Archery,** the tenth skill, learns from shots that land, and makes a bow's shots surer and
 //!   harder as a weapon skill does a blow's.
+//! - **Made well or badly, and magic** (`magic.rs`, `Defs::made_bow`): a bow's quality changes its
+//!   shots' harm; its properties make them harder, quicker, surer and farther, break fewer arrows,
+//!   and add fire's harm to an arrow (`World::elemental`, as to a blow). Shots that land teach you
+//!   what an unknown bow is, as blows do a weapon.
 
 use crate::actor::{ActionKind, ActorId};
 use crate::barricade::spend;
@@ -46,12 +50,13 @@ pub enum NoShot {
 }
 
 impl World {
-    /// The bow in `id`'s hand, as Archery makes it.
+    /// The bow in `id`'s hand, as it was made, as its magic changes it, and as Archery makes it.
     fn bow(&self, id: ActorId) -> Option<Ranged> {
         let held = self.actors.get(id)?.hands?;
-        let ItemKind::Bow(mut r) = self.defs.item(held.def)?.kind else {
+        let ItemKind::Bow(r) = self.defs.item(held.def)?.kind else {
             return None;
         };
+        let mut r = self.defs.made_bow(&held, r, false);
         let level = self.skill_level(id, Skill::Archery);
         r.swing = self.rules.skills.swing(r.swing, level);
         Some(r)
@@ -106,6 +111,8 @@ impl World {
         let (Some(r), Some(from)) = (self.bow(id), self.actors.get(id).map(|a| a.pos)) else {
             return;
         };
+        // What the bow gives an arrow past its shot (`magic.rs`): fire's harm, holy harm.
+        let gifts = self.gifts(id);
         if let Some(a) = self.actors.get_mut(id) {
             spend(&mut a.items, r.ammo, 1);
         }
@@ -188,6 +195,9 @@ impl World {
         };
         let damage =
             (i64::from(rolled) * i64::from(resist) / 1000 * i64::from(sneak) / 1000) as i32;
+        // And the bow's fire and holy harm on top, whatever bone or mail made of the arrow.
+        let (fire, holy) = self.elemental(id, target, gifts);
+        let damage = damage + fire + holy;
         if let Some(t) = self.actors.get_mut(target) {
             t.body.health -= damage;
         }
@@ -203,19 +213,29 @@ impl World {
             damage,
             wound: None,
         });
+        if fire + holy > 0 {
+            self.events.push(Event::Seared {
+                who: id,
+                target,
+                fire,
+                holy,
+            });
+        }
         if unaware {
             self.events.push(Event::SneakAttack { who: id, target });
         }
+        self.gifted_blow(id, target, damage, gifts);
         self.train(id, Skill::Archery, self.rules.skills.hit, On::Foe(target));
+        // A shot that lands teaches you an unknown bow, as a blow does a weapon.
+        self.learn_by_use(id);
         if below(roll(self.seed, tick, who, Purpose::Arrow), 10_000) >= r.breaks {
             self.put(last, arrow);
         }
         if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
             self.kill(target);
             // With Last Rites, what an arrow puts down stays down too (`faith.rs`).
-            if self.talents_of(id).any(|t| t.last_rites) {
-                self.put_to_rest(id, target);
-            }
+            self.put_to_rest(id, target);
+            self.gifted_kill(id, target, gifts);
         }
     }
 }

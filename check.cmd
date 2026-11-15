@@ -24,8 +24,9 @@ if /i "%~1"=="rust" goto passed
 echo == the game, headless
 set "LOG=%TEMP%\duskhold-check.log"
 if exist "%LOG%" del "%LOG%"
-rem The prompts, E's list and E tapped, at seed 1's chamomile by the pond.
-call :run 4000 "--seed=1 --walk=57,119 --do=12:here,13:esc,14:use"
+rem The prompts, E's list and E tapped, at seed 1's chamomile by the pond; then a magic bow's
+rem card, and a magic buckler taken up on the arm.
+call :run 4000 "--seed=1 --walk=57,119 --give=hunting_bow:masterwork:farflung+kindled,buckler:fine:steadfast+spiked --do=12:here,13:esc,14:use,20:card,21:shield"
 rem A Cleric praying by E at the abbey's altar, then its powers.
 call :run 6000 "--seed=7 --class=cleric --walk=74,114 --do=9:use,11:power2,22:power1"
 rem A Wizard's spells by number, every panel and the settings, opened and closed; then two cast.
@@ -40,7 +41,7 @@ echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "EFFECTS OK") do (
+for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

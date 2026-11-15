@@ -33,3 +33,5 @@ spear = ["Thorn", "Pike", "Spike", "Reach", "Sting", "Prong"]
 weapon = ["Brand", "Bane", "Hand", "Ward", "Toll"]   # any other: a scythe, a staff
 light = ["Glim", "Lamp", "Eye", "Star", "Gleam", "Wick"]
 armour = ["Shroud", "Hide", "Mantle", "Coat", "Ward", "Shell", "Husk", "Skin"]
+bow = ["Arc", "Wing", "String", "Flight", "Horn", "Whisper", "Fletch"]
+shield = ["Bastion", "Wall", "Guard", "Watch", "Gate", "Door", "Shelter"]

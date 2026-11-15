@@ -8,6 +8,10 @@
 //!   wears the shield, which breaks at nothing. Held, you can block nothing.
 //! - **A shove with a shield on your arm is a bash:** it knocks down more often.
 //! - **Shield,** the ninth skill, learns from blocks and bashes, and a level blocks more often.
+//! - **Made well or badly, and magic** (`magic.rs`, `Defs::made_guard`): a shield's quality adds
+//!   to its block (as armour's to its turning) and changes its wear; its properties block more
+//!   often, bash harder, cost less breath, wear slower, and give levels in Shield. Taken up, it
+//!   shows what it does.
 
 use crate::actor::ActorId;
 use crate::hash::{Purpose, below, roll};
@@ -28,11 +32,12 @@ pub struct Guard {
 }
 
 impl World {
-    /// The shield on `id`'s arm and its numbers, if it carries one.
+    /// The shield on `id`'s arm and its numbers as it was made and as its magic changes them, if
+    /// it carries one.
     pub(crate) fn guard(&self, id: ActorId) -> Option<(Item, Guard)> {
         let shield = self.actors.get(id)?.shield?;
         match self.defs.item(shield.def)?.kind {
-            ItemKind::Shield(g) => Some((shield, g)),
+            ItemKind::Shield(g) => Some((shield, self.defs.made_guard(&shield, g, false))),
             _ => None,
         }
     }

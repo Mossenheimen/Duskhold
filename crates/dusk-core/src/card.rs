@@ -8,13 +8,14 @@
 //!   is marked (Path of Exile's blue), so what's better about it shows at a glance. A weapon's
 //!   fire and holy harm are lines of their own, each in its own colour.
 //! - **How it was made** (Diablo II's superior and low-quality weapons): a fine, masterwork or
-//!   crude weapon's quality, as numbers.
+//!   crude thing's quality, as numbers: a weapon's or a bow's harm, armour's turning, a shield's
+//!   block, and the wear of what wears.
 //! - **Its magic:** each property as numbers ("+80% damage", "+2 to Strength", "Adds 3–6 fire
 //!   damage"), with its word and tier to the right ("Cruel III"), and a curse marked as one. A
 //!   property that's more than numbers says so in words (Hallowed, Blazing), as a unique's effect
 //!   does; then a unique's story.
-//! - **Notes:** what you don't know of it yet, how it stands against the weapon in your hand (or
-//!   the piece you wear where it goes), and what it pays as a find.
+//! - **Notes:** what you don't know of it yet, how it stands against the weapon or bow in your
+//!   hand (the shield on your arm, the piece you wear where it goes), and what it pays as a find.
 //!
 //! A card is the thing on its own, before your skill and your Strength: the skills panel shows
 //! what a weapon in hand gives you.
@@ -270,9 +271,9 @@ fn tag(p: &Property) -> String {
     }
 }
 
-/// Where a property's lines go among the others: a weapon's harm first, then its pace and aim, or
-/// armour's turning and warmth; then the body and skills, then the rest (Path of Exile's order,
-/// roughly).
+/// Where a property's lines go among the others: a weapon's or a bow's harm first, then its pace,
+/// aim and reach, or a shield's block and bash, or armour's turning and warmth; then the body and
+/// skills, then the rest (Path of Exile's order, roughly).
 fn order(p: &Property) -> u8 {
     let does = [
         p.damage != 1000,
@@ -280,6 +281,9 @@ fn order(p: &Property) -> u8 {
         p.holy.1 > 0,
         p.swing != 1000,
         p.hit != 0,
+        p.range != 0,
+        p.block > 0,
+        p.bash > 0,
         p.ward > 0,
         p.warmth != 0,
         p.strength > 0,
@@ -289,6 +293,7 @@ fn order(p: &Property) -> u8 {
         p.steps != 0,
         p.noise != 1000,
         p.wear != 1000,
+        p.arrows != 1000,
         p.glow != 0,
         p.wane != 1000,
     ];
@@ -298,12 +303,13 @@ fn order(p: &Property) -> u8 {
 impl Defs {
     /// A property's lines on a card: its own line, if it's written in words, else what it does
     /// as numbers, a line each ("+80% damage", "+2 to Strength"). On `item`: "+2 to its skill"
-    /// names the one its weapon trains.
+    /// names the one it trains, and its breath is a blow's, a shot's or a block's.
     pub fn mod_lines(&self, p: &Property, item: &Item) -> Vec<String> {
         if !p.line.is_empty() {
             return vec![capital(&p.line)];
         }
         let pct = |m: u32| change(i64::from(m) - 1000);
+        let sign = |n: i32| if n < 0 { "-" } else { "+" };
         let mut out = Vec::new();
         if p.damage != 1000 {
             out.push(format!("{} damage", pct(p.damage)));
@@ -318,11 +324,18 @@ impl Defs {
             out.push(format!("{} attack speed", quicker(p.swing)));
         }
         if p.hit != 0 {
-            let sign = if p.hit < 0 { "-" } else { "+" };
-            out.push(format!(
-                "{sign}{} chance to hit",
-                share(p.hit.unsigned_abs())
-            ));
+            let by = share(p.hit.unsigned_abs());
+            out.push(format!("{}{by} chance to hit", sign(p.hit)));
+        }
+        if p.range != 0 {
+            let by = tiles(p.range.abs());
+            out.push(format!("{}{by} of range", sign(p.range)));
+        }
+        if p.block > 0 {
+            out.push(format!("+{} chance to block", share(p.block)));
+        }
+        if p.bash > 0 {
+            out.push(format!("+{} chance a bash knocks down", share(p.bash)));
         }
         let level = |n: u32| number(f64::from(n) / 1000.0, 1);
         if p.strength > 0 {
@@ -334,16 +347,18 @@ impl Defs {
         let skill = match p.raises {
             Raises::Nothing => None,
             Raises::Skill(s) => Some(s.name()),
-            Raises::Own => match self.item(item.def).map(|d| &d.kind) {
-                Some(ItemKind::Weapon { skill: Some(s), .. }) => Some(s.name()),
-                _ => Some("its skill"),
-            },
+            Raises::Own => Some(self.own_skill(item.def).map_or("its skill", |s| s.name())),
         };
         if let Some(skill) = skill.filter(|_| p.levels > 0) {
             out.push(format!("+{} to {skill}", p.levels));
         }
         if p.endurance != 1000 {
-            out.push(format!("{} breath a blow", pct(p.endurance)));
+            let a = match self.fits(item.def) {
+                Some(Fits::Bow) => "shot",
+                Some(Fits::Shield) => "block",
+                _ => "blow",
+            };
+            out.push(format!("{} breath a {a}", pct(p.endurance)));
         }
         if p.noise != 1000 {
             out.push(format!("{} noise", pct(p.noise)));
@@ -351,18 +366,19 @@ impl Defs {
         if p.wear != 1000 {
             out.push(format!("{} wear", pct(p.wear)));
         }
+        if p.arrows != 1000 {
+            out.push(format!("{} arrows broken", pct(p.arrows)));
+        }
         if p.ward > 0 {
             out.push(format!("+{} chance to turn blows", share(p.ward)));
         }
         if p.warmth != 0 {
             let warmer = number(f64::from(p.warmth.unsigned_abs()) / 1000.0, 1);
-            let sign = if p.warmth < 0 { "-" } else { "+" };
-            out.push(format!("{sign}{warmer} warmth"));
+            out.push(format!("{}{warmer} warmth", sign(p.warmth)));
         }
         if p.steps != 0 {
-            let sign = if p.steps < 0 { "-" } else { "+" };
             let by = tiles(p.steps.abs());
-            out.push(format!("{sign}{by} to every footstep"));
+            out.push(format!("{}{by} to every footstep", sign(p.steps)));
         }
         if p.glow != 0 {
             out.push(if p.fits == Fits::Light {
@@ -437,8 +453,8 @@ impl World {
         c.rule();
         match def.kind {
             ItemKind::Weapon { swing, wear, .. } => self.weapon_numbers(&mut c, item, swing, wear),
-            ItemKind::Bow(r) => self.bow_numbers(&mut c, &r),
-            ItemKind::Shield(g) => shield_numbers(&mut c, item, &g),
+            ItemKind::Bow(r) => self.bow_numbers(&mut c, item, &r),
+            ItemKind::Shield(g) => self.shield_numbers(&mut c, item, &g),
             ItemKind::Armour(a) => self.armour_numbers(&mut c, item, &a, def.weight),
             ItemKind::Light { radius, wane } => self.light_numbers(&mut c, item, radius, wane),
             _ => {}
@@ -501,17 +517,7 @@ impl World {
             (now - was).abs() >= 0.05,
         );
         c.stat("Damage", span(s.damage), s.damage != base.damage);
-        if fire.1 > 0 {
-            c.add(CardStyle::Fire, "Fire damage", span(fire));
-        }
-        if holy.1 > 0 {
-            c.add(
-                CardStyle::Holy,
-                "Holy damage",
-                format!("{} on the dead", span(holy)),
-            );
-        }
-        let pace = |s: &Swing| s.wind_up + s.recovery;
+        elements(c, fire, holy);
         c.stat(
             "Attacks per second",
             format!("{:.2}", rate(&s)),
@@ -531,22 +537,56 @@ impl World {
         c.stat("Condition", condition(item), false);
     }
 
-    /// A bow's numbers: what a shot does, how often, how far.
-    fn bow_numbers(&self, c: &mut Lines, r: &Ranged) {
-        let s = r.swing;
-        let now = per_second(&s, (0, 0), (0, 0));
-        c.stat("Damage per second", format!("{now:.1}"), false);
-        c.stat("Damage", span(s.damage), false);
-        c.stat("Shots per second", format!("{:.2}", rate(&s)), false);
-        c.stat("Draw", seconds(s.wind_up), false);
+    /// A bow's numbers, as made and as far as you know its magic: what a shot does, how often,
+    /// how far, each marked where that changed it from its kind's.
+    fn bow_numbers(&self, c: &mut Lines, item: &Item, base: &Ranged) {
+        let d = &self.defs;
+        let r = d.made_bow(item, *base, true);
+        let (s, b) = (r.swing, base.swing);
+        let (fire, holy) = d.known_harm(item);
+        let now = per_second(&s, fire, holy);
+        let was = per_second(&b, (0, 0), (0, 0));
+        c.stat(
+            "Damage per second",
+            format!("{now:.1}"),
+            (now - was).abs() >= 0.05,
+        );
+        c.stat("Damage", span(s.damage), s.damage != b.damage);
+        elements(c, fire, holy);
+        c.stat(
+            "Shots per second",
+            format!("{:.2}", rate(&s)),
+            pace(&s) != pace(&b),
+        );
+        c.stat("Draw", seconds(s.wind_up), s.wind_up != b.wind_up);
         let far = format!("{}, half at its range", share(s.hit));
-        c.stat("Chance to hit", far, false);
-        c.stat("Range", tiles(r.range), false);
-        c.stat("Breath a shot", points(s.endurance), false);
-        c.stat("Noise", tiles(s.noise), false);
-        let ammo = self.defs.item(r.ammo).map_or("arrow", |d| d.name.as_str());
+        c.stat("Chance to hit", far, s.hit != b.hit);
+        c.stat("Range", tiles(r.range), r.range != base.range);
+        c.stat(
+            "Breath a shot",
+            points(s.endurance),
+            s.endurance != b.endurance,
+        );
+        c.stat("Noise", tiles(s.noise), s.noise != b.noise);
+        let ammo = d.item(r.ammo).map_or("arrow", |d| d.name.as_str());
         let breaks = format!("{}s break", capital(ammo));
-        c.stat(&breaks, format!("{} on a hit", share(r.breaks)), false);
+        let often = format!("{} on a hit", share(r.breaks));
+        c.stat(&breaks, often, r.breaks != base.breaks);
+    }
+
+    /// A shield's numbers, as made and as far as you know its magic: the block it gives braced,
+    /// its bash, what a block costs you and it.
+    fn shield_numbers(&self, c: &mut Lines, item: &Item, base: &Guard) {
+        let g = self.defs.made_guard(item, *base, true);
+        let block = format!("{} braced", share(g.block));
+        c.stat("Chance to block", block, g.block != base.block);
+        let breath = points(g.endurance);
+        c.stat("Breath a block", breath, g.endurance != base.endurance);
+        let bash = format!("+{} to knock down", share(g.bash));
+        c.stat("Bash", bash, g.bash != base.bash);
+        let worn = format!("{} a block", wear_share(g.wear, 1000));
+        c.stat("Wear", worn, g.wear != base.wear);
+        c.stat("Condition", condition(item), false);
     }
 
     /// A piece of armour's numbers: where it goes, what it turns, and what it costs you.
@@ -599,36 +639,36 @@ impl World {
         }
     }
 
-    /// How well a weapon or a piece of armour was made, as numbers (Diablo II's superior and
-    /// low-quality weapons): a weapon's harm, armour's turning, and either's wear. A plain one
-    /// says nothing.
+    /// How well a thing was made, as numbers (Diablo II's superior and low-quality weapons): a
+    /// weapon's or a bow's harm, armour's turning, a shield's block, and the wear of all but a bow
+    /// (which doesn't wear). A plain one says nothing.
     fn made_lines(&self, c: &mut Lines, item: &Item) {
         let q = &self.defs.quality;
         if item.quality == PLAIN {
             return;
         }
         let word = capital(q.name_of(item.quality));
-        let armour = self.defs.fits(item.def) == Some(Fits::Armour);
-        let harm = if armour {
-            0
-        } else {
-            i64::from(q.damage_of(item.quality)) - 1000
-        };
-        let turn = if armour { q.turn_of(item.quality) } else { 0 };
+        let kind = self.defs.fits(item.def);
+        let turn = q.turn_of(item.quality);
+        let harm = i64::from(q.damage_of(item.quality)) - 1000;
         let wear = i64::from(q.wear_of(item.quality)) - 1000;
-        if turn != 0 {
-            let line = format!("{} chance to turn blows", signed_share(turn));
+        let mut lines = Vec::new();
+        match kind {
+            Some(Fits::Armour) if turn != 0 => {
+                lines.push(format!("{} chance to turn blows", signed_share(turn)));
+            }
+            Some(Fits::Shield) if turn != 0 => {
+                lines.push(format!("{} chance to block", signed_share(turn)));
+            }
+            Some(Fits::Armour | Fits::Shield) => {}
+            _ if harm != 0 => lines.push(format!("{} damage", change(harm))),
+            _ => {}
+        }
+        if wear != 0 && kind != Some(Fits::Bow) {
+            lines.push(format!("{} wear", change(wear)));
+        }
+        for line in lines {
             c.add(CardStyle::Mod, line, word.clone());
-        }
-        if harm != 0 {
-            c.add(
-                CardStyle::Mod,
-                format!("{} damage", change(harm)),
-                word.clone(),
-            );
-        }
-        if wear != 0 {
-            c.add(CardStyle::Mod, format!("{} wear", change(wear)), word);
         }
     }
 
@@ -679,6 +719,13 @@ impl World {
             let how = match d.item(item.def).map(|d| &d.kind) {
                 Some(ItemKind::Light { .. }) => "light it, or have a holdout read it".to_string(),
                 Some(ItemKind::Armour(_)) => "put it on, or have a holdout read it".to_string(),
+                Some(ItemKind::Shield(_)) => {
+                    "take it up on your arm, or have a holdout read it".to_string()
+                }
+                Some(ItemKind::Bow(_)) => format!(
+                    "have a holdout read it, or land {} shots with it",
+                    d.magic.learn
+                ),
                 _ => format!(
                     "have a holdout read it, or strike {} blows with it",
                     d.magic.learn
@@ -699,10 +746,36 @@ impl World {
         }
     }
 
-    /// How a weapon stands against the one in `id`'s hand, or a piece of armour against the one
-    /// it wears where that goes, as far as you know each: "Against your cudgel: +5.2 damage per
-    /// second, -0.25 attacks a second, +5% chance to hit". None for anything else, or with
-    /// nothing there.
+    /// How a swing (or a shot) stands against another, as far as you know each thing: damage per
+    /// second, how often (`often`: "attacks a second", "shots a second"), the chance to hit.
+    fn swing_against(
+        &self,
+        (item, s): (&Item, &Swing),
+        (mine, h): (&Item, &Swing),
+        often: &str,
+    ) -> Vec<String> {
+        let d = &self.defs;
+        let ((sf, sh), (hf, hh)) = (d.known_harm(item), d.known_harm(mine));
+        let mut said = Vec::new();
+        let more = per_second(s, sf, sh) - per_second(h, hf, hh);
+        if more.abs() >= 0.05 {
+            said.push(format!("{} damage per second", signed(more, 1)));
+        }
+        let quicker = rate(s) - rate(h);
+        if quicker.abs() >= 0.005 {
+            said.push(format!("{} {often}", signed(quicker, 2)));
+        }
+        let aim = s.hit as i32 - h.hit as i32;
+        if aim != 0 {
+            said.push(format!("{} chance to hit", signed_share(aim)));
+        }
+        said
+    }
+
+    /// How a weapon stands against the one in `id`'s hand, a bow against the bow there, a shield
+    /// against the one on its arm, or a piece of armour against the one it wears where that goes,
+    /// as far as you know each: "Against your cudgel: +5.2 damage per second, -0.25 attacks a
+    /// second, +5% chance to hit". None for anything else, or with nothing there.
     fn against(&self, item: &Item, id: ActorId) -> Option<String> {
         let d = &self.defs;
         let a = self.actors.get(id)?;
@@ -716,23 +789,47 @@ impl World {
                     d.made_swing(item, swing, true),
                     d.made_swing(&hand, held, true),
                 );
-                let ((sf, sh), (hf, hh)) = (d.known_harm(item), d.known_harm(&hand));
-                let mut said = Vec::new();
-                let more = per_second(&s, sf, sh) - per_second(&h, hf, hh);
-                if more.abs() >= 0.05 {
-                    said.push(format!("{} damage per second", signed(more, 1)));
-                }
-                let often = rate(&s) - rate(&h);
-                if often.abs() >= 0.005 {
-                    said.push(format!("{} attacks a second", signed(often, 2)));
-                }
-                let aim = i64::from(s.hit) - i64::from(h.hit);
-                if aim != 0 {
-                    let sign = if aim < 0 { "-" } else { "+" };
-                    let by = share(aim.unsigned_abs() as u32);
-                    said.push(format!("{sign}{by} chance to hit"));
+                let said = self.swing_against((item, &s), (&hand, &h), "attacks a second");
+                Some(against_your(&d.label(&hand), &said))
+            }
+            ItemKind::Bow(bow) => {
+                let hand = a.hands?;
+                let ItemKind::Bow(held) = d.item(hand.def)?.kind else {
+                    return None;
+                };
+                let (r, h) = (d.made_bow(item, bow, true), d.made_bow(&hand, held, true));
+                let mut said =
+                    self.swing_against((item, &r.swing), (&hand, &h.swing), "shots a second");
+                let farther = r.range - h.range;
+                if farther != 0 {
+                    let sign = if farther < 0 { "-" } else { "+" };
+                    said.push(format!("{sign}{} of range", tiles(farther.abs())));
                 }
                 Some(against_your(&d.label(&hand), &said))
+            }
+            ItemKind::Shield(guard) => {
+                let arm = a.shield?;
+                let ItemKind::Shield(held) = d.item(arm.def)?.kind else {
+                    return None;
+                };
+                let (g, h) = (
+                    d.made_guard(item, guard, true),
+                    d.made_guard(&arm, held, true),
+                );
+                let mut said = Vec::new();
+                let block = g.block as i32 - h.block as i32;
+                if block != 0 {
+                    said.push(format!("{} chance to block", signed_share(block)));
+                }
+                let bash = g.bash as i32 - h.bash as i32;
+                if bash != 0 {
+                    said.push(format!("{} to knock down", signed_share(bash)));
+                }
+                let breath = g.endurance - h.endurance;
+                if breath != 0 {
+                    said.push(format!("{} breath a block", signed_points(breath)));
+                }
+                Some(against_your(&d.label(&arm), &said))
             }
             ItemKind::Armour(arm) => {
                 let (piece, worn) = a.worn.iter().find_map(|w| match d.item(w.def)?.kind {
@@ -767,17 +864,24 @@ impl World {
     }
 }
 
-/// A shield's numbers: the block it gives braced, its bash, what a block costs it.
-fn shield_numbers(c: &mut Lines, item: &Item, g: &Guard) {
-    c.stat(
-        "Chance to block",
-        format!("{} braced", share(g.block)),
-        false,
-    );
-    c.stat("Breath a block", points(g.endurance), false);
-    let bash = format!("+{} to knock down", share(g.bash));
-    c.stat("Bash", bash, false);
-    let worn = format!("{} a block", wear_share(g.wear, 1000));
-    c.stat("Wear", worn, false);
-    c.stat("Condition", condition(item), false);
+/// A swing's time, once round: its wind-up and recovery.
+fn pace(s: &Swing) -> u32 {
+    s.wind_up + s.recovery
+}
+
+/// A weapon's or a bow's fire and holy harm, each a line of its own in its own colour.
+fn elements(c: &mut Lines, fire: (i32, i32), holy: (i32, i32)) {
+    if fire.1 > 0 {
+        c.add(CardStyle::Fire, "Fire damage", span(fire));
+    }
+    if holy.1 > 0 {
+        let dead = format!("{} on the dead", span(holy));
+        c.add(CardStyle::Holy, "Holy damage", dead);
+    }
+}
+
+/// "+2", "-1.5": a change in tenths of a point.
+fn signed_points(tenths: i32) -> String {
+    let sign = if tenths < 0 { "-" } else { "+" };
+    format!("{sign}{}", points(tenths.abs()))
 }

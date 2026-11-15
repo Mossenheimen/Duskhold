@@ -2167,7 +2167,8 @@ fn a_fourth_tier_counts_out_of_order_and_an_empty_word_list_are_refused() {
         on = \"weapon\"\nfamily = \"harm\"\ntier = 2\ndamage = 1.5\n";
     let names = "given = [\"Edda\"]\nfamily = [\"Marsh\"]\n[things]\nfirst = [\"Grim\"]\n\
         blade = [\"Edge\"]\nblunt = [\"Knell\"]\naxe = [\"Bite\"]\nspear = [\"Thorn\"]\n\
-        weapon = [\"Brand\"]\nlight = [\"Glim\"]\narmour = [\"Hide\"]\n";
+        weapon = [\"Brand\"]\nlight = [\"Glim\"]\narmour = [\"Hide\"]\nbow = [\"Arc\"]\n\
+        shield = [\"Wall\"]\n";
     let try_with = |name: &str, magic: &str, properties: &str, names: &str| {
         let rules = format!("{RULES}{magic}");
         let mut files = test_files(PREFABS);
@@ -2406,7 +2407,10 @@ fn a_property_raising_no_such_skill_harm_out_of_order_or_doing_nothing_is_refuse
         (good.replace("\"arcana\"", "\"juggling\""), "juggling"),
         (good.replace("skill = \"own\"\n", ""), "levels"),
         (good.replace("[1, 2]", "[2, 1]"), "fire"),
-        (light, "weapon's"),
+        (
+            light,
+            "goes on a weapon, armour, a bow or a shield, not a light",
+        ),
         (idle, "does something"),
     ]
     .into_iter()
@@ -2511,11 +2515,17 @@ fn armour_taking_a_weapons_property_or_a_weapon_armours_is_refused() {
         (dusk_core::Fits::Armour, 1000, 3000)
     );
     for (n, (bad, why)) in [
-        (good.replace("\"stealth\"", "\"own\""), "armour's"),
-        (good.replace("ward = 0.1", "damage = 1.5"), "armour's"),
+        (
+            good.replace("\"stealth\"", "\"own\""),
+            "no skill of its own",
+        ),
+        (
+            good.replace("ward = 0.1", "damage = 1.5"),
+            "damage goes on a weapon or a bow, not armour",
+        ),
         (
             good.replace("on = \"armour\"", "on = \"weapon\""),
-            "armour's",
+            "goes on armour, not a weapon",
         ),
         (good.replace("ward = 0.1", "ward = 0.9"), "ward"),
     ]
@@ -2523,6 +2533,186 @@ fn armour_taking_a_weapons_property_or_a_weapon_armours_is_refused() {
     .enumerate()
     {
         let err = try_with(&format!("bad-armour-{n}"), &bad).unwrap_err();
+        assert!(err.message.contains(why), "{err}");
+    }
+}
+
+#[test]
+fn the_games_bows_and_shields_have_their_own_magic_and_cards_in_numbers() {
+    use dusk_core::magic::Magic;
+    use dusk_core::quality::{FINE, MASTERWORK};
+    use dusk_core::{CardLine, CardStyle, Fits, Item, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = data.defs.clone();
+    let w = World::with_defs(1, data.rules, d.clone());
+    let def = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let prop = |id: &str| d.properties.iter().position(|p| p.id == id).unwrap() as u8;
+    // Each has families of its own, and curses.
+    let count = |fits: Fits, curse: bool| {
+        d.properties
+            .iter()
+            .filter(|p| p.fits == fits && p.curse == curse)
+            .count()
+    };
+    assert!(count(Fits::Bow, false) >= 6 * 3 && count(Fits::Bow, true) >= 1);
+    assert!(count(Fits::Shield, false) >= 4 * 3 && count(Fits::Shield, true) >= 1);
+    // A Rare of four properties, known, made as `quality` says, with a made-up name.
+    let rare = |item: u16, quality: u8, ids: [&str; 4]| {
+        let mut magic = Magic {
+            rarity: 2,
+            known: true,
+            curse_shown: true,
+            ..Magic::MUNDANE
+        };
+        for (k, id) in ids.iter().enumerate() {
+            magic.props[k] = prop(id);
+        }
+        magic.name = d.roll_name(item, |k| k);
+        Item {
+            quality,
+            magic,
+            ..Item::new(item, 1)
+        }
+    };
+    let mods = |card: &[CardLine]| -> Vec<(String, String)> {
+        card.iter()
+            .filter(|l| l.style == CardStyle::Mod)
+            .map(|l| (l.text.clone(), l.value.clone()))
+            .collect()
+    };
+    let line = |card: &[CardLine], name: &str| {
+        let l = card.iter().find(|l| l.text == name).unwrap();
+        (l.style, l.value.clone())
+    };
+    let pairs = |list: &[(&str, &str)]| -> Vec<(String, String)> {
+        list.iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect()
+    };
+    // A masterwork Rare hunting bow: farther, burning, its making and its magic as numbers, and a
+    // bow's made-up name.
+    let bow = def("hunting_bow");
+    let item = rare(
+        bow,
+        MASTERWORK,
+        ["flaming", "farflung", "hunters", "frugal"],
+    );
+    let card = w.card(&item, None);
+    assert_eq!(
+        line(&card, "Range"),
+        (CardStyle::Changed, "16 tiles".into())
+    );
+    assert_eq!(
+        line(&card, "Fire damage"),
+        (CardStyle::Fire, "2\u{2013}4".into())
+    );
+    assert_eq!(
+        mods(&card),
+        pairs(&[
+            ("+25% damage", "Masterwork"),
+            ("Adds 2\u{2013}4 fire damage", "Flaming II"),
+            ("+4 tiles of range", "Far-flung II"),
+            ("+2 to Archery", "Hunter's II"),
+            ("-55% arrows broken", "Frugal II"),
+        ])
+    );
+    assert!(
+        d.thing_names.second[7]
+            .iter()
+            .any(|word| card[0].text.ends_with(word.as_str())),
+        "{}",
+        card[0].text
+    );
+    assert_eq!(card[1].text, "Masterwork hunting bow");
+    // A fine Rare buckler: it blocks and bashes more, a block costs less breath.
+    let buckler = def("buckler");
+    let item = rare(
+        buckler,
+        FINE,
+        ["steadfast", "spiked", "featherweight", "sentinels"],
+    );
+    let card = w.card(&item, None);
+    assert_eq!(
+        line(&card, "Chance to block"),
+        (CardStyle::Changed, "65% braced".into())
+    );
+    assert_eq!(
+        line(&card, "Bash"),
+        (CardStyle::Changed, "+25% to knock down".into())
+    );
+    assert_eq!(
+        line(&card, "Breath a block"),
+        (CardStyle::Changed, "3.9".into())
+    );
+    assert_eq!(
+        mods(&card),
+        pairs(&[
+            ("+5% chance to block", "Fine"),
+            ("-15% wear", "Fine"),
+            ("+10% chance to block", "Steadfast II"),
+            ("+10% chance a bash knocks down", "Spiked II"),
+            ("+2 to Shield", "Sentinel's II"),
+            ("-35% breath a block", "Featherweight II"),
+        ])
+    );
+    assert!(
+        d.thing_names.second[8]
+            .iter()
+            .any(|word| card[0].text.ends_with(word.as_str())),
+        "{}",
+        card[0].text
+    );
+}
+
+#[test]
+fn a_bows_property_on_a_shield_or_a_shields_on_a_weapon_is_refused() {
+    let magic = "\n[magic]\nrare = 0.3\ncursed = 0.2\nworth = [20, 50, 150]\nlearn = 15\n\
+        count = [[1, 2], [3, 4]]\nfar = [60, 140]\n";
+    let try_with = |name: &str, properties: &str| {
+        let rules = format!("{RULES}{magic}");
+        let mut files = test_files(PREFABS);
+        files[0].1 = &rules;
+        files.push(("properties.toml", properties));
+        load(&folder(name, &files))
+    };
+    let bow = "[[property]]\nid = \"far\"\nname = \"Far\"\non = \"bow\"\nrange = 2\n\
+        arrows = 0.5\nskill = \"own\"\nlevels = 1\nfire = [1, 2]\n";
+    let shield = "[[property]]\nid = \"stalwart\"\nname = \"Stalwart\"\non = \"shield\"\n\
+        block = 0.05\nbash = 0.1\nendurance = 0.8\nwear = 0.5\n";
+    let d = try_with("bow-kinds", bow).unwrap().defs;
+    let p = &d.properties[0];
+    assert_eq!(
+        (p.fits, p.range, p.arrows, p.fire),
+        (dusk_core::Fits::Bow, 2, 500, (10, 20))
+    );
+    let d = try_with("shield-kinds", shield).unwrap().defs;
+    let p = &d.properties[0];
+    assert_eq!(
+        (p.fits, p.block, p.bash, p.endurance),
+        (dusk_core::Fits::Shield, 500, 1000, 800)
+    );
+    for (n, (bad, why)) in [
+        (
+            bow.replace("on = \"bow\"", "on = \"shield\"")
+                .replace("fire = [1, 2]\n", ""),
+            "range goes on a bow, not a shield",
+        ),
+        (
+            shield.replace("on = \"shield\"", "on = \"weapon\""),
+            "block goes on a shield, not a weapon",
+        ),
+        (
+            shield.replace("wear = 0.5", "damage = 1.5"),
+            "damage goes on a weapon or a bow, not a shield",
+        ),
+        (bow.replace("range = 2", "range = 20"), "range"),
+        (shield.replace("block = 0.05", "block = 0.9"), "block"),
+        (bow.replace("on = \"bow\"", "on = \"quiver\""), "\"shield\""),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let err = try_with(&format!("bad-gear-{n}"), &bad).unwrap_err();
         assert!(err.message.contains(why), "{err}");
     }
 }

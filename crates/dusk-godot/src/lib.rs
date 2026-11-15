@@ -2827,6 +2827,26 @@ impl DuskWorld {
         }
     }
 
+    /// The shield on your arm: what it's called as far as you know it (as `character_labels`),
+    /// and its magic (as `character_rarity` codes it); or nothing.
+    #[func]
+    fn shield_label(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        let Some(s) = world
+            .character()
+            .and_then(|me| world.actor(me))
+            .and_then(|a| a.shield)
+        else {
+            return PackedStringArray::new();
+        };
+        [world.defs.label(&s), rarity_code(&s).to_string()]
+            .iter()
+            .map(|t| GString::from(t.as_str()))
+            .collect()
+    }
+
     /// Braces behind your shield, or stops (`shield.rs`).
     #[func]
     fn set_bracing(&mut self, on: bool) {

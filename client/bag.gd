@@ -125,11 +125,12 @@ func refresh(busy: bool, dead: bool) -> void:
 	var shield: PackedInt32Array = _dusk.character_shield()
 	var worn: PackedInt32Array = _dusk.character_worn()
 	var worn_labels: PackedStringArray = _dusk.worn_labels()
+	var shield_label: PackedStringArray = _dusk.shield_label()
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
 	var bagged: PackedInt32Array = _dusk.character_bagged()
 	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn,
-		worn_labels, bag, pockets, bagged]
+		worn_labels, shield_label, bag, pockets, bagged]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -224,9 +225,15 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 		_tint(row, rarity, 1)
 		_button(row, "Put out", func() -> void: _dusk.douse())
 		_mine(row, 1, light[0])
+	# The shield on your arm, called as far as you know it and in its magic's colour
+	# (DuskWorld.shield_label(): its name and rarity code).
 	var shield: PackedInt32Array = _dusk.character_shield()
 	if shield.size() >= 2:
-		var row := _row(_pack, "On your arm: %s (%d%%)  ·  hold right-click to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
+		var shield_called: PackedStringArray = _dusk.shield_label()
+		var shield_name := shield_called[0] if shield_called.size() >= 2 else _name(shield[0])
+		var row := _row(_pack, "On your arm: %s (%d%%)  ·  hold right-click to brace" % [shield_name, roundi(shield[1] / 10.0)])
+		if shield_called.size() >= 2:
+			_tint(row, PackedInt32Array([int(shield_called[1])]), 0)
 		_button(row, "Put away", func() -> void: _dusk.unshield())
 		_mine(row, -1, shield[0])
 	# What you wear (armour.rs), called as far as you know it and in its magic's colour
@@ -389,13 +396,14 @@ func _hover(row: HBoxContainer, what: Callable, right: bool, now := false) -> St
 	return " | ".join(words)
 
 
-## --do=S:card: the card of a weapon in the pack, set against the one in hand; else of armour in
-## the pack, against what's worn there; else the hand's: as if hovered. Its words, or "" for none.
+## --do=S:card: the card of a weapon in the pack, set against the one in hand; else of a bow, a
+## shield or armour in the pack, against yours; else the hand's: as if hovered. Its words, or ""
+## for none.
 func card_first() -> String:
 	var standing := func(c: Array) -> bool:
 		return is_instance_valid(c[0]) and not (c[0] as Node).is_queued_for_deletion()
 	_cards = _cards.filter(standing)
-	for kind: int in [Item.WEAPON, Item.ARMOUR, -1]:
+	for kind: int in [Item.WEAPON, Item.BOW, Item.SHIELD, Item.ARMOUR, -1]:
 		for c: Array in _cards:
 			var here: bool = (c[3] >= 2 and _kind(c[4]) == kind) if kind >= 0 else (c[3] == 0)
 			if here:

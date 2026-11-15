@@ -1,5 +1,5 @@
 # What a rare carries (regions/*.toml, [rares]): better than a cupboard's, and all of it finds.
-# Its weapons and its armour are always magic (properties.toml), and now and then a weapon is one
+# Its weapons, bows, shields and armour are always magic (properties.toml), and now and then a weapon is one
 # of the uniques made on it (uniques.toml). Put the rare down, and it falls where it does.
 
 [[loot]]
@@ -15,6 +15,8 @@ items = [
   { item = "kitchen_knife", weight = 2, magic = 1.0, unique = 0.06 },
   { item = "leather_bracers", weight = 1, magic = 1.0 },
   { item = "iron_helm", weight = 1, magic = 1.0 },
+  { item = "hunting_bow", weight = 1, magic = 1.0 },
+  { item = "buckler", weight = 1, magic = 1.0 },
   { item = "lamp_oil", weight = 2, count = [1, 2] },
   { item = "bandage", weight = 2, count = [1, 3] },
   { item = "jerky", weight = 1, count = [2, 4] },

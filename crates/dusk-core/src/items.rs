@@ -462,10 +462,16 @@ impl World {
             if count > 0 {
                 let mut item = Item::found(entry.item, count);
                 item.condition = condition;
-                // A weapon or a piece of armour was made well or badly (`quality.rs`).
+                // A weapon, a bow, a shield or a piece of armour was made well or badly
+                // (`quality.rs`).
                 if matches!(
                     self.defs.item(entry.item).map(|d| &d.kind),
-                    Some(ItemKind::Weapon { .. } | ItemKind::Armour(_))
+                    Some(
+                        ItemKind::Weapon { .. }
+                            | ItemKind::Bow(_)
+                            | ItemKind::Shield(_)
+                            | ItemKind::Armour(_)
+                    )
                 ) {
                     item.quality = self.defs.quality.roll(r(k, Purpose::Quality));
                 }
@@ -707,8 +713,11 @@ impl World {
             self.carry_in(id, was);
         }
         self.events.push(Event::Wielded { who: id, item: def });
-        // A curse shows itself now, and the weapon clings.
-        if !shield {
+        // A curse shows itself now, and the weapon (or bow) clings; a shield on the arm shows what
+        // it is, as armour put on does, and its curse doesn't cling.
+        if shield {
+            self.know_shield(id);
+        } else {
             self.cling(id);
         }
     }

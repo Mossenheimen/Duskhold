@@ -18,6 +18,15 @@
 //!   better at a skill (`Boosts`, as a weapon's in hand). Put on, it shows what it does, as a
 //!   light lit does. Its curses are costs it carries (louder footsteps, quicker wear): they don't
 //!   cling, as a weapon's do. A Rare piece has a made-up name too ("Grim Shroud").
+//! - **Bows and shields too** (2026-11-15), each with properties of its own (`Fits::Bow`,
+//!   `Fits::Shield`; Path of Exile's mods by item class). A bow's quality changes its shots' harm,
+//!   and its properties make them harder, quicker drawn, surer, farther (`Property::range`), its
+//!   arrows break less often (`arrows`), add fire's harm, and give levels in Archery: a bow is
+//!   learnt by shots that land, as a weapon by blows, and a cursed one clings to your hand. A
+//!   shield's quality adds to its block as armour's to its turning; its properties block more
+//!   often (`block`), bash harder (`bash`), cost less breath a block, wear slower, and give
+//!   levels in Shield. Taken up on the arm, it shows what it does, as armour put on; its curses
+//!   don't cling.
 //! - **Tiers** (Path of Exile's): most properties are one of a family's tiers ("Sharp", "Keen",
 //!   "Cruel": harder blows, each more than the last), and a thing has at most one of a family.
 //!   How far out a find was made sets the best tier it can roll (`World::find_level`): near where
@@ -41,10 +50,12 @@
 //!   any magic is, but "(unique, unknown)" says what it is.
 
 use crate::actor::ActorId;
+use crate::archery::Ranged;
 use crate::armour::Armour;
 use crate::geom::TilePos;
 use crate::hash::{Purpose, below, mix64, roll};
 use crate::items::{Defs, Item, ItemKind};
+use crate::shield::Guard;
 use crate::skills::{SKILLS, Skill};
 use crate::world::{Event, Swing, World};
 
@@ -121,14 +132,30 @@ pub struct Card {
     pub wear: u32,
 }
 
-/// What kind of thing a property goes on, and works on: a weapon in hand, a light held up, or
-/// armour worn.
+/// What kind of thing a property goes on, and works on: a weapon in hand, a light held up, armour
+/// worn, a bow in hand or a shield on the arm. Each has its own (Path of Exile's: an item class's
+/// own mods).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Fits {
     #[default]
     Weapon,
     Light,
     Armour,
+    Bow,
+    Shield,
+}
+
+impl Fits {
+    /// What it is, in words: "a weapon", "armour".
+    pub fn word(self) -> &'static str {
+        match self {
+            Fits::Weapon => "a weapon",
+            Fits::Light => "a light",
+            Fits::Armour => "armour",
+            Fits::Bow => "a bow",
+            Fits::Shield => "a shield",
+        }
+    }
 }
 
 /// The skill a property gives levels in (`Property::levels`): none, the one its weapon trains, or
@@ -203,6 +230,14 @@ pub struct Property {
     pub ward: u32,
     pub warmth: i32,
     pub steps: i32,
+    /// A bow's (`Defs::made_bow`): tiles added to its range, and per mille the chance an arrow
+    /// breaks on a hit.
+    pub range: i32,
+    pub arrows: u32,
+    /// A shield's (`Defs::made_guard`): a chance added to block (out of 10,000), and to a bash's
+    /// knocking down.
+    pub block: u32,
+    pub bash: u32,
 }
 
 impl Property {
@@ -222,8 +257,8 @@ impl Property {
 pub struct ThingNames {
     pub first: Vec<String>,
     /// By what it is: a blade, a blunt weapon, an axe, a spear, any other weapon, a light, a piece
-    /// of armour.
-    pub second: [Vec<String>; 7],
+    /// of armour, a bow, a shield.
+    pub second: [Vec<String>; 9],
 }
 
 /// A unique (`data/uniques.toml`): a weapon made by hand, with a name of its own.
@@ -314,6 +349,10 @@ impl Default for Property {
             ward: 0,
             warmth: 0,
             steps: 0,
+            range: 0,
+            arrows: 1000,
+            block: 0,
+            bash: 0,
         }
     }
 }
@@ -382,18 +421,32 @@ impl Defs {
     /// The properties of an item you know: all of them once it's known, else only a curse that
     /// has shown itself.
     pub fn known_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
-        let m = item.magic;
-        self.properties_of(item)
-            .filter(move |p| m.known || (p.curse && m.curse_shown))
+        self.counted(item, true)
     }
 
-    /// What a weapon gives whoever holds it (`Boosts`): its properties' Strength, Fitness and
-    /// levels, known or not, as its blows' are. Its own skill is the one it trains.
-    pub fn boosts_of(&self, item: &Item) -> Boosts {
-        let own = match self.item(item.def).map(|d| &d.kind) {
-            Some(ItemKind::Weapon { skill, .. }) => *skill,
+    /// The properties that count: all of an item's, or (`known_only`) those you know, as its card
+    /// shows them (a curse once it has shown itself).
+    fn counted(&self, item: &Item, known_only: bool) -> impl Iterator<Item = &Property> + '_ {
+        let m = item.magic;
+        self.properties_of(item)
+            .filter(move |p| !known_only || m.known || (p.curse && m.curse_shown))
+    }
+
+    /// The skill a thing trains, its own for "+2 to its skill" (`Raises::Own`): a weapon's, a
+    /// bow's Archery, a shield's Shield.
+    pub fn own_skill(&self, def: u16) -> Option<Skill> {
+        match self.item(def)?.kind {
+            ItemKind::Weapon { skill, .. } => skill,
+            ItemKind::Bow(_) => Some(Skill::Archery),
+            ItemKind::Shield(_) => Some(Skill::Shield),
             _ => None,
-        };
+        }
+    }
+
+    /// What a thing gives whoever holds it or wears it (`Boosts`): its properties' Strength,
+    /// Fitness and levels, known or not, as its blows' are. Its own skill is the one it trains.
+    pub fn boosts_of(&self, item: &Item) -> Boosts {
+        let own = self.own_skill(item.def);
         let mut b = Boosts::default();
         for p in self.properties_of(item) {
             b.strength += p.strength;
@@ -458,7 +511,8 @@ impl Defs {
     }
 
     /// What a thing is, for a Rare's made-up name: a blade, a blunt weapon, an axe, a spear, any
-    /// other weapon, a light, or armour (`ThingNames::second`); None for anything else.
+    /// other weapon, a light, armour, a bow or a shield (`ThingNames::second`); None for anything
+    /// else.
     fn name_class(&self, def: u16) -> Option<usize> {
         match &self.item(def)?.kind {
             ItemKind::Weapon { skill, .. } => Some(match skill {
@@ -470,17 +524,21 @@ impl Defs {
             }),
             ItemKind::Light { .. } => Some(5),
             ItemKind::Armour(_) => Some(6),
+            ItemKind::Bow(_) => Some(7),
+            ItemKind::Shield(_) => Some(8),
             _ => None,
         }
     }
 
-    /// What kind of thing an item is for properties: a weapon, a light or armour. None for one
-    /// that takes none.
+    /// What kind of thing an item is for properties: a weapon, a light, armour, a bow or a
+    /// shield. None for one that takes none.
     pub fn fits(&self, def: u16) -> Option<Fits> {
         match self.item(def)?.kind {
             ItemKind::Weapon { .. } => Some(Fits::Weapon),
             ItemKind::Light { .. } => Some(Fits::Light),
             ItemKind::Armour(_) => Some(Fits::Armour),
+            ItemKind::Bow(_) => Some(Fits::Bow),
+            ItemKind::Shield(_) => Some(Fits::Shield),
             _ => None,
         }
     }
@@ -498,11 +556,7 @@ impl Defs {
         let worn = a.wear;
         turn(&mut a, i64::from(q.turn_of(item.quality)));
         let mut wear = per(u32::from(worn), q.wear_of(item.quality));
-        let m = item.magic;
-        for p in self.properties_of(item) {
-            if known_only && !m.known && !(p.curse && m.curse_shown) {
-                continue;
-            }
+        for p in self.counted(item, known_only) {
             turn(&mut a, i64::from(p.ward));
             a.warmth += p.warmth;
             a.noise += p.steps;
@@ -511,6 +565,38 @@ impl Defs {
         // Never none for a piece that wears at all.
         a.wear = if worn > 0 { wear.max(1) as u16 } else { 0 };
         a
+    }
+
+    /// A bow as it was made (its quality's harm) and as its magic changes it (`known_only`: as
+    /// its card shows it): its shot as a weapon's swing is (`made_swing`), its range (a tile at
+    /// least), and how often its arrows break.
+    pub fn made_bow(&self, item: &Item, mut r: Ranged, known_only: bool) -> Ranged {
+        r.swing = self.made_swing(item, r.swing, known_only);
+        for p in self.counted(item, known_only) {
+            r.range += p.range;
+            r.breaks = per(r.breaks, p.arrows).min(10_000);
+        }
+        r.range = r.range.max(1);
+        r
+    }
+
+    /// A shield as it was made (its quality adds to its block, as to armour's turning, and
+    /// changes its wear) and as its magic changes it (`known_only`: as its card shows it): its
+    /// block (95% at most), its bash, the breath a block costs and the wear it takes.
+    pub fn made_guard(&self, item: &Item, mut g: Guard, known_only: bool) -> Guard {
+        let q = &self.quality;
+        let mut block = i64::from(g.block) + i64::from(q.turn_of(item.quality));
+        let worn = g.wear;
+        let mut wear = per(u32::from(worn), q.wear_of(item.quality));
+        for p in self.counted(item, known_only) {
+            block += i64::from(p.block);
+            g.bash = (g.bash + p.bash).min(10_000);
+            g.endurance = per(g.endurance.max(0) as u32, p.endurance) as i32;
+            wear = per(wear, p.wear);
+        }
+        g.block = block.clamp(0, 9500) as u32;
+        g.wear = if worn > 0 { wear.max(1) as u16 } else { 0 };
+        g
     }
 
     /// A Rare's made-up name for a kind of thing, by a roll's keys (14 and 15): its words'
@@ -598,11 +684,7 @@ impl Defs {
             per(swing.damage.0.max(0) as u32, made) as i32,
             per(swing.damage.1.max(0) as u32, made) as i32,
         );
-        let m = item.magic;
-        for p in self.properties_of(item) {
-            if known_only && !m.known && !(p.curse && m.curse_shown) {
-                continue;
-            }
+        for p in self.counted(item, known_only) {
             swing.noise = per(swing.noise.max(0) as u32, p.noise) as i32;
             swing.damage = (
                 per(swing.damage.0.max(0) as u32, p.damage) as i32,
@@ -619,9 +701,7 @@ impl Defs {
     /// How fast a weapon wears, per mille: by its quality and its properties (`known_only`: those
     /// you know, as on its card).
     pub fn made_wear(&self, item: &Item, known_only: bool) -> u32 {
-        let m = item.magic;
-        self.properties_of(item)
-            .filter(|p| !known_only || m.known || (p.curse && m.curse_shown))
+        self.counted(item, known_only)
             .fold(self.quality.wear_of(item.quality), |w, p| per(w, p.wear))
     }
 
@@ -740,35 +820,47 @@ impl World {
             })
     }
 
-    /// What the weapon in `id`'s hand and what it wears give it (`Boosts`): Strength, Fitness,
-    /// levels in skills.
+    /// What the weapon or bow in `id`'s hand, the shield on its arm and what it wears give it
+    /// (`Boosts`): Strength, Fitness, levels in skills.
     pub fn boosts(&self, id: ActorId) -> Boosts {
         let Some(a) = self.actors.get(id) else {
             return Boosts::default();
         };
         a.hands
             .iter()
+            .chain(&a.shield)
             .chain(&a.worn)
             .fold(Boosts::default(), |b, i| b.and(self.defs.boosts_of(i)))
     }
 
-    /// A piece just put on (the last `id` wears): you feel what it does, as a light lit shows
-    /// itself, and a curse with it.
-    pub(crate) fn know_piece(&mut self, id: ActorId) {
-        let Some(piece) = self.actors.get_mut(id).and_then(|a| a.worn.last_mut()) else {
+    /// A magic thing that shows itself (put on, taken up on the arm, lit): you know what it is
+    /// now, a curse with it.
+    fn shows(&mut self, id: ActorId, place: fn(&mut crate::actor::Actor) -> Option<&mut Item>) {
+        let Some(thing) = self.actors.get_mut(id).and_then(place) else {
             return;
         };
-        if piece.magic.is_magic() && !piece.magic.known {
-            piece.magic.known = true;
-            piece.magic.curse_shown = true;
-            let item = piece.def;
+        if thing.magic.is_magic() && !thing.magic.known {
+            thing.magic.known = true;
+            thing.magic.curse_shown = true;
+            let item = thing.def;
             self.events.push(Event::Identified { who: id, item });
         }
     }
 
-    /// The fire's harm and the holy harm a blow from `id` on `target` adds, by what its weapon
-    /// gives (`Gifts`): each rolled from its least to its most. Holy harm is the dead's only: a
-    /// beast takes none.
+    /// A piece just put on (the last `id` wears): you feel what it does, as a light lit shows
+    /// itself.
+    pub(crate) fn know_piece(&mut self, id: ActorId) {
+        self.shows(id, |a| a.worn.last_mut());
+    }
+
+    /// A shield just taken up on the arm: you feel what it does, as a piece put on.
+    pub(crate) fn know_shield(&mut self, id: ActorId) {
+        self.shows(id, |a| a.shield.as_mut());
+    }
+
+    /// The fire's harm and the holy harm a blow (or an arrow) from `id` on `target` adds, by what
+    /// its weapon gives (`Gifts`): each rolled from its least to its most. Holy harm is the dead's
+    /// only: a beast takes none.
     pub(crate) fn elemental(&self, id: ActorId, target: ActorId, g: Gifts) -> (i32, i32) {
         let r = roll(self.seed, self.tick, id.index() as u64, Purpose::Element);
         let pick = |(lo, hi): (i32, i32), r: u64| {
@@ -887,16 +979,7 @@ impl World {
 
     /// A light just lit: you see what it is.
     pub(crate) fn know_light(&mut self, id: ActorId) {
-        let Some(a) = self.actors.get_mut(id) else {
-            return;
-        };
-        let Some(lit) = a.light.as_mut() else { return };
-        if lit.magic.is_magic() && !lit.magic.known {
-            lit.magic.known = true;
-            lit.magic.curse_shown = true;
-            let item = lit.def;
-            self.events.push(Event::Identified { who: id, item });
-        }
+        self.shows(id, |a| a.light.as_mut());
     }
 
     /// A key for rolling an item's magic: so two containers' rolls differ, and two lines'.
