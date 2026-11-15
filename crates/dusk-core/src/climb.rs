@@ -102,7 +102,7 @@ impl World {
         match a.kind {
             ActorKind::Character => {
                 let s = &self.rules.skills;
-                let athletics = a.skills.level(Skill::Athletics, s);
+                let athletics = self.skill_level(id, Skill::Athletics);
                 let heavy = self.weighed_down(id);
                 let exhausted = a.body.exhausted;
                 let time = |t: u32| {

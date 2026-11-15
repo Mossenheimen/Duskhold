@@ -2,7 +2,9 @@ extends "res://book_panel.gd"
 ## Your skills (K): each with its level and how far it is toward the next. Skills grow only by
 ## real use under real risk (the core decides; this only shows it). A skill at the free cap waits
 ## for a mastery: the "Master" button spends one, and the skill goes on to 10. Above them, your
-## Strength and Fitness, which grow overnight from the day's exertion (`fitness.rs`).
+## Strength and Fitness, which grow overnight from the day's exertion (`fitness.rs`). What the
+## weapon in your hand gives any of them shows beside its level, as its card has it: "+2", in
+## Look.CHANGED (DuskWorld.character_boosts(): the core's `Boosts`).
 
 const RISING := 0
 const AT_CAP := 1
@@ -31,9 +33,10 @@ func refresh(dead: bool) -> void:
 	if not _awake(dead):
 		return
 	var now := [_dusk.character_skills(), _dusk.masteries_left(),
-		[_dusk.character_talents(), _dusk.talent_offer()], _dusk.character_build().slice(0, 2)]
+		[_dusk.character_talents(), _dusk.talent_offer()], _dusk.character_build().slice(0, 2),
+		_dusk.character_boosts()]
 	if _changed(now):
-		_draw(now[0], now[1], now[3])
+		_draw(now[0], now[1], now[3], now[4])
 		_draw_talents(now[2][0], now[2][1])
 
 
@@ -72,8 +75,24 @@ func _text(talent: int, which: int) -> String:
 	return _texts[i] if i < _texts.size() else "?"
 
 
-func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array) -> void:
-	_draw_build(build)
+## What the weapon in your hand gives a stat or a skill (`k`: 0 Strength, 1 Fitness, then the
+## skills, by DuskWorld.character_boosts()) beside its level: "+2", or nothing for none. Every
+## row keeps the room for it, so the bars line up.
+func _boost(row: HBoxContainer, boosts: PackedInt32Array, k: int) -> void:
+	var given := boosts[k] if k < boosts.size() else 0
+	# Strength and Fitness are in thousandths of a level; a skill's are levels.
+	var levels := given / 1000.0 if k < 2 else float(given)
+	var words := "+%s" % str(snappedf(levels, 0.1)).trim_suffix(".0") if given > 0 else ""
+	var said := Look.line(words, Look.BODY)
+	said.add_theme_color_override("font_color", Look.CHANGED)
+	said.custom_minimum_size = Vector2(28, 0)
+	row.add_child(said)
+	row.move_child(said, 2)
+
+
+func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array,
+		boosts: PackedInt32Array) -> void:
+	_draw_build(build, boosts)
 	_list.add_child(Look.line("Skills  ·  masteries left: %d" % left, Look.HEADING))
 	var hint := Look.line("They grow by real use under real risk.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
@@ -94,6 +113,7 @@ func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array) -> void
 		row.add_child(number)
 		var colour := CAPPED if state == AT_CAP else (GOLD if state in [MASTERED, TOP] else BAR)
 		row.add_child(_bar(progress / 1000.0, colour))
+		_boost(row, boosts, 2 + skill)
 		match state:
 			AT_CAP:
 				if left > 0:
@@ -108,8 +128,9 @@ func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array) -> void
 			called.add_theme_color_override("font_color", colour)
 
 
-## Strength and Fitness, in thousandths of a level: each its level, and how far toward the next.
-func _draw_build(build: PackedInt32Array) -> void:
+## Strength and Fitness, in thousandths of a level: each its level, and how far toward the next,
+## and what the weapon in hand gives it.
+func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array) -> void:
 	_list.add_child(Look.line("Body", Look.HEADING))
 	var hint := Look.line("Strength and Fitness grow overnight from the day's exertion.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
@@ -127,6 +148,7 @@ func _draw_build(build: PackedInt32Array) -> void:
 		row.add_child(number)
 		var top := value >= 10000
 		row.add_child(_bar(1.0 if top else (value % 1000) / 1000.0, GOLD if top else BAR))
+		_boost(row, boosts, k)
 	_list.add_child(Look.line(" ", 8))
 
 

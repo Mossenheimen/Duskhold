@@ -14,6 +14,7 @@ extends Node3D
 ## - a blow landing: blood, a little or (a wound) more; bone chips off the bloodless;
 ## - your shield taking a blow: sparks; armour turning one: a few;
 ## - a heavy blow felling one: dust round its feet; a sneak attack: a sharp burst;
+## - a weapon's fire or holy harm landing: flames off what it struck, or a holy flare;
 ## - bone turning a blade, or shattering under a blunt one: chips;
 ## - the dead getting up: grave dust; a revenant rising: its dark; a wight eating your light: smoke;
 ## - a door or the boards on it giving way: splinters.
@@ -164,6 +165,15 @@ func fell(at: Vector3) -> void:
 func terror(at: Vector3) -> void:
 	_wave(at, 1.4, Look.UNIQUE, 0.6)
 	_burst(at + Vector3(0, 1.2, 0), Look.UNIQUE, [14, 0.9, 1.2, 0.8, 0.3, 0.2])
+
+
+## A weapon's fire or holy harm landing (`kind`: 1 fire, 2 holy, 3 both): flames licking up off
+## what it struck, in fire's colour; a holy flare, rising slower and wider.
+func sear(at: Vector3, kind: int) -> void:
+	if kind & 1:
+		_burst(at + Vector3(0, 1.0, 0), Look.FIRE, [12, 0.5, 0.9, 2.5, 0.2, 0.16])
+	if kind & 2:
+		_burst(at + Vector3(0, 1.1, 0), Look.HOLY, [12, 0.7, 1.3, 1.0, 0.3, 0.14])
 
 
 ## A sneak attack: a sharp burst where it lands, out fast and gone.

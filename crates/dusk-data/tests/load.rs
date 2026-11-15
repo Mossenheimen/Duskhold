@@ -2193,3 +2193,225 @@ fn a_fourth_tier_counts_out_of_order_and_an_empty_word_list_are_refused() {
     let err = try_with("names-empty", magic, properties, &wordless).unwrap_err();
     assert!(err.message.contains("things"), "{err}");
 }
+
+#[test]
+fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
+    use dusk_core::magic::Magic;
+    use dusk_core::quality::{MASTERWORK, PLAIN};
+    use dusk_core::{ActorKind, CardLine, CardStyle, Intent, Item, Tile, TilePos, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = data.defs.clone();
+    let mut w = World::with_defs(1, data.rules, d.clone());
+    w.grid.set_tile(TilePos::new(0, 0, 0), Tile::GRASS);
+    let me = w
+        .spawn(ActorKind::Character, TilePos::new(0, 0, 0))
+        .unwrap();
+    let def = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    let known = |id: &str, quality: u8, props: &[&str]| {
+        let mut magic = Magic {
+            rarity: if props.len() > 2 { 2 } else { 1 },
+            known: true,
+            curse_shown: true,
+            ..Magic::MUNDANE
+        };
+        for (k, p) in props.iter().enumerate() {
+            magic.props[k] = d.properties.iter().position(|q| q.id == *p).unwrap() as u8;
+        }
+        Item {
+            quality,
+            magic,
+            ..Item::new(def(id), 1)
+        }
+    };
+    let line = |card: &[CardLine], name: &str| {
+        let l = card.iter().find(|l| l.text == name).unwrap();
+        (l.style, l.value.clone())
+    };
+    let mods = |card: &[CardLine]| -> Vec<(String, String)> {
+        card.iter()
+            .filter(|l| l.style == CardStyle::Mod)
+            .map(|l| (l.text.clone(), l.value.clone()))
+            .collect()
+    };
+    let pairs = |p: &[(&str, &str)]| -> Vec<(String, String)> {
+        p.iter().map(|&(a, b)| (a.into(), b.into())).collect()
+    };
+    // A plain cudgel: its numbers as its data has them, none marked.
+    let cudgel = w.card(&Item::new(def("cudgel"), 1), None);
+    for (name, value) in [
+        ("Damage per second", "10.0"),
+        ("Damage", "8\u{2013}12"),
+        ("Attacks per second", "1.00"),
+        ("Chance to hit", "85%"),
+        ("Breath a blow", "9"),
+    ] {
+        assert_eq!(
+            line(&cudgel, name),
+            (CardStyle::Stat, value.into()),
+            "{name}"
+        );
+    }
+    // A masterwork Rare sword: its numbers changed and marked, its making and its properties
+    // as numbers, each with its word and tier.
+    let sword = known(
+        "sword",
+        MASTERWORK,
+        &["cruel", "darting", "unerring", "poised"],
+    );
+    let card = w.card(&sword, None);
+    assert_eq!(
+        line(&card, "Attacks per second"),
+        (CardStyle::Changed, "2.00".into())
+    );
+    assert_eq!(
+        mods(&card),
+        pairs(&[
+            ("+25% damage", "Masterwork"),
+            ("-40% wear", "Masterwork"),
+            ("+80% damage", "Cruel III"),
+            ("+67% attack speed", "Darting III"),
+            ("+25% chance to hit", "Unerring III"),
+            ("-35% breath a blow", "Poised II"),
+        ])
+    );
+    // The kinds Diablo has: a body made stronger or fitter, levels in skills (the staff's own,
+    // the Wizard's and the Cleric's), and fire and holy harm, each a line of its own too.
+    let staff = known(
+        "quarterstaff",
+        PLAIN,
+        &["mighty", "seasoned", "sorcerous", "burning"],
+    );
+    let card = w.card(&staff, None);
+    assert_eq!(
+        mods(&card),
+        pairs(&[
+            ("Adds 2\u{2013}4 fire damage", "Burning II"),
+            ("+2 to Strength", "Mighty II"),
+            ("+2 to Blunt", "Seasoned II"),
+            ("+3 to Arcana", "Sorcerous III"),
+        ])
+    );
+    assert_eq!(
+        line(&card, "Fire damage"),
+        (CardStyle::Fire, "2\u{2013}4".into())
+    );
+    let mace = known("mace", PLAIN, &["righteous", "hale", "blessed"]);
+    assert_eq!(
+        mods(&w.card(&mace, None)),
+        pairs(&[
+            ("Adds 4\u{2013}7 holy damage on the dead", "Righteous III"),
+            ("+1 to Fitness", "Hale I"),
+            ("+1 to Devotion", "Blessed I"),
+        ])
+    );
+    // A unique: its effect in words, as more than numbers.
+    let red = d.uniques.iter().position(|u| u.id == "redhand").unwrap() as u8;
+    let mut redhand = d.unique_item(red).unwrap();
+    redhand.magic.known = true;
+    let effect: Vec<String> = w
+        .card(&redhand, None)
+        .into_iter()
+        .filter(|l| l.style == CardStyle::Effect)
+        .map(|l| l.text)
+        .collect();
+    assert_eq!(
+        effect,
+        ["Thirst: a quarter of the harm it does comes back to you as health"]
+    );
+    // Armour: where it goes, what it turns, what it costs.
+    let mail = w.card(&Item::new(def("mail_shirt"), 1), None);
+    for (name, value) in [
+        ("Covers", "torso, arms"),
+        ("Turns lacerations", "55%"),
+        ("Weight worn", "4.5 kg"),
+        ("Breath", "+15% on every cost"),
+        ("Footsteps", "+2 tiles"),
+    ] {
+        assert_eq!(line(&mail, name), (CardStyle::Stat, value.into()), "{name}");
+    }
+    // A light, Bright and Lasting: farther, and burning twice as long.
+    let torch = w.card(&known("torch", PLAIN, &["bright", "lasting"]), None);
+    assert_eq!(
+        line(&torch, "Light"),
+        (CardStyle::Changed, "10 tiles".into())
+    );
+    assert_eq!(
+        mods(&torch),
+        pairs(&[
+            ("+3 tiles of light", "Bright II"),
+            ("+100% burn time", "Lasting II")
+        ])
+    );
+    // In the pack, set against the cudgel in hand.
+    let cudgel = Item::new(def("cudgel"), 1);
+    w.give(me, cudgel);
+    let slot = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.def == cudgel.def);
+    w.intent(
+        me,
+        Intent::Wield {
+            slot: slot.unwrap() as u16,
+            def: cudgel.def,
+        },
+    );
+    for _ in 0..30 {
+        w.step(1);
+    }
+    let notes: Vec<String> = w
+        .card(&sword, Some(me))
+        .into_iter()
+        .filter(|l| l.style == CardStyle::Note)
+        .map(|l| l.text)
+        .collect();
+    assert_eq!(
+        notes,
+        [
+            "Against your cudgel: +50.6 damage per second, +1.00 attacks a second, +15% chance to hit"
+        ]
+    );
+}
+
+#[test]
+fn a_property_raising_no_such_skill_harm_out_of_order_or_doing_nothing_is_refused() {
+    use dusk_core::{Raises, Skill};
+    let magic = "\n[magic]\nrare = 0.3\ncursed = 0.2\nworth = [20, 50, 150]\nlearn = 15\n\
+        count = [[1, 2], [3, 4]]\nfar = [60, 140]\n";
+    let try_with = |name: &str, properties: &str| {
+        let rules = format!("{RULES}{magic}");
+        let mut files = test_files(PREFABS);
+        files[0].1 = &rules;
+        files.push(("properties.toml", properties));
+        load(&folder(name, &files))
+    };
+    let good = "[[property]]\nid = \"storied\"\nname = \"Storied\"\non = \"weapon\"\n\
+        skill = \"own\"\nlevels = 3\n\n[[property]]\nid = \"runed\"\nname = \"Runed\"\n\
+        on = \"weapon\"\nskill = \"arcana\"\nlevels = 1\nstrength = 2\nfire = [1, 2]\n";
+    let d = try_with("kinds", good).unwrap().defs;
+    let (own, runed) = (&d.properties[0], &d.properties[1]);
+    assert_eq!((own.raises, own.levels), (Raises::Own, 3));
+    assert_eq!(runed.raises, Raises::Skill(Skill::Arcana));
+    assert_eq!((runed.strength, runed.fire), (2000, (10, 20)));
+    assert!(own.line.is_empty(), "no words: its card says its numbers");
+    let light = good.replace(
+        "on = \"weapon\"\nskill = \"arcana\"",
+        "on = \"light\"\nskill = \"arcana\"",
+    );
+    let idle = "[[property]]\nid = \"idle\"\nname = \"Idle\"\non = \"weapon\"\n".to_string();
+    for (n, (bad, why)) in [
+        (good.replace("\"arcana\"", "\"juggling\""), "juggling"),
+        (good.replace("skill = \"own\"\n", ""), "levels"),
+        (good.replace("[1, 2]", "[2, 1]"), "fire"),
+        (light, "weapon's"),
+        (idle, "does something"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let err = try_with(&format!("bad-property-{n}"), &bad).unwrap_err();
+        assert!(err.message.contains(why), "{err}");
+    }
+}

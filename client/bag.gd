@@ -15,9 +15,11 @@ extends CanvasLayer
 ## of; the pack's lines then have a Sell button (a find sold pays its XP too), and the weapon in
 ## your hand a Mend button.
 ##
-## A weapon's line, or a magic thing's, shows its card on hover (VISUALS.md §11, Tooltip): what
-## it is as far as you know it, a weapon's numbers as it was made (quality.rs) and against the one
-## in your hand, and what its magic does (magic.rs); its name in its magic's colour.
+## A weapon's line, a bow's, a shield's, armour's or a light's, and any magic thing's, shows its
+## card on hover (VISUALS.md §11, Tooltip; the core's card.rs, as Path of Exile's and Diablo's
+## are): its name in its magic's colour, its numbers as it was made and as far as you know its
+## magic, its properties as numbers, a unique's effect in words, and how it stands against what
+## you hold or wear there.
 
 const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
@@ -29,13 +31,11 @@ const PLACES := [[1, "head"], [2, "torso"], [4, "arms"], [8, "legs"]]
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
 const STACK := 4
 const HEADER := 5
-## Numbers on every thing's card (DuskWorld.item_card()), and on a weapon's.
+## A thing's numbers (DuskWorld.item_card(): its rarity, quality, condition, worth, find).
 const CARD := 5
-const WEAPON_CARD := 14
-## A weapon's quality (DuskWorld.item_card()'s second number), in words; plain says nothing.
-const MADE := {0: "Crudely made: weaker blows, quicker to wear.",
-	2: "Finely made: harder blows, slower to wear.",
-	3: "A masterwork: the hardest blows, the slowest wear."}
+## A card's place for what's within reach, not yours (`_hoverable`): yours are 0 and up, and -1
+## and down for what's on your arm and what you wear (DuskWorld.card_lines()).
+const NOT_MINE := -1000
 ## Why a container can't be your stash, by DuskWorld.stash_check().
 const NO_STASH := {-1: "That's not a container within your reach.",
 	-2: "A stash wants a roof over it.",
@@ -58,8 +58,7 @@ var _kinds := PackedInt32Array()
 var _weights := PackedInt32Array()
 var _worths := PackedInt32Array()
 var _covers := PackedInt32Array()
-var _skills := PackedStringArray()
-var _cards := []  # the lines with a card: [row, a Callable giving the card, opens right, place]
+var _cards := []  # the lines with a card: [row, a Callable giving it, opens right, place, def]
 var _fixtures := PackedStringArray()
 var _pack: VBoxContainer
 var _reach: VBoxContainer
@@ -90,7 +89,6 @@ func start(dusk: Node) -> void:
 	_weights = dusk.item_weights()
 	_worths = dusk.item_worths()
 	_covers = dusk.item_covers()
-	_skills = dusk.skill_names()
 	_fixtures = dusk.fixture_names()
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
@@ -217,18 +215,19 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			_reading_buttons(row, counter, -1)
 			if _dusk.uncurse_check(counter[0], counter[1]) != -1:
 				_button(row, "Lift the curse", func() -> void: _uncurse(counter[0], counter[1]))
-		_mine(row, 0)
+		_mine(row, 0, hands[0])
 	else:
 		_line(_pack, "In hand: nothing (bare fists)", Look.BODY)
 	if light.size() >= 2:
 		var row := _row(_pack, "Held up: %s, lit (%d%% left)" % [labels[1], roundi(light[1] / 10.0)])
 		_tint(row, rarity, 1)
 		_button(row, "Put out", func() -> void: _dusk.douse())
-		_mine(row, 1)
+		_mine(row, 1, light[0])
 	var shield: PackedInt32Array = _dusk.character_shield()
 	if shield.size() >= 2:
 		var row := _row(_pack, "On your arm: %s (%d%%)  ·  hold right-click to brace" % [_name(shield[0]), roundi(shield[1] / 10.0)])
 		_button(row, "Put away", func() -> void: _dusk.unshield())
+		_mine(row, -1, shield[0])
 	# What you wear (armour.rs): with nothing in hand, the first piece takes the Mend button.
 	var worn: PackedInt32Array = _dusk.character_worn()
 	var piece := -1
@@ -241,6 +240,7 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			var cost: int = _dusk.mend_check(counter[0], counter[1])
 			if cost > 0 or cost == -2:
 				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
+		_mine(row, -2 - piece, def)  # DuskWorld.card_lines(): -2 the first piece worn, -3 the next
 	# Your pockets, then the bag on your back (bag.rs): each stack's line under the one it's in.
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
@@ -315,7 +315,7 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 		if price >= 0:
 			_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
 	_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
-	_mine(row, 2 + slot)
+	_mine(row, 2 + slot, def)
 
 
 ## "To bag", "To pockets": as many as fit. The core says how many, and this says why none.
@@ -341,24 +341,25 @@ func _rarity_colour(code: int) -> Color:
 	return colour if code < 10 else colour.darkened(0.25)
 
 
-## One of your things' line, by its place (0 in hand, 1 held up, 2 on the pack's stacks): its card
-## on hover, to the pack's left; a stack's set against the weapon in your hand.
-func _mine(row: HBoxContainer, place: int) -> void:
+## One of your things' line, by its place (DuskWorld.card_lines(): 0 in hand, 1 held up, 2 on the
+## pack's stacks; -1 the shield on your arm, -2 on what you wear) and what it is (`def`): its card
+## on hover, to the pack's left; a stack's set against what you hold or wear.
+func _mine(row: HBoxContainer, place: int, def: int) -> void:
 	var what := func() -> Array:
-		var labels: PackedStringArray = _dusk.character_labels()
-		var title := labels[place] if place < labels.size() else ""
-		return _card_of(title, _dusk.item_card(place), _dusk.character_lines(place), place >= 2)
-	_hoverable(row, what, false, place)
+		return _card_of(_dusk.item_card(place), _dusk.card_lines(place))
+	_hoverable(row, what, false, place, def)
 
 
 ## Hovering `row`'s words shows the card `what` gives ([title, lines, colour], or [] for none)
-## beside the row: to its right (`right`, within reach) or its left (the pack).
-func _hoverable(row: HBoxContainer, what: Callable, right: bool, place := -1) -> void:
+## beside the row: to its right (`right`, within reach) or its left (the pack). `place` is where
+## one of yours is (`_mine`; NOT_MINE for what's within reach), `def` what it is.
+func _hoverable(row: HBoxContainer, what: Callable, right: bool, place := NOT_MINE,
+		def := -1) -> void:
 	var words := row.get_child(0) as Control
 	words.mouse_filter = Control.MOUSE_FILTER_STOP
 	words.mouse_entered.connect(func() -> void: _hover(row, what, right))
 	words.mouse_exited.connect(_unhover.bind(row))
-	_cards.append([row, what, right, place])
+	_cards.append([row, what, right, place, def])
 
 
 func _unhover(row: HBoxContainer) -> void:
@@ -366,100 +367,52 @@ func _unhover(row: HBoxContainer) -> void:
 		uncard.call(row)
 
 
-## Shows `row`'s card (`now`: at once); its words for a trial run's print, "" for none.
+## Shows `row`'s card (`now`: at once); its words for a trial run's print, a part a line ("Card:
+## Redhand | Fine hand axe | ... | Damage 21.4–31.3 | ..."), "" for none.
 func _hover(row: HBoxContainer, what: Callable, right: bool, now := false) -> String:
 	var shown: Array = what.call()
 	if shown.is_empty() or not card.is_valid():
 		return ""
-	card.call(row, shown[0], shown[1], right, shown[2], shown[3], now)
+	card.call(row, shown[0], shown[1], right, shown[2], now)
 	var words := PackedStringArray([shown[0]])
-	for block: String in [shown[1], shown[3]]:
-		if block != "":
-			words.append(block.replace("\n", " | "))
+	var lines: PackedStringArray = shown[1]
+	for i in range(0, lines.size() - 2, 3):
+		if lines[i] != "rule":
+			words.append((lines[i + 1] + " " + lines[i + 2]).strip_edges())
 	return " | ".join(words)
 
 
-## --do=S:card: a weapon's card in the pack, set against the one in hand, or else the hand's, as
-## if hovered; its words, or "" for none.
+## --do=S:card: the card of a weapon in the pack, set against the one in hand, or else the hand's,
+## as if hovered; its words, or "" for none.
 func card_first() -> String:
 	var standing := func(c: Array) -> bool:
 		return is_instance_valid(c[0]) and not (c[0] as Node).is_queued_for_deletion()
 	_cards = _cards.filter(standing)
 	for pack in [true, false]:
 		for c: Array in _cards:
-			if (c[3] >= 2) == pack and c[3] >= 0:
+			var here: bool = (c[3] >= 2 and _kind(c[4]) == Item.WEAPON) if pack else (c[3] == 0)
+			if here:
 				var shown := _hover(c[0], c[1], c[2], true)
 				if shown != "":
 					return shown
 	return ""
 
 
-## A thing's card (VISUALS.md §11, Tooltip): [its title, its lines, its title's colour, its lore].
-## The title is what it's called as far as you know it, in its magic's colour. The lines: for a
-## weapon (DuskWorld.item_card()), its numbers as it was made and as far as you know its magic,
-## the skill it trains, how well it was made, and (`against`) how it stands against the weapon in
-## your hand; and what it pays as a find. The lore: what its magic does, as far as you know it.
-## [] for a mundane thing that isn't a weapon.
-func _card_of(title: String, numbers: PackedInt32Array, lines: PackedStringArray,
-		against: bool) -> Array:
-	if numbers.size() < CARD:
+## A thing's card (VISUALS.md §11, Tooltip; DuskWorld.card_lines()): [its title, its lines, its
+## title's colour], or [] for a thing with none. The title is what it's called as far as you know
+## it, in its magic's colour (`numbers`: DuskWorld.item_card()); the lines are the rest of the
+## card, three words each, as the HUD draws them (hud.gd's _card_line).
+func _card_of(numbers: PackedInt32Array, lines: PackedStringArray) -> Array:
+	if numbers.size() < CARD or lines.size() < 3:
 		return []
-	var weapon := numbers.size() >= WEAPON_CARD
-	if not weapon and numbers[0] == 0:
-		return []
-	var out := PackedStringArray()
-	if weapon:
-		out.append("Harm %s–%s  ·  a blow every %.1f s  ·  lands %d%%" % [_tenths(numbers[5]),
-			_tenths(numbers[6]), (numbers[7] + numbers[8]) / 10.0, roundi(numbers[9] / 100.0)])
-		out.append("Noise %d tiles  ·  %s breath a blow" % [numbers[10], _tenths(numbers[11])])
-		out.append("Wears %s%% a blow  ·  in %d%% condition" % [_tenths(numbers[12]),
-			roundi(numbers[2] / 10.0)])
-		if numbers[13] >= 0 and numbers[13] < _skills.size():
-			out.append("Trains %s" % _skills[numbers[13]])
-		if MADE.has(numbers[1]):
-			out.append(MADE[numbers[1]])
-		if against:
-			var vs := _against(numbers)
-			if vs != "":
-				out.append(vs)
-	if numbers[4] == 1:
-		out.append("A find: %d XP in your stash" % numbers[3])
-	# Its magic: "Rare" (or that you don't know yet), and what each property does.
-	return [title, "\n".join(out), _rarity_colour(numbers[0]), "\n".join(lines)]
-
-
-## How a weapon stands against the one in your hand, in words: "Against your cudgel: 2.5 more
-## harm, 0.2 s slower, lands 5% more often". "" with no weapon in hand.
-func _against(numbers: PackedInt32Array) -> String:
-	var hand: PackedInt32Array = _dusk.item_card(0)
-	if hand.size() < WEAPON_CARD:
-		return ""
-	var said := PackedStringArray()
-	var harm := ((numbers[5] + numbers[6]) - (hand[5] + hand[6])) / 2.0  # the middle's, in tenths
-	if absf(harm) >= 1.0:
-		said.append("%s %s harm" % [_tenths(absf(harm)), "more" if harm > 0.0 else "less"])
-	var pace := (numbers[7] + numbers[8]) - (hand[7] + hand[8])
-	if pace != 0:
-		said.append("%.1f s %s" % [absi(pace) / 10.0, "slower" if pace > 0 else "quicker"])
-	var lands := roundi((numbers[9] - hand[9]) / 100.0)
-	if lands != 0:
-		said.append("lands %d%% %s often" % [absi(lands), "more" if lands > 0 else "less"])
-	var labels: PackedStringArray = _dusk.character_labels()
-	var name := labels[0] if labels.size() > 0 else "weapon"
-	if said.is_empty():
-		return "Against your %s: much the same" % name
-	return "Against your %s: %s" % [name, ", ".join(said)]
+	if lines[0] != "title":
+		return ["", lines, _rarity_colour(numbers[0])]
+	return [lines[1], lines.slice(3), _rarity_colour(numbers[0])]
 
 
 ## What one of a stack is worth in XP, by its card (DuskWorld.item_card()); -1 for no card.
 func _worth_of(numbers: PackedInt32Array) -> int:
 	return numbers[3] if numbers.size() >= CARD else -1
-
-
-## Tenths of a point as a number to read: "12.5", or "10" when it's whole.
-func _tenths(n: float) -> String:
-	var r := roundi(n)
-	return str(r / 10) if r % 10 == 0 else "%.1f" % (r / 10.0)
 
 
 ## At a counter: "Read" for a magic thing you don't know yet (`slot` -1: what's in hand).
@@ -552,10 +505,8 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 			_tint(row, magic, slot)
 			_button(row, "Take", func() -> void: _take(x, y, slot, def))
 			var what := func() -> Array:
-				var called: PackedStringArray = _dusk.store_labels(x, y)
-				var title := called[slot] if slot < called.size() else ""
-				return _card_of(title, _dusk.store_card(x, y, slot), _dusk.store_lines(x, y, slot), true)
-			_hoverable(row, what, true)
+				return _card_of(_dusk.store_card(x, y, slot), _dusk.store_card_lines(x, y, slot))
+			_hoverable(row, what, true, NOT_MINE, def)
 		i += n * STACK
 
 

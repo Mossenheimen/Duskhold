@@ -450,6 +450,14 @@ pub enum Event {
         who: ActorId,
         target: ActorId,
     },
+    /// `who`'s blow burnt `target` with its weapon's fire, or smote it with holy harm, or both
+    /// (`magic.rs`): the harm of each, already in the blow's `Struck`.
+    Seared {
+        who: ActorId,
+        target: ActorId,
+        fire: i32,
+        holy: i32,
+    },
     /// `who` ran out of breath.
     Exhausted {
         who: ActorId,
@@ -1352,11 +1360,7 @@ impl World {
         let heavy = starting && self.weighed_down(id);
         // Frightened, a character won't step nearer what it's frightened of (`dread.rs`).
         let fear = if starting { self.fear(id) } else { None };
-        let athletics = self
-            .actors
-            .get(id)
-            .filter(|a| a.kind == ActorKind::Character)
-            .map_or(0, |a| a.skills.level(Skill::Athletics, &rules.skills));
+        let athletics = self.skill_level(id, Skill::Athletics);
         let on_me: Vec<(ActorId, TilePos)> = if starting && !held {
             self.engaged(id)
                 .into_iter()

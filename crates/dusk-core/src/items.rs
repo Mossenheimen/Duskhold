@@ -814,7 +814,7 @@ impl World {
                 Some(self.defs.wield_time)
             }
             (true, ItemKind::Bandage { time, .. }) if a.body.wounds.iter().any(|w| !w.bandaged) => {
-                let level = a.skills.level(Skill::FirstAid, &self.rules.skills);
+                let level = self.skill_level(id, Skill::FirstAid);
                 Some(self.rules.skills.bandage(*time, level))
             }
             (true, ItemKind::Food { time, .. } | ItemKind::Drink { time, .. }) => {

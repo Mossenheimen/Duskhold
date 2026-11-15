@@ -45,6 +45,7 @@ func _run() -> void:
 	_fx.glance(at)
 	_fx.fell(at)
 	_fx.terror(at)
+	_fx.sear(at, 3)
 	_fx.sneak_attack(at)
 	_fx.bone(at, true)
 	_fx.got_up(at)

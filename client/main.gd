@@ -2153,6 +2153,13 @@ func _run_script() -> void:
 					if items[k] < kinds.size() and kinds[items[k]] == Item.SHIELD:
 						dusk.wield(k / 4, items[k])
 						break
+			"wield":  # take the last weapon in the pack in hand (the last one --give gave)
+				var items: PackedInt32Array = dusk.character_items()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(items.size() - 4, -1, -4):
+					if items[k] < kinds.size() and kinds[items[k]] == Item.WEAPON:
+						dusk.wield(k / 4, items[k])
+						break
 			"wear":  # put on the first armour or bag in the pack
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
@@ -2335,6 +2342,9 @@ func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int)
 		Event.TERRIFIED:
 			if who == me:
 				effects.terror(_drawn(target, x, y))
+		Event.SEARED:  # a weapon's fire, or its holy harm (extra: 1 fire, 2 holy, 3 both)
+			if who == me or _seen(target):
+				effects.sear(_drawn(target, x, y), extra)
 		Event.SNEAK_ATTACK:
 			if who == me:
 				effects.sneak_attack(_drawn(target, x, y))

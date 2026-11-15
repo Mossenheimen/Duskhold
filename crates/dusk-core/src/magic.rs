@@ -6,6 +6,12 @@
 //!   you play. On a weapon, while it's in your hand: quieter swings, harder or surer blows, a
 //!   quicker tell, less wear, a glow round you (a trade: the dead see it too), and Hallowed: what
 //!   it puts down stays down. On a light, held up: farther, or slower to burn down.
+//! - **Numbers, as Diablo's and Path of Exile's are** (the user, 2026-11-14): a property's card
+//!   line is its numbers ("+80% damage", "+2 to Strength": `card.rs`) unless it's more than
+//!   numbers, and says so in words (Hallowed, a unique's effect). A weapon in hand can make you
+//!   stronger or fitter (`Boosts`: `fitness.rs` reads them), give levels in a skill (its own, the
+//!   Wizard's Arcana, the Cleric's Devotion: `World::skill_level`), and add fire's harm to its
+//!   blows, or holy harm on the dead (`World::elemental`).
 //! - **Tiers** (Path of Exile's): most properties are one of a family's tiers ("Sharp", "Keen",
 //!   "Cruel": harder blows, each more than the last), and a thing has at most one of a family.
 //!   How far out a find was made sets the best tier it can roll (`World::find_level`): near where
@@ -30,9 +36,9 @@
 
 use crate::actor::ActorId;
 use crate::geom::TilePos;
-use crate::hash::{Purpose, below, roll};
+use crate::hash::{Purpose, below, mix64, roll};
 use crate::items::{Defs, Item, ItemKind};
-use crate::skills::Skill;
+use crate::skills::{SKILLS, Skill};
 use crate::world::{Event, Swing, World};
 
 /// No property in this slot.
@@ -99,7 +105,7 @@ impl Default for Magic {
     }
 }
 
-/// A weapon as its card shows it (`Defs::card`).
+/// A weapon's numbers as its card has them (`Defs::card`; the card itself is `card.rs`'s).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Card {
     pub swing: Swing,
@@ -108,11 +114,24 @@ pub struct Card {
     pub wear: u32,
 }
 
+/// The skill a property gives levels in (`Property::levels`): none, the one its weapon trains, or
+/// one by name.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Raises {
+    #[default]
+    Nothing,
+    /// The skill of the weapon it's on: "+2 to Blade" on a sword, "+2 to Axe" on an axe.
+    Own,
+    Skill(Skill),
+}
+
 /// A property (or a curse): what it does, in the core's units. Per mille is 1000 for none.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Property {
     pub id: String,
-    /// The word it puts before an item's name, and its one line.
+    /// The word it puts before an item's name, and its line on the card: in words, for what's
+    /// more than numbers (Hallowed, a unique's effect); empty, and the card says its numbers
+    /// (`card.rs`).
     pub name: String,
     pub line: String,
     /// Its family: a thing has at most one of a family (empty: its own, by its id). And its tier
@@ -152,6 +171,16 @@ pub struct Property {
     pub hearten: i32,
     /// Out of 10,000: the chance a blow that lands knocks down what it hits, as a heavy blow may.
     pub fell: u32,
+    /// A weapon's, in hand (`Boosts`): Strength and Fitness it adds, in thousandths of a level
+    /// (`fitness.rs`), and levels in a skill (`World::skill_level`).
+    pub strength: u32,
+    pub fitness: u32,
+    pub raises: Raises,
+    pub levels: u8,
+    /// A weapon's: the harm its blows add, least and most, in tenths of a point: fire's, on
+    /// anything; holy harm, on the dead only (`World::elemental`).
+    pub fire: (i32, i32),
+    pub holy: (i32, i32),
 }
 
 impl Property {
@@ -201,6 +230,19 @@ pub struct Gifts {
     pub terror: u32,
     pub hearten: i32,
     pub fell: u32,
+    /// Fire's harm and holy harm, least and most, in tenths of a point.
+    pub fire: (i32, i32),
+    pub holy: (i32, i32),
+}
+
+/// What a weapon gives whoever holds it, all its properties together, known or not (Diablo's "+2
+/// to Strength", "+1 to a skill"): Strength and Fitness, in thousandths of a level, and levels by
+/// `Skill::ALL`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Boosts {
+    pub strength: u32,
+    pub fitness: u32,
+    pub levels: [u8; SKILLS],
 }
 
 impl Default for Property {
@@ -228,6 +270,12 @@ impl Default for Property {
             terror: 0,
             hearten: 0,
             fell: 0,
+            strength: 0,
+            fitness: 0,
+            raises: Raises::Nothing,
+            levels: 0,
+            fire: (0, 0),
+            holy: (0, 0),
         }
     }
 }
@@ -278,14 +326,51 @@ impl Defs {
     /// An item's properties (its curse among them; a unique's, and its effect last), as
     /// definitions.
     pub fn properties_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
-        let unique = self.unique_of(item);
-        let fixed = unique.map_or(&[][..], |u| u.props.as_slice());
+        let effect = self.unique_of(item).map(|u| &u.effect);
+        self.rolled_of(item).chain(effect)
+    }
+
+    /// An item's properties but a unique's effect: a unique's own, then what was rolled, then
+    /// its curse.
+    pub fn rolled_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
+        let fixed = self.unique_of(item).map_or(&[][..], |u| u.props.as_slice());
         fixed
             .iter()
             .copied()
             .chain(item.magic.all())
             .filter_map(|p| self.properties.get(usize::from(p)))
-            .chain(unique.map(|u| &u.effect))
+    }
+
+    /// The properties of an item you know: all of them once it's known, else only a curse that
+    /// has shown itself.
+    pub fn known_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
+        let m = item.magic;
+        self.properties_of(item)
+            .filter(move |p| m.known || (p.curse && m.curse_shown))
+    }
+
+    /// What a weapon gives whoever holds it (`Boosts`): its properties' Strength, Fitness and
+    /// levels, known or not, as its blows' are. Its own skill is the one it trains.
+    pub fn boosts_of(&self, item: &Item) -> Boosts {
+        let own = match self.item(item.def).map(|d| &d.kind) {
+            Some(ItemKind::Weapon { skill, .. }) => *skill,
+            _ => None,
+        };
+        let mut b = Boosts::default();
+        for p in self.properties_of(item) {
+            b.strength += p.strength;
+            b.fitness += p.fitness;
+            let skill = match p.raises {
+                Raises::Nothing => None,
+                Raises::Own => own,
+                Raises::Skill(s) => Some(s),
+            };
+            if let Some(s) = skill {
+                let n = &mut b.levels[s as usize];
+                *n = n.saturating_add(p.levels);
+            }
+        }
+        b
     }
 
     /// The uniques made on a kind of item, by their numbers.
@@ -376,22 +461,38 @@ impl Defs {
         Some(format!("{first} {second}"))
     }
 
+    /// What a thing is, and how well it was made: "cudgel", "fine sword".
+    pub fn made_name(&self, item: &Item) -> String {
+        let kind = self.item(item.def).map_or("something", |d| d.name.as_str());
+        match self.quality.name_of(item.quality) {
+            "" => kind.to_string(),
+            made => format!("{made} {kind}"),
+        }
+    }
+
+    /// A known Rare's or unique's own name: "Grim Edge", "Redhand". None while it's unknown, and
+    /// for anything else.
+    pub fn own_name(&self, item: &Item) -> Option<String> {
+        if !item.magic.known {
+            return None;
+        }
+        match self.unique_of(item) {
+            Some(u) => Some(u.name.clone()),
+            None => self.thing_name(item),
+        }
+    }
+
     /// What an item is called, as far as you know it: "cudgel", "cudgel (uncommon, unknown)",
     /// "Muffled Keen cudgel", with its curse's word once it's shown; a Rare's, "fine sword (rare,
     /// unknown)", then "Grim Edge (fine sword)"; a unique's, "fine hand axe (unique, unknown)",
     /// then "Redhand (fine hand axe)".
     pub fn label(&self, item: &Item) -> String {
-        let kind = self.item(item.def).map_or("something", |d| d.name.as_str());
         // How well it was made goes first: "fine sword", "Keen fine sword".
-        let name = match self.quality.name_of(item.quality) {
-            "" => kind.to_string(),
-            made => format!("{made} {kind}"),
-        };
+        let name = self.made_name(item);
         let m = item.magic;
         if !m.is_magic() {
             return name;
         }
-        let unique = self.unique_of(item);
         if !m.known {
             let what = self.rarity_word(item).to_lowercase();
             let curse = if m.cursed() && m.curse_shown {
@@ -403,45 +504,11 @@ impl Defs {
             };
             return format!("{curse}{name} ({what}, unknown)");
         }
-        if let Some(u) = unique {
-            return format!("{} ({name})", u.name);
-        }
-        if let Some(called) = self.thing_name(item) {
-            return format!("{called} ({name})");
+        if let Some(own) = self.own_name(item) {
+            return format!("{own} ({name})");
         }
         let words: Vec<&str> = self.properties_of(item).map(|p| p.name.as_str()).collect();
         format!("{} {name}", words.join(" "))
-    }
-
-    /// An item's lines, as far as you know it: its rarity, what each property does (its tier,
-    /// "Keen (II)"), and a unique's story.
-    pub fn lines(&self, item: &Item) -> Vec<String> {
-        let m = item.magic;
-        if !m.is_magic() {
-            return Vec::new();
-        }
-        let unique = self.unique_of(item);
-        let rarity = self.rarity_word(item);
-        let mut out = vec![if m.known {
-            rarity.to_string()
-        } else {
-            format!("{rarity}: what it does, you don't know yet")
-        }];
-        for p in self.properties_of(item) {
-            if m.known || (p.curse && m.curse_shown) {
-                out.push(match p.tier {
-                    t @ 1..=3 => {
-                        let tier = ["I", "II", "III"][usize::from(t) - 1];
-                        format!("{} ({tier}): {}", p.name, p.line)
-                    }
-                    _ => format!("{}: {}", p.name, p.line),
-                });
-            }
-        }
-        if let Some(u) = unique.filter(|u| m.known && !u.lore.is_empty()) {
-            out.push(format!("\"{}\"", u.lore));
-        }
-        out
     }
 
     /// A weapon's swing as it was made (its quality's harm) and as its magic changes it: every
@@ -480,9 +547,9 @@ impl Defs {
             .fold(self.quality.wear_of(item.quality), |w, p| per(w, p.wear))
     }
 
-    /// A weapon as its card shows it (the client's, on hover): its swing as made and as far as you
-    /// know its magic, the skill it trains, and the condition a blow takes off it (out of
-    /// `items::NEW`), before skill makes any of it better. None for what isn't a weapon.
+    /// A weapon's numbers as its card has them (`card.rs` writes the card): its swing as made and
+    /// as far as you know its magic, the skill it trains, and the condition a blow takes off it
+    /// (out of `items::NEW`), before skill makes any of it better. None for what isn't a weapon.
     pub fn card(&self, item: &Item) -> Option<Card> {
         let Some(ItemKind::Weapon { swing, wear, skill }) = self.item(item.def).map(|d| &d.kind)
         else {
@@ -581,6 +648,7 @@ impl World {
         let Some(held) = self.actors.get(id).and_then(|a| a.hands) else {
             return Gifts::default();
         };
+        let add = |a: (i32, i32), b: (i32, i32)| (a.0 + b.0, a.1 + b.1);
         self.defs
             .properties_of(&held)
             .fold(Gifts::default(), |g, p| Gifts {
@@ -590,7 +658,37 @@ impl World {
                 terror: (g.terror + p.terror).min(10_000),
                 hearten: g.hearten + p.hearten,
                 fell: (g.fell + p.fell).min(10_000),
+                fire: add(g.fire, p.fire),
+                holy: add(g.holy, p.holy),
             })
+    }
+
+    /// What the weapon in `id`'s hand gives it (`Boosts`): Strength, Fitness, levels in skills.
+    pub fn boosts(&self, id: ActorId) -> Boosts {
+        self.actors
+            .get(id)
+            .and_then(|a| a.hands)
+            .map_or(Boosts::default(), |held| self.defs.boosts_of(&held))
+    }
+
+    /// The fire's harm and the holy harm a blow from `id` on `target` adds, by what its weapon
+    /// gives (`Gifts`): each rolled from its least to its most. Holy harm is the dead's only: a
+    /// beast takes none.
+    pub(crate) fn elemental(&self, id: ActorId, target: ActorId, g: Gifts) -> (i32, i32) {
+        let r = roll(self.seed, self.tick, id.index() as u64, Purpose::Element);
+        let pick = |(lo, hi): (i32, i32), r: u64| {
+            if hi <= 0 {
+                0
+            } else {
+                lo + below(r, (hi - lo).max(0) as u32 + 1) as i32
+            }
+        };
+        let holy = if self.is_wild(target) {
+            0
+        } else {
+            pick(g.holy, mix64(r))
+        };
+        (pick(g.fire, r), holy)
     }
 
     /// A blow from `id` that did `damage` to `target`, by what its weapon gives: some of the harm

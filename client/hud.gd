@@ -20,6 +20,7 @@ const FLASH_LIFE := 0.6
 const NEWS_LINES := 6
 const NEWS_WIDTH := 620.0
 const LINE_HEIGHT := 28.0  # a line of BODY text, for the news's room
+const CARD_WIDTH := 400.0  # a thing's card: its numbers line up at the right, its notes wrap
 
 ## Every key, for the F1 panel (zone I), in its groups: [the group, its rows, each [its keys, what
 ## they do]]. "{action}" is the key an action is on, read from the InputMap (prompts.gd's
@@ -160,12 +161,14 @@ var _listing := false  # E is held: each prompt is a choice, and takes a click
 var _moodles: VBoxContainer
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
-var _detail: PanelContainer  # a hovered moodle's or body part's detail
+var _detail: PanelContainer  # a hovered moodle's or body part's detail, or a thing's card
+var _detail_style: StyleBoxFlat  # its ground: a card's solid (_build_card)
 var _detail_name: Label
 var _detail_lines: Label
-var _detail_lore: Label  # a magic thing's card: what its magic does
+var _card_rows: VBoxContainer  # a thing's card: its lines (DuskWorld.card_lines()), as drawn
+var _card_built := PackedStringArray()  # the lines _card_rows was last built from
 var _hovered: Control  # what's under the mouse with a detail: a moodle's row, or the body
-var _hover_text := []  # its detail: [a title, its lines]
+var _hover_text := []  # its detail: [a title, its lines, a card's lines (none for a moodle)]
 var _hover_right := false  # the detail opens to its right (the body, at the left edge), else left
 var _hover_colour := Color(0, 0, 0, 0)  # its title's colour (a magic thing's card); none: the text's
 var _body: BodyView  # the body diagram, beside the bars
@@ -575,12 +578,12 @@ func _hover_on(control: Control, text: Array, right: bool, colour := Color(0, 0,
 
 
 ## A thing's card, from the pack or within reach (bag.gd): shown as a moodle's detail is, `title`
-## in `colour` (its magic's), its lines under it, then `lore` (what its magic does) in LORE, to
-## the right of `control` or to its left. `now`: at once, not once the mouse has rested (a trial
-## run's --do=S:card).
-func hover_card(control: Control, title: String, lines: String, right: bool, colour: Color,
-		lore: String, now := false) -> void:
-	_hover_on(control, [title, lines, lore], right, colour)
+## in `colour` (its magic's) and its `rows` under it (DuskWorld.card_lines(), three words a line:
+## `_card_line`), to the right of `control` or to its left. `now`: at once, not once the mouse
+## has rested (a trial run's --do=S:card).
+func hover_card(control: Control, title: String, rows: PackedStringArray, right: bool,
+		colour: Color, now := false) -> void:
+	_hover_on(control, [title, "", rows], right, colour)
 	if now:
 		_hover_for = Look.HOVER
 
@@ -614,7 +617,8 @@ func hover_worst_part() -> void:
 
 
 ## The hovered thing's detail (VISUALS.md §11, Tooltip): in a panel beside it, never over it (a
-## moodle's to its left, the body's to its right).
+## moodle's to its left, the body's to its right). A thing's card is its lines, built again only
+## when they change: this runs every frame it shows.
 func _show_detail() -> void:
 	_detail_name.text = _hover_text[0]
 	if _hover_colour.a > 0.0:
@@ -623,8 +627,10 @@ func _show_detail() -> void:
 		_detail_name.remove_theme_color_override("font_color")
 	_detail_lines.text = _hover_text[1]
 	_detail_lines.visible = _hover_text[1] != ""
-	_detail_lore.text = _hover_text[2] if _hover_text.size() > 2 else ""
-	_detail_lore.visible = _detail_lore.text != ""
+	var rows: PackedStringArray = _hover_text[2] if _hover_text.size() > 2 else PackedStringArray()
+	if rows != _card_built:
+		_build_card(rows)
+	_card_rows.visible = not rows.is_empty()
 	_detail.visible = true
 	_detail.reset_size()
 	var rect := _hovered.get_global_rect()
@@ -649,7 +655,8 @@ func set_body_names(parts: PackedStringArray, kinds: PackedStringArray) -> void:
 func _build_detail() -> void:
 	_detail = PanelContainer.new()
 	_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_detail.add_theme_stylebox_override("panel", Look.panel_style())
+	_detail_style = Look.panel_style()
+	_detail.add_theme_stylebox_override("panel", _detail_style)
 	var lines := VBoxContainer.new()
 	lines.add_theme_constant_override("separation", 2)
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -658,10 +665,79 @@ func _build_detail() -> void:
 	lines.add_child(_detail_name)
 	_detail_lines = Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 	lines.add_child(_detail_lines)
-	_detail_lore = Look.text(Label.new(), Look.SMALL, Look.LORE)
-	lines.add_child(_detail_lore)
+	_card_rows = VBoxContainer.new()
+	_card_rows.add_theme_constant_override("separation", 2)
+	_card_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lines.add_child(_card_rows)
 	_detail.visible = false
 	add_child(_detail)
+
+
+## A card's lines (DuskWorld.card_lines()), built afresh; its title, in a heading's size, is the
+## detail's name. None: the detail's a moodle's or the body's again.
+func _build_card(rows: PackedStringArray) -> void:
+	_card_built = rows
+	for child in _card_rows.get_children():
+		_card_rows.remove_child(child)
+		child.queue_free()
+	for i in range(0, rows.size() - 2, 3):
+		_card_rows.add_child(_card_line(rows[i], rows[i + 1], rows[i + 2]))
+	# A card is dense numbers over the world: its ground is solid, as Path of Exile's and
+	# Diablo's are (high contrast's PANEL_SOLID); a moodle's detail keeps the panels' own.
+	if rows.is_empty():
+		_detail_name.add_theme_font_size_override("font_size", Look.BODY)
+		_detail_name.remove_theme_font_override("font")
+		_detail_style.bg_color = Look.PANEL
+	else:
+		Look.sized(_detail_name, Look.HEADING)
+		_detail_style.bg_color = Look.PANEL_SOLID
+
+
+## One of a card's lines (VISUALS.md §11, Tooltip), by its style: a rule between the card's parts;
+## what it is, dim; a number, its name dim and its value at the right, white, or CHANGED where its
+## quality or magic changed it (FIRE and HOLY for those harms); a property, its numbers in LORE
+## (a curse's in CURSED), its word and tier dim at the right; a unique's effect and its story in
+## UNIQUE; a note, dim. Words wrap at the card's width.
+func _card_line(style: String, text: String, value: String) -> Control:
+	match style:
+		"rule":
+			var rule := HSeparator.new()
+			var edge := StyleBoxLine.new()
+			edge.color = Look.EDGE
+			rule.add_theme_stylebox_override("separator", edge)
+			rule.add_theme_constant_override("separation", 8)
+			rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			return rule
+		"stat", "changed", "fire", "holy":
+			var shown: Color = {"stat": Look.TEXT, "changed": Look.CHANGED, "fire": Look.FIRE,
+				"holy": Look.HOLY}[style]
+			return _card_pair(text, Look.TEXT_DIM, value, shown)
+		"mod", "curse":
+			return _card_pair(text, Look.CURSED if style == "curse" else Look.LORE, value,
+				Look.TEXT_DIM)
+	var colour: Color = Look.UNIQUE if style in ["effect", "lore"] else Look.TEXT_DIM
+	var line := Look.text(Label.new(), Look.SMALL, colour)
+	line.text = text
+	line.custom_minimum_size = Vector2(CARD_WIDTH, 0)
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return line
+
+
+## A card's line in two: `left` in `left_colour`, and `right` in `right_colour` at its far right.
+func _card_pair(left: String, left_colour: Color, right: String, right_colour: Color) -> Control:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(CARD_WIDTH, 0)
+	row.add_theme_constant_override("separation", 16)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var words := Look.text(Label.new(), Look.SMALL, left_colour)
+	words.text = left
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(words)
+	var said := Look.text(Label.new(), Look.SMALL, right_colour)
+	said.text = right
+	said.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(said)
+	return row
 
 
 ## Your dread (DuskWorld.character_dread(), per mille) darkens the screen's edges. It's eased

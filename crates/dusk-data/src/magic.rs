@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
-use dusk_core::{Defs, ItemKind, MagicRules, Property, QualityRules, Unique};
+use dusk_core::{Defs, ItemKind, MagicRules, Property, QualityRules, Raises, Skill, Unique};
 use serde::Deserialize;
 
 use crate::{DataError, check_unique, fail, read};
@@ -23,8 +23,10 @@ struct PropertyFile {
     /// A unique's effect has none: it's the unique's.
     #[serde(default)]
     id: String,
-    /// The word before an item's name, and its one line.
+    /// The word before an item's name, and its line on the card, in words: for a property that's
+    /// more than numbers (left out, the card says its numbers: "+80% damage").
     name: String,
+    #[serde(default)]
     line: String,
     /// "weapon" (in hand) or "light" (held up); a unique's effect is a weapon's, and needn't say.
     #[serde(default)]
@@ -78,6 +80,22 @@ struct PropertyFile {
     fell: f64,
     #[serde(default)]
     hearten: f64,
+    /// A weapon's, in hand: the levels it adds to Strength and to Fitness (0 to 5), and to a
+    /// skill: `skill` "own" (the one its weapon trains) or a skill's id, and `levels` (1 to 5).
+    #[serde(default)]
+    strength: f64,
+    #[serde(default)]
+    fitness: f64,
+    #[serde(default)]
+    skill: String,
+    #[serde(default)]
+    levels: u8,
+    /// A weapon's: the harm its blows add, [least, most] in points: fire's on anything, holy
+    /// harm on the dead only.
+    #[serde(default)]
+    fire: (f64, f64),
+    #[serde(default)]
+    holy: (f64, f64),
 }
 
 /// `uniques.toml`: weapons made by hand, each with a name of its own.
@@ -287,12 +305,51 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
     if on_light && (effect || p.hearten > 0.0) {
         return Err("cleave, drain, pyre, terror, fell and hearten are a weapon's".into());
     }
+    let level = |x: f64| (0.0..=5.0).contains(&x);
+    if !level(p.strength) || !level(p.fitness) {
+        return Err("strength and fitness are levels, from 0 to 5".into());
+    }
+    let raises = match p.skill.as_str() {
+        "" if p.levels == 0 => Raises::Nothing,
+        "" => return Err("levels go to a skill: skill = \"own\", or a skill's id".into()),
+        _ if !(1..=5).contains(&p.levels) => {
+            return Err("a skill's levels are 1 to 5".into());
+        }
+        "own" => Raises::Own,
+        id => Raises::Skill(
+            Skill::from_id(id)
+                .ok_or_else(|| format!("skill {id:?} is \"own\", or a skill's id"))?,
+        ),
+    };
+    let harm = |(lo, hi): (f64, f64)| 0.0 <= lo && lo <= hi && hi <= 50.0;
+    if !harm(p.fire) || !harm(p.holy) {
+        return Err("fire and holy are [least, most], from 0 to 50 points".into());
+    }
+    let body = p.strength > 0.0 || p.fitness > 0.0 || p.levels > 0;
+    if on_light && (body || p.fire.1 > 0.0 || p.holy.1 > 0.0) {
+        return Err("strength, fitness, skill, fire and holy are a weapon's".into());
+    }
+    let numbers = [p.noise, p.damage, p.swing, p.wear, p.wane, p.endurance]
+        .iter()
+        .any(|&m| m != 1.0)
+        || p.hit != 0.0
+        || p.glow != 0
+        || p.hallowed
+        || effect
+        || p.hearten > 0.0
+        || body
+        || p.fire.1 > 0.0
+        || p.holy.1 > 0.0;
+    if p.line.trim().is_empty() && !numbers {
+        return Err("a property does something: numbers, or a line in words".into());
+    }
     let per = |m: f64| (m * 1000.0).round() as u32;
     let chance = |x: f64| (x * 10_000.0).round() as u32;
+    let points = |(lo, hi): (f64, f64)| ((lo * 10.0).round() as i32, (hi * 10.0).round() as i32);
     Ok(Property {
         id: p.id.clone(),
         name: p.name.clone(),
-        line: p.line.clone(),
+        line: p.line.trim().to_string(),
         family: p.family.trim().to_string(),
         tier: p.tier,
         on_light,
@@ -312,6 +369,12 @@ fn to_property(p: &PropertyFile, on_light: bool) -> Result<Property, String> {
         terror: chance(p.terror),
         hearten: (p.hearten * 1000.0).round() as i32,
         fell: chance(p.fell),
+        strength: per(p.strength),
+        fitness: per(p.fitness),
+        raises,
+        levels: p.levels,
+        fire: points(p.fire),
+        holy: points(p.holy),
     })
 }
 

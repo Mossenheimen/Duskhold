@@ -665,6 +665,13 @@ impl World {
         let damage = (i64::from(damage) * i64::from(resist) / 1000 * i64::from(lit) / 1000
             * i64::from(sneak)
             / 1000) as i32;
+        // And its weapon's fire and holy harm on top (`magic.rs`), whatever bone or armour made of
+        // the blow: holy harm on the dead only.
+        let (fire, holy) = match kind {
+            ActorKind::Character => self.elemental(id, target, gifts),
+            ActorKind::Creature(_) => (0, 0),
+        };
+        let damage = damage + fire + holy;
         if unaware {
             self.events.push(Event::SneakAttack { who: id, target });
             self.train(
@@ -713,6 +720,14 @@ impl World {
             damage,
             wound: wound.map(|(k, p, _)| (k, p)),
         });
+        if fire + holy > 0 {
+            self.events.push(Event::Seared {
+                who: id,
+                target,
+                fire,
+                holy,
+            });
+        }
         // What its weapon gives a blow past its swing (`magic.rs`): harm drunk back, the dead put
         // to flight.
         self.gifted_blow(id, target, damage, gifts);
@@ -1037,6 +1052,7 @@ impl World {
             let rate = self.endurance_rate(id);
             // Hurt legs make running cost more (`injury.rs`).
             let legs = self.leg_run(id) as i32;
+            let athletics = self.skill_level(id, Skill::Athletics);
             let Some(a) = self.actors.get_mut(id) else {
                 continue;
             };
@@ -1050,7 +1066,6 @@ impl World {
                 .and_then(|&(_, s)| s);
             match (stride, a.action) {
                 (Some(true), _) => {
-                    let athletics = a.skills.level(Skill::Athletics, &s);
                     a.body
                         .spend(s.run_cost(e.run, athletics) * rate / 1000 * legs / 1000);
                 }

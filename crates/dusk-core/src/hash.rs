@@ -147,6 +147,8 @@ pub enum Purpose {
     Unique = 32,
     /// Whether a blow from a weapon that frightens sends the dead it struck fleeing (`magic.rs`).
     Terror = 33,
+    /// The fire's harm and the holy harm a weapon adds to a blow (`magic.rs`).
+    Element = 34,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

@@ -835,6 +835,16 @@ fn describe(w: &World, e: Event) -> String {
         Event::Terrified { who, target } => {
             format!("{}'s blow sent {} fleeing", name(who), name(target))
         }
+        Event::Seared {
+            who,
+            target,
+            fire,
+            holy,
+        } => format!(
+            "{}'s blow seared {} ({fire} fire, {holy} holy)",
+            name(who),
+            name(target)
+        ),
         Event::WindowBroke { at, .. } => {
             format!("the window by ({}, {}) smashed", at.x, at.y)
         }

@@ -378,11 +378,16 @@ impl Skills {
 }
 
 impl World {
-    /// A skill's level for an actor (0 for one that has no such thing).
+    /// A skill's level for an actor (0 for one that has no such thing): what it's learnt, and
+    /// what the weapon in its hand gives ("+2 to Blade": `magic.rs`), never past 10. What it's
+    /// learnt alone sets what it learns, and its cap (`Skills::level`).
     pub fn skill_level(&self, id: ActorId, skill: Skill) -> u8 {
-        self.actors
-            .get(id)
-            .map_or(0, |a| a.skills.level(skill, &self.rules.skills))
+        let Some(a) = self.actors.get(id) else {
+            return 0;
+        };
+        let learnt = a.skills.level(skill, &self.rules.skills);
+        let given = self.boosts(id).levels[skill as usize];
+        learnt.saturating_add(given).min(MAX_LEVEL)
     }
 
     /// How each of an actor's skills stands, by `Skill::ALL`.

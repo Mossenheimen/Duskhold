@@ -57,46 +57,36 @@ fn stack_row(i: Item) -> [i32; 4] {
     ]
 }
 
-/// A thing's card as the client gets it (`card_row`): its magic (0 mundane, 1 Uncommon, 2
-/// Rare, and 10 more while it's unknown), its quality (`quality.rs`: 0 crude to 3 masterwork),
-/// its condition (out of 1000), what it's worth in XP (rounded), 1 if it's a find; and, for a
-/// weapon (`Defs::card`: as made, and its magic as far as you know it), its harm (least, most,
-/// in tenths of a point), its wind-up and recovery (ticks), its chance to land (out of 10,000),
-/// its noise (tiles), the breath it costs (tenths), the condition a blow takes off it (out of
-/// 1000), and the skill it trains (by `skill_names`, -1 none).
-const CARD: usize = 5;
-const WEAPON_CARD: usize = CARD + 9;
-
+/// A thing's numbers as the client gets them (`card_row`): its magic (0 mundane, 1 Uncommon, 2
+/// Rare, 3 Unique, and 10 more while it's unknown), its quality (`quality.rs`: 0 crude to 3
+/// masterwork), its condition (out of 1000), what it's worth in XP (rounded), and 1 if it's a
+/// find. Its card's words are `card_words`.
 fn rarity_code(i: &Item) -> i32 {
     i32::from(i.magic.rarity) + if i.magic.known { 0 } else { 10 }
 }
 
 fn card_row(world: &World, i: &Item) -> PackedInt32Array {
-    let mut out = vec![
+    PackedInt32Array::from(&[
         rarity_code(i),
         i32::from(i.quality),
         i32::from(i.condition),
         ((world.defs.worth(i) + 500) / 1000) as i32,
         i32::from(i.found),
-    ];
-    if let Some(card) = world.defs.card(i) {
-        let s = card.swing;
-        out.extend([
-            s.damage.0,
-            s.damage.1,
-            s.wind_up as i32,
-            s.recovery as i32,
-            s.hit as i32,
-            s.noise,
-            s.endurance,
-            card.wear as i32,
-            card.skill
-                .and_then(|k| Skill::ALL.iter().position(|&s| s == k))
-                .map_or(-1, |n| n as i32),
-        ]);
-    }
-    debug_assert!(out.len() == CARD || out.len() == WEAPON_CARD);
-    PackedInt32Array::from(&out[..])
+    ])
+}
+
+/// A thing's card as the client draws it (`World::card`, `card.rs`): three words a line, its
+/// style (`CardStyle::word`: "title", "stat", "mod" and the rest), its words, and what goes to the
+/// right (a number's value, a property's word and tier; "" for none). Set against what you hold
+/// or wear (`mine`); empty for a thing with no card.
+fn card_words(world: &World, i: &Item, mine: bool) -> PackedStringArray {
+    let me = world.character().filter(|_| mine);
+    world
+        .card(i, me)
+        .iter()
+        .flat_map(|l| [l.style.word(), l.text.as_str(), l.value.as_str()])
+        .map(GString::from)
+        .collect()
 }
 
 /// Numbers an event takes in `take_events`.
@@ -499,6 +489,19 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::WindowBroke { at: p, side: s } => (WINDOW_BROKE, None, None, (p.x, p.y), side(s)),
         Event::Felled { who, target } => (FELLED, Some(who), Some(target), at(target), 0),
         Event::Terrified { who, target } => (TERRIFIED, Some(who), Some(target), at(target), 0),
+        // 1 fire, 2 holy harm, 3 both (`magic.rs`).
+        Event::Seared {
+            who,
+            target,
+            fire,
+            holy,
+        } => (
+            SEARED,
+            Some(who),
+            Some(target),
+            at(target),
+            i32::from(fire > 0) + 2 * i32::from(holy > 0),
+        ),
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
@@ -1637,13 +1640,18 @@ impl DuskWorld {
     }
 
     /// One of your things, by its place in `character_labels` (0 in hand, 1 held up, 2 on the
-    /// pack's stacks).
+    /// pack's stacks); or, before them, the shield on your arm (-1) and what you wear (-2 the
+    /// first piece of `character_worn`, -3 the next, and on).
     fn my_thing(&self, place: i32) -> Option<Item> {
         let world = self.world.as_ref()?;
         let a = world.character().and_then(|me| world.actor(me))?;
         match place {
             0 => a.hands,
             1 => a.light,
+            -1 => a.shield,
+            n if n < -1 => usize::try_from(-2 - n)
+                .ok()
+                .and_then(|i| a.worn.get(i).copied()),
             n => usize::try_from(n - 2)
                 .ok()
                 .and_then(|i| a.items.get(i).copied()),
@@ -1659,34 +1667,41 @@ impl DuskWorld {
             .and_then(|s| held.get(s).copied())
     }
 
-    /// What a thing does, as far as you know it, a line each (`Defs::lines`).
-    fn lines_of(&self, item: Option<Item>) -> PackedStringArray {
-        let (Some(world), Some(i)) = (&self.world, item) else {
-            return PackedStringArray::new();
-        };
-        world
-            .defs
-            .lines(&i)
-            .iter()
-            .map(|l| GString::from(l.as_str()))
-            .collect()
-    }
-
-    /// What one of your things does, as far as you know it, a line each: by its place in
-    /// `character_labels` (0 in hand, 1 held up, 2 on the pack's stacks).
+    /// One of your things' card (the client's, on hover), by its place (`my_thing`), as
+    /// `card_words` lays it out: one in the pack set against what you hold or wear, one you hold
+    /// or wear on its own. Empty for nothing there, or a thing with no card.
     #[func]
-    fn character_lines(&self, place: i32) -> PackedStringArray {
-        self.lines_of(self.my_thing(place))
+    fn card_lines(&self, place: i32) -> PackedStringArray {
+        match (&self.world, self.my_thing(place)) {
+            (Some(world), Some(i)) => card_words(world, &i, place >= 2),
+            _ => PackedStringArray::new(),
+        }
     }
 
-    /// One of your things' card (the client's, on hover), by its place in `character_labels`:
-    /// its numbers as `card_row` lays them out (a weapon's are longer); empty for nothing there.
+    /// One of your things' numbers (its rarity, quality, condition, worth, whether it's a find),
+    /// by its place (`my_thing`), as `card_row` lays them out; empty for nothing there.
     #[func]
     fn item_card(&self, place: i32) -> PackedInt32Array {
         match (&self.world, self.my_thing(place)) {
             (Some(world), Some(i)) => card_row(world, &i),
             _ => PackedInt32Array::new(),
         }
+    }
+
+    /// What the weapon in your hand gives you (`Boosts`, `magic.rs`): Strength and Fitness, in
+    /// thousandths of a level, then levels in each skill, by `skill_names`. Empty with no world.
+    #[func]
+    fn character_boosts(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let b = world.boosts(me);
+        let mut out = vec![b.strength as i32, b.fitness as i32];
+        out.extend(b.levels.iter().map(|&n| i32::from(n)));
+        PackedInt32Array::from(&out[..])
     }
 
     /// What's on a container's or floor's tile is called, as far as you know it, by slot.
@@ -1711,13 +1726,17 @@ impl DuskWorld {
         held.iter().map(rarity_code).collect()
     }
 
-    /// What the thing at `slot` on (x, y) does, as far as you know it, a line each.
+    /// The card of the thing at `slot` on (x, y), as `card_lines`', set against what you hold or
+    /// wear.
     #[func]
-    fn store_lines(&self, x: i32, y: i32, slot: i32) -> PackedStringArray {
-        self.lines_of(self.stored(x, y, slot))
+    fn store_card_lines(&self, x: i32, y: i32, slot: i32) -> PackedStringArray {
+        match (&self.world, self.stored(x, y, slot)) {
+            (Some(world), Some(i)) => card_words(world, &i, true),
+            _ => PackedStringArray::new(),
+        }
     }
 
-    /// The card of the thing at `slot` on (x, y), as `item_card`'s.
+    /// The numbers of the thing at `slot` on (x, y), as `item_card`'s.
     #[func]
     fn store_card(&self, x: i32, y: i32, slot: i32) -> PackedInt32Array {
         match (&self.world, self.stored(x, y, slot)) {

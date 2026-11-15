@@ -104,13 +104,15 @@ fn by(value: u32, per: u32) -> u32 {
 }
 
 impl World {
-    /// A character's Strength and Fitness, in thousandths of a level (0 for anyone else).
+    /// A character's Strength and Fitness, in thousandths of a level (0 for anyone else): what
+    /// it's grown, and what the weapon in its hand gives ("+2 to Strength": `magic.rs`), which may
+    /// take it past 10. What it's grown alone is what grows (`Actor::strength`).
     pub fn strength(&self, id: ActorId) -> u32 {
-        self.actors.get(id).map_or(0, |a| a.strength)
+        self.actors.get(id).map_or(0, |a| a.strength) + self.boosts(id).strength
     }
 
     pub fn fitness(&self, id: ActorId) -> u32 {
-        self.actors.get(id).map_or(0, |a| a.fitness)
+        self.actors.get(id).map_or(0, |a| a.fitness) + self.boosts(id).fitness
     }
 
     /// Sets a character's Strength and Fitness, in thousandths of a level (at most 10): for

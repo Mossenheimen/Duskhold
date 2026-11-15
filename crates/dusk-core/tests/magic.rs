@@ -1,7 +1,8 @@
 //! Magic items: properties on a weapon or a light, curses that cling, learning by use or at a
 //! holdout's counter, and what a container's loot rolls; a weapon's quality (`quality.rs`), and
-//! its card; the uniques, with their effects; and Rares as Path of Exile's: tiers by how far out,
-//! families, and made-up names.
+//! its card; the uniques, with their effects; Rares as Path of Exile's: tiers by how far out,
+//! families, and made-up names; and the card as numbers, with what a weapon in hand gives
+//! (Strength, Fitness, levels in skills) and its fire and holy harm.
 
 use std::sync::Arc;
 
@@ -10,9 +11,9 @@ use dusk_core::magic::{NONE, UNIQUE};
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::world::Swing;
 use dusk_core::{
-    ActorId, ActorKind, Defs, Event, GetUp, HANDS, Holdout, Intent, Item, ItemDef, ItemKind,
-    LootEntry, LootTable, Magic, NoDeal, Part, Property, Remains, ThingNames, Tile, TilePos,
-    Unique, World, WoundKind,
+    ActorId, ActorKind, CardLine, CardStyle, Defs, Event, GetUp, HANDS, Holdout, Intent, Item,
+    ItemDef, ItemKind, LootEntry, LootTable, Magic, NoDeal, Part, Property, Raises, Remains, Skill,
+    ThingNames, Tile, TilePos, Unique, World, WoundKind,
 };
 
 const COIN: u16 = 0;
@@ -67,7 +68,6 @@ fn defs(kit: Vec<Item>) -> Defs {
     let prop = |id: &str| Property {
         id: id.into(),
         name: id.into(),
-        line: id.into(),
         ..Property::default()
     };
     Defs {
@@ -295,7 +295,9 @@ fn enough_blows_on_a_foe_teach_you_what_it_is() {
     }));
     let held = w.actor(me).unwrap().hands.unwrap();
     assert_eq!(w.defs.label(&held), "Muffled knife");
-    assert_eq!(w.defs.lines(&held), vec!["Uncommon", "Muffled: Muffled"]);
+    // Its card says what it does, as numbers: a third of the noise.
+    let card = w.card(&held, None);
+    assert_eq!(styled(&card, CardStyle::Mod), [("-70% noise", "Muffled")]);
 }
 
 #[test]
@@ -658,10 +660,15 @@ fn a_unique_is_named_once_known_and_worth_the_most() {
         "made as its data says"
     );
     assert_eq!(d.label(&found), "fine knife (unique, unknown)");
+    // Its card says it's a unique, and not what it does.
+    let card = w.card(&found, None);
     assert_eq!(
-        d.lines(&found),
-        vec!["Unique: what it does, you don't know yet"]
+        styled(&card, CardStyle::Kind),
+        [("Weapon \u{b7} Unique", "")]
     );
+    assert!(styled(&card, CardStyle::Effect).is_empty());
+    let note = styled(&card, CardStyle::Note);
+    assert!(note[0].0.starts_with("Not known yet"), "{note:?}");
     // Unknown, its card shows how well it was made, and none of its magic.
     assert_eq!(d.card(&found).unwrap().swing.damage, (110, 110));
     let known = Item {
@@ -673,10 +680,24 @@ fn a_unique_is_named_once_known_and_worth_the_most() {
         ..found
     };
     assert_eq!(d.label(&known), "Redhand (fine knife)");
+    // Known: its own name, its kind under it; how well it was made and its property, as
+    // numbers; its effect in words, and its story.
+    let card = w.card(&known, None);
+    assert_eq!(styled(&card, CardStyle::Title), [("Redhand", "")]);
     assert_eq!(
-        d.lines(&known),
-        vec!["Unique", "Keen: Keen", "Thirst: thirst", "\"It drinks.\""]
+        styled(&card, CardStyle::Kind),
+        [("Fine knife", ""), ("Weapon \u{b7} Unique", "")]
     );
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+10% damage", "Fine"),
+            ("-15% wear", "Fine"),
+            ("+50% damage", "Keen")
+        ]
+    );
+    assert_eq!(styled(&card, CardStyle::Effect), [("Thirst: thirst", "")]);
+    assert_eq!(styled(&card, CardStyle::Lore), [("\"It drinks.\"", "")]);
     assert_eq!(
         d.card(&known).unwrap().swing.damage,
         (165, 165),
@@ -939,9 +960,11 @@ fn an_uncommon_has_one_property_or_two_and_its_lines_give_each_ones_tier() {
         ..Item::new(KNIFE, 1)
     };
     assert_eq!(d.label(&known), "keen muffled knife");
+    // On its card, each in its words (these have no numbers), its tier beside its name.
+    let card = w.card(&known, None);
     assert_eq!(
-        d.lines(&known),
-        vec!["Uncommon", "keen (II): keen", "muffled: muffled"]
+        styled(&card, CardStyle::Mod),
+        [("Keen", "keen II"), ("Muffled", "muffled")]
     );
     // Poised: half the breath a blow.
     let poised = Item {
@@ -957,4 +980,255 @@ fn an_uncommon_has_one_property_or_two_and_its_lines_give_each_ones_tier() {
         ..swing
     };
     assert_eq!(d.made_swing(&poised, blow, false).endurance, 50);
+}
+
+/// A card's lines of one style: their words, and what's to their right.
+fn styled(card: &[CardLine], style: CardStyle) -> Vec<(&str, &str)> {
+    card.iter()
+        .filter(|l| l.style == style)
+        .map(|l| (l.text.as_str(), l.value.as_str()))
+        .collect()
+}
+
+/// One of a card's numbers, by its name: its value, and whether it's marked as changed.
+fn number<'a>(card: &'a [CardLine], name: &str) -> (&'a str, bool) {
+    let l = card
+        .iter()
+        .find(|l| l.text == name)
+        .unwrap_or_else(|| panic!("no {name} on {card:?}"));
+    (l.value.as_str(), l.style == CardStyle::Changed)
+}
+
+#[test]
+fn a_weapons_card_gives_its_numbers_marked_where_its_making_or_magic_changed_them() {
+    // The cudgel: 10 harm, a blow every 0.8 s that always lands, 10 tiles of noise, 1% wear.
+    let (mut w, me) = field(vec![Item::new(CUDGEL, 1)]);
+    let plain = w.card(&Item::new(CUDGEL, 1), None);
+    assert_eq!(styled(&plain, CardStyle::Title), [("Cudgel", "")]);
+    assert_eq!(styled(&plain, CardStyle::Kind), [("Weapon", "")]);
+    for (name, value) in [
+        ("Damage per second", "12.5"),
+        ("Damage", "10"),
+        ("Attacks per second", "1.25"),
+        ("Wind-up", "0.4 s"),
+        ("Chance to hit", "100%"),
+        ("Noise", "10 tiles"),
+        ("Wear", "1% a blow"),
+        ("Condition", "100%"),
+    ] {
+        assert_eq!(number(&plain, name), (value, false), "{name}");
+    }
+    assert!(styled(&plain, CardStyle::Mod).is_empty());
+    // A masterwork knife, Keen: harder, and each says so as numbers, its word to the right.
+    let mut keen = Item {
+        magic: magic([KEEN, NONE], NONE),
+        ..made(KNIFE, MASTERWORK)
+    };
+    keen.magic.known = true;
+    let card = w.card(&keen, None);
+    assert_eq!(number(&card, "Damage"), ("18.7", true));
+    assert_eq!(number(&card, "Damage per second"), ("23.4", true));
+    assert_eq!(number(&card, "Wear"), ("0.6% a blow", true));
+    assert_eq!(number(&card, "Noise"), ("10 tiles", false));
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+25% damage", "Masterwork"),
+            ("-40% wear", "Masterwork"),
+            ("+50% damage", "Keen")
+        ]
+    );
+    // Unknown, its making shows and its magic doesn't; a curse that has shown itself does.
+    let mut cursed = Item {
+        magic: magic([KEEN, NONE], CLAMOROUS),
+        ..made(KNIFE, PLAIN)
+    };
+    cursed.magic.curse_shown = true;
+    let card = w.card(&cursed, None);
+    assert_eq!(number(&card, "Damage"), ("10", false));
+    assert_eq!(number(&card, "Noise"), ("20 tiles", true));
+    assert!(styled(&card, CardStyle::Mod).is_empty());
+    assert_eq!(
+        styled(&card, CardStyle::Curse),
+        [("+100% noise", "Clamorous (curse)")]
+    );
+    // In the pack, set against the cudgel in hand.
+    wield(&mut w, me, CUDGEL);
+    assert_eq!(
+        styled(&w.card(&keen, Some(me)), CardStyle::Note),
+        [("Against your cudgel: +10.9 damage per second", "")]
+    );
+    // A thing that's no weapon, armour or light, and not magic, has none.
+    assert!(w.card(&Item::new(COIN, 5), None).is_empty());
+}
+
+/// The field, its knife training Blade, and these properties after the fixture's (the first's
+/// number is returned).
+fn field_with(props: Vec<Property>) -> (World, ActorId, u8) {
+    let (mut w, me) = field(Vec::new());
+    let mut d = (*w.defs).clone();
+    if let ItemKind::Weapon { skill, .. } = &mut d.items[usize::from(KNIFE)].kind {
+        *skill = Some(Skill::Blade);
+    }
+    let first = d.properties.len() as u8;
+    d.properties.extend(props);
+    w.defs = Arc::new(d);
+    (w, me, first)
+}
+
+#[test]
+fn a_weapon_in_hand_makes_you_stronger_fitter_and_better_at_skills_never_past_ten() {
+    let prop = |name: &str| Property {
+        id: name.to_lowercase(),
+        name: name.into(),
+        ..Property::default()
+    };
+    let (mut w, me, first) = field_with(vec![
+        Property {
+            strength: 2000,
+            ..prop("Mighty")
+        },
+        Property {
+            fitness: 1000,
+            ..prop("Hale")
+        },
+        Property {
+            raises: Raises::Own,
+            levels: 2,
+            ..prop("Seasoned")
+        },
+        Property {
+            raises: Raises::Skill(Skill::Arcana),
+            levels: 5,
+            ..prop("Sorcerous")
+        },
+    ]);
+    let knife = Item {
+        magic: Magic {
+            rarity: 2,
+            props: [first, first + 1, first + 2, first + 3],
+            ..magic([NONE, NONE], NONE)
+        },
+        ..Item::new(KNIFE, 1)
+    };
+    w.give(me, knife);
+    let carried = w.carry(me);
+    // Arcana learnt as far as it goes freely: 7.
+    w.give_xp(me, Skill::Arcana, 10_000_000);
+    assert_eq!(w.skill_level(me, Skill::Arcana), 7);
+    wield(&mut w, me, KNIFE);
+    // In hand, known or not: two levels of Strength (it carries more), one of Fitness, two of
+    // Blade, its own skill; and Arcana never past 10.
+    assert_eq!((w.strength(me), w.fitness(me)), (2000, 1000));
+    assert_eq!(w.carry(me), carried + 2 * w.rules.strength.carry);
+    assert_eq!(w.skill_level(me, Skill::Blade), 2);
+    assert_eq!(w.skill_level(me, Skill::Arcana), 10);
+    // What's learnt is still its own: the knife gives levels, never XP, nor a way past the cap.
+    let (_, arcana) = w
+        .skills(me)
+        .into_iter()
+        .find(|(s, _)| *s == Skill::Arcana)
+        .unwrap();
+    assert_eq!(arcana.level, 7);
+    assert_eq!(w.actor(me).unwrap().strength, 0);
+    // Its card says so, once it's known: its own skill by its name.
+    let known = Item {
+        magic: Magic {
+            known: true,
+            ..knife.magic
+        },
+        ..knife
+    };
+    assert_eq!(
+        styled(&w.card(&known, None), CardStyle::Mod),
+        [
+            ("+2 to Strength", "Mighty"),
+            ("+1 to Fitness", "Hale"),
+            ("+2 to Blade", "Seasoned"),
+            ("+5 to Arcana", "Sorcerous")
+        ]
+    );
+    // Put away, it gives nothing.
+    w.intent(me, Intent::Unwield);
+    run(&mut w, 10);
+    assert_eq!((w.strength(me), w.skill_level(me, Skill::Blade)), (0, 0));
+}
+
+#[test]
+fn fire_and_holy_harm_land_on_top_of_a_blow_and_a_beast_takes_no_holy_harm() {
+    let (mut w, me, first) = field_with(vec![
+        Property {
+            id: "burning".into(),
+            name: "Burning".into(),
+            fire: (20, 20),
+            ..Property::default()
+        },
+        Property {
+            id: "holy".into(),
+            name: "Holy".into(),
+            holy: (30, 30),
+            ..Property::default()
+        },
+    ]);
+    let knife = Item {
+        magic: magic([first, first + 1], NONE),
+        ..Item::new(KNIFE, 1)
+    };
+    w.give(me, knife);
+    wield(&mut w, me, KNIFE);
+    // It sees all round, so no blow is a sneak attack (`stealth.rs`), and it won't fall.
+    w.creature_mut(0).cone = dusk_core::senses::Cone { cos: -10_000 };
+    w.creature_mut(0).health = 1_000_000;
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    let harm = |seen: &[Event]| {
+        seen.iter().find_map(|e| match *e {
+            Event::Struck { who, damage, .. } if who == me => Some(damage),
+            _ => None,
+        })
+    };
+    let seen = land_a_blow(&mut w, me);
+    assert_eq!(
+        harm(&seen),
+        Some(100 + 20 + 30),
+        "the knife's 10, fire's 2, holy 3"
+    );
+    assert!(seen.contains(&Event::Seared {
+        who: me,
+        target: z,
+        fire: 20,
+        holy: 30
+    }));
+    // One of the living world (a wolf): the fire, and none of the holy harm.
+    w.creature_mut(0).wild = true;
+    let seen = land_a_blow(&mut w, me);
+    assert_eq!(harm(&seen), Some(100 + 20));
+    assert!(seen.contains(&Event::Seared {
+        who: me,
+        target: z,
+        fire: 20,
+        holy: 0
+    }));
+    // Its card, once known: lines of their own among its numbers, and as properties.
+    let known = Item {
+        magic: Magic {
+            known: true,
+            ..knife.magic
+        },
+        ..knife
+    };
+    let card = w.card(&known, None);
+    assert_eq!(styled(&card, CardStyle::Fire), [("Fire damage", "2")]);
+    assert_eq!(
+        styled(&card, CardStyle::Holy),
+        [("Holy damage", "3 on the dead")]
+    );
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("Adds 2 fire damage", "Burning"),
+            ("Adds 3 holy damage on the dead", "Holy")
+        ]
+    );
 }

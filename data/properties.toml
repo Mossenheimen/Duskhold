@@ -1,21 +1,27 @@
-# Magic items' properties and curses (CONCEPT.md, loot): each reads in one line and changes how
-# you play (crates/dusk-core/src/magic.rs). An Uncommon item has one or two, a Rare three or four
-# and a made-up name (names.toml's [things]); a fifth or so are cursed as well (rules.toml,
-# [magic]). A weapon's work while it's in your hand, a light's while it's held up. Multipliers are
-# 1.0 for none.
+# Magic items' properties and curses (CONCEPT.md, loot): each changes how you play
+# (crates/dusk-core/src/magic.rs). An Uncommon item has one or two, a Rare three or four and a
+# made-up name (names.toml's [things]); a fifth or so are cursed as well (rules.toml, [magic]). A
+# weapon's work while it's in your hand, a light's while it's held up. Multipliers are 1.0 for
+# none.
+#
+# Shown as numbers (Diablo's and Path of Exile's: crates/dusk-core/src/card.rs): a property's card
+# line is what it does, "+80% damage", "+2 to Strength", "Adds 3-6 fire damage". One that's more
+# than numbers has a line in words instead (Hallowed, Blazing).
 #
 # Tiers (Path of Exile's): most properties are one of a family's three tiers, each more than the
 # last, and a thing has at most one of a family. A find rolls a tier only as far out as it was
 # found (rules.toml's [magic] far): the first near where you come in, the second about the hamlet,
 # the third far out; a rare's pack and an old tomb reach one further (loot/, level). A property
-# with no tier is found anywhere. The card shows a tier after the name: "Keen (II)".
+# with no tier is found anywhere. The card shows its word and tier beside its numbers: "Keen II".
+#
+# A property is saved by its place in this file: a new one goes at the end, so a saved world's
+# magic keeps its meaning.
 
 # Quieter swings.
 
 [[property]]
 id = "hushed"
 name = "Hushed"
-line = "your swings make little more than half the noise"
 on = "weapon"
 family = "quiet"
 tier = 1
@@ -24,7 +30,6 @@ noise = 0.6
 [[property]]
 id = "muffled"
 name = "Muffled"
-line = "your swings make a third of the noise"
 on = "weapon"
 family = "quiet"
 tier = 2
@@ -33,7 +38,6 @@ noise = 0.35
 [[property]]
 id = "silent"
 name = "Silent"
-line = "your swings are all but silent: a sixth of the noise"
 on = "weapon"
 family = "quiet"
 tier = 3
@@ -44,7 +48,6 @@ noise = 0.15
 [[property]]
 id = "sharp"
 name = "Sharp"
-line = "its blows do a quarter more harm"
 on = "weapon"
 family = "harm"
 tier = 1
@@ -53,7 +56,6 @@ damage = 1.25
 [[property]]
 id = "keen"
 name = "Keen"
-line = "its blows do half as much harm again"
 on = "weapon"
 family = "harm"
 tier = 2
@@ -62,18 +64,17 @@ damage = 1.5
 [[property]]
 id = "cruel"
 name = "Cruel"
-line = "its blows do nearly twice the harm"
 on = "weapon"
 family = "harm"
 tier = 3
 damage = 1.8
 
-# A quicker tell and recovery.
+# A quicker tell and recovery: the card says it as attack speed (a swing at 0.75 of its time is
+# a third more blows).
 
 [[property]]
 id = "quick"
 name = "Quick"
-line = "your tell is a little shorter, and so's the recovery"
 on = "weapon"
 family = "pace"
 tier = 1
@@ -82,7 +83,6 @@ swing = 0.85
 [[property]]
 id = "swift"
 name = "Swift"
-line = "your tell is a quarter shorter, and so's the recovery"
 on = "weapon"
 family = "pace"
 tier = 2
@@ -91,18 +91,16 @@ swing = 0.75
 [[property]]
 id = "darting"
 name = "Darting"
-line = "your tell is two-fifths shorter, and so's the recovery"
 on = "weapon"
 family = "pace"
 tier = 3
 swing = 0.6
 
-# Surer blows.
+# Surer blows: a chance added to a blow's.
 
 [[property]]
 id = "true"
 name = "True"
-line = "your blows land a little more often"
 on = "weapon"
 family = "aim"
 tier = 1
@@ -111,7 +109,6 @@ hit = 0.08
 [[property]]
 id = "sure"
 name = "Sure"
-line = "your blows land more often"
 on = "weapon"
 family = "aim"
 tier = 2
@@ -120,7 +117,6 @@ hit = 0.15
 [[property]]
 id = "unerring"
 name = "Unerring"
-line = "your blows land far more often"
 on = "weapon"
 family = "aim"
 tier = 3
@@ -131,7 +127,6 @@ hit = 0.25
 [[property]]
 id = "sturdy"
 name = "Sturdy"
-line = "it wears a little over half as fast"
 on = "weapon"
 family = "wear"
 tier = 1
@@ -140,7 +135,6 @@ wear = 0.6
 [[property]]
 id = "enduring"
 name = "Enduring"
-line = "it wears a quarter as fast"
 on = "weapon"
 family = "wear"
 tier = 2
@@ -149,7 +143,6 @@ wear = 0.25
 [[property]]
 id = "ageless"
 name = "Ageless"
-line = "it wears a tenth as fast"
 on = "weapon"
 family = "wear"
 tier = 3
@@ -160,7 +153,6 @@ wear = 0.1
 [[property]]
 id = "balanced"
 name = "Balanced"
-line = "your blows cost a fifth less breath"
 on = "weapon"
 family = "breath"
 tier = 1
@@ -169,7 +161,6 @@ endurance = 0.8
 [[property]]
 id = "poised"
 name = "Poised"
-line = "your blows cost a third less breath"
 on = "weapon"
 family = "breath"
 tier = 2
@@ -178,13 +169,12 @@ endurance = 0.65
 [[property]]
 id = "weightless"
 name = "Weightless"
-line = "your blows cost half the breath"
 on = "weapon"
 family = "breath"
 tier = 3
 endurance = 0.5
 
-# On their own.
+# On their own: more than numbers, so in words.
 
 [[property]]
 id = "hallowed"
@@ -206,7 +196,6 @@ glow = 4
 [[property]]
 id = "glowing"
 name = "Glowing"
-line = "it reaches 2 tiles farther"
 on = "light"
 family = "reach"
 tier = 1
@@ -215,7 +204,6 @@ glow = 2
 [[property]]
 id = "bright"
 name = "Bright"
-line = "it reaches 3 tiles farther"
 on = "light"
 family = "reach"
 tier = 2
@@ -224,18 +212,16 @@ glow = 3
 [[property]]
 id = "radiant"
 name = "Radiant"
-line = "it reaches 5 tiles farther"
 on = "light"
 family = "reach"
 tier = 3
 glow = 5
 
-# A light's: slower to burn down.
+# A light's: slower to burn down (the card says it as burn time: at half the pace, twice as long).
 
 [[property]]
 id = "thrifty"
 name = "Thrifty"
-line = "it burns down a quarter slower"
 on = "light"
 family = "burn"
 tier = 1
@@ -244,7 +230,6 @@ wane = 0.75
 [[property]]
 id = "lasting"
 name = "Lasting"
-line = "it burns down half as fast"
 on = "light"
 family = "burn"
 tier = 2
@@ -253,7 +238,6 @@ wane = 0.5
 [[property]]
 id = "undying"
 name = "Undying"
-line = "it burns down at under a third the pace"
 on = "light"
 family = "burn"
 tier = 3
@@ -265,7 +249,6 @@ wane = 0.3
 [[property]]
 id = "clamorous"
 name = "Clamorous"
-line = "your swings carry twice as far"
 on = "weapon"
 curse = true
 noise = 2.0
@@ -273,7 +256,6 @@ noise = 2.0
 [[property]]
 id = "brittle"
 name = "Brittle"
-line = "it wears three times as fast"
 on = "weapon"
 curse = true
 wear = 3.0
@@ -281,7 +263,6 @@ wear = 3.0
 [[property]]
 id = "leaden"
 name = "Leaden"
-line = "your tell is a third longer"
 on = "weapon"
 curse = true
 swing = 1.33
@@ -289,7 +270,203 @@ swing = 1.33
 [[property]]
 id = "guttering"
 name = "Guttering"
-line = "it burns down twice as fast"
 on = "light"
 curse = true
 wane = 2.0
+
+# A weapon's, in hand, as Diablo's and Path of Exile's are (2026-11-14): a stronger or fitter body
+# while you hold it (strength, fitness: levels, fitness.rs), levels in a skill (skill: "own", the
+# one its weapon trains, or a skill's id; levels), and harm its blows add ([least, most] in points:
+# fire on anything, holy on the dead only, bone and armour no help against either).
+
+# Stronger: carries more, hits harder, shoves down more often.
+
+[[property]]
+id = "stout"
+name = "Stout"
+on = "weapon"
+family = "might"
+tier = 1
+strength = 1
+
+[[property]]
+id = "mighty"
+name = "Mighty"
+on = "weapon"
+family = "might"
+tier = 2
+strength = 2
+
+[[property]]
+id = "titans"
+name = "Titan's"
+on = "weapon"
+family = "might"
+tier = 3
+strength = 3
+
+# Fitter: every cost in breath less, and it comes back faster.
+
+[[property]]
+id = "hale"
+name = "Hale"
+on = "weapon"
+family = "vigour"
+tier = 1
+fitness = 1
+
+[[property]]
+id = "vigorous"
+name = "Vigorous"
+on = "weapon"
+family = "vigour"
+tier = 2
+fitness = 2
+
+[[property]]
+id = "untiring"
+name = "Untiring"
+on = "weapon"
+family = "vigour"
+tier = 3
+fitness = 3
+
+# Levels in its own skill: "+2 to Blade" on a sword, "+2 to Axe" on an axe.
+
+[[property]]
+id = "practised"
+name = "Practised"
+on = "weapon"
+family = "practice"
+tier = 1
+skill = "own"
+levels = 1
+
+[[property]]
+id = "seasoned"
+name = "Seasoned"
+on = "weapon"
+family = "practice"
+tier = 2
+skill = "own"
+levels = 2
+
+[[property]]
+id = "storied"
+name = "Storied"
+on = "weapon"
+family = "practice"
+tier = 3
+skill = "own"
+levels = 3
+
+# Levels in Arcana, the Wizard's: quicker words.
+
+[[property]]
+id = "runed"
+name = "Runed"
+on = "weapon"
+family = "arcana"
+tier = 1
+skill = "arcana"
+levels = 1
+
+[[property]]
+id = "spellbound"
+name = "Spellbound"
+on = "weapon"
+family = "arcana"
+tier = 2
+skill = "arcana"
+levels = 2
+
+[[property]]
+id = "sorcerous"
+name = "Sorcerous"
+on = "weapon"
+family = "arcana"
+tier = 3
+skill = "arcana"
+levels = 3
+
+# Levels in Devotion, the Cleric's: the dead turned for longer, faith going further.
+
+[[property]]
+id = "blessed"
+name = "Blessed"
+on = "weapon"
+family = "devotion"
+tier = 1
+skill = "devotion"
+levels = 1
+
+[[property]]
+id = "sacred"
+name = "Sacred"
+on = "weapon"
+family = "devotion"
+tier = 2
+skill = "devotion"
+levels = 2
+
+[[property]]
+id = "saintly"
+name = "Saintly"
+on = "weapon"
+family = "devotion"
+tier = 3
+skill = "devotion"
+levels = 3
+
+# Fire's harm on every blow that lands.
+
+[[property]]
+id = "smouldering"
+name = "Smouldering"
+on = "weapon"
+family = "fire"
+tier = 1
+fire = [1, 2]
+
+[[property]]
+id = "burning"
+name = "Burning"
+on = "weapon"
+family = "fire"
+tier = 2
+fire = [2, 4]
+
+[[property]]
+id = "searing"
+name = "Searing"
+on = "weapon"
+family = "fire"
+tier = 3
+fire = [3, 6]
+
+# Holy harm on every blow that lands on one of the dead: a beast takes none, so it's more than
+# fire's.
+
+[[property]]
+id = "anointed"
+name = "Anointed"
+on = "weapon"
+family = "holy"
+tier = 1
+holy = [1, 3]
+
+[[property]]
+id = "holy"
+name = "Holy"
+on = "weapon"
+family = "holy"
+tier = 2
+holy = [2, 5]
+
+[[property]]
+id = "righteous"
+name = "Righteous"
+on = "weapon"
+family = "holy"
+tier = 3
+holy = [4, 7]
