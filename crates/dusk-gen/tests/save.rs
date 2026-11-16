@@ -29,10 +29,11 @@ fn played(data: &Data) -> (World, TilePos) {
         .find(|&d| matches!(w.grid.edge(at, d), Edge::Door { .. }))
         .expect("a front door is by the tile just inside it");
     w.grid.set_edge(at, door, Edge::door(false));
-    w.put(TilePos::new(60, 130, 0), Item::new(0, 2));
-    // And a magic sword by it, its property rolled off its tier's middle (`Magic::rolls`).
     let d = &data.defs;
-    let sword = d.items.iter().position(|i| i.id == "sword").unwrap() as u16;
+    let item = |id: &str| d.items.iter().position(|i| i.id == id).unwrap() as u16;
+    w.put(TilePos::new(60, 130, 0), Item::new(item("bandage"), 2));
+    // And a magic sword by it, its property rolled off its tier's middle (`Magic::rolls`).
+    let sword = item("sword");
     let keen = d.properties.iter().position(|p| p.id == "keen").unwrap() as u8;
     let mut magic = Magic {
         rarity: 1,
@@ -119,8 +120,16 @@ fn a_save_holds_only_the_chunks_that_changed() {
         .map(|(at, _)| at)
         .collect();
     assert_eq!(changed, vec![door.chunk()], "the door's chunk, of 64");
+    // Most of a save is its actors, every field named (about 85 kB for a patch's); the one
+    // chunk is a few kinds of tile and edge and runs of them (`grid.rs`'s `SavedChunk`), a few
+    // kB with what was left on the ground. All 64 would be hundreds.
     let bytes = dusk_gen::save(&w, region, b"");
-    assert!(bytes.len() < 100_000, "{} bytes", bytes.len());
+    let unplayed = dusk_gen::save(&fresh, region, b"").len();
+    assert!(
+        bytes.len() < unplayed + 10_000,
+        "{} bytes, {unplayed} unplayed",
+        bytes.len()
+    );
 }
 
 #[test]
@@ -145,14 +154,139 @@ fn what_isnt_a_save_of_this_world_is_refused() {
         before,
         "and that world is left as it was"
     );
-    // With other data: an item more than the save was made with.
-    let (mut same, _) = patch(1, &data, region);
-    let mut defs = (*same.defs).clone();
+    // A save from before saves outlasted updates (postcard's: its version where format 37 has a
+    // 0), and one from a newer build than this.
+    let old = [b"DUSKHOLD".as_slice(), &[36, 1, 2, 3]].concat();
+    assert_eq!(peek(&old).unwrap_err(), SaveError::Version(36));
+    assert!(
+        SaveError::Version(36)
+            .to_string()
+            .contains("from before saves outlasted")
+    );
+    let mut newer = bytes.clone();
+    newer[9..13].copy_from_slice(&(dusk_core::save::VERSION + 1).to_le_bytes());
+    assert_eq!(
+        peek(&newer).unwrap_err(),
+        SaveError::Version(dusk_core::save::VERSION + 1)
+    );
+}
+
+/// The golden save: format 37's first, of `played`'s patch, kept in `tests/saves/`. Every later
+/// build loads it with its own code and data, so a field added to a saved type needs its
+/// `#[serde(default)]`, and the data must still have what the save names (by id). Written once,
+/// by `DUSK_WRITE_SAVES=1 cargo test -p dusk-gen golden`; a format change past what defaults
+/// carry adds the next beside it, and never rewrites this one.
+const GOLDEN: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/saves/v37.dusk");
+
+#[test]
+fn the_golden_save_of_format_37_still_loads() {
+    let data = data();
+    if std::env::var_os("DUSK_WRITE_SAVES").is_some() {
+        let region = data.region("hushlands").unwrap();
+        let (w, _) = played(&data);
+        let bytes = dusk_gen::save(&w, region, b"what I remember");
+        std::fs::create_dir_all(std::path::Path::new(GOLDEN).parent().unwrap()).unwrap();
+        std::fs::write(GOLDEN, bytes).unwrap();
+    }
+    let bytes = std::fs::read(GOLDEN).expect("the golden save (DUSK_WRITE_SAVES=1 writes it)");
+    let header = peek(&bytes).unwrap();
+    assert_eq!(
+        (header.version, header.seed, header.tick),
+        (37, 1, 400),
+        "{header:?}"
+    );
+    assert_eq!(header.label, "hushlands");
+    let loaded = dusk_gen::load(&data, &bytes).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(loaded.memory, b"what I remember");
+    let w = loaded.world;
+    // Your wound, by its kind and where; what you'd learnt, by its skill.
+    let you = w.actor(w.character().unwrap()).unwrap();
+    assert!(
+        you.body
+            .wounds
+            .iter()
+            .any(|x| x.kind == WoundKind::Laceration && x.part == Part::LeftArm)
+    );
+    assert!(you.skills.xp[Skill::Athletics as usize] >= 12_345);
+    // What was left on the ground, by id: two bandages, and a Keen sword, its roll as it fell.
+    let d = &w.defs;
+    let left = w.store(TilePos::new(60, 130, 0));
+    let ids: Vec<(&str, u16)> = (left.iter())
+        .map(|i| (d.items[usize::from(i.def)].id.as_str(), i.count))
+        .collect();
+    assert_eq!(ids, [("bandage", 2), ("sword", 1)]);
+    let keen = left[1].magic;
+    assert_eq!(d.properties[usize::from(keen.props[0])].id, "keen");
+    assert_eq!(keen.rolls[0], 37);
+}
+
+/// What a world names in the data, in order: each actor's kind, then each thing it carries and
+/// what lies about, each by its id and its properties' (`magic.rs`).
+fn named(w: &World) -> Vec<String> {
+    let d = &w.defs;
+    let item = |i: &Item| {
+        let props = (i.magic.props.iter())
+            .filter_map(|&p| d.properties.get(usize::from(p)))
+            .map(|p| p.id.as_str());
+        let id = d.items[usize::from(i.def)].id.as_str();
+        std::iter::once(id)
+            .chain(props)
+            .collect::<Vec<_>>()
+            .join("+")
+    };
+    let mut out = Vec::new();
+    for (_, a) in w.actors() {
+        out.push(match a.kind {
+            dusk_core::ActorKind::Creature(n) => d.creatures[usize::from(n)].id.clone(),
+            dusk_core::ActorKind::Character => "you".into(),
+        });
+        out.extend(a.hands.iter().chain(&a.items).chain(&a.worn).map(item));
+    }
+    for y in 120..140 {
+        for x in 50..70 {
+            out.extend(w.store(TilePos::new(x, y, 0)).iter().map(item));
+        }
+    }
+    out
+}
+
+#[test]
+fn a_save_outlasts_the_datas_tables_growing_and_reordering() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let (w, _) = played(&data);
+    let bytes = dusk_gen::save(&w, region, b"");
+    // Another build's data: an item more, before the rest; the properties the other way round;
+    // a creature more, first.
+    let (mut b, _) = patch(1, &data, region);
+    let mut defs = (*b.defs).clone();
     let mut extra = defs.items[0].clone();
     extra.id = "something_new".into();
     defs.items.insert(0, extra);
-    same.defs = std::sync::Arc::new(defs);
-    assert_eq!(same.restore(&bytes).unwrap_err(), SaveError::DataChanged);
+    defs.properties.reverse();
+    let mut kind = defs.creatures[0].clone();
+    kind.id = "newcomer".into();
+    defs.creatures.insert(0, kind);
+    b.defs = std::sync::Arc::new(defs);
+    b.restore(&bytes).unwrap_or_else(|e| panic!("{e}"));
+    let you = b.character().unwrap();
+    assert_eq!(named(&b), named(&w), "everything is what it was, by its id");
+    assert!(named(&w).iter().any(|n| n == "sword+keen"));
+    assert_eq!(
+        b.actor(you).unwrap().intent,
+        Intent::Idle,
+        "put onto other data, what you were about to do is let go"
+    );
+    // Data without something the save has: refused, by name, and the world left as it was.
+    let (mut c, _) = patch(1, &data, region);
+    let mut defs = (*c.defs).clone();
+    defs.items.retain(|i| i.id != "sword");
+    c.defs = std::sync::Arc::new(defs);
+    let before = c.state_hash();
+    let err = c.restore(&bytes).unwrap_err();
+    assert_eq!(err, SaveError::DataChanged("an item \"sword\"".into()));
+    assert!(err.to_string().contains("no longer has"), "{err}");
+    assert_eq!(c.state_hash(), before);
 }
 
 #[test]

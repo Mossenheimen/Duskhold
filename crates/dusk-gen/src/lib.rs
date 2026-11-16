@@ -1018,7 +1018,9 @@ pub struct Loaded {
 pub fn load(data: &Data, bytes: &[u8]) -> Result<Loaded, SaveError> {
     let header = dusk_core::save::peek(bytes)?;
     // A region the data no longer has: the save was made with other data.
-    let region = data.region(&header.label).ok_or(SaveError::DataChanged)?;
+    let region = data
+        .region(&header.label)
+        .ok_or_else(|| SaveError::DataChanged(format!("a region {:?}", header.label)))?;
     let (mut world, layout) = patch(header.seed, data, region);
     let memory = world.restore(bytes)?;
     Ok(Loaded {

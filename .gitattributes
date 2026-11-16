@@ -1,0 +1,2 @@
+# Saves are bytes: never a line ending changed (crates/dusk-gen/tests/saves/, the golden saves).
+*.dusk binary

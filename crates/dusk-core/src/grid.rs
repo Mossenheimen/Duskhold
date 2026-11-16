@@ -191,13 +191,106 @@ impl Edge {
 
 const CELLS: usize = (CHUNK_SIZE * CHUNK_SIZE) as usize * Z_LEVELS;
 
-/// 32 × 32 tiles on every floor, each with its north and west edge.
+/// 32 × 32 tiles on every floor, each with its north and west edge. Saved as its kinds of tile
+/// and of edge, once each, and runs of them (`SavedChunk`).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "save",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(try_from = "SavedChunk", into = "SavedChunk")
+)]
 pub struct Chunk {
     tiles: Vec<Tile>,
     north: Vec<Edge>,
     west: Vec<Edge>,
+}
+
+/// A chunk as a save holds it (`save.rs`): each kind of tile in it once, and each kind of edge,
+/// by name as everything saved is (so a tile or an edge that grows a field still loads); then
+/// every cell, in order, as runs of them: how many, then which, by turns. A chunk is a few kinds
+/// of tile in long runs (a whole floor of void above the ground), so it's small: Minecraft's
+/// palettes.
+#[cfg(feature = "save")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SavedChunk {
+    tiles: Vec<Tile>,
+    edges: Vec<Edge>,
+    tile_runs: Vec<u32>,
+    north_runs: Vec<u32>,
+    west_runs: Vec<u32>,
+}
+
+#[cfg(feature = "save")]
+impl From<Chunk> for SavedChunk {
+    fn from(c: Chunk) -> SavedChunk {
+        let mut tiles = Vec::new();
+        let tile_runs = to_runs(&c.tiles, &mut tiles);
+        let mut edges = Vec::new();
+        let north_runs = to_runs(&c.north, &mut edges);
+        let west_runs = to_runs(&c.west, &mut edges);
+        SavedChunk {
+            tiles,
+            edges,
+            tile_runs,
+            north_runs,
+            west_runs,
+        }
+    }
+}
+
+#[cfg(feature = "save")]
+impl TryFrom<SavedChunk> for Chunk {
+    type Error = String;
+
+    fn try_from(s: SavedChunk) -> Result<Chunk, String> {
+        Ok(Chunk {
+            tiles: from_runs(&s.tile_runs, &s.tiles)?,
+            north: from_runs(&s.north_runs, &s.edges)?,
+            west: from_runs(&s.west_runs, &s.edges)?,
+        })
+    }
+}
+
+/// `cells` as runs of the kinds in `kinds`, each new kind added as it's met: how many, then which,
+/// by turns.
+#[cfg(feature = "save")]
+fn to_runs<T: Copy + PartialEq>(cells: &[T], kinds: &mut Vec<T>) -> Vec<u32> {
+    let mut runs = Vec::new();
+    let mut i = 0;
+    while i < cells.len() {
+        let cell = cells[i];
+        let n = cells[i..].iter().take_while(|&&c| c == cell).count();
+        let kind = kinds.iter().position(|&k| k == cell).unwrap_or_else(|| {
+            kinds.push(cell);
+            kinds.len() - 1
+        });
+        runs.extend([n as u32, kind as u32]);
+        i += n;
+    }
+    runs
+}
+
+/// Runs back into a chunk's cells: refused unless they make exactly that many, of kinds it has.
+#[cfg(feature = "save")]
+fn from_runs<T: Copy>(runs: &[u32], kinds: &[T]) -> Result<Vec<T>, String> {
+    if !runs.len().is_multiple_of(2) {
+        return Err("a chunk's run without its kind".into());
+    }
+    let mut cells = Vec::with_capacity(CELLS);
+    for run in runs.chunks(2) {
+        let (n, kind) = (run[0] as usize, run[1] as usize);
+        let kind = *kinds
+            .get(kind)
+            .ok_or("a chunk's run of a kind it hasn't got")?;
+        if cells.len() + n > CELLS {
+            return Err("more cells than a chunk has".into());
+        }
+        cells.resize(cells.len() + n, kind);
+    }
+    if cells.len() != CELLS {
+        return Err("fewer cells than a chunk has".into());
+    }
+    Ok(cells)
 }
 
 impl Default for Chunk {
@@ -207,6 +300,20 @@ impl Default for Chunk {
             north: vec![Edge::Open; CELLS],
             west: vec![Edge::Open; CELLS],
         }
+    }
+}
+
+impl Chunk {
+    /// Each tile's fixture as `map` makes it: a save's numbers put onto the data's (`save.rs`).
+    #[cfg(feature = "save")]
+    pub(crate) fn map_fixtures<E>(
+        &mut self,
+        mut map: impl FnMut(u16) -> Result<u16, E>,
+    ) -> Result<(), E> {
+        for tile in &mut self.tiles {
+            tile.fixture = map(tile.fixture)?;
+        }
+        Ok(())
     }
 }
 

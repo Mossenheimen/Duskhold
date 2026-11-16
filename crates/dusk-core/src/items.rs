@@ -146,6 +146,9 @@ pub struct Defs {
     pub creatures: Vec<CreatureDef>,
     pub items: Vec<ItemDef>,
     pub loot: Vec<LootTable>,
+    /// By fixture number: its id in the data ("" for 0, nothing). What a save names a fixture by
+    /// (`save.rs`).
+    pub fixtures: Vec<String>,
     /// By fixture number: the loot table of a container (None for a fixture that isn't one).
     pub containers: Vec<Option<u16>>,
     /// By fixture number: whether it's a bed (sleep beside one rests you twice as fast).
@@ -231,6 +234,7 @@ impl Default for Defs {
             creatures: vec![CreatureDef::shambler()],
             items: Vec::new(),
             loot: Vec::new(),
+            fixtures: Vec::new(),
             containers: Vec::new(),
             beds: Vec::new(),
             wells: Vec::new(),

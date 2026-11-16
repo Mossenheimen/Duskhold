@@ -640,6 +640,9 @@ pub(crate) fn load_defs(
         creatures: Vec::new(),
         items: Vec::new(),
         loot,
+        fixtures: std::iter::once(String::new())
+            .chain(fixtures.iter().map(|f| f.id.clone()))
+            .collect(),
         containers,
         beds: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.bed))

@@ -653,7 +653,7 @@ impl Defs {
     /// What a thing is, for a Rare's made-up name: a blade, a blunt weapon, an axe, a spear, any
     /// other weapon, a light, armour, a bow or a shield (`ThingNames::second`); None for anything
     /// else.
-    fn name_class(&self, def: u16) -> Option<usize> {
+    pub(crate) fn name_class(&self, def: u16) -> Option<usize> {
         match &self.item(def)?.kind {
             ItemKind::Weapon { skill, .. } => Some(match skill {
                 Some(Skill::Blade) => 0,

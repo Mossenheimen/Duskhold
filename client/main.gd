@@ -388,8 +388,9 @@ func _start(carry_on := false) -> void:
 		else:
 			hud.say("You carry on.  %s" % Hud.time_of_day(clock))
 	elif not not_loaded.is_empty():
-		# Moved aside, not saved over: a save from an older build may load again once migrations
-		# come, and a broken one is worth a look.
+		# Moved aside, not saved over: a broken one is worth a look, and one the game can't read
+		# (from before saves outlasted updates, format 36 or older; or one naming something the
+		# data has lost) loads in the build that made it.
 		var kept := save_path + ".old"
 		if FileAccess.file_exists(kept):
 			DirAccess.remove_absolute(kept)

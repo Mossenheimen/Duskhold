@@ -284,12 +284,41 @@ const REMEMBERED: usize = 32;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
 pub struct Skills {
-    /// XP in each skill, by `Skill::ALL`, in thousandths.
+    /// XP in each skill, by `Skill::ALL`, in thousandths. Saved by each skill's id, not its place,
+    /// so a skill added later loads as none learnt (`by_skill`).
+    #[cfg_attr(feature = "save", serde(with = "by_skill"))]
     pub xp: [u32; SKILLS],
     /// The skills chosen to go on past the free cap, in the order chosen.
     pub mastered: Vec<Skill>,
     /// Acts that paid lately, so a repeat pays less.
     pub(crate) repeats: Vec<Repeat>,
+}
+
+/// Skills' XP as a save holds it (`save.rs`): by each skill's id, only those with any (the dead
+/// learn nothing), so a skill added since loads as none learnt, and one taken away is let go.
+#[cfg(feature = "save")]
+mod by_skill {
+    use super::{SKILLS, Skill};
+    use serde::ser::SerializeMap;
+    use std::collections::BTreeMap;
+
+    pub fn serialize<S: serde::Serializer>(xp: &[u32; SKILLS], s: S) -> Result<S::Ok, S::Error> {
+        let learnt = Skill::ALL.into_iter().filter(|&k| xp[k as usize] > 0);
+        let mut map = s.serialize_map(Some(learnt.clone().count()))?;
+        for skill in learnt {
+            map.serialize_entry(skill.id(), &xp[skill as usize])?;
+        }
+        map.end()
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<[u32; SKILLS], D::Error> {
+        let saved: BTreeMap<String, u32> = serde::Deserialize::deserialize(d)?;
+        let mut xp = [0; SKILLS];
+        for skill in Skill::ALL {
+            xp[skill as usize] = saved.get(skill.id()).copied().unwrap_or(0);
+        }
+        Ok(xp)
+    }
 }
 
 /// How a skill stands: its level, how far it is toward the next (per mille), and whether it's

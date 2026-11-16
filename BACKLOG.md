@@ -2,7 +2,7 @@
 
 One list, made on 2026-11-13 from the 32 "not yet" lists in the build log (`HISTORY.md`; the ones built since are left out), `CONCEPT.md`'s systems not yet started, `VISUALS.md` §16's slices to come, and the 2026-11-13 review. When a slice leaves something for later, it goes here, ranked, rather than only into its history entry.
 
-Decisions that are the user's are in `ARCHITECTURE.md`, "Open questions": a playtest first, what comes next, saves, and the repo.
+Decisions that are the user's are in `ARCHITECTURE.md`, "Open questions": a playtest first, what comes next, and the repo.
 
 ## Queue (most useful first)
 
@@ -10,18 +10,17 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 
 | # | Item | Area | Why | Size | From |
 |---|---|---|---|---|---|
-| 1 | **Saves that survive updates:** a self-describing format with defaults for new fields, or migrations | saves | The format moved from version 1 to 32 in three days, and each move sets the player's world aside (`world.dusk.old`). Postcard can't skip a field it doesn't know. Needed before anyone plays in earnest | M | the review; saves slice |
-| 2 | **A playtest night, then tuning** (in `data/` only) | the loop | The concept's first question, whether surviving the Hushlands is tense and fun, isn't answered by play: 46 slices were checked by tests, headless runs and pictures. Needs the user | M | the review; `CONCEPT.md` |
-| 3 | **The Esc menu, the title and death screens** (`VISUALS.md` §16, slice 9) | the GUI | Esc with nothing open saves and quits at once; the settings are only on F10; there's no title, so a new world is Ctrl+N | M | `VISUALS.md` |
-| 4 | **Sound, a first pass:** footsteps, a groan, a blow landing, a door, the bell; a cue for where a sound came from | sound | "Sound is gameplay" (`CONCEPT.md`), and the game is silent. Every sound is already a ring and an event, so it's playing what the core says | L | `CONCEPT.md`; settings |
-| 5 | **Base-building II:** decoy noise-makers, repairs, then walls and doors of your own | the base | The night half of the loop. Decoys are the Hushlands' own base tool in the concept's table, and "damage stays until you repair it" | L | `CONCEPT.md` |
-| 6 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
-| 7 | **The map** (a book panel) | the GUI | Zomboid's map that holds only what you've seen, and your notes. The fog of war already remembers it | M | `CONCEPT.md` |
-| 8 | **`main.gd` in parts:** the news (`_read_events`, 431 lines) to `news.gd`; the script runner (188) to `script.gd` as a table of actions; the bridge's shared guard (95 of its 178 functions open the same way) | code | The review's merges still to do | S–M | the review |
-| 9 | **The rest of the assets, in the kit** (`VISUALS.md` §5): items' looks, in hand and on the floor, and each item's icon drawn from its look (§16, slice 10); the bodies, heads, shoulders and what's in hand (slice 11) | the look | The user's ask, 2026-11-13: assets for models, items, terrain and objects in one style throughout. Slice 8 made the kit, every fixture's look and the terrain; these are what's still primitives | L | the user; `VISUALS.md` |
-| 10 | **The Warren Hills:** the second region, goblins that see and think | world | The concept's next step after the first playable, to prove the first pillar | L+ | `CONCEPT.md` |
-| 11 | **The Rogue:** the fourth class (dark, quiet, sneak attacks), with locks and traps | character | The concept's "four to start"; locks and traps serve the base too | L | `CONCEPT.md` |
-| 12 | **The Dusk Director, and quests from the holdouts** (rescues, recoveries, caravans) | events | The concept's pacing: build-up, peak and relax, and reasons to go out beyond bounties | L | `CONCEPT.md` |
+| 1 | **A playtest night, then tuning** (in `data/` only) | the loop | The concept's first question, whether surviving the Hushlands is tense and fun, isn't answered by play: 46 slices were checked by tests, headless runs and pictures. Needs the user | M | the review; `CONCEPT.md` |
+| 2 | **The Esc menu, the title and death screens** (`VISUALS.md` §16, slice 9) | the GUI | Esc with nothing open saves and quits at once; the settings are only on F10; there's no title, so a new world is Ctrl+N | M | `VISUALS.md` |
+| 3 | **Sound, a first pass:** footsteps, a groan, a blow landing, a door, the bell; a cue for where a sound came from | sound | "Sound is gameplay" (`CONCEPT.md`), and the game is silent. Every sound is already a ring and an event, so it's playing what the core says | L | `CONCEPT.md`; settings |
+| 4 | **Base-building II:** decoy noise-makers, repairs, then walls and doors of your own | the base | The night half of the loop. Decoys are the Hushlands' own base tool in the concept's table, and "damage stays until you repair it" | L | `CONCEPT.md` |
+| 5 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
+| 6 | **The map** (a book panel) | the GUI | Zomboid's map that holds only what you've seen, and your notes. The fog of war already remembers it | M | `CONCEPT.md` |
+| 7 | **`main.gd` in parts:** the news (`_read_events`, 431 lines) to `news.gd`; the script runner (188) to `script.gd` as a table of actions; the bridge's shared guard (95 of its 178 functions open the same way) | code | The review's merges still to do | S–M | the review |
+| 8 | **The rest of the assets, in the kit** (`VISUALS.md` §5): items' looks, in hand and on the floor, and each item's icon drawn from its look (§16, slice 10); the bodies, heads, shoulders and what's in hand (slice 11) | the look | The user's ask, 2026-11-13: assets for models, items, terrain and objects in one style throughout. Slice 8 made the kit, every fixture's look and the terrain; these are what's still primitives | L | the user; `VISUALS.md` |
+| 9 | **The Warren Hills:** the second region, goblins that see and think | world | The concept's next step after the first playable, to prove the first pillar | L+ | `CONCEPT.md` |
+| 10 | **The Rogue:** the fourth class (dark, quiet, sneak attacks), with locks and traps | character | The concept's "four to start"; locks and traps serve the base too | L | `CONCEPT.md` |
+| 11 | **The Dusk Director, and quests from the holdouts** (rescues, recoveries, caravans) | events | The concept's pacing: build-up, peak and relax, and reasons to go out beyond bounties | L | `CONCEPT.md` |
 
 ## By area
 
@@ -82,6 +81,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 
 **Saves and tools**
 - More than one save; the speed dial saved (the zoom is kept since 2026-11-13).
+- Saves, after they outlast updates (2026-11-16): the whole land saved, not only the chunks that changed, so a new prefab or a moved lot leaves a world in play as it was (its layout too: place names, the bell); an id renamed in the data found by its old one (`was = [...]`), so a save naming it still loads; the first migration step, when `save::VERSION` first moves (with its own golden save).
 - Golden replays, property tests and criterion benchmarks (`ARCHITECTURE.md`, Tests and tools).
 - The Rust half of `check.cmd` on GitHub at each push.
 - Data reloaded without a restart in dev builds; mods as a folder of the same files.

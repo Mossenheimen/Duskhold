@@ -7,12 +7,13 @@ publish.workspace = true
 
 [features]
 # Saves (save.rs): the one part of the core with dependencies, so it's optional. The game's
-# crates turn it on; the core alone builds without it.
-save = ["dep:serde", "dep:postcard"]
+# crates turn it on; the core alone builds without it. CBOR: self-describing, so a save names its
+# fields and outlives the code that wrote it.
+save = ["dep:serde", "dep:ciborium"]
 
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"], optional = true }
-postcard = { version = "1", default-features = false, features = ["alloc"], optional = true }
+ciborium = { version = "0.2.2", optional = true }
 
 [lints]
 workspace = true
