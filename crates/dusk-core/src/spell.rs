@@ -18,7 +18,10 @@
 //!   - Fireball: a burst on the spot, harming everything within its reach (you too). What it puts
 //!     down burns, and the bodies there catch fire, so none of them gets up. It's heard across
 //!     the map, and lights the street for a moment.
-//! - **Arcana** is the Wizard's skill: each spell cast teaches it, and each level casts faster.
+//! - **Arcana** is the Wizard's skill: each spell cast teaches it, and each level casts faster, a
+//!   fireball harms more, and a spell lasts longer on its spot (a fireball's flash is a moment
+//!   whatever your Arcana). Its levels are `World::skill_level`'s, so "+3 to Arcana" on a thing
+//!   in hand does all of it.
 
 use crate::actor::{ActionKind, ActorId};
 use crate::geom::{Dir8, TilePos};
@@ -168,6 +171,28 @@ impl World {
             .max(1)
     }
 
+    /// The harm `id`'s `spell` does, least and most: the spell's, more with Arcana.
+    pub fn spell_harm(&self, id: ActorId, spell: u16) -> (i32, i32) {
+        let Some(s) = self.spell(spell) else {
+            return (0, 0);
+        };
+        let level = self.skill_level(id, Skill::Arcana);
+        self.rules.skills.spell_harm(s.damage, level)
+    }
+
+    /// The ticks `id`'s `spell` lasts on its spot: the spell's, longer with Arcana. A fireball's
+    /// flash is a moment, whoever casts it.
+    pub fn spell_lasts(&self, id: ActorId, spell: u16) -> u32 {
+        let Some(s) = self.spell(spell) else {
+            return 0;
+        };
+        if s.kind == SpellKind::Fireball {
+            return s.lasts;
+        }
+        let level = self.skill_level(id, Skill::Arcana);
+        self.rules.skills.spell_lasts(s.lasts, level)
+    }
+
     /// Whether `id` can cast `spell` on `at` now.
     pub fn can_cast(&self, id: ActorId, spell: u16, at: TilePos) -> Result<(), NoCast> {
         let a = self
@@ -217,7 +242,8 @@ impl World {
     }
 
     /// The words are said (the action's strike): the slots and the component go, Arcana learns
-    /// from it, and the spell takes effect. The words are heard as far as they carry.
+    /// from it, and the spell takes effect, as strong and as long as your Arcana before it learnt.
+    /// The words are heard as far as they carry.
     pub(crate) fn cast(&mut self, id: ActorId, spell: u16, at: TilePos) {
         if self.can_cast(id, spell, at).is_err() {
             return;
@@ -226,6 +252,7 @@ impl World {
             return;
         };
         let hush = self.talents_of(id).fold(1000, |h, t| per(h, t.hush));
+        let (harm, lasts) = (self.spell_harm(id, spell), self.spell_lasts(id, spell));
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -249,7 +276,7 @@ impl World {
         }
         self.events.push(Event::Cast { who: id, spell, at });
         self.train(id, Skill::Arcana, self.rules.skills.cast, On::Once);
-        let until = self.tick + u64::from(s.lasts);
+        let until = self.tick + u64::from(lasts);
         match s.kind {
             SpellKind::Silence | SpellKind::Fog => self.zones.push(Zone {
                 kind: s.kind,
@@ -258,10 +285,10 @@ impl World {
                 until,
             }),
             SpellKind::Light => {}
-            SpellKind::Fireball => self.burst(id, &s, at),
+            SpellKind::Fireball => self.burst(id, &s, at, harm),
         }
         // Its light, if it gives any: Light's own, a fireball's flash.
-        if s.light > 0 && s.lasts > 0 {
+        if s.light > 0 && lasts > 0 {
             self.zones.push(Zone {
                 kind: SpellKind::Light,
                 at,
@@ -271,9 +298,10 @@ impl World {
         }
     }
 
-    /// A fireball bursts on `at`: everything within its reach is harmed (its caster too); what it
-    /// puts down burns, as do the bodies lying there. Heard across the map.
-    fn burst(&mut self, id: ActorId, s: &SpellDef, at: TilePos) {
+    /// A fireball bursts on `at`: everything within its reach is harmed (its caster too), between
+    /// `harm`'s least and most; what it puts down burns, as do the bodies lying there. Heard across
+    /// the map.
+    fn burst(&mut self, id: ActorId, s: &SpellDef, at: TilePos, harm: (i32, i32)) {
         let reach = Zone {
             kind: s.kind,
             at,
@@ -286,7 +314,7 @@ impl World {
             .filter(|(_, a)| reach.holds(a.pos))
             .map(|(n, _)| n)
             .collect();
-        let (lo, hi) = s.damage;
+        let (lo, hi) = harm;
         let span = (hi - lo).max(0) as u32 + 1;
         for target in caught {
             if self.actors.get(target).is_some_and(|a| a.dead) {

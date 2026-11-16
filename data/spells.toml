@@ -9,11 +9,15 @@
 # made inside it), fog (the dead can't see into it or out of it), fireball (a burst: damage points to
 # everything within its reach, you too, and what it puts down burns; heard boom tiles off).
 # component: the item each cast uses up.
+#
+# Arcana changes the numbers (rules.toml's [skills.level]): its levels quicken the words, add to a
+# fireball's damage, and make a spell last longer (not a fireball's flash). The spells panel shows
+# them as yours, so a line says what a spell does, not for how long.
 
 [[spell]]
 id = "light"
 name = "Light"
-line = "a pale light on a spot you can see, for two minutes: to see by, or at night a lure for the dead"
+line = "a pale light on a spot you can see: to see by, or at night a lure for the dead"
 kind = "light"
 slots = 0             # a cantrip: as often as you like
 cast = 1.0
@@ -25,7 +29,7 @@ noise = 2
 [[spell]]
 id = "silence"
 name = "Silence"
-line = "for half a minute, no sound is made within 3 tiles of a spot: not a footstep, a blow or a hammer"
+line = "no sound is made within 3 tiles of a spot: not a footstep, a blow or a hammer"
 kind = "silence"
 slots = 1
 cast = 1.5
@@ -37,7 +41,7 @@ noise = 2
 [[spell]]
 id = "fog"
 name = "Fog"
-line = "for half a minute, the dead can't see into or out of a fog 2 tiles round a spot"
+line = "the dead can't see into or out of a fog 2 tiles round a spot"
 kind = "fog"
 slots = 1
 cast = 1.5

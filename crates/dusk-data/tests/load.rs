@@ -1998,9 +1998,16 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
     );
     let sulphur = defs.items.iter().position(|i| i.id == "sulphur").unwrap() as u16;
     assert_eq!(fireball.component, Some(sulphur));
+    // Arcana: quicker words, a fireball's harm, a spell lasting longer, a level at a time.
+    let s = &data.rules.skills;
     assert_eq!(
-        (data.rules.skills.cast, data.rules.skills.arcana_cast),
-        (2000, 50)
+        (s.cast, s.arcana_cast, s.arcana_harm, s.arcana_lasts),
+        (2000, 50, 50, 100)
+    );
+    assert_eq!(
+        s.spell_harm(fireball.damage, 7),
+        (337, 472),
+        "a third more at the free cap"
     );
     // A fog that reaches nowhere.
     let mist = "[[spell]]\nid = \"mist\"\nname = \"Mist\"\nline = \"\"\nkind = \"fog\"\n\

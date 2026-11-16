@@ -360,7 +360,7 @@ tier = 3
 skill = "own"
 levels = 3
 
-# Levels in Arcana, the Wizard's: quicker words.
+# Levels in Arcana, the Wizard's: quicker words, a fireball's harm, a spell lasting longer.
 
 [[property]]
 id = "runed"

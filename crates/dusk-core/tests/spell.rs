@@ -373,6 +373,57 @@ fn arcana_learns_from_each_spell_and_casts_faster() {
     assert!(w.cast_ticks(me, FIREBALL) < base);
 }
 
+/// Casts `spell` on `to`, stepping until its words are said; the tick they were said on, and what
+/// happened.
+fn said(w: &mut World, me: ActorId, spell: u16, to: TilePos) -> (u64, Vec<Event>) {
+    w.intent(me, Intent::Cast { spell, at: to });
+    for _ in 0..80 {
+        w.step(1);
+        let seen: Vec<Event> = w.events().collect();
+        if seen.iter().any(|e| matches!(e, Event::Cast { .. })) {
+            // The tick moves on as a step begins: the words were said on this one.
+            return (w.tick, seen);
+        }
+    }
+    panic!("the words were never said");
+}
+
+#[test]
+fn arcana_makes_a_fireball_harm_more_and_a_spell_last_longer() {
+    let (mut w, me) = field(0);
+    // No Arcana: the spells' own numbers.
+    assert_eq!(w.spell_harm(me, FIREBALL), (1000, 1000));
+    assert_eq!(w.spell_lasts(me, SILENCE), 100);
+    w.give_xp(me, Skill::Arcana, 1_000_000);
+    let level = w.skill_level(me, Skill::Arcana);
+    assert!(level > 0);
+    // The test rules: a twentieth more harm a level, a tenth longer.
+    let harm = 1000 * (1000 + 50 * i32::from(level)) / 1000;
+    let lasts = 100 * (1000 + 100 * u32::from(level)) / 1000;
+    assert_eq!(w.spell_harm(me, FIREBALL), (harm, harm));
+    assert_eq!(w.spell_lasts(me, SILENCE), lasts);
+    assert_eq!(w.spell_lasts(me, LIGHT), lasts);
+    assert_eq!(
+        w.spell_lasts(me, FIREBALL),
+        15,
+        "a fireball's flash is a moment"
+    );
+    // Cast, a silence lasts that long...
+    let (now, _) = said(&mut w, me, SILENCE, at(-5, 0));
+    assert_eq!(w.zones()[0].until, now + u64::from(lasts));
+    // ...and a fireball does that harm.
+    let z = w.spawn(ActorKind::Creature(0), at(5, 0)).unwrap();
+    let (_, seen) = said(&mut w, me, FIREBALL, at(5, 0));
+    assert!(
+        seen.contains(&Event::Scorched {
+            who: me,
+            target: z,
+            damage: harm
+        }),
+        "{seen:?}"
+    );
+}
+
 #[test]
 fn the_wizards_talents_add_a_slot_quicken_the_words_and_hush_them() {
     let (mut w, me) = field(12);

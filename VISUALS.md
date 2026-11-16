@@ -638,6 +638,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | The body diagram in a fight: wounds, a bandage, a part's detail (each run's fight goes its own way) | `--seed=7 --hour=12 --speed=4 --walk=118,84 --do=12:bandage,14:body --shot=PNG --shot-after=14.5` |
 | The settings screen, two switches on | `--seed=7 --hour=12 --look=colour_blind,show_numbers --do=1:settings --shot=PNG --shot-after=2.5` |
 | Every setting on, in a fight at the near farm | `--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --shot=PNG --shot-after=14` |
+| A Wizard's spells as Arcana makes them: the panel with a Sorcerous sword in hand (+3), each spell's time or harm as yours ("lasts 39 s", "28.7 to 40.2 damage") | `--seed=7 --hour=12 --class=wizard --give=sword:masterwork:keen+swift+sorcerous --do=1:wield,2:spells --shot=PNG --shot-after=3` |
 | A Wizard's spells at night: the panel, a Light, a Silence | `--seed=7 --hour=22 --class=wizard --do=1:cast_light,4:cast_fireball,7:cast_silence,9:spells --shot=PNG --shot-after=10` |
 | A fireball flying (its trail, the ember ring where it lands; the spot three tiles east is under trees) | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=3.75` |
 | A Wizard's words: the arcane glow and its motes | `--seed=7 --hour=22 --class=wizard --do=1:cast_fireball --shot=PNG --shot-after=2.6` |

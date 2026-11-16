@@ -3092,10 +3092,11 @@ impl DuskWorld {
             .collect()
     }
 
-    /// Each spell, as you'd cast it, eight numbers each: its kind (0 light, 1 silence, 2 fog,
-    /// 3 fireball), the slots it costs, its words (tenths of a second, as quick as you are), its
-    /// range (yours), how far it reaches, how far it lights, how long it lasts (seconds), and its
-    /// component (an item's number; -1 none).
+    /// Each spell, as you'd cast it, ten numbers each (`spells.gd`'s `INFO`): its kind (0 light,
+    /// 1 silence, 2 fog, 3 fireball), the slots it costs, its words (tenths of a second, as quick
+    /// as you are), its range (yours), how far it reaches, how far it lights, how long it lasts
+    /// (seconds, as long as your Arcana makes it), its component (an item's number; -1 none), and
+    /// its harm, least and most (tenths of a point, as your Arcana makes it; 0 for none).
     #[func]
     fn spell_info(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -3105,9 +3106,15 @@ impl DuskWorld {
         let mut out = Vec::new();
         for (n, s) in world.defs.spells.iter().enumerate() {
             let n = n as u16;
-            let (cast, range) = me.map_or((s.cast, s.range), |me| {
-                (world.cast_ticks(me, n), world.spell_range(me, n))
-            });
+            let (cast, range, lasts, harm) =
+                me.map_or((s.cast, s.range, s.lasts, s.damage), |me| {
+                    (
+                        world.cast_ticks(me, n),
+                        world.spell_range(me, n),
+                        world.spell_lasts(me, n),
+                        world.spell_harm(me, n),
+                    )
+                });
             out.extend([
                 match s.kind {
                     SpellKind::Light => spell::LIGHT,
@@ -3120,8 +3127,10 @@ impl DuskWorld {
                 range,
                 s.radius,
                 s.light,
-                (s.lasts / 10) as i32,
+                (lasts / 10) as i32,
                 s.component.map_or(-1, i32::from),
+                harm.0,
+                harm.1,
             ]);
         }
         PackedInt32Array::from(&out[..])

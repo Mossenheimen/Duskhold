@@ -194,9 +194,12 @@ pub struct SkillRules {
     pub pick: u32,
     pub forage_more: u32,
     /// Arcana (`spell.rs`): XP for each spell cast; and a level takes `arcana_cast` per mille off
-    /// the words' time.
+    /// the words' time, adds `arcana_harm` per mille to a spell's harm (a fireball's), and
+    /// `arcana_lasts` per mille to how long one lasts on its spot.
     pub cast: u32,
     pub arcana_cast: u32,
+    pub arcana_harm: u32,
+    pub arcana_lasts: u32,
 }
 
 impl Default for SkillRules {
@@ -244,6 +247,8 @@ impl Default for SkillRules {
             forage_more: 100,
             cast: 2000,
             arcana_cast: 50,
+            arcana_harm: 50,
+            arcana_lasts: 100,
         }
     }
 }
@@ -626,6 +631,17 @@ impl SkillRules {
     /// A spell's words, in ticks, at a level of Arcana.
     pub fn cast_ticks(&self, ticks: u32, level: u8) -> u32 {
         (by_level(i64::from(ticks), self.arcana_cast, level, false) as u32).max(1)
+    }
+
+    /// A spell's harm, least and most, at a level of Arcana.
+    pub fn spell_harm(&self, (lo, hi): (i32, i32), level: u8) -> (i32, i32) {
+        let more = |d: i32| by_level(i64::from(d), self.arcana_harm, level, true) as i32;
+        (more(lo), more(hi))
+    }
+
+    /// The ticks a spell lasts on its spot at a level of Arcana.
+    pub fn spell_lasts(&self, ticks: u32, level: u8) -> u32 {
+        by_level(i64::from(ticks), self.arcana_lasts, level, true) as u32
     }
 
     /// The chance, per mille, of one more of a herb picked at a level of Foraging.

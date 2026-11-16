@@ -1,14 +1,16 @@
 extends "res://book_panel.gd"
-## Spells (P): the ones you know, each with what it costs, how long its words take and how far it
-## reaches, and a Ready button (or its number key: your powers). A readied spell is cast on the
-## next spot you click (main.gd); right-click lets it go. The core decides what can be cast and
-## does it; this only shows it and asks.
+## Spells (P): the ones you know, each with what it costs, how long its words take, how far it
+## reaches, and how long it lasts or what it harms (as your Arcana makes them), and a Ready button
+## (or its number key: your powers). A readied spell is cast on the next spot you click (main.gd);
+## right-click lets it go. The core decides what can be cast and does it; this only shows it and
+## asks.
 
 const Prompts = preload("res://prompts.gd")
 const Power = preload("res://codes.gd").Power
+const Spell = preload("res://codes.gd").Spell
 
-## The numbers a spell takes in DuskWorld.spell_info().
-const INFO := 8
+## The numbers a spell takes in DuskWorld.spell_info() (main.gd reads it too).
+const INFO := 10
 
 ## Readies a spell, by its number (main.gd's).
 var ready_spell: Callable
@@ -36,7 +38,9 @@ func refresh(dead: bool, readied: int) -> void:
 		_draw(now[0], now[1], now[2], readied)
 
 
-## What a spell costs, its words and its range: "2 slots and sulphur  ·  2.5 s  ·  8 tiles".
+## What a spell costs, its words, its range, and how long it lasts or what it harms, as yours:
+## "2 slots and sulphur  ·  2.5 s  ·  8 tiles  ·  25 to 35 damage", "1 slot  ·  1.5 s  ·  6 tiles
+## ·  lasts 30 s".
 func describe(spell: int, info: PackedInt32Array) -> String:
 	var i := spell * INFO
 	if i + INFO > info.size():
@@ -45,7 +49,36 @@ func describe(spell: int, info: PackedInt32Array) -> String:
 	var cost := "a cantrip" if slots == 0 else ("1 slot" if slots == 1 else "%d slots" % slots)
 	if info[i + 7] >= 0 and info[i + 7] < _items.size():
 		cost += " and " + _items[info[i + 7]]
-	return "%s  ·  %.1f s  ·  %d tiles" % [cost, info[i + 2] / 10.0, info[i + 3]]
+	var line := "%s  ·  %.1f s  ·  %d tiles" % [cost, info[i + 2] / 10.0, info[i + 3]]
+	if info[i + 9] > 0:
+		line += "  ·  %s to %s damage" % [_points(info[i + 8]), _points(info[i + 9])]
+	if info[i] != Spell.FIREBALL and info[i + 6] > 0:
+		line += "  ·  lasts " + _span(info[i + 6])
+	return line
+
+
+## Each spell you know as the panel calls it, a line each: its name and what `describe` says (for a
+## script's news: main.gd prints them).
+func rows() -> PackedStringArray:
+	var out := PackedStringArray()
+	var info: PackedInt32Array = _dusk.spell_info()
+	for spell in _dusk.character_spells():
+		out.append((_names[spell] if spell < _names.size() else "?") + "  ·  " + describe(spell, info))
+	return out
+
+
+## Tenths of a point, as the card writes them: "25", "33.7".
+static func _points(tenths: int) -> String:
+	return str(tenths / 10) if tenths % 10 == 0 else "%.1f" % (tenths / 10.0)
+
+
+## Seconds, as a person says them: "30 s", "2 min", "3 min 24 s".
+static func _span(seconds: int) -> String:
+	if seconds < 60:
+		return "%d s" % seconds
+	if seconds % 60 == 0:
+		return "%d min" % (seconds / 60)
+	return "%d min %d s" % [seconds / 60, seconds % 60]
 
 
 func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Array,

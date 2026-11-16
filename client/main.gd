@@ -2198,6 +2198,9 @@ func _run_script() -> void:
 				_brace(true)
 			"spells":
 				_book(spells)
+				if print_news:
+					for row in spells.rows():
+						print("Spell: ", row)
 			"cast_light", "cast_silence", "cast_fog", "cast_fireball":
 				# The spell of that name, on the nearest of the dead you see, else 3 tiles east; or, with
 				# --aim, where it says.
@@ -2329,7 +2332,7 @@ func _ready_spell(spell: int) -> void:
 		_let_go()
 		return
 	var info: PackedInt32Array = dusk.spell_info()
-	var reach: int = info[spell * 8 + 3] if spell * 8 + 3 < info.size() else 0
+	var reach: int = info[spell * Spells.INFO + 3] if spell * Spells.INFO + 3 < info.size() else 0
 	readied = spell
 	hud.say("%s ready: click a spot within %d tiles. Right-click lets it go." % [_spell_name(spell), reach])
 
@@ -2408,7 +2411,7 @@ func _my_tile() -> Vector2i:
 ## cast; spell_catches(): would it burn you too). Gone with none readied.
 func _aim() -> void:
 	var info: PackedInt32Array = dusk.spell_info()
-	var i := readied * 8
+	var i := readied * Spells.INFO
 	if readied < 0 or dead or me < 0 or i + 5 >= info.size():
 		aim.hide_aim()
 		if aiming:
@@ -2434,11 +2437,12 @@ func _aim() -> void:
 
 
 ## A spell of yours landing on tile (x, y) (Event.CAST): its effect, by its kind and how far it
-## reaches (DuskWorld.spell_info(): eight numbers a spell, its kind first and its reach fifth).
+## reaches (DuskWorld.spell_info(): Spells.INFO numbers a spell, its kind first and its reach fifth).
 func _spell_effect(spell: int, x: int, y: int) -> void:
 	var info: PackedInt32Array = dusk.spell_info()
-	if spell * 8 + 4 < info.size():
-		effects.spell(info[spell * 8], x, y, info[spell * 8 + 4], actors[me].position)
+	var i := spell * Spells.INFO
+	if i + 4 < info.size():
+		effects.spell(info[i], x, y, info[i + 4], actors[me].position)
 
 
 ## The readied spell, cast on `tile`: the core says whether it can be, and this says why not.
@@ -2457,7 +2461,8 @@ func _cast_on(tile: Vector2i) -> void:
 			hud.say("Not slots enough for the %s: they come back when you've slept the night through." % _spell_name(spell))
 		-4:
 			var info: PackedInt32Array = dusk.spell_info()
-			var what: int = info[spell * 8 + 7] if spell * 8 + 7 < info.size() else -1
+			var i := spell * Spells.INFO + 7
+			var what: int = info[i] if i < info.size() else -1
 			hud.say("You've no %s for it." % (_item_name(what) if what >= 0 else "component"))
 		-5:
 			hud.say("Too far: the %s reaches only so far." % _spell_name(spell))
