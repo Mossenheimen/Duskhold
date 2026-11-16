@@ -149,6 +149,8 @@ pub enum Purpose {
     Terror = 33,
     /// The fire's harm and the holy harm a weapon adds to a blow (`magic.rs`).
     Element = 34,
+    /// The harm back a unique's thorns do whoever struck (`magic.rs`).
+    Thorns = 35,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

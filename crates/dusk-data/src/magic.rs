@@ -1,12 +1,12 @@
 //! Magic items: their properties and curses (`data/properties.toml`) in a designer's units
-//! (multipliers, a chance added, tiles), the uniques (`data/uniques.toml`: weapons made by hand),
+//! (multipliers, a chance added, tiles), the uniques (`data/uniques.toml`: things made by hand),
 //! rules.toml's `[magic]` (how they're rolled and learnt), and its `[quality]` (how well a weapon
 //! found was made).
 
 use std::path::Path;
 
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
-use dusk_core::{Defs, Fits, ItemKind, MagicRules, Property, QualityRules, Raises, Skill, Unique};
+use dusk_core::{Defs, Fits, MagicRules, Property, QualityRules, Raises, Skill, Unique};
 use serde::Deserialize;
 
 use crate::{DataError, check_unique, fail, read};
@@ -65,10 +65,11 @@ struct PropertyFile {
     /// A light's: how fast it burns down, as a multiplier.
     #[serde(default = "one")]
     wane: f64,
-    /// A weapon's, what a unique's effect does: a kill carries on into the next one beside you;
-    /// the share of a blow's harm that comes back as health (0 to 1); the dead it puts down
-    /// burn; the chance a blow sends the dead fleeing, and knocks down (0 to 1); and the dread a
-    /// kill eases, in points.
+    /// What a unique's effect does. A weapon's or a bow's: a kill carries on into the next one
+    /// beside you (a bow's arrow, on along its line); the share of a blow's harm that comes back
+    /// as health (0 to 1); the dead it puts down burn; the chance a blow sends the dead fleeing,
+    /// and knocks down (0 to 1: a shield's, a blow it blocks); and the dread a kill eases, in
+    /// points.
     #[serde(default)]
     cleave: bool,
     #[serde(default)]
@@ -116,9 +117,16 @@ struct PropertyFile {
     block: f64,
     #[serde(default)]
     bash: f64,
+    /// A unique's effect: harm back, [least, most] in points, on whatever's blow lands on you
+    /// (armour's) or whatever's blow you block (a shield's); and how fast your dread rises, as a
+    /// multiplier (armour's).
+    #[serde(default)]
+    thorns: (f64, f64),
+    #[serde(default = "one")]
+    calm: f64,
 }
 
-/// `uniques.toml`: weapons made by hand, each with a name of its own.
+/// `uniques.toml`: weapons, armour, bows and shields made by hand, each with a name of its own.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct UniquesFile {
@@ -130,15 +138,15 @@ struct UniquesFile {
 struct UniqueFile {
     id: String,
     name: String,
-    /// The kind of weapon it is (items/), and how well it was made: "crude", "plain", "fine" or
-    /// "masterwork" (left out: plain).
+    /// The kind of thing it is (items/: a weapon, armour, a bow or a shield), and how well it was
+    /// made: "crude", "plain", "fine" or "masterwork" (left out: plain).
     item: String,
     #[serde(default)]
     grade: String,
-    /// Properties from properties.toml, by id: a weapon's; a curse's too, as a cost it carries.
+    /// Properties from properties.toml, by id: its kind's; a curse's too, as a cost it carries.
     #[serde(default)]
     properties: Vec<String>,
-    /// Its own effect, written as a property is (no id, and on a weapon).
+    /// Its own effect, written as a property is (no id, and on what it's made on).
     effect: PropertyFile,
     /// A line of its story.
     #[serde(default)]
@@ -300,21 +308,23 @@ pub(crate) fn load(dir: &Path) -> Result<Vec<Property>, DataError> {
         if p.id.trim().is_empty() {
             return Err(fail(&file, "a property needs an id"));
         }
-        let fits = match p.on.as_str() {
-            "weapon" => Fits::Weapon,
-            "light" => Fits::Light,
-            "armour" => Fits::Armour,
-            "bow" => Fits::Bow,
-            "shield" => Fits::Shield,
-            _ => {
-                return Err(bad(
-                    "on is \"weapon\", \"light\", \"armour\", \"bow\" or \"shield\"",
-                ));
-            }
-        };
+        let fits = fits_of(&p.on)
+            .ok_or_else(|| bad("on is \"weapon\", \"light\", \"armour\", \"bow\" or \"shield\""))?;
         out.push(to_property(p, fits).map_err(|m| bad(&m))?);
     }
     Ok(out)
+}
+
+/// What a property's `on` names: a weapon, a light, armour, a bow or a shield.
+fn fits_of(on: &str) -> Option<Fits> {
+    Some(match on {
+        "weapon" => Fits::Weapon,
+        "light" => Fits::Light,
+        "armour" => Fits::Armour,
+        "bow" => Fits::Bow,
+        "shield" => Fits::Shield,
+        _ => return None,
+    })
 }
 
 /// "a weapon, a bow or a shield": what a number goes on, in words.
@@ -337,10 +347,12 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         p.wane,
         p.endurance,
         p.arrows,
+        p.calm,
     ];
     if multipliers.iter().any(|m| !(0.0..=10.0).contains(m)) {
         return Err(
-            "noise, damage, swing, wear, wane, endurance and arrows are multipliers from 0 to 10"
+            "noise, damage, swing, wear, wane, endurance, arrows and calm are multipliers from 0 \
+             to 10"
                 .into(),
         );
     }
@@ -371,8 +383,8 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         ),
     };
     let harm = |(lo, hi): (f64, f64)| 0.0 <= lo && lo <= hi && hi <= 50.0;
-    if !harm(p.fire) || !harm(p.holy) {
-        return Err("fire and holy are [least, most], from 0 to 50 points".into());
+    if !harm(p.fire) || !harm(p.holy) || !harm(p.thorns) {
+        return Err("fire, holy and thorns are [least, most], from 0 to 50 points".into());
     }
     if !(0.0..=0.5).contains(&p.ward) || !(-30.0..=30.0).contains(&p.warmth) {
         return Err("ward is a chance from 0 to 0.5, warmth -30 to 30 points".into());
@@ -385,10 +397,12 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
     }
     // What each number does, and what it goes on (Path of Exile's mods by item class): a blow's
     // is a weapon's, a shot's a bow's, a block's a shield's, the body and a skill anything worn
-    // or held in a fight.
+    // or held in a fight. A unique's effect is a blow's on a weapon, a shot's on a bow (an arrow
+    // drinks, burns what it puts down, knocks down, flies on), a block's on a shield (harm back,
+    // the dead put to flight or knocked down), and a blow's that lands on you on armour.
     use Fits::{Armour, Bow, Light, Shield, Weapon};
     let held: &[Fits] = &[Weapon, Armour, Bow, Shield];
-    let numbers: [(&str, bool, &[Fits]); 27] = [
+    let numbers: [(&str, bool, &[Fits]); 29] = [
         ("noise", p.noise != 1.0, &[Weapon, Bow]),
         ("damage", p.damage != 1.0, &[Weapon, Bow]),
         ("swing", p.swing != 1.0, &[Weapon, Bow]),
@@ -398,12 +412,14 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         ("hallowed", p.hallowed, &[Weapon]),
         ("glow", p.glow != 0, &[Weapon, Light]),
         ("wane", p.wane != 1.0, &[Light]),
-        ("cleave", p.cleave, &[Weapon]),
-        ("drain", p.drain > 0.0, &[Weapon]),
-        ("pyre", p.pyre, &[Weapon]),
-        ("terror", p.terror > 0.0, &[Weapon]),
-        ("fell", p.fell > 0.0, &[Weapon]),
-        ("hearten", p.hearten > 0.0, &[Weapon]),
+        ("cleave", p.cleave, &[Weapon, Bow]),
+        ("drain", p.drain > 0.0, &[Weapon, Bow]),
+        ("pyre", p.pyre, &[Weapon, Bow]),
+        ("terror", p.terror > 0.0, &[Weapon, Bow, Shield]),
+        ("fell", p.fell > 0.0, &[Weapon, Bow, Shield]),
+        ("hearten", p.hearten > 0.0, &[Weapon, Bow]),
+        ("thorns", p.thorns.1 > 0.0, &[Armour, Shield]),
+        ("calm", p.calm != 1.0, &[Armour]),
         ("strength", p.strength > 0.0, held),
         ("fitness", p.fitness > 0.0, held),
         ("skill", p.levels > 0, held),
@@ -469,6 +485,8 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         arrows: per(p.arrows),
         block: chance(p.block),
         bash: chance(p.bash),
+        thorns: points(p.thorns),
+        calm: per(p.calm),
     })
 }
 
@@ -489,11 +507,18 @@ pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError>
         if u.name.trim().is_empty() {
             return Err(bad("a name, its own"));
         }
-        let item = defs
-            .items
-            .iter()
-            .position(|d| d.id == u.item && matches!(d.kind, ItemKind::Weapon { .. }))
-            .ok_or_else(|| bad(&format!("{:?} is no weapon in items/", u.item)))?;
+        // Made on a weapon, a piece of armour, a bow or a shield: not a light (yet).
+        let (item, kind) = (0..defs.items.len())
+            .find_map(|n| {
+                let kind = defs.fits(n as u16).filter(|&k| k != Fits::Light)?;
+                (defs.items[n].id == u.item).then_some((n, kind))
+            })
+            .ok_or_else(|| {
+                bad(&format!(
+                    "{:?} is no weapon, armour, bow or shield in items/",
+                    u.item
+                ))
+            })?;
         let quality = match u.grade.as_str() {
             "crude" => CRUDE,
             "" | "plain" => PLAIN,
@@ -506,10 +531,11 @@ pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError>
             let n = defs
                 .properties
                 .iter()
-                .position(|p| &p.id == id && p.fits == Fits::Weapon)
+                .position(|p| &p.id == id && p.fits == kind)
                 .ok_or_else(|| {
                     bad(&format!(
-                        "{id:?} is no weapon's property in properties.toml"
+                        "{id:?} is no property of {} in properties.toml",
+                        kind.word()
                     ))
                 })?;
             if props.contains(&(n as u8)) {
@@ -518,13 +544,16 @@ pub(crate) fn uniques(dir: &Path, defs: &Defs) -> Result<Vec<Unique>, DataError>
             props.push(n as u8);
         }
         let e = &u.effect;
-        if !matches!(e.on.as_str(), "" | "weapon") || e.curse {
-            return Err(bad("its effect is a weapon's, and no curse"));
+        if !(e.on.is_empty() || fits_of(&e.on) == Some(kind)) || e.curse {
+            return Err(bad(&format!(
+                "its effect goes on {}, as it's made, and is no curse",
+                kind.word()
+            )));
         }
         if e.name.trim().is_empty() || e.line.trim().is_empty() {
             return Err(bad("its effect needs a name and a line"));
         }
-        let mut effect = to_property(e, Fits::Weapon).map_err(|m| bad(&format!("effect: {m}")))?;
+        let mut effect = to_property(e, kind).map_err(|m| bad(&format!("effect: {m}")))?;
         effect.id = u.id.clone();
         out.push(Unique {
             id: u.id.clone(),

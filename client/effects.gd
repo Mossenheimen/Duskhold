@@ -167,6 +167,14 @@ func terror(at: Vector3) -> void:
 	_burst(at + Vector3(0, 1.2, 0), Look.UNIQUE, [14, 0.9, 1.2, 0.8, 0.3, 0.2])
 
 
+## A unique's thorns biting whatever struck you (or whatever you blocked): sharp motes off it in
+## the unique's colour, out fast and gone.
+func thorns(at: Vector3) -> void:
+	var cut := _burst(at + Vector3(0, 1.0, 0), Look.UNIQUE, [10, 0.25, 1.4, -3.0, 0.08, 0.1])
+	cut.radial_accel_min = 10.0
+	cut.radial_accel_max = 16.0
+
+
 ## A weapon's fire or holy harm landing (`kind`: 1 fire, 2 holy, 3 both): flames licking up off
 ## what it struck, in fire's colour; a holy flare, rising slower and wider.
 func sear(at: Vector3, kind: int) -> void:

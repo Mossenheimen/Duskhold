@@ -310,6 +310,12 @@ impl Defs {
         }
         let pct = |m: u32| change(i64::from(m) - 1000);
         let sign = |n: i32| if n < 0 { "-" } else { "+" };
+        let kind = self.fits(item.def);
+        let a = match kind {
+            Some(Fits::Bow) => "shot",
+            Some(Fits::Shield) => "block",
+            _ => "blow",
+        };
         let mut out = Vec::new();
         if p.damage != 1000 {
             out.push(format!("{} damage", pct(p.damage)));
@@ -353,11 +359,6 @@ impl Defs {
             out.push(format!("+{} to {skill}", p.levels));
         }
         if p.endurance != 1000 {
-            let a = match self.fits(item.def) {
-                Some(Fits::Bow) => "shot",
-                Some(Fits::Shield) => "block",
-                _ => "blow",
-            };
             out.push(format!("{} breath a {a}", pct(p.endurance)));
         }
         if p.noise != 1000 {
@@ -393,27 +394,43 @@ impl Defs {
         if p.hallowed {
             out.push("What it puts down stays down".into());
         }
-        // A unique's effect, if its data gives it no words.
+        // A unique's effect, if its data gives it no words: a weapon's blow's, a bow's shot's, a
+        // shield's block's, or a blow's on what's worn.
         if p.drain > 0 {
             let drunk = mille(p.drain);
             out.push(format!("{drunk} of the harm it does comes back as health"));
         }
         if p.terror > 0 {
             let chance = share(p.terror);
-            out.push(format!("{chance} chance a blow sends the dead fleeing"));
+            out.push(format!("{chance} chance a {a} sends the dead fleeing"));
         }
         if p.fell > 0 {
-            out.push(format!("{} chance a blow knocks down", share(p.fell)));
+            out.push(format!("{} chance a {a} knocks down", share(p.fell)));
         }
         if p.hearten > 0 {
             let eased = number(f64::from(p.hearten) / 1000.0, 1);
             out.push(format!("Each of the dead it puts down eases {eased} dread"));
         }
         if p.cleave {
-            out.push("A blow that puts one down carries on into the next".into());
+            out.push(if kind == Some(Fits::Bow) {
+                "An arrow that puts one down flies on into the next".into()
+            } else {
+                "A blow that puts one down carries on into the next".into()
+            });
         }
         if p.pyre {
             out.push("The dead it puts down catch fire".into());
+        }
+        if p.thorns.1 > 0 {
+            let whatever = if kind == Some(Fits::Shield) {
+                "whatever you block"
+            } else {
+                "whatever strikes you"
+            };
+            out.push(format!("{} harm back on {whatever}", span(p.thorns)));
+        }
+        if p.calm != 1000 {
+            out.push(format!("{} dread taken", pct(p.calm)));
         }
         out
     }

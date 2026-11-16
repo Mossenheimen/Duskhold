@@ -1638,3 +1638,233 @@ fn a_chests_bows_and_shields_are_made_well_or_badly_and_their_magic_is_their_own
         assert!(better > 0, "some made better or worse than plain");
     }
 }
+
+/// The uniques' field with one more unique, made plainly on `def` with `effect`, and that unique
+/// as you'd carry it, known.
+fn field_with_unique(def: u16, effect: Property) -> (World, ActorId, Item) {
+    let (mut w, me) = unique_field(12, Vec::new(), |_| {});
+    let mut d = (*w.defs).clone();
+    let u = d.uniques.len() as u8;
+    d.uniques.push(Unique {
+        id: effect.id.clone(),
+        name: effect.name.clone(),
+        item: def,
+        quality: PLAIN,
+        props: Vec::new(),
+        effect,
+        lore: String::new(),
+    });
+    w.defs = Arc::new(d);
+    let made = Item {
+        magic: Magic {
+            rarity: UNIQUE,
+            unique: u,
+            known: true,
+            curse_shown: true,
+            ..Magic::MUNDANE
+        },
+        ..Item::new(def, 1)
+    };
+    (w, me, made)
+}
+
+/// Puts on what you carry of `def`.
+fn put_on(w: &mut World, me: ActorId, def: u16) {
+    let s = slot(w, me, def);
+    w.intent(me, Intent::Wear { slot: s, def });
+    run(w, 30);
+    assert!(w.actor(me).unwrap().worn.iter().any(|i| i.def == def));
+}
+
+/// The harm `whom` took back off `me`'s thorns, a blow at a time, among `seen`.
+fn thorned(seen: &[Event], me: ActorId, whom: ActorId) -> Vec<i32> {
+    seen.iter()
+        .filter_map(|e| match *e {
+            Event::Thorned {
+                who,
+                target,
+                damage,
+            } if who == me && target == whom => Some(damage),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_unique_pieces_thorns_hurt_whatever_strikes_you_and_can_put_it_down() {
+    let sting = Property {
+        thorns: (20, 20),
+        ..on(Fits::Armour, "Sting")
+    };
+    // Its card says so in numbers, with no words of its own.
+    let (w, _, piece) = field_with_unique(CAP, sting.clone());
+    assert_eq!(
+        styled(&w.card(&piece, None), CardStyle::Effect),
+        [("Sting: 2 harm back on whatever strikes you", "")]
+    );
+    // A tough one that lands every blow: each, turned or not, costs it 2 points.
+    let (mut w, me, piece) = field_with_unique(CAP, sting.clone());
+    w.give(me, piece);
+    put_on(&mut w, me, CAP);
+    let c = w.creature_mut(0);
+    (c.health, c.attack.hit) = (1_000_000, 10_000);
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    let seen = run(&mut w, 60);
+    let blows = seen
+        .iter()
+        .filter(|e| matches!(e, Event::Struck { who, .. } if *who == z))
+        .count();
+    assert!(blows >= 1, "it struck you");
+    assert_eq!(thorned(&seen, me, z), vec![20; blows]);
+    let left = w.actor(z).unwrap().body.health;
+    assert_eq!(left, 1_000_000 - 20 * blows as i32);
+    // A weak one: its first blow puts it down.
+    let (mut w, me, piece) = field_with_unique(CAP, sting);
+    w.give(me, piece);
+    put_on(&mut w, me, CAP);
+    let c = w.creature_mut(0);
+    (c.health, c.attack.hit) = (15, 10_000);
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    let seen = run(&mut w, 60);
+    assert_eq!(thorned(&seen, me, z), [20]);
+    assert!(w.actor(z).unwrap().dead);
+    assert!(seen.contains(&Event::Died { who: z }));
+}
+
+#[test]
+fn a_calming_unique_piece_slows_your_dread() {
+    let vigil = |calm: u32| Property {
+        calm,
+        ..on(Fits::Armour, "Vigil")
+    };
+    let (w, _, piece) = field_with_unique(CAP, vigil(500));
+    assert_eq!(
+        styled(&w.card(&piece, None), CardStyle::Effect),
+        [("Vigil: -50% dread taken", "")]
+    );
+    // Three minutes in the dark, in a cap that calms or one that doesn't.
+    let dread_after = |calm: u32| {
+        let (mut w, me, piece) = field_with_unique(CAP, vigil(calm));
+        w.give(me, piece);
+        put_on(&mut w, me, CAP);
+        w.rules.dread.dark_below = 101;
+        let minute = w.rules.clock.ticks_per_minute;
+        run(&mut w, 3 * minute);
+        w.dread(me)
+    };
+    let (plain, calmed) = (dread_after(1000), dread_after(500));
+    assert!(plain > 0);
+    assert_eq!(calmed * 2, plain, "half as fast");
+}
+
+#[test]
+fn a_piercing_unique_bows_arrow_flies_on_past_one_it_puts_down() {
+    let shoot = |pierces: bool| {
+        let (mut w, me, bow) = field_with_unique(
+            BOW,
+            Property {
+                cleave: pierces,
+                line: if pierces {
+                    String::new()
+                } else {
+                    "none".into()
+                },
+                ..on(Fits::Bow, "Pierce")
+            },
+        );
+        if pierces {
+            assert_eq!(
+                styled(&w.card(&bow, None), CardStyle::Effect),
+                [(
+                    "Pierce: An arrow that puts one down flies on into the next",
+                    ""
+                )]
+            );
+        }
+        w.give(me, bow);
+        w.give(me, Item::new(ARROW, 5));
+        wield(&mut w, me, BOW);
+        // Two weak ones on a line south, that never see you: every arrow lands.
+        let c = w.creature_mut(0);
+        c.health = 1;
+        c.cone = dusk_core::senses::Cone { cos: 10_001 };
+        let a = w
+            .spawn(ActorKind::Creature(0), TilePos::new(0, 2, 0))
+            .unwrap();
+        let b = w
+            .spawn(ActorKind::Creature(0), TilePos::new(0, 4, 0))
+            .unwrap();
+        w.intent(
+            me,
+            Intent::Shoot {
+                at: TilePos::new(0, 2, 0),
+            },
+        );
+        let seen = run(&mut w, 30);
+        assert!(w.actor(a).unwrap().dead, "the first, shot at");
+        (w.actor(b).unwrap().dead, seen, me)
+    };
+    // It flies on from where the first fell, and puts the second down too.
+    let (second, seen, me) = shoot(true);
+    assert!(second);
+    let (from, to) = (TilePos::new(0, 2, 0), TilePos::new(0, 4, 0));
+    assert!(seen.contains(&Event::Shot { who: me, from, to }));
+    // A bow that doesn't pierce stops at the first.
+    let (second, ..) = shoot(false);
+    assert!(!second);
+}
+
+#[test]
+fn a_unique_shield_stings_frightens_and_fells_what_it_blocks() {
+    let (mut w, me, shield) = field_with_unique(
+        BUCKLER,
+        Property {
+            thorns: (20, 20),
+            terror: 10_000,
+            fell: 10_000,
+            ..on(Fits::Shield, "All")
+        },
+    );
+    let does = [
+        "100% chance a block sends the dead fleeing",
+        "100% chance a block knocks down",
+        "2 harm back on whatever you block",
+    ];
+    assert_eq!(
+        styled(&w.card(&shield, None), CardStyle::Effect),
+        [(format!("All: {}", does.join(", ")).as_str(), "")]
+    );
+    w.give(me, shield);
+    wield(&mut w, me, BUCKLER);
+    let c = w.creature_mut(0);
+    (c.health, c.attack.hit) = (1_000_000, 10_000);
+    let z = w
+        .spawn(ActorKind::Creature(0), TilePos::new(0, 1, 0))
+        .unwrap();
+    // Face it, and brace.
+    w.intent(
+        me,
+        Intent::Move {
+            dir: dusk_core::Dir8::S,
+            run: false,
+        },
+    );
+    w.step(1);
+    w.intent(me, Intent::Idle);
+    w.step(1);
+    w.brace(me, true);
+    let mut seen = Vec::new();
+    while !seen.iter().any(|e| matches!(e, Event::Blocked { .. })) {
+        assert!(seen.len() < 10_000, "a blow blocked");
+        seen.extend(run(&mut w, 10));
+    }
+    // The blow it blocked: 2 points back, and it breaks and flees, knocked down.
+    assert_eq!(thorned(&seen, me, z), [20]);
+    assert!(seen.contains(&Event::Terrified { who: me, target: z }));
+    assert!(seen.contains(&Event::Felled { who: me, target: z }));
+    assert_eq!(w.actor(z).unwrap().body.health, 1_000_000 - 20);
+}

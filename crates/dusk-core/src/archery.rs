@@ -16,12 +16,16 @@
 //!   shots' harm; its properties make them harder, quicker, surer and farther, break fewer arrows,
 //!   and add fire's harm to an arrow (`World::elemental`, as to a blow). Shots that land teach you
 //!   what an unknown bow is, as blows do a weapon.
+//! - **A unique bow** (`data/uniques.toml`) gives its arrows what a unique weapon gives its blows
+//!   (`Gifts`): what they put down burns, they knock down, they drink. One that pierces sends an
+//!   arrow that puts one down on along its line, as far as the bow reaches, into the next.
 
 use crate::actor::{ActionKind, ActorId};
 use crate::barricade::spend;
 use crate::geom::{Dir8, TilePos};
 use crate::hash::{Purpose, below, roll};
 use crate::items::{Item, ItemKind};
+use crate::magic::Gifts;
 use crate::senses::walk_line;
 use crate::skills::{On, Skill};
 use crate::world::{Event, Sound, Swing, World};
@@ -121,9 +125,24 @@ impl World {
             loudness: r.swing.noise,
             by: Some(id),
         });
-        // Its flight: tile to tile until something stops it or it gets there.
-        let (mut last, mut struck) = (from, None);
-        walk_line(from, at, |p, dir| {
+        self.fly_arrow(id, from, from, at, r, gifts);
+    }
+
+    /// An arrow shot from `from`, flying from `start` toward `at`: tile to tile until something
+    /// stops it or it gets there, and the first one on the line takes it. One it puts down, a bow
+    /// that pierces (a unique's, `Gifts::cleave`) sends it on along its line, as far as the bow
+    /// reaches, once a shot.
+    fn fly_arrow(
+        &mut self,
+        id: ActorId,
+        from: TilePos,
+        start: TilePos,
+        at: TilePos,
+        r: Ranged,
+        gifts: Gifts,
+    ) {
+        let (mut last, mut struck) = (start, None);
+        walk_line(start, at, |p, dir| {
             let next = p.step(dir);
             let clear = match dir.split() {
                 None => !self.grid.edge(p, dir).blocks_sight(),
@@ -154,7 +173,7 @@ impl World {
         });
         self.events.push(Event::Shot {
             who: id,
-            from,
+            from: start,
             to: last,
         });
         let (tick, who) = (self.tick, id.index() as u64);
@@ -228,14 +247,48 @@ impl World {
         self.train(id, Skill::Archery, self.rules.skills.hit, On::Foe(target));
         // A shot that lands teaches you an unknown bow, as a blow does a weapon.
         self.learn_by_use(id);
-        if below(roll(self.seed, tick, who, Purpose::Arrow), 10_000) >= r.breaks {
-            self.put(last, arrow);
+        // A bow made to knocks down what its arrows hit, now and then (`magic.rs`).
+        if gifts.fell > 0 {
+            self.fell(id, target, gifts.fell);
         }
-        if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
+        let whole = below(roll(self.seed, tick, who, Purpose::Arrow), 10_000) >= r.breaks;
+        let put_down = self.actors.get(target).is_some_and(|t| t.body.health <= 0);
+        if put_down {
             self.kill(target);
             // With Last Rites, what an arrow puts down stays down too (`faith.rs`).
             self.put_to_rest(id, target);
             self.gifted_kill(id, target, gifts);
         }
+        // A bow that pierces: the arrow goes on past the one it put down, and lands (or breaks)
+        // where that flight ends.
+        if put_down
+            && gifts.cleave
+            && !self.cleaving
+            && let Some(on) = beyond(from, at, last, r.range)
+        {
+            self.cleaving = true;
+            self.fly_arrow(id, from, last, on, r, gifts);
+            self.cleaving = false;
+            return;
+        }
+        if whole {
+            self.put(last, arrow);
+        }
     }
+}
+
+/// Where an arrow shot from `from` toward `at`, stopped at `last`, flies on to: along the same
+/// line, as far as `range` reaches from `from`. None once it's flown that far.
+fn beyond(from: TilePos, at: TilePos, last: TilePos, range: i32) -> Option<TilePos> {
+    let (dx, dy) = (at.x - from.x, at.y - from.y);
+    let d = dx.abs().max(dy.abs());
+    let left = range - from.steps_to(last);
+    if d == 0 || left <= 0 {
+        return None;
+    }
+    Some(TilePos::new(
+        last.x + dx * left / d,
+        last.y + dy * left / d,
+        last.z,
+    ))
 }

@@ -458,6 +458,13 @@ pub enum Event {
         fire: i32,
         holy: i32,
     },
+    /// `target` took `damage` back off `who`'s thorns (`magic.rs`): striking what it wears, or
+    /// the shield it blocked with.
+    Thorned {
+        who: ActorId,
+        target: ActorId,
+        damage: i32,
+    },
     /// `who` ran out of breath.
     Exhausted {
         who: ActorId,

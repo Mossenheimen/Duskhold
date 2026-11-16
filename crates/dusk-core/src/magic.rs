@@ -48,6 +48,13 @@
 //!   dread (`Gifts`). A loot table's line says how often its item is one of the uniques made on
 //!   it (`LootEntry::unique`): rares carry them, and the old tombs hold them. Found unknown, as
 //!   any magic is, but "(unique, unknown)" says what it is.
+//! - **Uniques on armour, bows and shields too** (2026-11-15), each effect its kind's: a bow's
+//!   work through its arrows as a weapon's through its blows (what they put down burns; one that
+//!   pierces flies on past the one it put down, `archery.rs`); a shield's through the blows it
+//!   blocks (harm back on whatever struck, the dead put to flight or knocked down:
+//!   `World::gifted_block`); armour's through the blows that land on you (thorns:
+//!   `World::thorns`) or on your mind (a piece that calms slows your dread's rise:
+//!   `World::worn_calm`).
 
 use crate::actor::ActorId;
 use crate::archery::Ranged;
@@ -238,6 +245,12 @@ pub struct Property {
     /// knocking down.
     pub block: u32,
     pub bash: u32,
+    /// What a unique's effect does past a weapon's (`Gifts`): harm back, least and most in
+    /// tenths of a point, on whatever's blow lands on you (armour's, worn) or whatever's blow you
+    /// block (a shield's).
+    pub thorns: (i32, i32),
+    /// Armour's, worn: per mille how fast your dread rises (`World::dread_rise`).
+    pub calm: u32,
 }
 
 impl Property {
@@ -278,8 +291,9 @@ pub struct Unique {
     pub lore: String,
 }
 
-/// What the weapon in a hand gives a blow past its swing, by its properties (a unique's effect):
-/// read as a blow begins, since the blow may break it.
+/// What a thing gives past its numbers, by its properties (a unique's effect): the weapon or bow
+/// in a hand a blow or a shot (read as it begins, since it may break the weapon), the shield on
+/// the arm a block, what's worn a blow that lands on you.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Gifts {
     pub cleave: bool,
@@ -291,6 +305,26 @@ pub struct Gifts {
     /// Fire's harm and holy harm, least and most, in tenths of a point.
     pub fire: (i32, i32),
     pub holy: (i32, i32),
+    /// Harm back on whoever struck, least and most, in tenths of a point.
+    pub thorns: (i32, i32),
+}
+
+impl Gifts {
+    /// Both together: each property's on a thing, or each piece worn.
+    fn and(self, p: Gifts) -> Gifts {
+        let add = |a: (i32, i32), b: (i32, i32)| (a.0 + b.0, a.1 + b.1);
+        Gifts {
+            cleave: self.cleave || p.cleave,
+            drain: self.drain + p.drain,
+            pyre: self.pyre || p.pyre,
+            terror: (self.terror + p.terror).min(10_000),
+            hearten: self.hearten + p.hearten,
+            fell: (self.fell + p.fell).min(10_000),
+            fire: add(self.fire, p.fire),
+            holy: add(self.holy, p.holy),
+            thorns: add(self.thorns, p.thorns),
+        }
+    }
 }
 
 /// What a weapon gives whoever holds it, all its properties together, known or not (Diablo's "+2
@@ -353,6 +387,8 @@ impl Default for Property {
             arrows: 1000,
             block: 0,
             bash: 0,
+            thorns: (0, 0),
+            calm: 1000,
         }
     }
 }
@@ -462,6 +498,23 @@ impl Defs {
             }
         }
         b
+    }
+
+    /// What a thing gives past its numbers (`Gifts`): all its properties together, known or not.
+    pub fn gifts_of(&self, item: &Item) -> Gifts {
+        self.properties_of(item).fold(Gifts::default(), |g, p| {
+            g.and(Gifts {
+                cleave: p.cleave,
+                drain: p.drain,
+                pyre: p.pyre,
+                terror: p.terror,
+                hearten: p.hearten,
+                fell: p.fell,
+                fire: p.fire,
+                holy: p.holy,
+                thorns: p.thorns,
+            })
+        })
     }
 
     /// The uniques made on a kind of item, by their numbers.
@@ -800,24 +853,72 @@ impl World {
         (1 + past).saturating_add(more).min(3)
     }
 
-    /// What the weapon in `id`'s hand gives a blow past its swing, all its properties together.
+    /// What the weapon or bow in `id`'s hand gives a blow or a shot past its swing, all its
+    /// properties together.
     pub(crate) fn gifts(&self, id: ActorId) -> Gifts {
-        let Some(held) = self.actors.get(id).and_then(|a| a.hands) else {
-            return Gifts::default();
+        self.actors
+            .get(id)
+            .and_then(|a| a.hands)
+            .map_or_else(Gifts::default, |h| self.defs.gifts_of(&h))
+    }
+
+    /// What `id` wears gives a blow that lands on it, every piece together: harm back.
+    pub(crate) fn worn_gifts(&self, id: ActorId) -> Gifts {
+        self.actors.get(id).map_or_else(Gifts::default, |a| {
+            a.worn
+                .iter()
+                .fold(Gifts::default(), |g, i| g.and(self.defs.gifts_of(i)))
+        })
+    }
+
+    /// Per mille: how fast `id`'s dread rises for what it wears (a calming piece: slower).
+    pub(crate) fn worn_calm(&self, id: ActorId) -> u32 {
+        let Some(a) = self.actors.get(id) else {
+            return 1000;
         };
-        let add = |a: (i32, i32), b: (i32, i32)| (a.0 + b.0, a.1 + b.1);
-        self.defs
-            .properties_of(&held)
-            .fold(Gifts::default(), |g, p| Gifts {
-                cleave: g.cleave || p.cleave,
-                drain: g.drain + p.drain,
-                pyre: g.pyre || p.pyre,
-                terror: (g.terror + p.terror).min(10_000),
-                hearten: g.hearten + p.hearten,
-                fell: (g.fell + p.fell).min(10_000),
-                fire: add(g.fire, p.fire),
-                holy: add(g.holy, p.holy),
-            })
+        a.worn
+            .iter()
+            .flat_map(|i| self.defs.properties_of(i))
+            .fold(1000, |r, p| per(r, p.calm))
+    }
+
+    /// Harm back on `striker` from `id`'s thorns (`Gifts::thorns`, from what it wears or the
+    /// shield it blocked with), rolled from least to most: whatever bone or armour it has, as
+    /// fire's harm is. It may put the striker down.
+    pub(crate) fn thorns(&mut self, id: ActorId, striker: ActorId, (lo, hi): (i32, i32)) {
+        let standing = self
+            .actors
+            .get(striker)
+            .is_some_and(|s| !s.dead && s.body.health > 0);
+        if hi <= 0 || !standing {
+            return;
+        }
+        let r = roll(self.seed, self.tick, id.index() as u64, Purpose::Thorns);
+        let damage = lo + below(r, (hi - lo).max(0) as u32 + 1) as i32;
+        if let Some(s) = self.actors.get_mut(striker) {
+            s.body.health -= damage;
+        }
+        self.events.push(Event::Thorned {
+            who: id,
+            target: striker,
+            damage,
+        });
+        if self.actors.get(striker).is_some_and(|s| s.body.health <= 0) {
+            self.kill(striker);
+        }
+    }
+
+    /// A blow `id` blocked with its shield (read before the block wore it), by what the shield
+    /// gives: harm back on whoever struck, and it may break and flee, or be knocked down.
+    pub(crate) fn gifted_block(&mut self, id: ActorId, by: ActorId, g: Gifts) {
+        self.thorns(id, by, g.thorns);
+        let frightens = roll(self.seed, self.tick, id.index() as u64, Purpose::Terror);
+        if g.terror > 0 && below(frightens, 10_000) < g.terror {
+            self.terrify(id, by);
+        }
+        if g.fell > 0 {
+            self.fell(id, by, g.fell);
+        }
     }
 
     /// What the weapon or bow in `id`'s hand, the shield on its arm and what it wears give it

@@ -1,14 +1,21 @@
-# Uniques (CONCEPT.md, loot; Diablo's and Path of Exile's): weapons made by hand, each with a name
-# of its own (crates/dusk-core/src/magic.rs). Its kind (items/), how well it was made (rules.toml's
-# [quality]: crude, plain, fine or masterwork; left out, plain), properties from properties.toml (a
-# weapon's; a curse's too, as a cost it carries, though it doesn't cling), and an effect of its own,
-# written as a property is, that no rolled property has:
-#   cleave = true    a blow that puts one down carries on into the next beside you
+# Uniques (CONCEPT.md, loot; Diablo's and Path of Exile's): weapons, armour, bows and shields made
+# by hand, each with a name of its own (crates/dusk-core/src/magic.rs). Its kind (items/), how well
+# it was made (rules.toml's [quality]: crude, plain, fine or masterwork; left out, plain),
+# properties from properties.toml (its kind's; a curse's too, as a cost it carries, though it
+# doesn't cling), and an effect of its own, written as a property is, that no rolled property has.
+# A weapon's work through its blows, a bow's through its arrows:
+#   cleave = true    a blow that puts one down carries on into the next beside you (a bow's
+#                    arrow flies on along its line, into the next on it)
 #   drain = 0.25     that share of a blow's harm comes back to you as health
 #   pyre = true      the dead it puts down catch fire where they fall
 #   terror = 0.2     the chance a blow sends one of the dead fleeing, as turning does
 #   fell = 0.25      the chance a blow knocks down what it hits
 #   hearten = 10     the dread each of the dead it puts down eases, in points
+# A shield's work through the blows it blocks (terror, fell: on whatever struck; thorns), and
+# armour's through the blows that land on you:
+#   thorns = [1, 3]  harm back, least and most in points, on whatever struck (armour: whatever's
+#                    blow lands on you, turned or not; a shield: whatever's blow you block)
+#   calm = 0.5       how fast your dread rises, worn (armour's)
 # A loot table's line says how often its item is one of the uniques made on it (unique = 0.06):
 # the rares carry them (loot/rares.toml), and the old tombs hold them (loot/graveyard.toml). Found
 # unknown, as any magic is, but "(unique, unknown)" says what it is; its lore shows once it's known.
@@ -64,3 +71,61 @@ grade = "fine"
 properties = ["swift", "clamorous"]
 effect = { name = "Dread Song", line = "one blow in five sends the dead it strikes fleeing", terror = 0.2 }
 lore = "It sings as it goes in. The dead don't care for the song."
+
+# Armour: known once it's put on.
+
+[[unique]]
+id = "nettlewrap"
+name = "Nettlewrap"
+item = "leather_bracers"
+grade = "fine"
+properties = ["tough"]
+effect = { name = "Sting", line = "whatever strikes you takes 1 to 3 harm back", on = "armour", thorns = [1, 3] }
+lore = "Grown, not stitched."
+
+[[unique]]
+id = "gravewardens_helm"
+name = "The Gravewarden's Helm"
+item = "iron_helm"
+properties = ["warded"]
+effect = { name = "Vigil", line = "your dread rises half as fast", on = "armour", calm = 0.5 }
+lore = "He sat with the dead every night, and slept every day."
+
+# Bows: learnt by the shots that land.
+
+[[unique]]
+id = "widows_string"
+name = "Widow's String"
+item = "hunting_bow"
+grade = "fine"
+properties = ["reaching"]
+effect = { name = "Pierce", line = "an arrow that puts one down flies on into the next on its line", on = "bow", cleave = true }
+lore = "She only ever needed the one arrow."
+
+[[unique]]
+id = "beacon"
+name = "The Beacon"
+item = "hunting_bow"
+grade = "masterwork"
+properties = ["kindled"]
+effect = { name = "Pyre", line = "the dead its arrows put down catch fire where they fall", on = "bow", pyre = true }
+lore = "Lit for the ones still out on the road."
+
+# Shields: known once taken up on the arm.
+
+[[unique]]
+id = "the_wasp"
+name = "The Wasp"
+item = "buckler"
+grade = "fine"
+properties = ["studded"]
+effect = { name = "Sting", line = "a blow you block stings whatever struck it for 3 to 5 harm", on = "shield", thorns = [3, 5] }
+lore = "Small, and it stings."
+
+[[unique]]
+id = "abbey_door"
+name = "The Abbey Door"
+item = "heater_shield"
+properties = ["stalwart"]
+effect = { name = "Sanctuary", line = "one blow in four you block sends the dead that struck it fleeing", on = "shield", terror = 0.25 }
+lore = "It kept them out once. It remembers how."

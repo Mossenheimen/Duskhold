@@ -185,6 +185,7 @@ var dread_told := {}  # when the news last told each level of dread, in seconds 
 var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
 var blocked_at := -100.0  # when the news last told of a block, in seconds played
+var thorned_at := -100.0  # and of thorns biting back
 var glanced_at := -100.0  # when the news last told of a blow glancing off your armour
 var tumbled_at := -100.0  # when it last told of one of the dead tumbling over a sill or a fence
 var skidded_at := -100.0  # ...and of your blow glancing off theirs
@@ -1191,10 +1192,10 @@ func _read_events() -> void:
 				hud.say("Glass shatters!")
 			Event.FELLED:
 				if who == me:
-					hud.say("Your blow knocks it down. Finish it!")
+					hud.say("You knock it down. Finish it!")
 			Event.TERRIFIED:
 				if who == me:
-					hud.say("%s breaks and flees from your blow!" % _a(target))
+					hud.say("%s breaks and flees from you!" % _a(target))
 			Event.WET:
 				# A new level of wet (cold.rs): only soaked through is news; the moodle says the rest.
 				if who == me and extra == 3:
@@ -1486,6 +1487,11 @@ func _read_events() -> void:
 				if who == me and played - blocked_at > 3.0:
 					blocked_at = played
 					hud.say("You take the blow on your shield.")
+			Event.THORNED:
+				# A unique's thorns (magic.rs): what you wear, or the shield you blocked with.
+				if who == me and played - thorned_at > 3.0:
+					thorned_at = played
+					hud.say("%s is hurt striking you." % _a(target))
 			Event.SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
@@ -2355,6 +2361,9 @@ func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int)
 		Event.SEARED:  # a weapon's fire, or its holy harm (extra: 1 fire, 2 holy, 3 both)
 			if who == me or _seen(target):
 				effects.sear(_drawn(target, x, y), extra)
+		Event.THORNED:
+			if who == me:
+				effects.thorns(_drawn(target, x, y))
 		Event.SNEAK_ATTACK:
 			if who == me:
 				effects.sneak_attack(_drawn(target, x, y))

@@ -502,6 +502,12 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             at(target),
             i32::from(fire > 0) + 2 * i32::from(holy > 0),
         ),
+        // The harm back, in tenths (`magic.rs`).
+        Event::Thorned {
+            who,
+            target,
+            damage,
+        } => (THORNED, Some(who), Some(target), at(target), damage),
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),

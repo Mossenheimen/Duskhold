@@ -571,12 +571,14 @@ impl World {
         }
     }
 
-    /// Per mille: how fast `id`'s dread rises now: slower while it holds a light up, with Steady.
+    /// Per mille: how fast `id`'s dread rises now: slower in a piece that calms (`magic.rs`), and
+    /// while it holds a light up, with Steady.
     pub(crate) fn dread_rise(&self, id: ActorId) -> u32 {
+        let worn = self.worn_calm(id);
         if !self.actors.get(id).is_some_and(|a| a.light.is_some()) {
-            return 1000;
+            return worn;
         }
-        self.talents_of(id).fold(1000, |r, t| per(r, t.steady))
+        self.talents_of(id).fold(worn, |r, t| per(r, t.steady))
     }
 
     /// Whether what `id` puts down stays down: a Hallowed weapon in hand, or Last Rites.

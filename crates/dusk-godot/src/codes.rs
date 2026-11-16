@@ -129,6 +129,7 @@ pub mod event {
         SLOTS_BACK = 111,
         TERRIFIED = 112,
         SEARED = 113,
+        THORNED = 114,
     }
 }
 

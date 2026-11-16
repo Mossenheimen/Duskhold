@@ -95,11 +95,14 @@ impl World {
     }
 
     /// A blow blocked: it costs breath, wears the shield (breaking it at nothing), and teaches
-    /// Shield.
+    /// Shield; and what the shield gives a block, past its numbers (`magic.rs`): harm back on
+    /// whoever struck, the dead put to flight or knocked down.
     pub(crate) fn block(&mut self, id: ActorId, by: ActorId) {
         let Some((mut shield, g)) = self.guard(id) else {
             return;
         };
+        // Read now: the block may break it.
+        let gifts = self.defs.gifts_of(&shield);
         shield.condition = shield.condition.saturating_sub(g.wear);
         if let Some(a) = self.actors.get_mut(id) {
             a.body.spend(g.endurance);
@@ -113,6 +116,7 @@ impl World {
             });
         }
         self.train(id, Skill::Shield, self.rules.skills.shield, On::Foe(by));
+        self.gifted_block(id, by, gifts);
     }
 
     /// What a shield on `id`'s arm adds to a shove's chance to knock down (out of 10,000): a bash.

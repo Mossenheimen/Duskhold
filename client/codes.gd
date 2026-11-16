@@ -118,6 +118,7 @@ enum Event {
 	SLOTS_BACK = 111,
 	TERRIFIED = 112,
 	SEARED = 113,
+	THORNED = 114,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).

@@ -2015,31 +2015,65 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
 }
 
 #[test]
-fn the_games_uniques_are_weapons_each_with_an_effect_and_rares_and_tombs_carry_them() {
+fn the_games_uniques_are_weapons_armour_bows_and_shields_and_rares_and_tombs_carry_them() {
+    use dusk_core::Fits;
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let d = &data.defs;
-    assert!(d.uniques.len() >= 6);
+    // Six weapons, and two each of armour, bows and shields: each its kind's properties, its
+    // effect its kind's, and a line of its story.
+    let kinds = [Fits::Weapon, Fits::Armour, Fits::Bow, Fits::Shield];
+    let made_on = |f: Fits| {
+        d.uniques
+            .iter()
+            .filter(|u| d.fits(u.item) == Some(f))
+            .count()
+    };
+    assert_eq!(kinds.map(made_on), [6, 2, 2, 2]);
     for u in &d.uniques {
-        assert!(
-            matches!(
-                d.items[usize::from(u.item)].kind,
-                dusk_core::ItemKind::Weapon { .. }
-            ),
-            "{}",
-            u.id
-        );
+        let kind = d.fits(u.item).unwrap();
+        assert_eq!(u.effect.fits, kind, "{}", u.id);
+        for &p in &u.props {
+            assert_eq!(d.properties[usize::from(p)].fits, kind, "{}", u.id);
+        }
         assert!(!u.lore.is_empty(), "{}: a line of its story", u.id);
     }
     // Every effect is some unique's.
     let any = |f: fn(&dusk_core::Property) -> bool| d.uniques.iter().any(|u| f(&u.effect));
     assert!(any(|e| e.cleave) && any(|e| e.pyre) && any(|e| e.drain > 0));
     assert!(any(|e| e.terror > 0) && any(|e| e.fell > 0) && any(|e| e.hearten > 0));
-    // The rares carry them, and the old tombs hold them; and a unique's worth the most.
-    for table in ["rare", "tomb"] {
-        let t = d.loot.iter().find(|t| t.id == table).unwrap();
-        assert!(t.entries.iter().any(|e| e.unique > 0), "{table}");
+    assert!(any(|e| e.thorns.1 > 0) && any(|e| e.calm < 1000));
+    // The rares carry each kind of them, and the old tombs hold them; and a unique's worth the
+    // most.
+    let rare = d.loot.iter().find(|t| t.id == "rare").unwrap();
+    for kind in kinds {
+        assert!(
+            rare.entries
+                .iter()
+                .any(|e| e.unique > 0 && d.fits(e.item) == Some(kind)),
+            "{kind:?}"
+        );
     }
+    let tomb = d.loot.iter().find(|t| t.id == "tomb").unwrap();
+    assert!(tomb.entries.iter().any(|e| e.unique > 0));
     assert!(d.magic.worth[2] > d.magic.worth[1]);
+    // Each one's card, once known: its own name, its effect in its own words, its story.
+    use dusk_core::{CardStyle, World};
+    let w = World::with_defs(1, data.rules, data.defs.clone());
+    for (n, u) in d.uniques.iter().enumerate() {
+        let mut item = d.unique_item(n as u8).unwrap();
+        item.magic.known = true;
+        let card = w.card(&item, None);
+        let text = |style: CardStyle| -> Vec<&str> {
+            card.iter()
+                .filter(|l| l.style == style)
+                .map(|l| l.text.as_str())
+                .collect()
+        };
+        assert_eq!(text(CardStyle::Title), [u.name.as_str()]);
+        let effect = format!("{}: {}", u.effect.name, u.effect.line);
+        assert_eq!(text(CardStyle::Effect), [effect.as_str()]);
+        assert_eq!(text(CardStyle::Lore), [format!("\"{}\"", u.lore).as_str()]);
+    }
 }
 
 #[test]
@@ -2055,6 +2089,11 @@ id = "bread"
 name = "bread"
 weight = 0.5
 food = { nutrition = 40, time = 4.0 }
+[[item]]
+id = "buckler"
+name = "buckler"
+weight = 2.5
+shield = { block = 0.5, endurance = 6, wear = 4.0, bash = 0.15 }
 "#;
     let properties = r#"
 [[property]]
@@ -2063,6 +2102,11 @@ name = "Keen"
 line = "harder"
 on = "weapon"
 damage = 1.5
+[[property]]
+id = "steadfast"
+name = "Steadfast"
+on = "shield"
+block = 0.1
 "#;
     let uniques = r#"
 [[unique]]
@@ -2109,6 +2153,43 @@ items = [{ item = "club", weight = 1, unique = 0.1 }]
     let none = loot.replace("item = \"club\"", "item = \"bread\"");
     let err = try_with("unique-none", uniques, &none).unwrap_err();
     assert!(err.message.contains("makes none"), "{err}");
+
+    // On a shield: a shield's properties, and an effect a shield's (a block's: harm back).
+    let shield = r#"
+[[unique]]
+id = "wasp"
+name = "The Wasp"
+item = "buckler"
+properties = ["steadfast"]
+effect = { name = "Sting", line = "it stings", on = "shield", thorns = [3, 5] }
+lore = "Small."
+"#;
+    let on_arm = loot.replace("\"club\"", "\"buckler\"");
+    let d = try_with("unique-shield", shield, &on_arm).unwrap().defs;
+    assert_eq!(d.uniques[0].effect.thorns, (30, 50));
+    let keen = shield.replace("[\"steadfast\"]", "[\"keen\"]");
+    let err = try_with("unique-shield-keen", &keen, &on_arm).unwrap_err();
+    assert!(
+        err.message.contains("\"keen\" is no property of a shield"),
+        "{err}"
+    );
+    let weapons = shield.replace("on = \"shield\", ", "on = \"weapon\", ");
+    let err = try_with("unique-shield-on", &weapons, &on_arm).unwrap_err();
+    assert!(err.message.contains("its effect goes on a shield"), "{err}");
+    // Thorns are a shield's or armour's, not a weapon's; and a calm is armour's.
+    let thorny = uniques.replace("drain = 0.25", "thorns = [1, 2]");
+    let err = try_with("unique-thorny", &thorny, loot).unwrap_err();
+    assert!(
+        err.message
+            .contains("thorns goes on armour or a shield, not a weapon"),
+        "{err}"
+    );
+    let calm = shield.replace("thorns = [3, 5]", "calm = 0.5");
+    let err = try_with("unique-shield-calm", &calm, &on_arm).unwrap_err();
+    assert!(
+        err.message.contains("calm goes on armour, not a shield"),
+        "{err}"
+    );
 }
 
 #[test]

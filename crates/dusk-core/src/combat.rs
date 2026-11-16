@@ -731,6 +731,11 @@ impl World {
         // What its weapon gives a blow past its swing (`magic.rs`): harm drunk back, the dead put
         // to flight.
         self.gifted_blow(id, target, damage, gifts);
+        // And what you wear gives a blow that lands on you, turned or not: harm back, the thorns'.
+        if matches!(kind, ActorKind::Creature(_)) {
+            let worn = self.worn_gifts(target);
+            self.thorns(target, id, worn.thorns);
+        }
         if fevered {
             self.catch_fever(target);
         }
@@ -780,10 +785,14 @@ impl World {
             }
             return;
         }
-        // A creature's hit may take hold, the likelier the more of them are on you.
+        // A creature's hit may take hold, the likelier the more of them are on you: if your
+        // thorns left it standing.
         if kind != ActorKind::Character
             && !holds
-            && self.actors.get(id).is_some_and(|a| a.holding.is_none())
+            && self
+                .actors
+                .get(id)
+                .is_some_and(|a| !a.dead && a.holding.is_none())
             && below(roll(seed, tick, who, Purpose::Grab), 10_000) < self.grab_chance(target)
         {
             self.grab(id, target);
@@ -843,9 +852,9 @@ impl World {
     }
 
     /// A blow that landed on `target` may knock it down, by `chance` out of 10,000 (a heavy
-    /// blow's `[heavy] knock_down`, and a weapon's that fells), for its kind's `down` time: if
-    /// it's still standing to be knocked down.
-    fn fell(&mut self, id: ActorId, target: ActorId, chance: u32) {
+    /// blow's `[heavy] knock_down`, and a weapon's, a bow's or a shield's that fells), for its
+    /// kind's `down` time: if it's still standing to be knocked down.
+    pub(crate) fn fell(&mut self, id: ActorId, target: ActorId, chance: u32) {
         let (tick, seed) = (self.tick, self.seed);
         if below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),

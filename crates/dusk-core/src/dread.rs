@@ -219,7 +219,8 @@ impl World {
         let d = self.rules.dread;
         for i in 0..self.characters.len() {
             let id = self.characters[i];
-            // Holding a light up, Steady slows dread's rise (`faith.rs`).
+            // A calming piece worn slows dread's rise, and holding a light up, Steady
+            // (`faith.rs`).
             let rise = i64::from(d.rise) * i64::from(self.dread_rise(id)) / 1000;
             let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
                 continue;
