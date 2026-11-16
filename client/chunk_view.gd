@@ -60,11 +60,12 @@ func build(dusk: Node, cx: int, cy: int, names: PackedStringArray, materials: Di
 	var origin := Vector2i(cx * size, cy * size)
 	var tiles: PackedInt32Array = dusk.chunk_tiles(cx, cy)
 	_edges = dusk.chunk_edges(cx, cy)
-	_build_ground(tiles, origin, size)
+	_build_ground(origin, size)
 	_names = names
 	_fixtures = Node3D.new()
 	add_child(_fixtures)
 	_build_fixtures(tiles, origin, size, names)
+	_build_scatter(tiles, origin, size)
 	_walls = Node3D.new()
 	add_child(_walls)
 	build_walls(low_walls)
@@ -170,12 +171,17 @@ func build_walls(low_walls: bool) -> void:
 	_walls.add_child(panes)
 
 
-func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void:
-	var image := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
-	for y in size:
-		for x in size:
-			var ground := tiles[y * size + x] & 15
-			var colour: Color = Look.GROUND[ground].darkened(_shade(origin.x + x, origin.y + y))
+## The ground: a texel a tile, its colour and its kind (ground.gdshader draws its surface), with a
+## tile of the next chunks' ground all round (DuskWorld.chunk_grounds()), so the borders between
+## grounds can wander across the chunk's edge without a seam.
+func _build_ground(origin: Vector2i, size: int) -> void:
+	var grounds: PackedByteArray = _dusk.chunk_grounds(_chunk.x, _chunk.y)
+	var side := size + 2
+	var image := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	for y in side:
+		for x in side:
+			var ground: int = grounds[y * side + x] if y * side + x < grounds.size() else 0
+			var colour: Color = Look.GROUND[ground].darkened(_shade(origin.x + x - 1, origin.y + y - 1))
 			colour.a = (ground + 0.5) / 16.0  # its kind, for its surface (ground.gdshader)
 			image.set_pixel(x, y, colour)
 	var material := ShaderMaterial.new()
@@ -183,6 +189,7 @@ func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void
 	material.set_shader_parameter("ground", ImageTexture.create_from_image(image))
 	material.set_shader_parameter("origin", Vector2(origin))
 	material.set_shader_parameter("size", float(size))
+	material.set_shader_parameter("margin", 1.0)
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(size, size)
 	var square := MeshInstance3D.new()
@@ -261,6 +268,50 @@ func _yaw(look: Dictionary, tiles: PackedInt32Array, walls: PackedByteArray, at:
 ## The turn about y that sets a model's front (-z) toward `way` (x east, y south, in tiles).
 static func _front_to(way: Vector2) -> float:
 	return atan2(-way.x, -way.y)
+
+
+## What's strewn on the ground (looks.toml's [[scatter]]: tufts, stones, reeds): only a look, on
+## tiles with no fixture, each where its tile's own numbers put it, a little in from the edges.
+## Each scatter's variant is one MultiMesh, casting no shadow (there are thousands).
+func _build_scatter(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void:
+	var strewn: Array = Looks.scatter()
+	if strewn.is_empty():
+		return
+	var groups := {}  # "k:variant" -> [k, variant, places, tints]
+	for y in size:
+		for x in size:
+			var tile := tiles[y * size + x]
+			if tile >> 4 != 0:
+				continue
+			var tx := origin.x + x
+			var ty := origin.y + y
+			for k in strewn.size():
+				var scatter: Dictionary = strewn[k]
+				if not (scatter.on as PackedInt32Array).has(tile & 15) \
+						or _rand(tx, ty, 100 + k) >= float(scatter.chance):
+					continue
+				var count: Vector2i = scatter.count
+				var grow: Vector2 = scatter.grow
+				var variants: int = (scatter.variants as Array).size()
+				for j in count.x + _hash(tx, ty, 200 + k) % (count.y - count.x + 1):
+					var salt := 1000 + 64 * k + 8 * j
+					var at := Vector3(tx + 0.18 + 0.64 * _rand(tx, ty, salt),
+						0.0, ty + 0.18 + 0.64 * _rand(tx, ty, salt + 1))
+					var turn := Basis(Vector3.UP, TAU * _rand(tx, ty, salt + 2))
+					var place := Transform3D(turn.scaled(Vector3.ONE * lerpf(grow.x, grow.y,
+						_rand(tx, ty, salt + 3))), at)
+					var variant := _hash(tx, ty, salt + 4) % variants
+					var key := "%d:%d" % [k, variant]
+					if not groups.has(key):
+						groups[key] = [k, variant, [] as Array[Transform3D], []]
+					groups[key][2].append(place)
+					var tint := 1.0 + (_rand(tx, ty, salt + 5) - 0.5) * 2.0 * float(scatter.vary)
+					groups[key][3].append(Color(tint, tint, tint))
+	for group: Array in groups.values():
+		var strew := _instances(Looks.scatter_mesh(group[0], group[1]), group[2],
+			PackedColorArray(group[3]), _materials["kit"])
+		strew.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(strew)
 
 
 ## The way to the nearest tile of fixture `target` within `reach` of `at` in this chunk, as one of

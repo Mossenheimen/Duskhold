@@ -133,7 +133,8 @@ Each is a colour and a surface (§6), in `data/looks.toml`'s `[material]`. Every
 | `metal` | `iron` `#38383D`, `black` `#2B2B30`, `steel` `#8C9196`, `bronze` `#8C7046` (iron) | stoves, anvils, hoops; an edge; bell bronze, the Hushlands' accent (§15) |
 | `cloth` | `linen` `#B8AE9A`, `wool` `#94785F`, `sacking` `#998561`, `habit` `#5C6175` (cloth) | bedding, blankets, sacks, the sisters' grey |
 | `straw` | `hay` `#BDA861`, `wheat` `#B89E52`, `twine` `#857043` (straw) | bales, sheaves, their binding |
-| `plant` | `yarrow` `#6B805C`, `chamomile` `#738F59`, `feverfew` `#667A4D`, `bramble` `#2B3B29`, `picked` `#756945` | wild plants' leaves (foliage; picked, straw) |
+| `tree` | `trunk` `#4D3B2B`, `birch` `#A39C8E` (bark); `leaves` `#3D5436`, `leaves_dark` `#304430`, `leaves_pale` `#4F6342`, `pine` `#2E4234` (foliage) | trunks and crowns: a crown's lobes shaded below and lit on top, so it reads round without smooth shading |
+| `plant` | `yarrow` `#6B805C`, `chamomile` `#738F59`, `feverfew` `#667A4D`, `bramble` `#2B3B29`, `tuft` `#64714F` (foliage); `picked` `#756945`, `reed` `#5B6B47` (straw); `berry` `#47233A`, `reed_head` `#5E4A33` (plain) | wild plants' leaves, grass grown long, reeds; a bramble's blackberries, wine-dark so they show on its leaves |
 | `flower` | `white` `#EDEDDE`, `cream` `#F5EDAD`, `yellow` `#F0E06B` (plain) | the flowers on a plant you can pick: bright, as what's worth picking should be |
 | `world` | `soot` `#2B2724`, `earth` `#5C4A36` (plain) | a hearth's mouth and a forge's coals; a grave's mound |
 | `clay`, `glass`, `wax` | `clay.red` `#8A5A44`, `glass.green` `#4F6352`, `wax.candle` `#D9CFB4` (plain) | jars, bottles and candles on shelves and the altar |
@@ -266,6 +267,8 @@ Everything made in code is made of the same few parts, in the same few materials
 - **Turned to fit** (`chunk_view.gd`): a fixture stands as its look's `placed` says. `wall`: its back to a wall, window or fence of its tile, the far walls first (north, west, east, then south: `DuskWorld.chunk_walls()`), else as `fixed`. `fixed`: its front south, to the camera's side. `loose`: a quarter turn by its place, and up to 10° more. `faces` and `backs` come first: a chair turns its front to the table beside it, a pew to the altar, a counter its back to the sister behind it; one in a row of its own kind faces across its row.
 - **A little different from tile to tile**, the same every time: a variant picked by the tile, a size within `grow`, and a tint lighter or darker by up to `vary` (4.5% unless it says).
 - **Cut away** round the character like the walls, part by part: a trunk is never cut, a crown is (`cut = false`).
+- **The wild:** a tree is one of four by its tile (a broadleaf, a taller one, a pine, a birch), its crown in lobes; each plant you can pick has a shape of its own with its flowers bright on top (yarrow's flat white heads on stems, chamomile's low mound of daisies, feverfew's upright bush, a bramble's dark tangle of canes and berries), so it reads from across a field; wheat stands close and tall, as solid as it is to sight.
+- **What's strewn** (`[[scatter]]`): tufts of long grass, stones, pebbles on bare earth, reeds in the shallows, on tiles with no fixture, by a chance and a count for each ground. Only a look: nothing strewn stops you or can be taken. **Must:** it stays quiet, a shade off the ground it's on, knee-high or less, never in flower (what flowers is something you can pick), under 60 triangles, casting no shadow and never cut away.
 - **Seen whole:** `.\play.cmd gallery.tscn -- ...` lays out every look on plain ground under the game's camera and light (§14, Picture routes).
 - **When models come from outside** (Blender, or a person's own), each one:
   - is glTF 2.0 (`.glb`), in `client/models/<what>/<id>.glb` with a snake_case id;
@@ -300,7 +303,7 @@ Surfaces are procedural, drawn by shaders in world space so tiles join without s
   2. Give it that code in `dusk-data`'s `Surface` and `codes.rs`'s `surface` group (and write `codes.gd` again).
   3. Give a material that surface in `data/looks.toml`.
   4. Check it at noon and at midnight.
-- The ground is one colour per kind (§4), with soft noise, and the kind travels in the texel's alpha (`ground.gdshader`).
+- The ground is one colour per kind (§4), with soft noise, and the kind travels in the texel's alpha (`ground.gdshader`). The borders between natural grounds (grass, dirt, water, shallows) wander up to a quarter of a tile off the tiles' edges, by noise, so a shore or a path isn't a staircase; what's built (a floor, the road, a bridge) keeps to the edges. Each chunk's ground carries a tile of its neighbours' all round (`DuskWorld.chunk_grounds()`), so a border wanders across a chunk's edge without a seam. **Must:** only the look wanders: a tile is what the core says it is.
 
 ---
 
@@ -620,7 +623,7 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
   - `tile_style()`, a moodle's tile in its tint.
 
   Each script that draws preloads it (`const Look = preload("res://look.gd")`), as the client's scripts are. **Must:** code uses a token, never a new inline colour. A new colour is a new token in this guide and in `look.gd`.
-- **Looks of things:** `data/looks.toml` holds the world's materials (§4) and every fixture's look, as parts of the kit (§5): furniture, trees and plants, each turned to fit its tile, with variants. A person can tune them without code, and a mod can add its own. *(Since slice 8, 2026-11-15; the bodies of people and the dead are still `actor_view.gd`'s `LOOKS`, for slice 11.)* A table, for one:
+- **Looks of things:** `data/looks.toml` holds the world's materials (§4) and every fixture's look, as parts of the kit (§5): furniture, trees and plants, each turned to fit its tile, with variants; and what's strewn on the ground. A person can tune them without code, and a mod can add its own. *(Since slice 8, 2026-11-15; the bodies of people and the dead are still `actor_view.gd`'s `LOOKS`, for slice 11.)* A table, for one:
 
 ```toml
 [[fixture]]
@@ -700,6 +703,7 @@ Then run `--seed=7 --hour=12 --data=COPY --do=1:sneak,5:moodle --shot=PNG --shot
 | A house's furniture, close | `--zoom=8 --cols=3 --only=bed,wardrobe,cupboard,table,chair,stove,crate,barrel,shelf --shot=PNG --shot-after=2` |
 | The abbey's and the shops' | `--zoom=9.5 --cols=4 --only=pew,altar,counter,sister,forge,anvil,rack,till,shop_shelf,bar,cask,hearth --shot=PNG --shot-after=2` |
 | The farm, the graveyard and the wild | `--zoom=10 --cols=4 --only=wheat,well,sack,hay,tools,grave,tomb,font,tree,yarrow,chamomile,feverfew,bramble,picked_plant --shot=PNG --shot-after=2` |
+| The wild close, and what's strewn: the four trees, the plants, wheat, tufts, stones, pebbles and reeds | `--zoom=9 --cols=5 --only=tree,yarrow,chamomile,feverfew,bramble,picked_plant,wheat,tuft,stone,pebbles,reeds --shot=PNG --shot-after=2` |
 | Any of them at midnight, by a torch | add `--daylight=0 --torch` |
 
 A copy of `data/` with no dead (its region's `[dead]` `per_chunk` and `per_house`, its `[beasts]` `per_chunk` and its `[rares]` `count` all 0, and each prefab's `dead = [0, 0]`) lets the game walk anywhere for a picture of the looks where they stand: `--seed=7 --hour=12 --speed=4 --zoom=12 --data=COPY --walk=118,84 --shot=PNG --shot-after=16` is the near farm's farmhouse and yard. A walk much over 40 tiles finds no way (the path's budget), so it starts near the abbey.
@@ -743,7 +747,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
 6. *(Done 2026-11-12.)* **The body diagram** in zone B.
 7. *(Done 2026-11-12.)* **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
-8. *(Done 2026-11-15.)* **Looks as data:** `data/looks.toml`, the world's materials and every fixture's look made of the kit's parts (§5); the looks gallery (§14). *(The bodies' looks wait for slice 11.)*
+8. *(Done 2026-11-15.)* **Looks as data:** `data/looks.toml`, the world's materials and every fixture's look made of the kit's parts (§5); the looks gallery (§14). Then the terrain in it, the same day: four trees, each plant its own shape, wheat you can't see through, what's strewn on the ground, and borders between grounds that wander (§6). *(The bodies' looks wait for slice 11.)*
 9. **Screens:** title, the class choice as a screen, and death as a story.
 10. **Icons:** glyphs by kind, then each item's icon drawn from its own model.
 11. **Shapes:** heads, shoulders and the thing in hand for people and the dead, still primitives, each kind passing the silhouette test.

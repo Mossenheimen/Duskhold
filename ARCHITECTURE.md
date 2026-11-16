@@ -99,7 +99,7 @@ The costs of Rust:
   - Characters are rigged low-poly models: gear shows on the body, they can face any way, and animations are shared across models.
   - Torchlight and day and night are real lighting.
   - Walls are cut away in a shader.
-  - Free CC0 kits (Kenney, KayKit, Quaternius) cover the first playable.
+  - The models are our own, made of a kit of shapes in data (`data/looks.toml`, `VISUALS.md` §5), so the whole world is in one style. Free CC0 kits (Kenney, KayKit, Quaternius) were the first plan, set aside on 2026-11-13: kits from different hands don't match.
   - The alternative, 2D sprites, multiplies the art: 8 directions × every animation × every piece of gear.
 - **The client never decides anything.** It draws the view the core gives it and turns input into intents. What's visible is always the core's answer, even where the rendered lighting looks a little different from the gameplay light.
 
@@ -490,7 +490,7 @@ Making a patch takes 45 ms instead of 22 (indexing its steps). The game's own pa
 
 - **Rust's learning curve** falls on Claude; the user judges behaviour (the dashboard, replays) more than code. Mitigation: small crates, plain structs, and a comment wherever a rule lives.
 - **gdext** is community-maintained. Fallback: the core as a separate process talking over shared memory, or through a C ABI.
-- **Art:** 3D needs models and animations. CC0 kits first, our own art later.
+- **Art:** 3D needs models and animations. The kit makes the models from data in one style (`VISUALS.md` §5); motion so far is poses, not animation.
 - **Scope:** the first playable is one small region; everything else is a layer on a working core.
 - **Determinism bugs** (iteration order, floats) are caught by the hash tests from the first week.
 

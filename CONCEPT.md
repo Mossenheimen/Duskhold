@@ -33,6 +33,8 @@
 
 - **The keys** (2026-11-12; the user: "evaluate similar games and fix the complex key/button layout"). One key, E, for whatever is beside you, and held for all of it, as in Zomboid's E and right-click menu; the number row for your powers; the right hand's letters only for panels; the F keys for the game. The layout and the rules are in `VISUALS.md` §10, "The keys"; the comparison and its sources are in `research/controls.md`. Default.
 
+- **The kit, one style for every model** (2026-11-13; the user: "start working on sprites/assets for models/items/terrain/objects... Ensure that there is a homogenous theme/style throughout", choosing a kit made in data over model files and over 2D sprites). Everything drawn is made of four shapes, flat-shaded, in a small palette of materials, written in `data/looks.toml`: furniture and the terrain first, then items and the bodies. A model from outside keeps to the same palette. CC0 kits are no longer the first source: kits from different hands don't make one style. The rules are `VISUALS.md` §5, "The kit".
+
 **Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited. The review's choices are Defaults too, and not yet confirmed by the user.
 
 ## The pitch
@@ -587,7 +589,7 @@ The game comes first (2026-11-05). These rules cost the game little and help it 
 - **Zomboid's UI language:** the moodle column, the health panel, inventory windows with weight bars, progress bars over the head, the speed dial (pause, 1×, faster when it's safe), a map that holds only what you've seen and takes your notes, and the signature HUD (how loud, bright, warm and scented you are).
 - **Sound is gameplay:** footsteps, groans in the dark, a bell across the fields, wolves in the hills. A directional sound indicator, for accessibility and as a bot input.
 - **Wear shows:** blood, dirt and scorch marks build up on gear and on the character; bases show their damage.
-- **How it's made** (decided, `ARCHITECTURE.md`): 3D low-poly models under a fixed orthographic camera at Zomboid's angle (Zomboid draws 3D characters over 2D tiles), with free CC0 kits first.
+- **How it's made** (decided, `ARCHITECTURE.md`): 3D low-poly models under a fixed orthographic camera at Zomboid's angle (Zomboid draws 3D characters over 2D tiles), made of the kit's parts in data (above, "The kit"; `VISUALS.md` §5).
 
 ## The core that has to be fun first
 

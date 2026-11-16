@@ -56,7 +56,11 @@ earth = { colour = "#5C4A36" }  # heaped up: a grave's mound
 
 [material.tree]
 trunk = { colour = "#4D3B2B", surface = "bark" }
+birch = { colour = "#A39C8E", surface = "bark" }  # a birch's pale bark, ridged dark
 leaves = { colour = "#3D5436", surface = "foliage" }
+leaves_dark = { colour = "#304430", surface = "foliage" }  # a crown's lower, shaded lobes
+leaves_pale = { colour = "#4F6342", surface = "foliage" }  # its sunlit top; a birch's
+pine = { colour = "#2E4234", surface = "foliage" }
 
 # Wild plants (fixtures.toml's forage), and their flowers: bright, as what you can pick should be.
 [material.plant]
@@ -64,7 +68,11 @@ yarrow = { colour = "#6B805C", surface = "foliage" }
 chamomile = { colour = "#738F59", surface = "foliage" }
 feverfew = { colour = "#667A4D", surface = "foliage" }
 bramble = { colour = "#2B3B29", surface = "foliage" }
+berry = { colour = "#47233A" }  # a bramble's blackberries: dark, a wine-red the leaves aren't
 picked = { colour = "#756945", surface = "straw" }  # stalks, picked bare
+tuft = { colour = "#64714F", surface = "foliage" }  # grass grown long: a shade off the ground's
+reed = { colour = "#5B6B47", surface = "straw" }
+reed_head = { colour = "#5E4A33" }
 
 [material.flower]
 white = { colour = "#EDEDDE" }
@@ -114,65 +122,122 @@ green = { colour = "#4F6352" }
 candle = { colour = "#D9CFB4" }
 
 # --- The wild ---
+# A tree is one of four, by its tile: a broadleaf, a taller one, a pine, a birch. The crowns are
+# cut away round you; the trunks never are.
 
 [[fixture]]
 id = "tree"
 placed = "loose"
-grow = [0.85, 1.12]
-vary = 0.1
+grow = [0.85, 1.15]
+vary = 0.08
+[[fixture.variant]]  # a broadleaf: a bough, its crown in lobes, shaded below and lit on top
 parts = [
-  { shape = "cylinder", size = [0.28, 1.4, 0.28], taper = 0.64, sides = 6, at = [0, 0.7, 0], material = "tree.trunk", cut = false },
-  { shape = "ball", size = [1.7, 1.5, 1.7], sides = 7, at = [0, 1.9, 0], material = "tree.leaves" },
+  { shape = "cylinder", size = [0.46, 0.22, 0.46], taper = 0.6, sides = 6, at = [0, 0.11, 0], material = "tree.trunk", cut = false },
+  { shape = "cylinder", size = [0.3, 1.5, 0.3], taper = 0.62, sides = 6, at = [0, 0.75, 0], material = "tree.trunk", cut = false },
+  { shape = "cylinder", size = [0.12, 0.6, 0.12], taper = 0.5, sides = 5, turn = [0, 0, -38], at = [0.2, 1.42, 0], material = "tree.trunk", cut = false },
+  { shape = "ball", size = [1.6, 1.25, 1.6], sides = 7, at = [0, 2.05, 0], material = "tree.leaves" },
+  { shape = "ball", size = [1.1, 0.9, 1.1], sides = 7, at = [0.5, 1.75, 0.2], material = "tree.leaves_dark" },
+  { shape = "ball", size = [1.0, 0.85, 1.0], sides = 7, at = [-0.42, 1.82, -0.32], material = "tree.leaves_dark" },
+  { shape = "ball", size = [1.0, 0.8, 1.0], sides = 7, at = [0.05, 2.6, -0.05], material = "tree.leaves_pale" },
+]
+[[fixture.variant]]  # a taller one, its crown stacked
+parts = [
+  { shape = "cylinder", size = [0.42, 0.2, 0.42], taper = 0.6, sides = 6, at = [0, 0.1, 0], material = "tree.trunk", cut = false },
+  { shape = "cylinder", size = [0.26, 1.9, 0.26], taper = 0.6, sides = 6, at = [0, 0.95, 0], material = "tree.trunk", cut = false },
+  { shape = "ball", size = [1.35, 1.3, 1.35], sides = 7, at = [0, 2.05, 0], material = "tree.leaves" },
+  { shape = "ball", size = [0.9, 0.8, 0.9], sides = 7, at = [-0.35, 1.7, 0.3], material = "tree.leaves_dark" },
+  { shape = "ball", size = [1.05, 1.1, 1.05], sides = 7, at = [0.1, 2.75, 0.05], material = "tree.leaves_pale" },
+]
+[[fixture.variant]]  # a pine: three tiers of needles
+parts = [
+  { shape = "cylinder", size = [0.24, 1.1, 0.24], taper = 0.7, sides = 6, at = [0, 0.55, 0], material = "tree.trunk", cut = false },
+  { shape = "cylinder", size = [1.6, 1.15, 1.6], taper = 0, sides = 7, at = [0, 1.25, 0], material = "tree.pine" },
+  { shape = "cylinder", size = [1.25, 1.05, 1.25], taper = 0, sides = 7, at = [0, 1.95, 0], material = "tree.pine" },
+  { shape = "cylinder", size = [0.85, 0.95, 0.85], taper = 0, sides = 7, at = [0, 2.6, 0], material = "tree.pine" },
+]
+[[fixture.variant]]  # a birch: pale, slender, leaning a little
+parts = [
+  { shape = "cylinder", size = [0.18, 2.1, 0.18], taper = 0.75, sides = 6, turn = [0, 0, 4], at = [0.04, 1.05, 0], material = "tree.birch", cut = false },
+  { shape = "ball", size = [1.0, 1.35, 1.0], sides = 7, at = [0.1, 2.35, 0], material = "tree.leaves_pale" },
+  { shape = "ball", size = [0.75, 0.9, 0.75], sides = 7, at = [-0.25, 1.85, 0.2], material = "tree.leaves_pale" },
+]
+
+# The plants you can pick: a shape each, its flowers bright on top, so it reads from across a
+# field (VISUALS.md §5).
+
+[[fixture]]
+id = "yarrow"  # feathery leaves low, flat white flower heads up on their stems
+placed = "loose"
+grow = [0.85, 1.05]
+vary = 0.06
+parts = [
+  { shape = "ball", size = [0.5, 0.26, 0.5], sides = 6, at = [0, 0.1, 0], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.04, 0.42, 0.04], sides = 4, turn = [8, 0, 6], at = [0.08, 0.26, 0.04], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.04, 0.36, 0.04], sides = 4, turn = [-6, 0, -10], at = [-0.1, 0.23, -0.02], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.04, 0.3, 0.04], sides = 4, turn = [-10, 0, 4], at = [0.02, 0.2, -0.1], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.2, 0.05, 0.2], at = [0.06, 0.48, 0.07], material = "flower.white" },
+  { shape = "cylinder", size = [0.17, 0.05, 0.17], at = [-0.13, 0.42, -0.02], material = "flower.white" },
+  { shape = "cylinder", size = [0.15, 0.05, 0.15], at = [0.03, 0.36, -0.13], material = "flower.white" },
 ]
 
 [[fixture]]
-id = "yarrow"  # feathery leaves, flat white flower heads
+id = "chamomile"  # a low mound, starred with small daisies
 placed = "loose"
-grow = [0.85, 1.0]
+grow = [0.85, 1.05]
 vary = 0.06
 parts = [
-  { shape = "ball", size = [0.68, 0.52, 0.68], sides = 6, at = [0, 0.23, 0], material = "plant.yarrow" },
-  { shape = "ball", size = [0.34, 0.08, 0.34], sides = 6, at = [0, 0.48, 0], material = "flower.white" },
+  { shape = "ball", size = [0.56, 0.22, 0.56], sides = 6, at = [0, 0.09, 0], material = "plant.chamomile" },
+  { shape = "ball", size = [0.3, 0.16, 0.3], sides = 6, at = [0.08, 0.17, -0.06], material = "plant.chamomile" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [0.14, 0.24, -0.04], material = "flower.cream" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [-0.12, 0.2, 0.08], material = "flower.cream" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [0.02, 0.26, -0.14], material = "flower.cream" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [-0.05, 0.21, -0.02], material = "flower.cream" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [0.16, 0.18, 0.13], material = "flower.cream" },
+  { shape = "cylinder", size = [0.09, 0.04, 0.09], sides = 6, at = [-0.18, 0.16, -0.12], material = "flower.cream" },
 ]
 
 [[fixture]]
-id = "chamomile"  # small daisies
+id = "feverfew"  # an upright bush, buttoned with yellow-white flowers
 placed = "loose"
-grow = [0.85, 1.0]
+grow = [0.85, 1.05]
 vary = 0.06
 parts = [
-  { shape = "ball", size = [0.62, 0.4, 0.62], sides = 6, at = [0, 0.18, 0], material = "plant.chamomile" },
-  { shape = "ball", size = [0.31, 0.08, 0.31], sides = 6, at = [0, 0.37, 0], material = "flower.cream" },
+  { shape = "ball", size = [0.46, 0.42, 0.46], sides = 6, at = [0, 0.2, 0], material = "plant.feverfew" },
+  { shape = "ball", size = [0.3, 0.3, 0.3], sides = 6, at = [0.1, 0.4, -0.05], material = "plant.feverfew" },
+  { shape = "ball", size = [0.1, 0.07, 0.1], sides = 6, at = [0.12, 0.56, -0.06], material = "flower.yellow" },
+  { shape = "ball", size = [0.1, 0.07, 0.1], sides = 6, at = [-0.12, 0.43, 0.06], material = "flower.yellow" },
+  { shape = "ball", size = [0.1, 0.07, 0.1], sides = 6, at = [0.02, 0.5, 0.13], material = "flower.yellow" },
+  { shape = "ball", size = [0.1, 0.07, 0.1], sides = 6, at = [0.2, 0.36, 0.1], material = "flower.yellow" },
 ]
 
 [[fixture]]
-id = "feverfew"  # yellow-white, where the dead lie
+id = "bramble"  # a dark, thorny tangle, its canes arching out, black with berries
 placed = "loose"
-grow = [0.85, 1.0]
+grow = [0.85, 1.05]
 vary = 0.06
 parts = [
-  { shape = "ball", size = [0.62, 0.5, 0.62], sides = 6, at = [0, 0.22, 0], material = "plant.feverfew" },
-  { shape = "ball", size = [0.31, 0.08, 0.31], sides = 6, at = [0, 0.46, 0], material = "flower.yellow" },
-]
-
-[[fixture]]
-id = "bramble"  # a dark, thorny tangle
-placed = "loose"
-grow = [0.85, 1.0]
-vary = 0.06
-parts = [
-  { shape = "ball", size = [1.0, 0.8, 1.0], sides = 6, at = [0, 0.36, 0], material = "plant.bramble" },
+  { shape = "ball", size = [0.9, 0.55, 0.85], sides = 6, at = [0, 0.25, 0], material = "plant.bramble" },
+  { shape = "ball", size = [0.6, 0.45, 0.6], sides = 6, at = [0.2, 0.47, -0.14], material = "plant.bramble" },
+  { shape = "cylinder", size = [0.04, 0.7, 0.04], sides = 4, turn = [0, 0, 55], at = [-0.28, 0.48, 0.14], material = "plant.bramble" },
+  { shape = "cylinder", size = [0.04, 0.6, 0.04], sides = 4, turn = [-50, 0, 0], at = [0.08, 0.45, 0.3], material = "plant.bramble" },
+  { shape = "ball", size = [0.07, 0.07, 0.07], sides = 5, at = [0.3, 0.52, 0.12], material = "plant.berry" },
+  { shape = "ball", size = [0.07, 0.07, 0.07], sides = 5, at = [-0.2, 0.42, -0.25], material = "plant.berry" },
+  { shape = "ball", size = [0.07, 0.07, 0.07], sides = 5, at = [0.05, 0.66, -0.2], material = "plant.berry" },
+  { shape = "ball", size = [0.07, 0.07, 0.07], sides = 5, at = [-0.33, 0.3, 0.1], material = "plant.berry" },
+  { shape = "ball", size = [0.07, 0.07, 0.07], sides = 5, at = [0.4, 0.28, -0.1], material = "plant.berry" },
 ]
 
 [[fixture]]
 id = "picked_plant"  # stalks, picked bare
 placed = "loose"
-grow = [0.85, 1.0]
+grow = [0.85, 1.05]
 vary = 0.06
 parts = [
-  { shape = "ball", size = [0.42, 0.22, 0.42], sides = 6, at = [0, 0.1, 0], material = "plant.picked" },
+  { shape = "ball", size = [0.36, 0.12, 0.36], sides = 6, at = [0, 0.04, 0], material = "plant.picked" },
+  { shape = "cylinder", size = [0.04, 0.24, 0.04], sides = 4, turn = [10, 0, 8], at = [0.05, 0.12, 0.03], material = "plant.picked" },
+  { shape = "cylinder", size = [0.04, 0.2, 0.04], sides = 4, turn = [-8, 0, -12], at = [-0.06, 0.1, -0.02], material = "plant.picked" },
+  { shape = "cylinder", size = [0.04, 0.18, 0.04], sides = 4, turn = [-12, 0, 4], at = [0.0, 0.09, -0.07], material = "plant.picked" },
 ]
-
 # --- Houses ---
 
 [[fixture]]
@@ -434,13 +499,21 @@ parts = [
 # --- The farms ---
 
 [[fixture]]
-id = "wheat"  # sheaves you walk through, their ears over your waist
-placed = "loose"
-grow = [0.9, 1.08]
+id = "wheat"  # close-grown stalks you can't see through, their ears over your waist
+placed = "fixed"
+grow = [0.96, 1.04]
 vary = 0.06
 parts = [
-  { shape = "cylinder", size = [0.16, 1.0, 0.16], taper = 1.6, sides = 6, at = [0.2, 0.5, 0.2], material = "straw.wheat", mirror = "xz" },
-  { shape = "ball", size = [0.28, 0.34, 0.28], sides = 6, at = [0.2, 1.1, 0.2], material = "straw.wheat", mirror = "xz" },
+  { shape = "box", size = [0.49, 0.8, 0.49], at = [-0.24, 0.4, -0.24], material = "straw.wheat" },
+  { shape = "box", size = [0.49, 0.86, 0.49], at = [0.24, 0.43, -0.24], material = "straw.wheat" },
+  { shape = "box", size = [0.49, 0.76, 0.49], at = [-0.24, 0.38, 0.24], material = "straw.wheat" },
+  { shape = "box", size = [0.49, 0.83, 0.49], at = [0.24, 0.415, 0.24], material = "straw.wheat" },
+  { shape = "cylinder", size = [0.04, 0.3, 0.04], sides = 3, turn = [6, 0, -8], at = [-0.3, 0.92, -0.3], material = "straw.wheat", repeat = { count = 3, step = [0.3, 0.04, 0] } },
+  { shape = "cylinder", size = [0.04, 0.3, 0.04], sides = 3, turn = [-8, 0, 6], at = [-0.22, 0.9, 0.02], material = "straw.wheat", repeat = { count = 3, step = [0.3, -0.03, 0] } },
+  { shape = "cylinder", size = [0.04, 0.3, 0.04], sides = 3, turn = [4, 0, 10], at = [-0.32, 0.93, 0.32], material = "straw.wheat", repeat = { count = 3, step = [0.3, 0.02, 0] } },
+  { shape = "ball", size = [0.07, 0.24, 0.07], sides = 4, turn = [6, 0, -8], at = [-0.28, 1.13, -0.28], material = "straw.hay", repeat = { count = 3, step = [0.3, 0.04, 0] } },
+  { shape = "ball", size = [0.07, 0.24, 0.07], sides = 4, turn = [-8, 0, 6], at = [-0.24, 1.11, 0.0], material = "straw.hay", repeat = { count = 3, step = [0.3, -0.03, 0] } },
+  { shape = "ball", size = [0.07, 0.24, 0.07], sides = 4, turn = [4, 0, 10], at = [-0.34, 1.14, 0.33], material = "straw.hay", repeat = { count = 3, step = [0.3, 0.02, 0] } },
 ]
 
 [[fixture]]
@@ -531,4 +604,80 @@ parts = [
   { shape = "cylinder", size = [0.26, 0.56, 0.26], at = [0, 0.36, 0], material = "stone.pale" },
   { shape = "cylinder", size = [0.5, 0.2, 0.5], taper = 1.3, at = [0, 0.74, 0], material = "stone.pale" },
   { shape = "cylinder", size = [0.54, 0.02, 0.54], at = [0, 0.845, 0], material = "ground.shallows" },
+]
+
+# --- What's strewn on the ground ---
+# [[scatter]]: small things the client strews on tiles with no fixture, only a look (never one
+# that stops you or can be taken), each where its tile puts it, the same every time:
+#   on        the grounds it lies on: grass, dirt, road, water, floor, shallows, bridge
+#   chance    that a tile of those grounds has any (0 to 1)
+#   count     [fewest, most] on a tile that has it (1 to 6)
+#   grow, vary, parts or [[scatter.variant]]s, as a fixture's
+# They're quiet on purpose: a shade off the ground they're on, knee-high or less, no flowers (what
+# flowers is something you can pick), no shadows. At most 60 triangles each: there are thousands.
+
+[[scatter]]
+id = "tuft"  # grass grown long
+on = ["grass"]
+chance = 0.22
+count = [1, 2]
+grow = [0.7, 1.25]
+vary = 0.1
+[[scatter.variant]]
+parts = [
+  { shape = "cylinder", size = [0.07, 0.26, 0.07], taper = 0, sides = 3, turn = [0, 0, 14], at = [0.03, 0.12, 0], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.07, 0.22, 0.07], taper = 0, sides = 3, turn = [12, 0, -10], at = [-0.03, 0.1, 0.02], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.06, 0.2, 0.06], taper = 0, sides = 3, turn = [-14, 0, 2], at = [0, 0.09, -0.03], material = "plant.tuft", cut = false },
+]
+[[scatter.variant]]
+parts = [
+  { shape = "cylinder", size = [0.07, 0.3, 0.07], taper = 0, sides = 3, turn = [6, 0, 10], at = [0.02, 0.14, 0], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.07, 0.24, 0.07], taper = 0, sides = 3, turn = [16, 0, -12], at = [-0.04, 0.11, 0.03], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.06, 0.22, 0.06], taper = 0, sides = 3, turn = [-16, 0, -4], at = [0.01, 0.1, -0.04], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.06, 0.18, 0.06], taper = 0, sides = 3, turn = [-6, 0, 20], at = [0.06, 0.08, 0.04], material = "plant.tuft", cut = false },
+  { shape = "cylinder", size = [0.06, 0.2, 0.06], taper = 0, sides = 3, turn = [10, 0, -22], at = [-0.07, 0.09, -0.02], material = "plant.tuft", cut = false },
+]
+
+[[scatter]]
+id = "stone"  # half sunk in the grass, or a yard's
+on = ["grass", "dirt"]
+chance = 0.05
+count = [1, 2]
+grow = [0.6, 1.4]
+vary = 0.08
+[[scatter.variant]]
+parts = [
+  { shape = "ball", size = [0.22, 0.12, 0.17], sides = 5, at = [0, 0.03, 0], material = "stone.grey", cut = false },
+]
+[[scatter.variant]]
+parts = [
+  { shape = "ball", size = [0.2, 0.11, 0.15], sides = 5, at = [0.05, 0.03, 0], material = "stone.old", cut = false },
+  { shape = "ball", size = [0.12, 0.08, 0.1], sides = 5, at = [-0.1, 0.02, 0.06], material = "stone.grey", cut = false },
+]
+
+[[scatter]]
+id = "pebbles"  # on the bare earth of paths and yards
+on = ["dirt"]
+chance = 0.12
+count = [1, 3]
+grow = [0.6, 1.2]
+vary = 0.1
+parts = [
+  { shape = "ball", size = [0.08, 0.05, 0.07], sides = 4, at = [0, 0.015, 0], material = "stone.old", cut = false },
+  { shape = "ball", size = [0.06, 0.04, 0.05], sides = 4, at = [0.07, 0.01, 0.04], material = "stone.grey", cut = false },
+]
+
+[[scatter]]
+id = "reeds"  # in the shallows, a seed head or two
+on = ["shallows"]
+chance = 0.35
+count = [1, 2]
+grow = [0.8, 1.2]
+vary = 0.08
+parts = [
+  { shape = "cylinder", size = [0.04, 0.72, 0.04], sides = 3, turn = [4, 0, 6], at = [0.04, 0.36, 0], material = "plant.reed", cut = false },
+  { shape = "cylinder", size = [0.04, 0.6, 0.04], sides = 3, turn = [-6, 0, -4], at = [-0.05, 0.3, 0.03], material = "plant.reed", cut = false },
+  { shape = "cylinder", size = [0.04, 0.5, 0.04], sides = 3, turn = [8, 0, -10], at = [0.0, 0.25, -0.06], material = "plant.reed", cut = false },
+  { shape = "cylinder", size = [0.04, 0.44, 0.04], sides = 3, turn = [-10, 0, 12], at = [0.08, 0.22, 0.05], material = "plant.reed", cut = false },
+  { shape = "cylinder", size = [0.06, 0.14, 0.06], sides = 4, turn = [4, 0, 6], at = [0.08, 0.72, 0.02], material = "plant.reed_head", cut = false },
 ]

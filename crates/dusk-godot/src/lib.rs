@@ -953,8 +953,10 @@ impl DuskWorld {
 
     /// How everything looks (`looks.toml`, as `dusk_data::Looks`), for `client/looks.gd`.
     /// "materials": each material's colour by name ("ground.grass": sRGB). "fixture": each
-    /// fixture's look by id, as `look_dict` gives it. Loads the data if it isn't yet; empty if it
-    /// won't load, or there's no `looks.toml`.
+    /// fixture's look by id, as `look_dict` gives it. "scatter": what's strewn on the ground, in
+    /// order, each a look as `look_dict` gives it with its "id", the grounds it lies "on" (their
+    /// codes), its "chance" a tile has it, and its "count" there (fewest, most). Loads the data if
+    /// it isn't yet; empty if it won't load, or there's no `looks.toml`.
     #[func]
     fn looks(&mut self) -> VarDictionary {
         let mut out = VarDictionary::new();
@@ -975,7 +977,39 @@ impl DuskWorld {
             fixtures.set(id.as_str(), &look_dict(look));
         }
         out.set("fixture", &fixtures);
+        let mut scatter = VarArray::new();
+        for s in &data.looks.scatter {
+            let mut d = look_dict(&s.look);
+            d.set("id", s.id.as_str());
+            let on: Vec<i32> = s.on.iter().map(|g| ground_code(*g)).collect();
+            d.set("on", &PackedInt32Array::from(&on[..]));
+            d.set("chance", s.chance);
+            let [fewest, most] = s.count.map(i32::from);
+            d.set("count", Vector2i::new(fewest, most));
+            scatter.push(&d.to_variant());
+        }
+        out.set("scatter", &scatter);
         out
+    }
+
+    /// A chunk's grounds (`chunk_tiles`' codes), row by row, with a tile of its neighbours' all
+    /// round it: 34 × 34. So the borders between grounds can wander across a chunk's edge
+    /// (`ground.gdshader`) with no seam.
+    #[func]
+    fn chunk_grounds(&self, cx: i32, cy: i32) -> PackedByteArray {
+        let Some(world) = &self.world else {
+            return PackedByteArray::new();
+        };
+        let origin = ChunkPos { x: cx, y: cy }.origin(0);
+        let side = (CHUNK_SIZE + 2) as usize;
+        let mut out = Vec::with_capacity(side * side);
+        for y in -1..=CHUNK_SIZE {
+            for x in -1..=CHUNK_SIZE {
+                let t = world.grid.tile(origin.offset(x, y));
+                out.push(ground_code(t.ground) as u8);
+            }
+        }
+        PackedByteArray::from(&out[..])
     }
 
     /// The creatures' names, by their number in the data.

@@ -43,14 +43,25 @@ func _ready() -> void:
 	dusk.data_dir = _data_dir
 	add_child(dusk)
 	Looks.read(dusk)
-	var shown: Array = []  # [id, variant]
+	var shown: Array = []  # [name, mesh, out of doors]
 	var ids: Array = Looks.fixtures()
 	ids.sort()
 	for id: String in ids:
 		if not _only.is_empty() and not _only.has(id):
 			continue
-		for n in (Looks.fixture(id).variants as Array).size():
-			shown.append([id, n])
+		var count := (Looks.fixture(id).variants as Array).size()
+		for n in count:
+			shown.append([id if count == 1 else "%s %d" % [id, n + 1], Looks.fixture_mesh(id, n),
+				OUTDOORS.has(id)])
+	var strewn := Looks.scatter()
+	for k in strewn.size():
+		var id: String = strewn[k].id
+		if not _only.is_empty() and not _only.has(id):
+			continue
+		var count := (strewn[k].variants as Array).size()
+		for n in count:
+			shown.append([id if count == 1 else "%s %d" % [id, n + 1], Looks.scatter_mesh(k, n),
+				true])
 	_lay_out(shown)
 
 
@@ -100,19 +111,16 @@ func _lay_out(shown: Array) -> void:
 	var ground := Image.create_empty(texels, texels, false, Image.FORMAT_RGBA8)
 	ground.fill(_ground_texel(5))
 	for i in shown.size():
-		var id: String = shown[i][0]
-		var n: int = shown[i][1]
 		var cell := Vector2i(i % cols, floori(i / float(cols)))
 		var at := Vector3((cell.x + 1) * GAP, 0.0, (cell.y + 1) * GAP)
 		var thing := MeshInstance3D.new()
-		thing.mesh = Looks.fixture_mesh(id, n)
+		thing.mesh = shown[i][1]
 		thing.material_override = material
 		thing.position = at
 		thing.rotation.y = PI  # its front to the camera's side, as "fixed" stands
 		add_child(thing)
-		var count := (Looks.fixture(id).variants as Array).size()
-		_label(id if count == 1 else "%s %d" % [id, n + 1], at + Vector3(0.0, 0.0, 0.85))
-		if OUTDOORS.has(id):
+		_label(shown[i][0], at + Vector3(0.0, 0.0, 0.85))
+		if shown[i][2]:
 			for dy in 2:
 				for dx in 2:
 					ground.set_pixel(cell.x * 2 + 1 + dx, cell.y * 2 + 1 + dy, _ground_texel(1))

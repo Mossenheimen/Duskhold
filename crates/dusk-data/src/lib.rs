@@ -39,8 +39,8 @@ mod weather;
 
 pub use farm::FarmsFile;
 pub use looks::{
-    FIXTURE_TRIANGLES, Look, Looks, Material, PART_FLOATS, Part, Placed, Shape, Surface,
-    parse as parse_looks, unit_points,
+    FIXTURE_TRIANGLES, Look, Looks, Material, PART_FLOATS, Part, Placed, SCATTER_TRIANGLES,
+    Scatter, Shape, Surface, parse as parse_looks, unit_points,
 };
 pub use rare::RaresFile;
 pub use remains::PressureFile;
@@ -961,6 +961,21 @@ fn fail(file: &Path, message: impl Into<String>) -> DataError {
     }
 }
 
+/// A ground by its name in the data ("grass", "shallows"), as `looks.toml` names them too.
+fn ground_named(name: &str) -> Option<Ground> {
+    Some(match name {
+        "void" => Ground::Void,
+        "floor" => Ground::Floor,
+        "grass" => Ground::Grass,
+        "dirt" => Ground::Dirt,
+        "road" => Ground::Road,
+        "water" => Ground::Water,
+        "shallows" => Ground::Shallows,
+        "bridge" => Ground::Bridge,
+        _ => return None,
+    })
+}
+
 fn read<T: DeserializeOwned>(file: &Path) -> Result<T, DataError> {
     let text = std::fs::read_to_string(file).map_err(|e| fail(file, e.to_string()))?;
     toml::from_str(&text).map_err(|e| fail(file, e.to_string()))
@@ -1370,18 +1385,12 @@ fn to_prefab(
                 format!("legend key {key:?} must be a single character"),
             ));
         };
-        let ground = match entry.ground.as_str() {
-            "floor" => Ground::Floor,
-            "grass" => Ground::Grass,
-            "dirt" => Ground::Dirt,
-            "road" => Ground::Road,
-            "water" => Ground::Water,
-            "shallows" => Ground::Shallows,
-            "bridge" => Ground::Bridge,
-            other => {
+        let ground = match ground_named(&entry.ground) {
+            Some(g) if g != Ground::Void => g,
+            _ => {
                 return Err(fail(
                     file,
-                    format!("legend {key:?}: no ground called {other:?}"),
+                    format!("legend {key:?}: no ground called {:?}", entry.ground),
                 ));
             }
         };

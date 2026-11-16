@@ -1,15 +1,21 @@
 shader_type spatial;
 // One chunk's ground: a texel a tile, coloured by the client from the core's tiles, with the
-// ground's kind in the texel's alpha, as (code + 0.5) / 16 (DuskWorld.chunk_tiles()'s codes).
-// Each kind has a surface of its own, worked out from where a point is: grass in tufts and
-// patches, dirt with pebbles, a cobbled road, plank floors, a bridge's planks across, and water
-// that moves and shines a little.
+// ground's kind in the texel's alpha, as (code + 0.5) / 16 (DuskWorld.chunk_tiles()'s codes), and
+// a margin of the next chunks' tiles round it. Each kind has a surface of its own, worked out from
+// where a point is: grass in tufts and patches, dirt with pebbles, a cobbled road, plank floors, a
+// bridge's planks across, and water that moves and shines a little. The borders between the
+// natural grounds (grass, dirt, water, shallows) wander a little off the tiles' edges, so a shore
+// or a path isn't a staircase; what's built (a floor, the road, a bridge) keeps to them.
 
 #include "res://shaders/surfaces.gdshaderinc"
 
 uniform sampler2D ground : source_color, filter_nearest, repeat_disable;
 uniform vec2 origin;  // the chunk's north-west corner, in tiles
 uniform float size = 32.0;
+// Tiles of the next chunks' ground round this one's, in the texture (chunk_view.gd: 1).
+uniform float margin = 0.0;
+// How far a border between natural grounds wanders off the tiles' edges, at most, in tiles.
+uniform float wander = 0.26;
 
 varying vec2 tile;
 
@@ -17,8 +23,21 @@ void vertex() {
 	tile = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
 }
 
+vec4 ground_at(vec2 p) {
+	return texture(ground, (p - origin + margin) / (size + 2.0 * margin));
+}
+
+// Nothing, the road, a floor or a bridge: built, so its borders keep to the tiles' edges.
+bool built(vec4 texel) {
+	int kind = int(texel.a * 16.0);
+	return kind == 0 || kind == 3 || kind == 5 || kind == 7;
+}
+
 void fragment() {
-	vec4 texel = texture(ground, (tile - origin) / size);
+	vec4 here = ground_at(tile);
+	vec2 drift = vec2(sf_fbm(tile * 1.9), sf_fbm(tile * 1.9 + vec2(41.3, 17.9))) - 0.47;
+	vec4 there = ground_at(tile + drift * 2.0 * wander);
+	vec4 texel = built(here) || built(there) ? here : there;
 	int kind = int(texel.a * 16.0);
 	bool water = kind == 4 || kind == 6;
 	vec2 p = tile;

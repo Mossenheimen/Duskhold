@@ -11,9 +11,10 @@ use std::collections::BTreeMap;
 use std::f32::consts::PI;
 use std::path::Path;
 
+use dusk_core::Ground;
 use serde::Deserialize;
 
-use crate::{DataError, Fixture, check_unique, fail};
+use crate::{DataError, Fixture, check_unique, fail, ground_named};
 
 /// What a part is made in: a block, an upright cylinder (a cone, with no top), a ball, or a ridge
 /// (a triangle `size.x` wide and `size.y` high, run `size.z` along).
@@ -311,6 +312,24 @@ pub struct Looks {
     pub materials: BTreeMap<String, Material>,
     /// By fixture id.
     pub fixtures: BTreeMap<String, Look>,
+    /// What's strewn on the ground, in the file's order.
+    pub scatter: Vec<Scatter>,
+}
+
+/// Small things the client strews on the ground (a tuft of grass, a stone, reeds in the
+/// shallows): only a look, on tiles with no fixture, never anything that stops you or can be
+/// taken. Where each lies is worked out from its tile, the same every time.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Scatter {
+    pub id: String,
+    /// The grounds it lies on.
+    pub on: Vec<Ground>,
+    /// The chance a tile of those grounds, with no fixture on it, has any of it.
+    pub chance: f32,
+    /// How many on a tile that has it: the fewest and the most.
+    pub count: [u8; 2],
+    /// Its parts, variants, size and tint (as a loose fixture's, turned any way).
+    pub look: Look,
 }
 
 /// The materials the client reads by name (`look.gd`'s `take_materials`): the ground's kinds,
@@ -333,6 +352,8 @@ pub const NAMED: &[&str] = &[
 
 /// The most triangles a fixture's look may have (`VISUALS.md` §5).
 pub const FIXTURE_TRIANGLES: usize = 500;
+/// The most a scatter's may: there are thousands of them.
+pub const SCATTER_TRIANGLES: usize = 60;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -341,6 +362,25 @@ struct LooksFile {
     material: BTreeMap<String, BTreeMap<String, MaterialFile>>,
     #[serde(default)]
     fixture: Vec<LookFile>,
+    #[serde(default)]
+    scatter: Vec<ScatterFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScatterFile {
+    id: String,
+    on: Vec<String>,
+    chance: f32,
+    count: [u8; 2],
+    #[serde(default)]
+    grow: Option<[f32; 2]>,
+    #[serde(default)]
+    vary: Option<f32>,
+    #[serde(default)]
+    parts: Vec<PartFile>,
+    #[serde(default)]
+    variant: Vec<VariantFile>,
 }
 
 #[derive(Deserialize)]
@@ -500,9 +540,16 @@ pub fn parse(file: &Path, text: &str, fixtures: &[Fixture]) -> Result<Looks, Dat
         }
         looks.insert(l.id.clone(), look);
     }
+    check_unique(file, "scatter", raw.scatter.iter().map(|s| &s.id))?;
+    let mut scatter = Vec::new();
+    for s in &raw.scatter {
+        let look = to_scatter(s, &materials);
+        scatter.push(look.map_err(|m| fail(file, format!("scatter {:?}: {m}", s.id)))?);
+    }
     Ok(Looks {
         materials,
         fixtures: looks,
+        scatter,
     })
 }
 
@@ -511,23 +558,7 @@ fn to_look(
     materials: &BTreeMap<String, Material>,
     fixtures: &[Fixture],
 ) -> Result<Look, String> {
-    let sets: Vec<&Vec<PartFile>> = match (l.parts.is_empty(), l.variant.is_empty()) {
-        (false, true) => vec![&l.parts],
-        (true, false) => l.variant.iter().map(|v| &v.parts).collect(),
-        (false, false) => return Err("parts, or [[variant]]s of parts: not both".into()),
-        (true, true) => return Err("no parts".into()),
-    };
-    let mut variants = Vec::new();
-    for (v, set) in sets.into_iter().enumerate() {
-        if set.is_empty() {
-            return Err(format!("variant {} has no parts", v + 1));
-        }
-        let mut parts = Vec::new();
-        for (n, p) in set.iter().enumerate() {
-            to_parts(p, materials, &mut parts).map_err(|m| format!("part {}: {m}", n + 1))?;
-        }
-        variants.push(parts);
-    }
+    let variants = to_variants(&l.parts, &l.variant, materials)?;
     for (what, other) in [("faces", &l.faces), ("backs", &l.backs)] {
         if let Some(id) = other
             && !fixtures.iter().any(|f| &f.id == id)
@@ -539,14 +570,7 @@ fn to_look(
     if !(1..=12).contains(&reach) {
         return Err("reach is 1 to 12 tiles".into());
     }
-    let grow = l.grow.unwrap_or([1.0, 1.0]);
-    if !(0.3..=3.0).contains(&grow[0]) || !(grow[0]..=3.0).contains(&grow[1]) {
-        return Err("grow is [least, most], each 0.3 to 3, the least first".into());
-    }
-    let vary = l.vary.unwrap_or(0.045);
-    if !(0.0..=0.3).contains(&vary) {
-        return Err("vary is 0 to 0.3".into());
-    }
+    let (grow, vary) = to_grow(l.grow, l.vary)?;
     if let Some(at) = l.fire
         && at.iter().any(|x| !(-1.0..=3.0).contains(x))
     {
@@ -561,6 +585,88 @@ fn to_look(
         grow,
         vary,
         fire: l.fire,
+    })
+}
+
+/// A look's parts, or its variants' (one or the other), each with its mirror images and repeats.
+fn to_variants(
+    parts: &[PartFile],
+    variant: &[VariantFile],
+    materials: &BTreeMap<String, Material>,
+) -> Result<Vec<Vec<Part>>, String> {
+    let sets: Vec<&[PartFile]> = match (parts.is_empty(), variant.is_empty()) {
+        (false, true) => vec![parts],
+        (true, false) => variant.iter().map(|v| &v.parts[..]).collect(),
+        (false, false) => return Err("parts, or [[variant]]s of parts: not both".into()),
+        (true, true) => return Err("no parts".into()),
+    };
+    let mut variants = Vec::new();
+    for (v, set) in sets.into_iter().enumerate() {
+        if set.is_empty() {
+            return Err(format!("variant {} has no parts", v + 1));
+        }
+        let mut out = Vec::new();
+        for (n, p) in set.iter().enumerate() {
+            to_parts(p, materials, &mut out).map_err(|m| format!("part {}: {m}", n + 1))?;
+        }
+        variants.push(out);
+    }
+    Ok(variants)
+}
+
+/// A look's `grow` and `vary`, checked, or the defaults (the same size; 4.5%).
+fn to_grow(grow: Option<[f32; 2]>, vary: Option<f32>) -> Result<([f32; 2], f32), String> {
+    let grow = grow.unwrap_or([1.0, 1.0]);
+    if !(0.3..=3.0).contains(&grow[0]) || !(grow[0]..=3.0).contains(&grow[1]) {
+        return Err("grow is [least, most], each 0.3 to 3, the least first".into());
+    }
+    let vary = vary.unwrap_or(0.045);
+    if !(0.0..=0.3).contains(&vary) {
+        return Err("vary is 0 to 0.3".into());
+    }
+    Ok((grow, vary))
+}
+
+fn to_scatter(s: &ScatterFile, materials: &BTreeMap<String, Material>) -> Result<Scatter, String> {
+    let mut on = Vec::new();
+    for name in &s.on {
+        match ground_named(name) {
+            Some(g) if g != Ground::Void => on.push(g),
+            _ => return Err(format!("on: no ground called {name:?}")),
+        }
+    }
+    if on.is_empty() {
+        return Err("on names the grounds it lies on".into());
+    }
+    if !(s.chance > 0.0 && s.chance <= 1.0) {
+        return Err("chance is above 0 and at most 1".into());
+    }
+    if !(1..=6).contains(&s.count[0]) || !(s.count[0]..=6).contains(&s.count[1]) {
+        return Err("count is [fewest, most], each 1 to 6, the fewest first".into());
+    }
+    let (grow, vary) = to_grow(s.grow, s.vary)?;
+    let look = Look {
+        variants: to_variants(&s.parts, &s.variant, materials)?,
+        placed: Placed::Loose,
+        faces: None,
+        backs: None,
+        reach: 1,
+        grow,
+        vary,
+        fire: None,
+    };
+    if look.triangles() > SCATTER_TRIANGLES {
+        return Err(format!(
+            "{} triangles, past the {SCATTER_TRIANGLES} a scatter may have",
+            look.triangles()
+        ));
+    }
+    Ok(Scatter {
+        id: s.id.clone(),
+        on,
+        chance: s.chance,
+        count: s.count,
+        look,
     })
 }
 

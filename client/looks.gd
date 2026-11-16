@@ -52,6 +52,21 @@ static func fixture_mesh(id: String, n: int) -> ArrayMesh:
 	return _meshes[key]
 
 
+## What's strewn on the ground (looks.toml's [[scatter]]), in order: each a look with its "id",
+## the ground codes it lies "on", its "chance" a tile has it and its "count" there.
+static func scatter() -> Array:
+	return _looks.get("scatter", [])
+
+
+## Variant `n` of scatter number `k`'s look as a mesh, baked the first time it's asked for.
+static func scatter_mesh(k: int, n: int) -> ArrayMesh:
+	var key := "scatter:%d:%d" % [k, n]
+	if not _meshes.has(key):
+		var variants: Array = scatter()[k].variants
+		_meshes[key] = bake(variants[n % variants.size()])
+	return _meshes[key]
+
+
 ## Parts (PART numbers each) as one mesh: every face flat, wound as Godot draws a front, its part's
 ## colour (linear) in the vertices' colour, and in UV2 its surface and whether it may be cut away.
 static func bake(parts: PackedFloat32Array) -> ArrayMesh:

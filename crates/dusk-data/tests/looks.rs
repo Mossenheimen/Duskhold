@@ -3,8 +3,10 @@
 
 use std::path::Path;
 
+use dusk_core::Ground;
 use dusk_data::{
-    FIXTURE_TRIANGLES, Part, Shape, Surface, default_dir, load, parse_looks, unit_points,
+    FIXTURE_TRIANGLES, Part, SCATTER_TRIANGLES, Shape, Surface, default_dir, load, parse_looks,
+    unit_points,
 };
 
 fn part(shape: Shape, sides: u8) -> Part {
@@ -117,6 +119,40 @@ parts = [
             .any(|q| (0..3).all(|i| (q[i] - mirrored[i]).abs() < 1e-4));
         assert!(near, "{p:?}");
     }
+}
+
+#[test]
+fn the_ground_is_strewn_lightly() {
+    let data = load(&default_dir()).expect("the game's data loads");
+    let strewn = &data.looks.scatter;
+    assert!(!strewn.is_empty());
+    for s in strewn {
+        assert!(s.look.triangles() <= SCATTER_TRIANGLES, "{}", s.id);
+        // Knee-high at most, nothing ever on a floor, and never cut away: it's at your feet.
+        assert!(
+            s.look.height() <= 0.9,
+            "{} stands {} m",
+            s.id,
+            s.look.height()
+        );
+        assert!(!s.on.contains(&Ground::Floor), "{}", s.id);
+        assert!(s.look.variants.iter().flatten().all(|p| !p.cut), "{}", s.id);
+    }
+    let says = |text: &str| {
+        let e = parse_looks(Path::new("looks.toml"), text, &data.fixtures)
+            .expect_err("it shouldn't read");
+        e.to_string()
+    };
+    let tuft = |extra: &str| {
+        format!(
+            "[material.plant]\ntuft = {{ colour = \"#64714F\" }}\n[[scatter]]\nid = \"tuft\"\n\
+             {extra}\nparts = [ {{ shape = \"box\", size = [0.1, 0.1, 0.1], material = \
+             \"plant.tuft\" }} ]\n"
+        )
+    };
+    assert!(says(&tuft("on = [\"lawn\"]\nchance = 0.3\ncount = [1, 2]")).contains("\"lawn\""));
+    assert!(says(&tuft("on = [\"grass\"]\nchance = 0\ncount = [1, 2]")).contains("chance"));
+    assert!(says(&tuft("on = [\"grass\"]\nchance = 0.3\ncount = [3, 2]")).contains("count"));
 }
 
 #[test]
