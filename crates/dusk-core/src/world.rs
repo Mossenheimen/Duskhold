@@ -615,6 +615,13 @@ pub enum Event {
         side: Dir8,
         boards: u8,
     },
+    /// `who` mended the door or window on the edge: re-nailed a board, or (`door`) the door.
+    Repaired {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+        door: bool,
+    },
     /// A board was beaten through; `boards` are left.
     BoardBroke {
         at: TilePos,

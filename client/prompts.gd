@@ -10,8 +10,8 @@ extends RefCounted
 ##   door or window you face, and water when you're thirsty;
 ## - QUIET: E may do it, with no prompt: a door or window beside you that you don't face (they're
 ##   everywhere in a town);
-## - MORE: never E's, since it's done on purpose: boarding up, prying a board off, a ward, putting
-##   a fire out. The line under the prompt names it when it can be done;
+## - MORE: never E's, since it's done on purpose: boarding up, prying a board off, mending, a ward,
+##   putting a fire out. The line under the prompt names it when it can be done;
 ## - LISTED: only in the held list: water when you aren't thirsty, and what can't be done yet.
 
 const LIKELY := 0
@@ -42,6 +42,12 @@ const REFUSED := {
 	"unboard": {
 		-1: ["", "There's nothing boarded up beside you."],
 		-4: ["you need a hammer", "You need a hammer to pry it off."],
+	},
+	"repair": {
+		-1: ["", "There's nothing beaten beside you to mend."],
+		-4: ["you need a hammer", "You need a hammer to mend it."],
+		-5: ["you need a plank", "You need a plank to mend the door: it goes over the cracks."],
+		-6: ["you need two nails", ""],
 	},
 	"butcher": {-2: ["you need a knife or an axe", "You need a knife or an axe to butcher it."]},
 	"burn": {
@@ -136,6 +142,17 @@ static func here(dusk: Node, creatures: PackedStringArray, fixtures: PackedStrin
 		all.append(_entry("unboard", "Pry a board off", "", MORE))
 	elif pry != -1:
 		all.append(_entry("unboard", "Pry a board off", why("unboard", pry), LISTED))
+	# Mending (barricade.rs): a beaten board re-nailed, else the door, with how beaten it is.
+	var mend: int = dusk.repair_check()
+	if mend != -1:
+		var beaten: int = dusk.door_beaten()
+		var words := "Re-nail the board" if mend == 1 else "Mend the door"
+		if mend != 1 and beaten > 0:
+			words += " (%d%% beaten)" % maxi(1, beaten / 10)
+		if mend > 0:
+			all.append(_entry("repair", words, "", MORE))
+		else:
+			all.append(_entry("repair", words, why("repair", mend), LISTED))
 	var ward: int = dusk.ward_check()
 	if ward == 1:
 		all.append(_entry("ward", "Ward the door", "", MORE))

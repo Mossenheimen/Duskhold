@@ -8,7 +8,7 @@ use dusk_core::senses::line_of_sight;
 use dusk_core::world::Swing;
 use dusk_core::{
     ActorId, ActorKind, Defs, Dir8, Edge, Event, Intent, Item, ItemDef, ItemKind, NoBoard, NoDoor,
-    Skill, TilePos, World,
+    Part, Repair, Skill, TilePos, World, WoundKind,
 };
 
 const PLANK: u16 = 0;
@@ -322,4 +322,90 @@ fn the_door_you_would_use_and_why_it_wont_move() {
         Err(NoDoor::Nothing),
         "nothing beside you"
     );
+}
+
+/// The room, with `boards` nailed on, its door (or its last board) beaten a little by the
+/// shambler, drawn by your noise, and the shambler then put down.
+fn beaten(d: Defs, boards: usize) -> (World, ActorId) {
+    let (mut w, me, z) = room(d);
+    w.rules.barricade.noise = 0;
+    for _ in 0..boards {
+        act(&mut w, me, Intent::Board);
+    }
+    let here = at(2, 0);
+    for t in 0..4000 {
+        if t % 200 == 0 {
+            w.make_sound(here, 12, Some(me));
+        }
+        w.step(1);
+        let hit = match boards {
+            0 => w.door_beaten(here, Dir8::E) > 0,
+            _ => w.boards(here, Dir8::E).last().is_some_and(|&b| b < 500),
+        };
+        if hit {
+            break;
+        }
+    }
+    while !w.actor(z).unwrap().dead {
+        w.wound(z, WoundKind::Bite, Part::Torso);
+    }
+    (w, me)
+}
+
+#[test]
+fn a_beaten_door_is_mended_with_a_plank_and_two_nails() {
+    let (mut w, me) = beaten(defs(2, 10, true), 0);
+    let here = at(2, 0);
+    let was = w.door_beaten(here, Dir8::E);
+    assert!(was > 0 && was < 1000, "{was}");
+    assert_eq!(w.can_repair(me), Ok((Dir8::E, Repair::Door)));
+    let seen = act(&mut w, me, Intent::Repair);
+    assert!(seen.iter().any(|e| matches!(
+        *e,
+        Event::Repaired { who, door: true, .. } if who == me
+    )));
+    assert_eq!(w.door_beaten(here, Dir8::E), 0, "whole again");
+    assert_eq!((count(&w, me, PLANK), count(&w, me, NAILS)), (1, 8));
+    assert!(w.actor(me).unwrap().skills.xp[Skill::Carpentry as usize] > 0);
+    assert_eq!(
+        w.can_repair(me),
+        Err(NoBoard::Nothing),
+        "nothing more to mend"
+    );
+}
+
+#[test]
+fn a_beaten_board_is_renailed_before_the_door_and_takes_no_plank() {
+    let (mut w, me) = beaten(defs(3, 10, true), 1);
+    let here = at(2, 0);
+    assert!(w.boards(here, Dir8::E)[0] < 500);
+    assert_eq!(w.door_beaten(here, Dir8::E), 0, "the board took it");
+    assert_eq!(w.can_repair(me), Ok((Dir8::E, Repair::Board(0))));
+    let (planks, nails) = (count(&w, me, PLANK), count(&w, me, NAILS));
+    act(&mut w, me, Intent::Repair);
+    assert_eq!(
+        w.boards(here, Dir8::E),
+        vec![500],
+        "as strong as you nail them"
+    );
+    assert_eq!(
+        (count(&w, me, PLANK), count(&w, me, NAILS)),
+        (planks, nails - 2)
+    );
+}
+
+#[test]
+fn what_mending_takes() {
+    let (w, me, _) = room(defs(2, 10, true));
+    assert_eq!(w.can_repair(me), Err(NoBoard::Nothing), "nothing's beaten");
+    let (w, me) = beaten(defs(2, 10, false), 0);
+    assert_eq!(w.can_repair(me), Err(NoBoard::NoHammer));
+    let (w, me) = beaten(defs(0, 10, true), 0);
+    assert_eq!(
+        w.can_repair(me),
+        Err(NoBoard::NoPlank),
+        "a door takes a plank"
+    );
+    let (w, me) = beaten(defs(2, 1, true), 0);
+    assert_eq!(w.can_repair(me), Err(NoBoard::NoNails));
 }

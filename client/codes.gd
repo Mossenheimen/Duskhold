@@ -121,6 +121,7 @@ enum Event {
 	THORNED = 114,
 	DRIVEN_BACK = 115,
 	DECOY_SET = 116,
+	REPAIRED = 117,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).
@@ -191,6 +192,7 @@ enum Action {
 	HEAVY = 46,
 	CAST = 47,
 	WIND = 48,
+	REPAIR = 49,
 }
 
 ## A moodle (DuskWorld.character_moodles(): which, then its level).

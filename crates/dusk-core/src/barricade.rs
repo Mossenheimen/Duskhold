@@ -8,6 +8,12 @@
 //! - **The dead beat on a boarded door** as on any shut door, and the boards take it first, the
 //!   last one nailed first, each as strong as the hand that nailed it (Carpentry). Then the door.
 //! - **Prying a board off** takes the hammer too. You get the plank back; the nails are bent.
+//! - **Repairing** (`CONCEPT.md`: "damage stays until you repair it") takes the hammer too, and
+//!   mends one thing at a time, from the outside in: a board weaker than your hand nails one (a
+//!   beaten one, or one nailed by a less skilled hand) re-nailed with two fresh nails, then the
+//!   door itself, a plank and its nails over the cracks, and it's whole. Loud, as boarding is. A
+//!   window's cracked glass can't be mended; a door that gave way is gone (a door of your own,
+//!   to come, fills the gap).
 //!
 //! The edge holds how many boards there are (`grid::Edge`), so sight and walking need nothing
 //! else; the world keeps how much each board has left, in its hash.
@@ -69,6 +75,15 @@ pub enum NoBoard {
     NoHammer,
     NoPlank,
     NoNails,
+}
+
+/// What a repair mends on a door or window (`World::can_repair`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Repair {
+    /// A board weaker than your hand nails one, by its place (the first nailed is 0): re-nailed.
+    Board(u8),
+    /// The door itself, beaten: a plank nailed over its cracks.
+    Door,
 }
 
 /// How many of an item a list holds, over all its stacks.
@@ -276,6 +291,102 @@ impl World {
             side,
             boards,
         });
+    }
+
+    /// How beaten the door on side `dir` of `pos` is: the harm it's taken, per mille of what it
+    /// takes before it gives way (0: whole, or no door).
+    pub fn door_beaten(&self, pos: TilePos, dir: Dir8) -> u32 {
+        if !matches!(self.grid.edge(pos, dir), Edge::Door { .. }) {
+            return 0;
+        }
+        let taken = self.door_damage.get(&edge_owner(pos, dir)).copied();
+        let strength = i64::from(self.rules.combat.door_strength.max(1));
+        (i64::from(taken.unwrap_or(0).max(0)) * 1000 / strength).min(1000) as u32
+    }
+
+    /// What `id` would mend on side `dir`: a board weaker than its hand nails one (the last such,
+    /// as blows take the last nailed first), else a beaten door.
+    fn to_repair(&self, id: ActorId, pos: TilePos, dir: Dir8) -> Option<Repair> {
+        let level = self.skill_level(id, Skill::Carpentry);
+        let full = (self.rules.skills).board_strength(self.rules.barricade.strength, level);
+        if let Some(k) = self.boards(pos, dir).iter().rposition(|&b| b < full) {
+            return Some(Repair::Board(k as u8));
+        }
+        (self.door_beaten(pos, dir) > 0).then_some(Repair::Door)
+    }
+
+    /// Whether `id` can mend something now, on which side of its tile, and what: the door or
+    /// window it faces first, then those beside it. A board takes two nails (as one nailed on),
+    /// a door a plank and its nails too; both, a hammer.
+    pub fn can_repair(&self, id: ActorId) -> Result<(Dir8, Repair), NoBoard> {
+        let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
+            return Err(NoBoard::Nothing);
+        };
+        let (side, what) = World::sides_from(a.facing)
+            .find_map(|d| self.to_repair(id, a.pos, d).map(|r| (d, r)))
+            .ok_or(NoBoard::Nothing)?;
+        let Some(b) = &self.defs.boarding else {
+            return Err(NoBoard::NoHammer);
+        };
+        if !self.has_hammer(id) {
+            return Err(NoBoard::NoHammer);
+        }
+        if what == Repair::Door && count(&a.items, b.plank) == 0 {
+            return Err(NoBoard::NoPlank);
+        }
+        if count(&a.items, b.nails) < u32::from(b.nails_each) {
+            return Err(NoBoard::NoNails);
+        }
+        Ok((side, what))
+    }
+
+    /// The mending's done (the repairing action's end): a board re-nailed, as strong as Carpentry
+    /// makes it, or a plank nailed over a beaten door's cracks, and it's whole. Loud, as all
+    /// hammering is; Carpentry learns from it.
+    pub(crate) fn repair(&mut self, id: ActorId, dir: Dir8) {
+        let Ok((side, what)) = self.can_repair(id) else {
+            return;
+        };
+        let (Some(b), Some(pos)) = (
+            self.defs.boarding.clone(),
+            self.actors.get(id).map(|a| a.pos),
+        ) else {
+            return;
+        };
+        if side != dir {
+            return;
+        }
+        let (r, s) = (self.rules.barricade, self.rules.skills);
+        let level = self.skill_level(id, Skill::Carpentry);
+        let (at, side) = edge_owner(pos, dir);
+        if let Some(a) = self.actors.get_mut(id) {
+            spend(&mut a.items, b.nails, b.nails_each);
+            if what == Repair::Door {
+                spend(&mut a.items, b.plank, 1);
+            }
+        }
+        match what {
+            Repair::Board(k) => {
+                let mut list = self.boards(pos, dir);
+                list[usize::from(k)] = s.board_strength(r.strength, level);
+                self.set_boards(pos, dir, list);
+            }
+            Repair::Door => {
+                self.door_damage.remove(&(at, side));
+            }
+        }
+        self.emit(Sound {
+            at: pos,
+            loudness: r.noise,
+            by: Some(id),
+        });
+        self.events.push(Event::Repaired {
+            who: id,
+            at,
+            side,
+            door: what == Repair::Door,
+        });
+        self.train(id, Skill::Carpentry, s.board, On::Edge(at, side));
     }
 
     /// A blow on a shut door from `pos`: the boards across it take it, if it has any (true), the

@@ -23,8 +23,8 @@ use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
     Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoDoor, NoFaith,
-    NoFire, NoSleep, NoStash, NoTake, Part, Power, Remains, Rise, Skill, SpellKind, Tend, TilePos,
-    View, World, Wound, WoundKind, demo,
+    NoFire, NoSleep, NoStash, NoTake, Part, Power, Remains, Repair, Rise, Skill, SpellKind, Tend,
+    TilePos, View, World, Wound, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -285,6 +285,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Unboarded {
             who, at: p, boards, ..
         } => (UNBOARDED, Some(who), None, (p.x, p.y), i32::from(boards)),
+        // A door or window mended (`barricade.rs`): the door (1) or a board (0).
+        Event::Repaired {
+            who, at: p, door, ..
+        } => (REPAIRED, Some(who), None, (p.x, p.y), i32::from(door)),
         Event::BoardBroke { at: p, boards, .. } => {
             (BOARD_BROKE, None, None, (p.x, p.y), i32::from(boards))
         }
@@ -1515,6 +1519,7 @@ impl DuskWorld {
                         ActionKind::DrinkWater => action::DRINK_WATER,
                         ActionKind::Board => action::BOARD,
                         ActionKind::Unboard => action::UNBOARD,
+                        ActionKind::Repair => action::REPAIR,
                         ActionKind::Stash { .. } => action::STASH,
                         ActionKind::Put { .. } => action::PUT,
                         ActionKind::Burn { .. } => action::BURN,
@@ -2809,6 +2814,47 @@ impl DuskWorld {
     #[func]
     fn unboard(&mut self) {
         self.act(Intent::Unboard);
+    }
+
+    /// Whether you can mend the door or window beside you now, and what (`barricade.rs`): 1 a
+    /// beaten board to re-nail, 2 the door itself; else why not, as `board_check`'s: -1 nothing
+    /// to mend beside you, -4 no hammer, -5 no plank (the door's), -6 not enough nails.
+    #[func]
+    fn repair_check(&self) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        match world.can_repair(me) {
+            Ok((_, Repair::Board(_))) => 1,
+            Ok((_, Repair::Door)) => 2,
+            Err(NoBoard::NoHammer) => -4,
+            Err(NoBoard::NoPlank) => -5,
+            Err(NoBoard::NoNails) => -6,
+            Err(_) => -1,
+        }
+    }
+
+    /// How beaten the most beaten door beside you is, per mille of what it takes before it gives
+    /// way (0: none beside you, or all whole): the one you face first.
+    #[func]
+    fn door_beaten(&self) -> i32 {
+        let Some(world) = &self.world else { return 0 };
+        let Some(a) = world.character().and_then(|me| world.actor(me)) else {
+            return 0;
+        };
+        let pos = a.pos;
+        [Dir8::N, Dir8::E, Dir8::S, Dir8::W]
+            .into_iter()
+            .map(|d| world.door_beaten(pos, d))
+            .max()
+            .unwrap_or(0) as i32
+    }
+
+    /// Mends the door or window beside you (see `repair_check`).
+    #[func]
+    fn repair(&mut self) {
+        self.act(Intent::Repair);
     }
 
     /// The recipes, two lines each, in the order `craft_checks` and `craft` use: what it makes

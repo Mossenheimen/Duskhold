@@ -416,6 +416,7 @@ One table of how things act on each other, written before the content, so the ga
   - Weeping Moor: wards (salt lines, iron, holy symbols), because walls don't stop them; light and company against dread.
 - **Wards are the wardstones' small cousins:** the same magic at the scale of a house.
 - **Sieges you can see coming give a base its purpose** (see Quests and events). Attackers path to the weakest door, and damage stays until you repair it.
+  - *(built 2026-11-16)* **Repairs:** with a hammer, beside a beaten door or window, you mend one thing at a time from the outside in: a board weaker than your hand nails one, re-nailed with two fresh nails (as strong as your Carpentry makes it), then the door itself, a plank and two nails over its cracks, and it's whole. Its prompt says how beaten it is ("Mend the door (40% beaten)"), so you know what tonight's door will take. Hammering is loud: mend by day. A window's cracked glass can't be mended, and a door that gave way is gone: a door of your own fills the gap.
 
 ## Monsters beyond the regions
 

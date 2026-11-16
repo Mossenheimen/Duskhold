@@ -612,6 +612,13 @@ fn describe(w: &World, e: Event) -> String {
             at.x,
             at.y
         ),
+        Event::Repaired { who, at, door, .. } => format!(
+            "{} mended {} by ({}, {})",
+            name(who),
+            if door { "the door" } else { "a board" },
+            at.x,
+            at.y
+        ),
         Event::MadeHome { who, at } => {
             format!("{} made a home at ({}, {})", name(who), at.x, at.y)
         }

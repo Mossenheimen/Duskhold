@@ -123,6 +123,7 @@ impl World {
                 ActionKind::Douse => self.douse(id),
                 ActionKind::Board => self.nail_board(id, action.dir),
                 ActionKind::Unboard => self.pry_board(id, action.dir),
+                ActionKind::Repair => self.repair(id, action.dir),
                 ActionKind::Stash { at } => self.mark_stash(id, at),
                 ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
                 ActionKind::Burn { body } => self.kindle(id, body),
@@ -344,6 +345,14 @@ impl World {
                 let side = self.can_unboard(id).ok()?;
                 let ticks = self.rules.barricade.remove_time.max(1);
                 (ActionKind::Unboard, side, ticks, 0, 0)
+            }
+            // Mending takes as long as nailing a board on, and is heard as far.
+            Intent::Repair => {
+                let (side, _) = self.can_repair(id).ok()?;
+                let level = self.skill_level(id, Skill::Carpentry);
+                let ticks = (self.rules.skills).board_ticks(self.rules.barricade.time, level);
+                self.start_hammering(id);
+                (ActionKind::Repair, side, ticks, 0, 0)
             }
             // Acts of faith (`faith.rs`): they take all their time before they take effect.
             Intent::Pray => {

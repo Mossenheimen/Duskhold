@@ -65,7 +65,7 @@ pub mod world;
 pub use actor::{Action, ActionKind, Actor, ActorId, ActorKind, Alert, Intent, Mind, Remains};
 pub use armour::{Armour, ArmourRules};
 pub use bag::{Bag, NoTake};
-pub use barricade::NoBoard;
+pub use barricade::{NoBoard, Repair};
 pub use body::{Body, Group, Part, Wound, WoundKind};
 pub use card::{CardLine, CardStyle};
 pub use class::{Class, Kit, Power, Talent};

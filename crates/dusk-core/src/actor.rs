@@ -77,6 +77,9 @@ pub enum Intent {
     Board,
     /// Pry a board off the boarded door or window beside you.
     Unboard,
+    /// Mend the door or window beside you (`barricade.rs`): a beaten board re-nailed, else the
+    /// door itself.
+    Repair,
     /// Make the container on `at` your stash: within reach, under a roof, near home.
     Stash { at: TilePos },
     /// Put the stack at `slot` of your pack into the container on `at`.
@@ -188,9 +191,10 @@ pub enum ActionKind {
         def: u16,
     },
     Douse,
-    /// Boarding up, or prying a board off, the edge on the action's side.
+    /// Boarding up, prying a board off, or mending, the edge on the action's side.
     Board,
     Unboard,
+    Repair,
     Stash {
         at: TilePos,
     },

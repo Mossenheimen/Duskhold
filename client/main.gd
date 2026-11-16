@@ -93,6 +93,7 @@ const DOING := {
 	Action.DOUSE: "Putting it out",
 	Action.BOARD: "Boarding it up",
 	Action.UNBOARD: "Prying a board off",
+	Action.REPAIR: "Mending it",
 	Action.STASH: "Making it your stash",
 	Action.PUT: "Putting it away",
 	Action.CURE: "Taking the cure",
@@ -790,6 +791,8 @@ func _do(verb: String) -> void:
 			_board_up()
 		"unboard":
 			_pry_board()
+		"repair":
+			_repair()
 		"ward":
 			_ward()
 
@@ -1042,6 +1045,15 @@ func _pry_board() -> void:
 		hud.say(Prompts.refusal("unboard", code))
 	else:
 		dusk.unboard()
+
+
+## Mends the door or window beside you (barricade.rs), or says why not.
+func _repair() -> void:
+	var code: int = dusk.repair_check()
+	if code < 0:
+		hud.say(Prompts.refusal("repair", code))
+	else:
+		dusk.repair()
 
 
 ## Asleep, time runs at SLEEP_SPEED; awake again, at the speed it was.
@@ -1328,6 +1340,9 @@ func _read_events() -> void:
 				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
 				if who == me:
 					hud.say("You pried a board off: %d left." % extra)
+			Event.REPAIRED:
+				if who == me:
+					hud.say("You mended the door: it's whole again." if extra == 1 else "You re-nailed the board: it's as strong as you nail them.")
 			Event.MADE_HOME:
 				if who == me:
 					hud.say("You slept the night through. This is home now: a container under its roof can be your stash.")
@@ -2278,6 +2293,8 @@ func _run_script() -> void:
 				_burn_body()
 			"unboard":
 				_pry_board()
+			"repair":
+				_repair()
 			"logs":
 				_take_logs()
 			"fire":

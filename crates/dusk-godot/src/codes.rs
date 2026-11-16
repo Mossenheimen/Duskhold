@@ -132,6 +132,7 @@ pub mod event {
         THORNED = 114,
         DRIVEN_BACK = 115,
         DECOY_SET = 116,
+        REPAIRED = 117,
     }
 }
 
@@ -207,6 +208,7 @@ pub mod action {
         HEAVY = 46,
         CAST = 47,
         WIND = 48,
+        REPAIR = 49,
     }
 }
 
