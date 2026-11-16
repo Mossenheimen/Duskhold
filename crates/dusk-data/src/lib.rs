@@ -12,6 +12,7 @@ mod climb;
 mod cold;
 mod craft;
 mod dread;
+mod edges;
 mod faith;
 mod farm;
 mod fever;
@@ -628,6 +629,9 @@ struct RulesFile {
     /// Optional: with no [heavy], a heavy swing uses the core's defaults.
     #[serde(default)]
     heavy: Option<heavy::HeavyFile>,
+    /// Optional: with no [edges], no class of weapon has one.
+    #[serde(default)]
+    edges: Option<edges::EdgesFile>,
     /// Optional: with no [strength] or [fitness], they use the core's defaults.
     #[serde(default)]
     strength: Option<fitness::StrengthFile>,
@@ -830,6 +834,9 @@ struct CreatureFile {
     /// Tiles it smells blood from, for each wound that's bleeding (0, or left out: it doesn't).
     #[serde(default)]
     blood: i32,
+    /// Whether a wound bleeds it, as an axe's blow leaves one (left out: it does; bone doesn't).
+    #[serde(default)]
+    bleeds: Option<bool>,
     /// Only after dark (left out: day and night alike).
     #[serde(default)]
     nocturnal: bool,
@@ -1134,6 +1141,7 @@ fn to_creatures(
                 wounds,
                 thump: (points(c.thump.0), points(c.thump.1)),
                 blood: c.blood,
+                bleeds: c.bleeds.unwrap_or(true),
                 fever,
                 get_up,
                 douses: c.douses,
@@ -1356,6 +1364,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(h) = &r.heavy {
         rules.heavy = heavy::to_heavy(file, h)?;
+    }
+    if let Some(e) = &r.edges {
+        rules.edges = edges::to_edges(file, e)?;
     }
     if let Some(s) = &r.strength {
         rules.strength = fitness::to_strength(file, s)?;

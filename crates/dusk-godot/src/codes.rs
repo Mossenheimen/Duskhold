@@ -130,6 +130,7 @@ pub mod event {
         TERRIFIED = 112,
         SEARED = 113,
         THORNED = 114,
+        DRIVEN_BACK = 115,
     }
 }
 

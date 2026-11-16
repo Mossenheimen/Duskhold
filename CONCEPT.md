@@ -357,6 +357,7 @@ One table of how things act on each other, written before the content, so the ga
   - attack;
   - heavy attack: a longer wind-up, and it knocks down;
     - *(built 2026-11-12)* **The heavy swing:** Shift+F (or Shift-click). Twice the wind-up, so it's the longer tell and a blow breaks it off; twice the breath; one and three-quarters the harm; half the time it knocks down what it hits, and the next blow finishes it. Two blows' wear on the weapon, and it beats a door or a window harder;
+    - *(built 2026-11-16)* **Each class of weapon's own edge** (Zomboid's classes; Path of Exile's implicits, which every weapon of a base has): a blade finishes (half again the harm on one that's down, on top of the double any blow does there); a blunt blow knocks down one time in eight (and a mace still shatters bone); an axe's blow leaves it bleeding, 4 points over 8 seconds a blow (bone has no blood); a spear's drives it back a tile three times in ten, out of reach and out of its grip. So the classes play differently: shove or fell, then the blade; hit with the axe and step back; keep them off with the spear. Only a weapon in your hand has its edge, not bare hands, nor the dead's blows; it's on the weapon's card, first after its numbers;
   - shove: cheap; knocks back, and down with enough Strength;
   - finish: a blow on someone on the ground always lands, does double harm and doesn't wear the weapon (Zomboid's stomp). That's what a shove buys: 6 endurance now for a weapon that lasts;
   - brace, with a shield;

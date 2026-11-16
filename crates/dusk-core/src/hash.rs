@@ -151,6 +151,8 @@ pub enum Purpose {
     Element = 34,
     /// The harm back a unique's thorns do whoever struck (`magic.rs`).
     Thorns = 35,
+    /// Whether a spear's blow drives what it hits back a tile (`edge.rs`).
+    Push = 36,
 }
 
 /// A gameplay roll: a function of (seed, tick, who, why) and nothing else. No roll shifts when

@@ -189,6 +189,7 @@ var balked_at := -100.0  # when the news last said you balked, in seconds played
 var resisted_at := -100.0  # when the news last told of a blow on bone, in seconds played
 var blocked_at := -100.0  # when the news last told of a block, in seconds played
 var thorned_at := -100.0  # and of thorns biting back
+var driven_at := -100.0  # and of a spear's blow driving one back
 var glanced_at := -100.0  # when the news last told of a blow glancing off your armour
 var tumbled_at := -100.0  # when it last told of one of the dead tumbling over a sill or a fence
 var skidded_at := -100.0  # ...and of your blow glancing off theirs
@@ -1497,6 +1498,11 @@ func _read_events() -> void:
 				if who == me and played - thorned_at > 3.0:
 					thorned_at = played
 					hud.say("%s is hurt striking you." % _a(target))
+			Event.DRIVEN_BACK:
+				# A spear's edge (edge.rs): a blow drove it back a tile, out of reach.
+				if who == me and played - driven_at > 3.0:
+					driven_at = played
+					hud.say("Your blow drives it back.")
 			Event.SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))

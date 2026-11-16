@@ -1889,6 +1889,68 @@ fn heavy_swings_load_and_nonsense_is_refused() {
 }
 
 #[test]
+fn each_class_of_weapons_edge_loads_and_shows_and_nonsense_is_refused() {
+    use dusk_core::{Item, WeaponEdge, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let e = data.rules.edges;
+    let none = WeaponEdge::default();
+    assert_eq!(
+        [e.blade, e.blunt, e.axe, e.spear],
+        [
+            WeaponEdge { down: 500, ..none },
+            WeaponEdge { fell: 1200, ..none },
+            WeaponEdge { bleed: 80, ..none },
+            WeaponEdge { push: 3000, ..none },
+        ],
+        "each class its own, and only that"
+    );
+    // Bone has no blood; flesh has.
+    let bleeds = |id: &str| {
+        let c = data.defs.creatures.iter().find(|c| c.id == id).unwrap();
+        c.stats.bleeds
+    };
+    assert!(!bleeds("skeleton") && bleeds("shambler") && bleeds("wolf"));
+    // Each on its weapons' cards, the axe's bleeding at the game's own rate.
+    let w = World::with_defs(1, data.rules, data.defs.clone());
+    let edge_line = |id: &str| {
+        let n = data.defs.items.iter().position(|i| i.id == id).unwrap() as u16;
+        let card = w.card(&Item::new(n, 1), None);
+        let l = card.iter().find(|l| l.style == dusk_core::CardStyle::Mod);
+        l.map(|l| (l.text.clone(), l.value.clone()))
+    };
+    let pair = |a: &str, b: &str| Some((a.to_string(), b.to_string()));
+    assert_eq!(
+        edge_line("kitchen_knife"),
+        pair("+50% damage to one that's down", "Blade")
+    );
+    assert_eq!(
+        edge_line("mace"),
+        pair("12% chance a blow knocks down", "Blunt")
+    );
+    assert_eq!(
+        edge_line("wood_axe"),
+        pair("A blow bleeds 4 damage over 8 s", "Axe")
+    );
+    assert_eq!(
+        edge_line("pitchfork"),
+        pair("30% chance a blow drives it back a tile", "Spear")
+    );
+    assert_eq!(edge_line("hunting_bow"), None, "a bow has none");
+    // More than twice again on one that's down is refused, as is a chance over 1.
+    for (name, edges) in [
+        ("edge-down", "[edges]\nblade = { down = 3.0 }\n"),
+        ("edge-push", "[edges]\nspear = { push = 1.5 }\n"),
+    ] {
+        let rules = format!("{RULES}{edges}");
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "rules.toml");
+        files.push(("rules.toml", &rules));
+        let err = load(&folder(name, &files)).unwrap_err();
+        assert!(err.message.contains("edges."), "{err}");
+    }
+}
+
+#[test]
 fn strength_and_fitness_load_and_nonsense_is_refused() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let (s, f) = (data.rules.strength, data.rules.fitness);
@@ -2353,9 +2415,11 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
         line(&card, "Attacks per second"),
         (CardStyle::Changed, "2.00".into())
     );
+    // First its class's edge, as Path of Exile's implicits (`edge.rs`): every blade's.
     assert_eq!(
         mods(&card),
         pairs(&[
+            ("+50% damage to one that's down", "Blade"),
             ("+25% damage", "Masterwork"),
             ("-40% wear", "Masterwork"),
             ("+80(64\u{2013}96)% damage", "Cruel III"),
@@ -2375,6 +2439,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
     assert_eq!(
         mods(&card),
         pairs(&[
+            ("12% chance a blow knocks down", "Blunt"),
             (
                 "Adds 2(1.6\u{2013}2.4) to 4(3.2\u{2013}4.8) fire damage",
                 "Burning II",
@@ -2392,6 +2457,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
     assert_eq!(
         mods(&w.card(&mace, None)),
         pairs(&[
+            ("12% chance a blow knocks down", "Blunt"),
             (
                 "Adds 4(3.2\u{2013}4.8) to 7(5.6\u{2013}8.4) holy damage on the dead",
                 "Righteous III",

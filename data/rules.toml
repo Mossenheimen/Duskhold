@@ -124,6 +124,19 @@ harm = 1.75
 knock_down = 0.5      # the chance it knocks down what it hits, for its kind's `down` time
 wear = 2              # blows' wear on the weapon
 
+[edges]
+# Each class of weapon's own edge (edge.rs; Zomboid's classes, Path of Exile's implicits): what every
+# weapon of its skill gives a blow past its numbers, shown on its card. Only yours, with a weapon in
+# hand: not bare hands, nor the dead's blows. down: more harm to one that's down, a share on top of
+# the double any blow does there; fell: the chance a blow that lands knocks it down; bleed: seconds a
+# blow that isn't turned leaves it bleeding (rules' [wounds] bleeding, each blow another wound; bone
+# doesn't bleed: a creature's `bleeds`); push: the chance a blow that lands drives it back a tile,
+# breaking its hold, if there's room.
+blade = { down = 0.5 }     # finishes: a knife or a sword in one that's down (a shove, then the blade)
+blunt = { fell = 0.12 }    # knocks down: one blow in eight puts it on the ground (and shatters bone)
+axe = { bleed = 8.0 }      # bleeds: 4 points over 8 seconds a blow, so hit, step back and let it
+spear = { push = 0.3 }     # holds off: three blows in ten drive it back, out of reach of a grab
+
 [door]
 time = 0.5            # seconds to open or shut one
 noise = 3

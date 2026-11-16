@@ -540,6 +540,11 @@ impl World {
             _ => {}
         }
         c.rule();
+        // What every weapon of its class has, as Path of Exile's implicits (`edge.rs`).
+        if let ItemKind::Weapon { skill, .. } = def.kind {
+            self.edge_lines(&mut c, skill);
+            c.rule();
+        }
         self.made_lines(&mut c, item);
         c.rule();
         self.magic_lines(&mut c, item);
@@ -716,6 +721,43 @@ impl World {
         if item.condition < NEW {
             let left = hours(u32::from(item.condition).div_ceil(a_minute));
             c.stat("Left", left, false);
+        }
+    }
+
+    /// Its class's edge (`edge.rs`), as numbers, the class to the right: "+50% damage to one
+    /// that's down", "Blade". A weapon of no class, or a class with none, says nothing.
+    fn edge_lines(&self, c: &mut Lines, skill: Option<crate::skills::Skill>) {
+        let Some(s) = skill else {
+            return;
+        };
+        let (e, combat) = (self.rules.edges.of(skill), self.rules.combat);
+        let mut lines = Vec::new();
+        if e.down > 0 {
+            lines.push(format!(
+                "{} damage to one that's down",
+                change(i64::from(e.down))
+            ));
+        }
+        if e.fell > 0 {
+            lines.push(format!("{} chance a blow knocks down", share(e.fell)));
+        }
+        if e.bleed > 0 {
+            // A bleeding wound's harm comes every `bleed_every` ticks.
+            let beats = (e.bleed / combat.bleed_every.max(1)) as i32;
+            lines.push(format!(
+                "A blow bleeds {} damage over {}",
+                points(beats * combat.bleed_damage),
+                seconds(e.bleed)
+            ));
+        }
+        if e.push > 0 {
+            lines.push(format!(
+                "{} chance a blow drives it back a tile",
+                share(e.push)
+            ));
+        }
+        for line in lines {
+            c.add(CardStyle::Mod, line, s.name());
         }
     }
 

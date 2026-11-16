@@ -508,6 +508,8 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             target,
             damage,
         } => (THORNED, Some(who), Some(target), at(target), damage),
+        // A spear's blow drove it back a tile (`edge.rs`): where it stands now.
+        Event::DrivenBack { who, target } => (DRIVEN_BACK, Some(who), Some(target), at(target), 0),
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),

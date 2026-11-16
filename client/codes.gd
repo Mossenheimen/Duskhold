@@ -119,6 +119,7 @@ enum Event {
 	TERRIFIED = 112,
 	SEARED = 113,
 	THORNED = 114,
+	DRIVEN_BACK = 115,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).

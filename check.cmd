@@ -31,7 +31,8 @@ rem A Cleric praying by E at the abbey's altar, then its powers; then a unique s
 rem and the shield taken up on the arm.
 call :run 6000 "--seed=7 --class=cleric --walk=74,114 --give=the_wasp --do=9:use,11:power2,22:power1,23:card,24:shield"
 rem A Wizard's spells by number, every panel and the settings, opened and closed; then two cast.
-rem First a weapon's card: a unique given (and a masterwork Rare sword, named), set against the staff;
+rem First a weapon's card: a unique given (Redhand, a hand axe: its class's edge, the bleeding, on
+rem its card too), and a masterwork Rare sword, named, set against the staff;
 rem then the sword taken in hand, and a magic helm put on, so the skills panel shows what they give,
 rem and the spells panel the sword's +3 to Arcana: a fireball's harm and Silence's time, as yours.
 call :run 2500 "--seed=7 --class=wizard --give=redhand,sword:masterwork:keen+swift+sorcerous,iron_helm:fine:warded+brawny --do=0.5:card,1:power1,2:power4,3:esc,3.2:wield,4.2:wear,4.5:spells,5:skills,6:craft,7:keys,7.5:keys,8:settings,9:esc,9.5:cast_light,10:cast_fireball"
@@ -43,7 +44,7 @@ echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "EFFECTS OK") do (
+for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

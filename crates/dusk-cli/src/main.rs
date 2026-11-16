@@ -854,6 +854,9 @@ fn describe(w: &World, e: Event) -> String {
             name(target),
             name(who)
         ),
+        Event::DrivenBack { who, target } => {
+            format!("{}'s blow drove {} back", name(who), name(target))
+        }
         Event::WindowBroke { at, .. } => {
             format!("the window by ({}, {}) smashed", at.x, at.y)
         }

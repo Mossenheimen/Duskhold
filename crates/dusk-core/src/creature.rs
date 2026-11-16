@@ -48,6 +48,8 @@ pub struct Creature {
     /// How far it smells blood, in tiles for each wound that's bleeding (up to three): walls
     /// don't stop it, nor does the dark. 0: it doesn't.
     pub blood: i32,
+    /// Whether a wound bleeds it: an axe's edge leaves one (`edge.rs`). Bone has no blood.
+    pub bleeds: bool,
     /// Out of 10,000, by `WoundKind::ALL`: the chance a wound it leaves carries ghoul fever
     /// (`fever.rs`).
     pub fever: [u32; 3],
@@ -145,6 +147,7 @@ impl Default for Creature {
             wounds: [7000, 2500, 500],
             thump: (20, 40),
             blood: 0,
+            bleeds: true,
             fever: [0; 3],
             get_up: GetUp::default(),
             douses: 0,

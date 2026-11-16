@@ -93,6 +93,8 @@ pub struct Rules {
     pub climb: crate::climb::ClimbRules,
     /// A heavy swing (`combat.rs`).
     pub heavy: crate::combat::Heavy,
+    /// Each class of weapon's own edge (`edge.rs`): none, but for the data's.
+    pub edges: crate::edge::Edges,
     /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
     pub strength: crate::fitness::StrengthRules,
     pub fitness: crate::fitness::FitnessRules,
@@ -329,6 +331,7 @@ impl Default for Rules {
             armour: crate::armour::ArmourRules::default(),
             climb: crate::climb::ClimbRules::default(),
             heavy: crate::combat::Heavy::default(),
+            edges: crate::edge::Edges::default(),
             strength: crate::fitness::StrengthRules::default(),
             fitness: crate::fitness::FitnessRules::default(),
         }
@@ -464,6 +467,11 @@ pub enum Event {
         who: ActorId,
         target: ActorId,
         damage: i32,
+    },
+    /// `who`'s blow drove `target` back a tile, breaking its hold: a spear's edge (`edge.rs`).
+    DrivenBack {
+        who: ActorId,
+        target: ActorId,
     },
     /// `who` ran out of breath.
     Exhausted {
@@ -1335,6 +1343,7 @@ impl World {
         }
         self.grips();
         self.bodies(&strides);
+        self.bleed_out(&ids);
         self.needs();
         self.minds();
         self.chills();

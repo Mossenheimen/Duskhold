@@ -109,6 +109,7 @@ groan = 0
 wounds = { scratch = 0.55, laceration = 0.45, bite = 0.0 }
 thump = [2, 3]
 resist = { blade = 0.4, spear = 0.3, axe = 0.7, blunt = 1.5 }   # what it takes of a blow, by weapon
+bleeds = false        # bone has no blood: an axe's blow leaves it no bleeding wound
 
 # The barrows' (prefabs/barrow.toml): the night's own. By day it lies still in its barrow, and the
 # barrow's dim light is enough to weaken it: that's when to go in. After dark it walks, puts out

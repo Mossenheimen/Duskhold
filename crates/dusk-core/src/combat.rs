@@ -556,6 +556,7 @@ impl World {
         // Read now: the blow may break the weapon.
         let skill = self.weapon_skill(id);
         let gifts = self.gifts(id);
+        let edge = self.edge(id);
         self.emit(Sound {
             at: pos,
             loudness: swing.noise,
@@ -600,8 +601,9 @@ impl World {
                 if tired {
                     damage /= 2;
                 }
+                // On one that's down, twice the harm; a blade's edge, more (`edge.rs`).
                 if down {
-                    damage *= 2;
+                    damage = edge.on_the_ground(damage);
                 }
                 if self.heavy {
                     damage = damage * self.rules.heavy.harm as i32 / 1000;
@@ -706,8 +708,10 @@ impl World {
                 });
             }
         }
-        if let Some((piece, part)) = turned {
-            self.turned(target, id, piece, part);
+        match turned {
+            Some((piece, part)) => self.turned(target, id, piece, part),
+            // An axe's blow that isn't turned leaves it bleeding (`edge.rs`).
+            None => self.bleed(target, edge.bleed),
         }
         self.interrupt(target);
         self.startle_by(target, id);
@@ -747,9 +751,10 @@ impl World {
         // A character's blow that lands works toward its Strength, a heavy one twice.
         let work = self.rules.strength.blow * if self.heavy { 2 } else { 1 };
         self.strain(id, work);
-        // A heavy blow may knock down what it hits, and so may a weapon made to (`magic.rs`). A
-        // heavy blow is harder on the weapon.
+        // A heavy blow may knock down what it hits, and so may a weapon made to (`magic.rs`) and a
+        // blunt one's edge (`edge.rs`). A heavy blow is harder on the weapon.
         let fells = gifts.fell
+            + edge.fell
             + if self.heavy {
                 self.rules.heavy.knock_down
             } else {
@@ -785,6 +790,8 @@ impl World {
             }
             return;
         }
+        // A spear's blow may drive it back a tile, if it's still on its feet (`edge.rs`).
+        self.drive_back(id, target, at, dir, edge.push);
         // A creature's hit may take hold, the likelier the more of them are on you: if your
         // thorns left it standing.
         if kind != ActorKind::Character
@@ -893,8 +900,6 @@ impl World {
             self.events.push(Event::Missed { who: id, at });
             return;
         };
-        let back = at.step(dir);
-        let room = self.grid.can_step(at, dir) && !self.occupied.contains_key(&back);
         let down = below(
             roll(seed, tick, id.index() as u64, Purpose::KnockDown),
             10_000,
@@ -922,29 +927,39 @@ impl World {
             return;
         };
         t.action = None;
-        let mut freed = vec![t.pos];
-        if room {
-            freed.extend(t.step.map(|s| s.to));
-            t.step = None;
-            t.carry = 0;
-            t.pos = back;
-        }
         if down {
             t.prone_until = tick + u64::from(stays_down);
         }
-        if room {
-            for tile in freed {
-                if self.occupied.get(&tile) == Some(&target) {
-                    self.occupied.remove(&tile);
-                }
-            }
-            self.occupied.insert(back, target);
-        }
+        self.knock_back(target, at, dir);
         self.events.push(Event::Shoved {
             who: id,
             target,
             down,
         });
+    }
+
+    /// Pushes `target`, struck on `at`, a tile on along `dir` if there's room, off any step it
+    /// was taking: a shove's, and a spear's edge (`edge.rs`). True if it moved.
+    pub(crate) fn knock_back(&mut self, target: ActorId, at: TilePos, dir: Dir8) -> bool {
+        let back = at.step(dir);
+        if !self.grid.can_step(at, dir) || self.occupied.contains_key(&back) {
+            return false;
+        }
+        let Some(t) = self.actors.get_mut(target) else {
+            return false;
+        };
+        let mut freed = vec![t.pos];
+        freed.extend(t.step.map(|s| s.to));
+        t.step = None;
+        t.carry = 0;
+        t.pos = back;
+        for tile in freed {
+            if self.occupied.get(&tile) == Some(&target) {
+                self.occupied.remove(&tile);
+            }
+        }
+        self.occupied.insert(back, target);
+        true
     }
 
     /// Opens or shuts the door (or the window) on that side. It won't shut on someone stepping
