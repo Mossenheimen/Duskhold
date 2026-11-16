@@ -120,6 +120,7 @@ enum Event {
 	SEARED = 113,
 	THORNED = 114,
 	DRIVEN_BACK = 115,
+	DECOY_SET = 116,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).
@@ -137,6 +138,7 @@ enum Item {
 	HOLY = 10,
 	ARMOUR = 11,
 	BAG = 12,
+	DECOY = 13,
 }
 
 ## An actor's timed action (DuskWorld.actor_actions(): four numbers an actor).
@@ -188,6 +190,7 @@ enum Action {
 	TAKE_OFF = 45,
 	HEAVY = 46,
 	CAST = 47,
+	WIND = 48,
 }
 
 ## A moodle (DuskWorld.character_moodles(): which, then its level).

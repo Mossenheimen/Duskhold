@@ -857,6 +857,12 @@ fn describe(w: &World, e: Event) -> String {
         Event::DrivenBack { who, target } => {
             format!("{}'s blow drove {} back", name(who), name(target))
         }
+        Event::DecoySet { who, at, delay } => format!(
+            "{} set a decoy at ({}, {}), to start in {delay} ticks",
+            name(who),
+            at.x,
+            at.y
+        ),
         Event::WindowBroke { at, .. } => {
             format!("the window by ({}, {}) smashed", at.x, at.y)
         }

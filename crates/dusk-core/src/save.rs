@@ -8,8 +8,9 @@
 //! - **Saved:** the clock, every actor (bodies too: lying, getting up, burning, ash or hallowed),
 //!   sounds not yet heard, what containers and floors hold once touched, the harm doors and
 //!   boards have taken, the region's pressure, what the holdouts sold today, the bounties
-//!   claimed, the fires laid in hearths, the doors warded, the plants picked bare, and the chunks
-//!   of the map that changed since it was made (a door opened, a board nailed on).
+//!   claimed, the fires laid in hearths, the doors warded, the plants picked bare, the decoys set
+//!   down, and the chunks of the map that changed since it was made (a door opened, a board
+//!   nailed on).
 //! - **Not saved:** the land (it comes back from the seed), the rules and the definitions (they
 //!   come from `data/`, so a retuned game loads old saves).
 //! - **Outlasting the game's updates** (since format 37; the postcard saves before it couldn't):
@@ -159,6 +160,8 @@ struct State {
     wards: BTreeMap<(TilePos, Dir8), u64>,
     /// The plants picked bare, what each grows back as, and when.
     regrowing: BTreeMap<TilePos, (u16, u64)>,
+    /// The decoys set down and wound (`decoy.rs`; since 2026-11-16, none in an older save).
+    decoys: BTreeMap<TilePos, crate::decoy::Ticking>,
     chunks: Vec<(ChunkPos, Chunk)>,
     /// The caller's own bytes, kept with the save (the game's: the map the character remembers).
     #[serde(with = "bytes")]
@@ -275,6 +278,7 @@ impl World {
             hearths: self.hearths.clone(),
             wards: self.wards.clone(),
             regrowing: self.regrowing.clone(),
+            decoys: self.decoys.clone(),
             chunks: self.grid.changed_chunks(),
             memory: memory.to_vec(),
         };
@@ -322,6 +326,7 @@ impl World {
         self.hearths = state.hearths;
         self.wards = state.wards;
         self.regrowing = state.regrowing;
+        self.decoys = state.decoys;
         self.set_actors(state.actors, state.characters, state.sounds);
         Ok(state.memory)
     }
@@ -354,6 +359,7 @@ impl State {
             claimed: _,
             hearths: _,
             wards: _,
+            decoys: _,
             memory: _,
         } = self;
         for id in actors.ids() {

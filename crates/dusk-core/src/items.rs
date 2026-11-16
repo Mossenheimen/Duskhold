@@ -99,6 +99,8 @@ pub enum ItemKind {
     Armour(crate::armour::Armour),
     /// Worn on the back, it holds more, and what's in it weighs less (`bag.rs`).
     Bag(crate::bag::Bag),
+    /// Wound and set down, it rattles on a beat for a while, drawing the dead (`decoy.rs`).
+    Decoy(crate::decoy::Decoy),
     /// Everything else: materials, junk.
     Other,
 }
@@ -749,6 +751,11 @@ impl World {
     /// the cure is taken for a fever. One of the stack is used up.
     pub(crate) fn use_item(&mut self, id: ActorId, slot: u16, def: u16) {
         let defs = self.defs.clone();
+        // A decoy is set down where you stand, wound (`decoy.rs`).
+        if let Some(ItemKind::Decoy(decoy)) = defs.item(def).map(|d| &d.kind) {
+            self.set_decoy(id, slot, def, *decoy);
+            return;
+        }
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -834,6 +841,7 @@ impl World {
                 Some((*time).max(1))
             }
             (true, ItemKind::Cure { time }) if a.body.fever.is_some() => Some((*time).max(1)),
+            (true, ItemKind::Decoy(d)) => Some(d.wind.max(1)),
             _ => None,
         };
         ticks.map(|t| t + reach)

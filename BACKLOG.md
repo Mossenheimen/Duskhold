@@ -13,7 +13,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 | 1 | **A playtest night, then tuning** (in `data/` only) | the loop | The concept's first question, whether surviving the Hushlands is tense and fun, isn't answered by play: 46 slices were checked by tests, headless runs and pictures. Needs the user | M | the review; `CONCEPT.md` |
 | 2 | **The Esc menu, the title and death screens** (`VISUALS.md` §16, slice 9) | the GUI | Esc with nothing open saves and quits at once; the settings are only on F10; there's no title, so a new world is Ctrl+N | M | `VISUALS.md` |
 | 3 | **Sound, a first pass:** footsteps, a groan, a blow landing, a door, the bell; a cue for where a sound came from | sound | "Sound is gameplay" (`CONCEPT.md`), and the game is silent. Every sound is already a ring and an event, so it's playing what the core says | L | `CONCEPT.md`; settings |
-| 4 | **Base-building II:** decoy noise-makers, repairs, then walls and doors of your own | the base | The night half of the loop. Decoys are the Hushlands' own base tool in the concept's table, and "damage stays until you repair it" | L | `CONCEPT.md` |
+| 4 | **Base-building II:** repairs, then walls and doors of your own (decoys built 2026-11-16) | the base | The night half of the loop: "damage stays until you repair it" | L | `CONCEPT.md` |
 | 5 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
 | 6 | **The map** (a book panel) | the GUI | Zomboid's map that holds only what you've seen, and your notes. The fog of war already remembers it | M | `CONCEPT.md` |
 | 7 | **`main.gd` in parts:** the news (`_read_events`, 431 lines) to `news.gd`; the script runner (188) to `script.gd` as a table of actions; the bridge's shared guard (95 of its 178 functions open the same way) | code | The review's merges still to do | S–M | the review |
@@ -61,6 +61,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 **The base and the holdouts**
 - Clearing the glass from a frame; shutters; locks.
 - Workbenches (smithing, alchemy, scribing), a rain barrel, a garden, traps, a pyre.
+- Decoys, after the clatterbox (2026-11-16): thrown, to land where you aim (Zomboid's noise-makers), not only set where you stand; set off by a tripwire (with traps) or the morning; the abbey's counter selling them; its own look in the kit (with items' looks); its beat shown before it starts (a wind-up ticking in the litter), so you know it's the one that's wound.
 - The abbey's sisters as actors: defenders, morale, raids; training and healing for coin; selling the weapon in your hand.
 - Rewards for a night survived; the Director choosing how often the Tolling comes; a raid's horns and a hunter's moon (other regions).
 

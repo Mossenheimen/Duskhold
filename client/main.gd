@@ -120,6 +120,7 @@ const DOING := {
 	Action.WEAR: "Putting it on",
 	Action.TAKE_OFF: "Taking it off",
 	Action.CAST: "Casting",
+	Action.WIND: "Winding it",
 }
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
@@ -1504,6 +1505,10 @@ func _read_events() -> void:
 				if who == me and played - driven_at > 3.0:
 					driven_at = played
 					hud.say("Your blow drives it back.")
+			Event.DECOY_SET:
+				# Wound and set down (decoy.rs): it rattles once its time's up, and the dead come.
+				if who == me:
+					hud.say("You wind the decoy and set it down: it starts rattling in %d s. Be elsewhere." % extra)
 			Event.SNEAK_ATTACK:
 				if who == me:
 					hud.say("A sneak attack! %s never knew you were there." % _a(target))
@@ -2147,11 +2152,12 @@ func _run_script() -> void:
 					Input.parse_input_event(wheel)
 			"body":  # the worst-wounded part's detail, as if the mouse rested on it
 				hud.hover_worst_part()
-			"bandage":  # put on the first bandage in the pack (the core picks the wound)
+			"bandage", "decoy":  # the first bandage in the pack put on (the core picks the wound), or decoy set down
+				var want: int = Item.BANDAGE if action == "bandage" else Item.DECOY
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
-					if items[k] < kinds.size() and kinds[items[k]] == Item.BANDAGE:
+					if items[k] < kinds.size() and kinds[items[k]] == want:
 						dusk.use_item(k / 4, items[k])
 						break
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)

@@ -2002,6 +2002,47 @@ bag = { holds = 0.0, lighter = 0.1 }
 }
 
 #[test]
+fn the_clatterbox_loads_as_a_decoy_made_and_found_and_one_heard_too_far_is_refused() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    let n = defs
+        .items
+        .iter()
+        .position(|i| i.id == "clatterbox")
+        .unwrap() as u16;
+    assert_eq!(
+        defs.items[usize::from(n)].kind,
+        dusk_core::ItemKind::Decoy(dusk_core::Decoy {
+            wind: 20,
+            delay: 100,
+            every: 20,
+            lasts: 900,
+            noise: 14,
+        }),
+        "2 s to wind, 10 before it starts, every 2 for a minute and a half, heard 14 tiles off"
+    );
+    let recipe = defs.recipes.iter().find(|r| r.id == "clatterbox").unwrap();
+    assert_eq!(recipe.makes, (n, 1), "made with a hammer");
+    assert!(
+        defs.loot
+            .iter()
+            .any(|t| t.entries.iter().any(|e| e.item == n)),
+        "and found"
+    );
+    let loud = r#"
+[[item]]
+id = "foghorn"
+name = "foghorn"
+weight = 1.0
+decoy = { wind = 1.0, delay = 0.0, every = 1.0, lasts = 10.0, noise = 60 }
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/horns.toml", loud));
+    let err = load(&folder("decoy", &files)).unwrap_err();
+    assert!(err.message.contains("\"foghorn\""), "{err}");
+}
+
+#[test]
 fn wet_and_cold_load_and_a_shiver_that_saves_breath_is_refused() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let c = data.rules.cold;

@@ -57,6 +57,9 @@ struct ItemFile {
     /// A bag, worn on the back (`bag.rs` in the core).
     #[serde(default)]
     bag: Option<BagFile>,
+    /// A decoy, wound and set down to rattle (`decoy.rs` in the core).
+    #[serde(default)]
+    decoy: Option<DecoyFile>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -231,6 +234,41 @@ fn bag(file: &Path, id: &str, b: &BagFile) -> Result<ItemKind, DataError> {
     Ok(ItemKind::Bag(dusk_core::Bag {
         capacity: (b.holds * 1000.0).round() as u32,
         reduce: (b.lighter * 1000.0).round() as u32,
+    }))
+}
+
+/// A decoy: seconds to wind it and set it down, before it starts, between rattles and in all;
+/// and the tiles each rattle is heard.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DecoyFile {
+    wind: f64,
+    delay: f64,
+    every: f64,
+    lasts: f64,
+    noise: i32,
+}
+
+fn decoy(file: &Path, id: &str, d: &DecoyFile) -> Result<ItemKind, DataError> {
+    let sane = d.wind > 0.0 && d.every >= 0.5 && d.lasts >= d.every && (1..=40).contains(&d.noise);
+    if !sane {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a decoy takes some time to wind, rattles every half second or less \
+                 often, at least once, and is heard 1 to 40 tiles off"
+            ),
+        ));
+    }
+    let time = |what: &str, s: f64| -> Result<u32, DataError> {
+        Ok(ticks(file, &format!("item {id:?}: decoy.{what}"), s)? as u32)
+    };
+    Ok(ItemKind::Decoy(dusk_core::Decoy {
+        wind: time("wind", d.wind)?,
+        delay: time("delay", d.delay)?,
+        every: time("every", d.every)?,
+        lasts: time("lasts", d.lasts)?,
+        noise: d.noise,
     }))
 }
 
@@ -420,12 +458,13 @@ pub(crate) fn load_defs(
                 i.bow.is_some(),
                 i.armour.is_some(),
                 i.bag.is_some(),
+                i.decoy.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour and bag",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour, bag and decoy",
                         i.id
                     ),
                 ));
@@ -512,6 +551,8 @@ pub(crate) fn load_defs(
                 crate::armour::armour(&file, &i.id, a)?
             } else if let Some(b) = &i.bag {
                 bag(&file, &i.id, b)?
+            } else if let Some(d) = &i.decoy {
+                decoy(&file, &i.id, d)?
             } else if i.oil {
                 ItemKind::Oil
             } else if i.holy {

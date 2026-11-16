@@ -510,6 +510,10 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         } => (THORNED, Some(who), Some(target), at(target), damage),
         // A spear's blow drove it back a tile (`edge.rs`): where it stands now.
         Event::DrivenBack { who, target } => (DRIVEN_BACK, Some(who), Some(target), at(target), 0),
+        // A decoy set down, wound (`decoy.rs`): where, and the seconds before it starts.
+        Event::DecoySet { who, at: p, delay } => {
+            (DECOY_SET, Some(who), None, (p.x, p.y), (delay / 10) as i32)
+        }
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
@@ -1273,6 +1277,7 @@ impl DuskWorld {
                 ItemKind::Holy => item::HOLY,
                 ItemKind::Armour(_) => item::ARMOUR,
                 ItemKind::Bag(_) => item::BAG,
+                ItemKind::Decoy(_) => item::DECOY,
             })
             .collect()
     }
@@ -1497,6 +1502,7 @@ impl DuskWorld {
                                 Some(ItemKind::Food { .. }) => action::EAT,
                                 Some(ItemKind::Drink { .. }) => action::DRINK,
                                 Some(ItemKind::Cure { .. }) => action::CURE,
+                                Some(ItemKind::Decoy(_)) => action::WIND,
                                 _ => action::BANDAGE,
                             }
                         }

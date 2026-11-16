@@ -80,6 +80,15 @@ skill = "carpentry"
 xp = 2.0
 
 [[recipe]]
+id = "clatterbox"     # a plank box of nails on a spring, to wind: a decoy for the dead
+makes = "clatterbox"
+uses = { plank = 1, nails = 12 }
+tools = ["hammer"]
+time = 10.0
+skill = "carpentry"
+xp = 1.5
+
+[[recipe]]
 id = "spiked_club"    # nails hammered through a cudgel's head: blunt, and it bites
 makes = "spiked_club"
 uses = { cudgel = 1, nails = 6 }

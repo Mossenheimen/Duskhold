@@ -131,6 +131,7 @@ pub mod event {
         SEARED = 113,
         THORNED = 114,
         DRIVEN_BACK = 115,
+        DECOY_SET = 116,
     }
 }
 
@@ -150,6 +151,7 @@ pub mod item {
         HOLY = 10,
         ARMOUR = 11,
         BAG = 12,
+        DECOY = 13,
     }
 }
 
@@ -204,6 +206,7 @@ pub mod action {
         TAKE_OFF = 45,
         HEAVY = 46,
         CAST = 47,
+        WIND = 48,
     }
 }
 

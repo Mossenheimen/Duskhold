@@ -42,6 +42,7 @@ items = [
   { item = "cheese", weight = 2, count = [1, 2] },
   { item = "water", weight = 2, count = [1, 3] },
   { item = "nails", weight = 2, count = [10, 40] },
+  { item = "clatterbox", weight = 1 },
   { item = "arrow", weight = 2, count = [6, 15] },
   { item = "satchel", weight = 1 },
   { item = "knapsack", weight = 1 },

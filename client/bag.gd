@@ -319,6 +319,8 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 			_button(row, "Consecrate a body", func() -> void: hallow.call())
 		Item.ARMOUR, Item.BAG:
 			_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
+		Item.DECOY:
+			_button(row, "Set", func() -> void: _dusk.use_item(slot, def))
 	if wearing:
 		_button(row, "To pockets" if in_bag else "To bag", func() -> void: _shift(slot, def, in_bag))
 	if stash.x >= 0:

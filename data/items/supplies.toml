@@ -101,6 +101,16 @@ worth = 0.05
 stack = 100
 
 [[item]]
+id = "clatterbox"
+name = "clatterbox"
+# A box of nails on a clockwork spring (decoy.rs): wound and set down, it rattles on a beat for a
+# while, and the dead that hear it go to it. Set it where you want them, and be elsewhere.
+weight = 0.6
+worth = 6
+stack = 3
+decoy = { wind = 2.0, delay = 10.0, every = 2.0, lasts = 90.0, noise = 14 }   # seconds; tiles heard
+
+[[item]]
 id = "plank"
 name = "plank"
 weight = 2.0

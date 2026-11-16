@@ -408,6 +408,7 @@ One table of how things act on each other, written before the content, so the ga
 - **Inside:** a bed (sleep is how you rest; sleeping somewhere unsafe is how you die), storage, a fire or stove, workbenches (smithing, alchemy, scribing), a rain barrel or a well, a garden (food over weeks), traps and noise-makers.
 - **Each region needs a different base:**
   - Hushlands: barricades and strong doors (they thump), decoy noise-makers to draw them off, a pyre for the dead;
+    - *(built 2026-11-16)* **the clatterbox,** the first decoy: a box of nails on a clockwork spring, made from a plank and twelve nails with a hammer (Carpentry) or found on a store's shelves. Wound (2 s) and set down where you stand, it starts 10 s later, rattling every 2 s for a minute and a half, heard 14 tiles off; the dead that hear it go to it, as to any sound, and mill about where it lies. Set it across the street from your door and be inside when it starts. Taken up, it stops; run down, it lies there to be wound again. Its rattle is a sound like any: walls muffle it, rain carries it less far, a Silence hushes it, and it wakes you if you sleep near it;
   - Warren Hills: locks, hidden stashes and lookouts (they steal, and they scout), lights along the walls;
   - Webwood: cleared ground around it and firebreaks; webs grow on the walls overnight;
   - Wolfmark: food sealed away (they smell it), fire, stone, warmth;

@@ -473,6 +473,12 @@ pub enum Event {
         who: ActorId,
         target: ActorId,
     },
+    /// `who` wound a decoy and set it down on `at`: it starts in `delay` ticks (`decoy.rs`).
+    DecoySet {
+        who: ActorId,
+        at: TilePos,
+        delay: u32,
+    },
     /// `who` ran out of breath.
     Exhausted {
         who: ActorId,
@@ -1003,6 +1009,8 @@ pub struct World {
     /// The plants picked bare (`forage.rs`), by tile: the plant's fixture, and the tick it
     /// grows back. Ordered, for the hash.
     pub(crate) regrowing: BTreeMap<TilePos, (u16, u64)>,
+    /// The decoys set down and wound (`decoy.rs`), by tile. Ordered, for the hash.
+    pub(crate) decoys: BTreeMap<TilePos, crate::decoy::Ticking>,
 }
 
 impl World {
@@ -1044,6 +1052,7 @@ impl World {
             heavy: false,
             wards: BTreeMap::new(),
             regrowing: BTreeMap::new(),
+            decoys: BTreeMap::new(),
         }
     }
 
@@ -1245,6 +1254,7 @@ impl World {
         self.hearths.hash(&mut h);
         self.wards.hash(&mut h);
         self.regrowing.hash(&mut h);
+        self.decoys.hash(&mut h);
         for (id, a) in self.actors.iter() {
             id.hash(&mut h);
             a.hash(&mut h);
@@ -1334,6 +1344,8 @@ impl World {
             };
             strides.push((id, stride));
         }
+        // The decoys rattle, heard on this tick's pass (`decoy.rs`).
+        self.rattle_decoys();
         self.hear(&ids);
         // Heard, this tick's sounds are done with. One made from here on (a groan, as a creature
         // thinks) is heard on the next tick.

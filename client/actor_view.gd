@@ -53,6 +53,7 @@ const POSES := {
 	Action.BOARD: [-8.0, 1.0, NO_GLOW],  # Carpentry: at the door, hammering
 	Action.UNBOARD: [-8.0, 1.0, NO_GLOW],
 	Action.CRAFT: [-15.0, 1.0, NO_GLOW],  # bent over what's being made
+	Action.WIND: [-25.0, 0.8, NO_GLOW],  # crouched, winding a decoy to set it down
 }
 const FIRE := Look.EMBER
 const CINDERS := Look.ASH
