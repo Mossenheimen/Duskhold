@@ -2043,6 +2043,36 @@ decoy = { wind = 1.0, delay = 0.0, every = 1.0, lasts = 10.0, noise = 60 }
 }
 
 #[test]
+fn doors_and_walls_of_your_own_load_made_by_hand_and_a_piece_of_nothing_is_refused() {
+    use dusk_core::{ItemKind, Piece};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    for (id, piece) in [("door", Piece::Door), ("plank_wall", Piece::Wall)] {
+        let n = defs.items.iter().position(|i| i.id == id).unwrap() as u16;
+        assert_eq!(defs.items[usize::from(n)].kind, ItemKind::Piece(piece));
+        let recipe = defs.recipes.iter().find(|r| r.id == id).unwrap();
+        assert_eq!(recipe.makes, (n, 1), "{id} is made by hand");
+    }
+    let b = data.rules.building;
+    assert_eq!(
+        (b.time, b.wall),
+        (100, 800),
+        "10 s to put up; a wall takes 80"
+    );
+    let odd = r#"
+[[item]]
+id = "window_frame"
+name = "window frame"
+weight = 5.0
+piece = "window"
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/frames.toml", odd));
+    let err = load(&folder("piece", &files)).unwrap_err();
+    assert!(err.message.contains("\"window_frame\""), "{err}");
+}
+
+#[test]
 fn wet_and_cold_load_and_a_shiver_that_saves_breath_is_refused() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let c = data.rules.cold;

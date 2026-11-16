@@ -123,6 +123,9 @@ func build_walls(low_walls: bool) -> void:
 					[SILL, SILL + SHARDS, "glass"], [WINDOW_TOP - SHARDS, WINDOW_TOP, "glass"]]
 			Edge.FENCE:
 				pieces = [[0.0, FENCE_HEIGHT, "fence"]]
+			Edge.PLANK_WALL:
+				# A wall of planks you put up (build.rs): a door's wood, the wall's full height.
+				pieces = [[0.0, WALL_HEIGHT, "door"]]
 		for piece in pieces:
 			var bottom: float = piece[0]
 			var top := minf(piece[1], height)

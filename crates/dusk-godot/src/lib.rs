@@ -23,8 +23,8 @@ use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
     ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
     Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoDoor, NoFaith,
-    NoFire, NoSleep, NoStash, NoTake, Part, Power, Remains, Repair, Rise, Skill, SpellKind, Tend,
-    TilePos, View, World, Wound, WoundKind, demo,
+    NoFire, NoPutUp, NoSleep, NoStash, NoTake, Part, Piece, Power, Remains, Repair, Rise, Skill,
+    SpellKind, Tend, TilePos, View, World, Wound, WoundKind, demo,
 };
 use dusk_data::Data;
 use godot::prelude::*;
@@ -224,6 +224,12 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
             )
         }
         Event::DoorBroke { at: p, side: s } => (DOOR_BROKE, None, None, (p.x, p.y), side(s)),
+        // A wall of planks, beaten through (`build.rs`): the edge's side, as a door's.
+        Event::WallBroke { at: p, side: s } => (WALL_BROKE, None, None, (p.x, p.y), side(s)),
+        // A door (1) or a wall of planks (0) put up on the edge (`build.rs`).
+        Event::PutUp {
+            who, at: p, door, ..
+        } => (PUT_UP, Some(who), None, (p.x, p.y), i32::from(door)),
         Event::DraggedDown { who, holders } => {
             (DRAGGED_DOWN, Some(who), None, at(who), holders as i32)
         }
@@ -614,6 +620,7 @@ fn edge_code(e: Edge) -> i32 {
         Edge::Window { open: false, .. } => edge::WINDOW_SHUT,
         Edge::Window { open: true, .. } => edge::WINDOW_OPEN,
         Edge::Fence => edge::FENCE,
+        Edge::PlankWall => edge::PLANK_WALL,
     };
     kind + edge::BOARD * i32::from(e.boards())
 }
@@ -939,7 +946,12 @@ impl DuskWorld {
         let Some(world) = &self.world else {
             return PackedByteArray::new();
         };
-        let backed = |e: Edge| matches!(e, Edge::Wall | Edge::Window { .. } | Edge::Fence);
+        let backed = |e: Edge| {
+            matches!(
+                e,
+                Edge::Wall | Edge::PlankWall | Edge::Window { .. } | Edge::Fence
+            )
+        };
         let origin = ChunkPos { x: cx, y: cy }.origin(0);
         let mut out = Vec::with_capacity((CHUNK_SIZE * CHUNK_SIZE) as usize);
         for y in 0..CHUNK_SIZE {
@@ -1282,6 +1294,7 @@ impl DuskWorld {
                 ItemKind::Armour(_) => item::ARMOUR,
                 ItemKind::Bag(_) => item::BAG,
                 ItemKind::Decoy(_) => item::DECOY,
+                ItemKind::Piece(_) => item::PIECE,
             })
             .collect()
     }
@@ -1507,6 +1520,7 @@ impl DuskWorld {
                                 Some(ItemKind::Drink { .. }) => action::DRINK,
                                 Some(ItemKind::Cure { .. }) => action::CURE,
                                 Some(ItemKind::Decoy(_)) => action::WIND,
+                                Some(ItemKind::Piece(_)) => action::BUILD,
                                 _ => action::BANDAGE,
                             }
                         }
@@ -2817,16 +2831,19 @@ impl DuskWorld {
     }
 
     /// Whether you can mend the door or window beside you now, and what (`barricade.rs`): 1 a
-    /// beaten board to re-nail, 2 the door itself; else why not, as `board_check`'s: -1 nothing
-    /// to mend beside you, -4 no hammer, -5 no plank (the door's), -6 not enough nails.
+    /// beaten board to re-nail, 2 the door itself, 3 a wall of planks; else why not, as
+    /// `board_check`'s: -1 nothing to mend beside you, -4 no hammer, -5 no plank (a door's or a
+    /// wall's), -6 not enough nails.
     #[func]
     fn repair_check(&self) -> i32 {
         let Some(world) = &self.world else { return -1 };
         let Some(me) = world.character() else {
             return -1;
         };
+        let pos = world.actor(me).map_or(TilePos::new(0, 0, 0), |a| a.pos);
         match world.can_repair(me) {
             Ok((_, Repair::Board(_))) => 1,
+            Ok((side, Repair::Door)) if world.grid.edge(pos, side) == Edge::PlankWall => 3,
             Ok((_, Repair::Door)) => 2,
             Err(NoBoard::NoHammer) => -4,
             Err(NoBoard::NoPlank) => -5,
@@ -2855,6 +2872,28 @@ impl DuskWorld {
     #[func]
     fn repair(&mut self) {
         self.act(Intent::Repair);
+    }
+
+    /// Whether item `def` (a door or a wall of planks, `build.rs`) can be put up on the side you
+    /// face now: 1 a door, 0 a wall; else why not: -1 no open edge there (or it isn't one to put
+    /// up), -2 a door goes only in a gap framed at both ends, -3 someone's stepping through,
+    /// -4 no hammer.
+    #[func]
+    fn put_up_check(&self, def: i32) -> i32 {
+        let Some(world) = &self.world else { return -1 };
+        let Some(me) = world.character() else {
+            return -1;
+        };
+        let Some(ItemKind::Piece(piece)) = world.defs.item(def as u16).map(|d| &d.kind) else {
+            return -1;
+        };
+        match world.can_put_up(me, *piece) {
+            Ok(_) => i32::from(*piece == Piece::Door),
+            Err(NoPutUp::Nothing) => -1,
+            Err(NoPutUp::NoGap) => -2,
+            Err(NoPutUp::Crossing) => -3,
+            Err(NoPutUp::NoHammer) => -4,
+        }
     }
 
     /// The recipes, two lines each, in the order `craft_checks` and `craft` use: what it makes

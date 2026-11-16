@@ -337,6 +337,7 @@ fn draw_map(world: &World, width: i32, height: i32, scale: usize, path: &Path) {
         Edge::Door { .. } => Some([170, 110, 50]),
         Edge::Window { .. } => Some([140, 200, 235]),
         Edge::Fence => Some([190, 160, 110]),
+        Edge::PlankWall => Some([150, 105, 60]),
     };
     for ty in 0..height {
         for tx in 0..width {
@@ -500,6 +501,16 @@ fn describe(w: &World, e: Event) -> String {
             format!("{} beat on the door by ({}, {})", name(who), at.x, at.y)
         }
         Event::DoorBroke { at, .. } => format!("the door by ({}, {}) gave way", at.x, at.y),
+        Event::WallBroke { at, .. } => {
+            format!("the wall of planks by ({}, {}) gave way", at.x, at.y)
+        }
+        Event::PutUp { who, at, door, .. } => format!(
+            "{} put up {} by ({}, {})",
+            name(who),
+            if door { "a door" } else { "a wall of planks" },
+            at.x,
+            at.y
+        ),
         Event::DraggedDown { who, holders } => {
             format!("{holders} of them dragged {} down", name(who))
         }

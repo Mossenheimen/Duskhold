@@ -98,6 +98,9 @@ pub enum Edge {
     },
     /// Stops walking, but not sight or sound: it's climbed over (`climb.rs`).
     Fence,
+    /// A wall of planks you put up (`build.rs`): it stops walking and sight as a wall does, but
+    /// the dead beat on it as on a shut door, and past its strength it gives way.
+    PlankWall,
 }
 
 impl Edge {
@@ -145,11 +148,14 @@ impl Edge {
         )
     }
 
-    /// Does it stop sight? Walls, shut doors and boards do; glass doesn't.
+    /// Does it stop sight? Walls, walls of planks, shut doors and boards do; glass doesn't.
     pub fn blocks_sight(self) -> bool {
         matches!(
             self,
-            Edge::Wall | Edge::Door { open: false, .. } | Edge::Window { boards: 1.., .. }
+            Edge::Wall
+                | Edge::PlankWall
+                | Edge::Door { open: false, .. }
+                | Edge::Window { boards: 1.., .. }
         )
     }
 
@@ -158,13 +164,23 @@ impl Edge {
     }
 
     /// Is something across it that a blow beats on (`World::thump`)? A shut door; a window
-    /// shut on its glass, or with boards across it.
+    /// shut on its glass, or with boards across it; a wall of planks.
     pub fn beatable(self) -> bool {
         match self {
             Edge::Door { open, .. } => !open,
             Edge::Window { open, boards, .. } => !open || boards > 0,
+            Edge::PlankWall => true,
             _ => false,
         }
+    }
+
+    /// Does it frame a doorway at its end (`build.rs`): a wall, a wall of planks, a door or a
+    /// window? A fence doesn't.
+    pub fn frames(self) -> bool {
+        matches!(
+            self,
+            Edge::Wall | Edge::PlankWall | Edge::Door { .. } | Edge::Window { .. }
+        )
     }
 
     /// The boards across a door or window (0 for anything else).

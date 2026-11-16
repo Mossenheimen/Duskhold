@@ -95,6 +95,8 @@ pub struct Rules {
     pub heavy: crate::combat::Heavy,
     /// Each class of weapon's own edge (`edge.rs`): none, but for the data's.
     pub edges: crate::edge::Edges,
+    /// Doors and walls of your own (`build.rs`).
+    pub building: crate::build::Building,
     /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
     pub strength: crate::fitness::StrengthRules,
     pub fitness: crate::fitness::FitnessRules,
@@ -332,6 +334,7 @@ impl Default for Rules {
             climb: crate::climb::ClimbRules::default(),
             heavy: crate::combat::Heavy::default(),
             edges: crate::edge::Edges::default(),
+            building: crate::build::Building::default(),
             strength: crate::fitness::StrengthRules::default(),
             fitness: crate::fitness::FitnessRules::default(),
         }
@@ -615,12 +618,25 @@ pub enum Event {
         side: Dir8,
         boards: u8,
     },
-    /// `who` mended the door or window on the edge: re-nailed a board, or (`door`) the door.
+    /// `who` mended the door or window on the edge: re-nailed a board, or (`door`) the door, or
+    /// the wall of planks, itself.
     Repaired {
         who: ActorId,
         at: TilePos,
         side: Dir8,
         door: bool,
+    },
+    /// `who` put up a door (`door`) or a wall of planks on the edge (`build.rs`).
+    PutUp {
+        who: ActorId,
+        at: TilePos,
+        side: Dir8,
+        door: bool,
+    },
+    /// A wall of planks was beaten through, and gave way (`build.rs`).
+    WallBroke {
+        at: TilePos,
+        side: Dir8,
     },
     /// A board was beaten through; `boards` are left.
     BoardBroke {
@@ -1885,8 +1901,9 @@ impl World {
     }
 
     /// The side of `from` with a shut door the dead may beat on, going `dir` (for a diagonal,
-    /// either of its sides): not one that's warded (`faith.rs`). One that `climbs` beats on a
-    /// window in its way too, shut or boarded: once it's broken, it climbs in (`climb.rs`).
+    /// either of its sides): not one that's warded (`faith.rs`); or a wall of planks
+    /// (`build.rs`). One that `climbs` beats on a window in its way too, shut or boarded: once
+    /// it's broken, it climbs in (`climb.rs`).
     fn in_the_way(&self, from: TilePos, dir: Dir8, climbs: bool) -> Option<Dir8> {
         let sides = match dir.split() {
             Some((a, b)) => [Some(a), Some(b)],
@@ -1895,6 +1912,7 @@ impl World {
         sides.into_iter().flatten().find(|&d| {
             let edge = self.grid.edge(from, d);
             (edge.is_shut_door() && !self.is_warded(from, d))
+                || edge == Edge::PlankWall
                 || (climbs && matches!(edge, Edge::Window { .. }) && edge.beatable())
         })
     }

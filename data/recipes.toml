@@ -80,6 +80,24 @@ skill = "carpentry"
 xp = 2.0
 
 [[recipe]]
+id = "door"           # planks nailed to a frame: to hang in a gap where a door gave way
+makes = "door"
+uses = { plank = 4, nails = 10 }
+tools = ["hammer"]
+time = 30.0
+skill = "carpentry"
+xp = 3.0
+
+[[recipe]]
+id = "plank_wall"     # planks nailed edge to edge: a wall you put up, that the dead can beat down
+makes = "plank_wall"
+uses = { plank = 3, nails = 8 }
+tools = ["hammer"]
+time = 25.0
+skill = "carpentry"
+xp = 2.5
+
+[[recipe]]
 id = "clatterbox"     # a plank box of nails on a spring, to wind: a decoy for the dead
 makes = "clatterbox"
 uses = { plank = 1, nails = 12 }

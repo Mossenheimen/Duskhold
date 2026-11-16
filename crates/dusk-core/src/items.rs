@@ -101,6 +101,8 @@ pub enum ItemKind {
     Bag(crate::bag::Bag),
     /// Wound and set down, it rattles on a beat for a while, drawing the dead (`decoy.rs`).
     Decoy(crate::decoy::Decoy),
+    /// A door or a wall of planks, to put up on the side you face (`build.rs`).
+    Piece(crate::build::Piece),
     /// Everything else: materials, junk.
     Other,
 }
@@ -756,6 +758,11 @@ impl World {
             self.set_decoy(id, slot, def, *decoy);
             return;
         }
+        // A door or a wall is put up on the side you face (`build.rs`).
+        if let Some(ItemKind::Piece(piece)) = defs.item(def).map(|d| &d.kind) {
+            self.put_up(id, slot, def, *piece);
+            return;
+        }
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -842,6 +849,9 @@ impl World {
             }
             (true, ItemKind::Cure { time }) if a.body.fever.is_some() => Some((*time).max(1)),
             (true, ItemKind::Decoy(d)) => Some(d.wind.max(1)),
+            (true, ItemKind::Piece(p)) if self.can_put_up(id, *p).is_ok() => {
+                Some(self.rules.building.time.max(1))
+            }
             _ => None,
         };
         ticks.map(|t| t + reach)

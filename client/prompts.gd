@@ -146,7 +146,7 @@ static func here(dusk: Node, creatures: PackedStringArray, fixtures: PackedStrin
 	var mend: int = dusk.repair_check()
 	if mend != -1:
 		var beaten: int = dusk.door_beaten()
-		var words := "Re-nail the board" if mend == 1 else "Mend the door"
+		var words: String = {1: "Re-nail the board", 3: "Mend the wall"}.get(mend, "Mend the door")
 		if mend != 1 and beaten > 0:
 			words += " (%d%% beaten)" % maxi(1, beaten / 10)
 		if mend > 0:

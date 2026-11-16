@@ -19,7 +19,8 @@ impl Muffling {
             | Edge::Window { open: true, .. }
             | Edge::Fence => 0,
             Edge::Wall => self.wall,
-            Edge::Door { open: false, .. } => self.shut_door,
+            // Planks are a door's thickness, not a wall's.
+            Edge::Door { open: false, .. } | Edge::PlankWall => self.shut_door,
             Edge::Window { open: false, .. } => self.shut_window,
         }
     }

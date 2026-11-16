@@ -133,6 +133,8 @@ pub mod event {
         DRIVEN_BACK = 115,
         DECOY_SET = 116,
         REPAIRED = 117,
+        PUT_UP = 118,
+        WALL_BROKE = 119,
     }
 }
 
@@ -153,6 +155,7 @@ pub mod item {
         ARMOUR = 11,
         BAG = 12,
         DECOY = 13,
+        PIECE = 14,
     }
 }
 
@@ -209,6 +212,7 @@ pub mod action {
         CAST = 47,
         WIND = 48,
         REPAIR = 49,
+        BUILD = 50,
     }
 }
 
@@ -291,6 +295,7 @@ pub mod edge {
         WINDOW_OPEN = 5,
         FENCE = 6,
         WINDOW_BROKEN = 7,
+        PLANK_WALL = 8,
     }
     /// Added for each board on an edge: kind & 15 is the kind, kind >> 4 the boards.
     pub const BOARD: i32 = 16;

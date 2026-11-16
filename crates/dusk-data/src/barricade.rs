@@ -47,6 +47,30 @@ pub(crate) fn to_barricade(file: &Path, b: &BarricadeFile) -> Result<Barricade, 
     })
 }
 
+/// rules.toml's [building]: doors and walls of your own (`build.rs` in the core).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BuildingFile {
+    /// Seconds to put a door or a wall up.
+    time: f64,
+    /// Points of beating a wall of planks takes before it gives way.
+    wall: f64,
+}
+
+/// Building's numbers.
+pub(crate) fn to_building(file: &Path, b: &BuildingFile) -> Result<dusk_core::Building, DataError> {
+    if b.wall <= 0.0 || b.time <= 0.0 {
+        return Err(fail(
+            file,
+            "building: time is seconds above 0, and a wall's strength points above 0",
+        ));
+    }
+    Ok(dusk_core::Building {
+        time: (ticks(file, "building.time", b.time)? as u32).max(1),
+        wall: points(b.wall),
+    })
+}
+
 /// The items boarding up takes, each of them checked.
 pub(crate) fn to_boarding(
     file: &Path,

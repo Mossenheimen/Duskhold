@@ -315,6 +315,7 @@ fn edge_from(ch: char, wall: char) -> Option<Edge> {
         'w' => Edge::window(true),
         'x' => Edge::broken_window(),
         'f' => Edge::Fence,
+        'P' => Edge::PlankWall,
         c if c == wall => Edge::Wall,
         _ => return None,
     })
@@ -331,6 +332,7 @@ fn edge_symbol(edge: Edge, wall: char) -> char {
         Edge::Window { open: false, .. } => 'W',
         Edge::Window { open: true, .. } => 'w',
         Edge::Fence => 'f',
+        Edge::PlankWall => 'P',
     }
 }
 

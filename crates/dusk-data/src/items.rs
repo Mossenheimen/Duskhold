@@ -60,6 +60,9 @@ struct ItemFile {
     /// A decoy, wound and set down to rattle (`decoy.rs` in the core).
     #[serde(default)]
     decoy: Option<DecoyFile>,
+    /// Something to put up (`build.rs` in the core): "door" or "wall".
+    #[serde(default)]
+    piece: Option<String>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -459,12 +462,13 @@ pub(crate) fn load_defs(
                 i.armour.is_some(),
                 i.bag.is_some(),
                 i.decoy.is_some(),
+                i.piece.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour, bag and decoy",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour, bag, decoy and piece",
                         i.id
                     ),
                 ));
@@ -553,6 +557,17 @@ pub(crate) fn load_defs(
                 bag(&file, &i.id, b)?
             } else if let Some(d) = &i.decoy {
                 decoy(&file, &i.id, d)?
+            } else if let Some(p) = &i.piece {
+                ItemKind::Piece(match p.as_str() {
+                    "door" => dusk_core::Piece::Door,
+                    "wall" => dusk_core::Piece::Wall,
+                    _ => {
+                        return Err(fail(
+                            &file,
+                            format!("item {:?}: piece is \"door\" or \"wall\"", i.id),
+                        ));
+                    }
+                })
             } else if i.oil {
                 ItemKind::Oil
             } else if i.holy {

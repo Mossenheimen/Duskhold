@@ -466,6 +466,14 @@ noise = 12            # ...heard this far, in tiles, as you start and as you fin
 remove = 3.0          # seconds to pry one off
 remove_noise = 6
 
+[building]
+# Doors and walls of your own (build.rs): made first from planks and nails (recipes.toml), then put
+# up with a hammer on the side you face, as loud as boarding up. A wall of planks goes on any open
+# edge; the dead beat on it as on a shut door, and it gives way past its strength. A door goes only
+# in a gap framed at both ends (where one gave way, or one left in a line of your walls).
+time = 10.0           # seconds to put one up
+wall = 80             # what a wall of planks takes before it gives way (a door takes 60)
+
 [faith]
 # The Cleric's (classes.toml: faith, turns; talents.toml). Faith, in points (a Cleric holds 100),
 # is spent on what's below, and comes back only by prayer at a shrine (fixtures.toml's shrine: an

@@ -122,6 +122,8 @@ enum Event {
 	DRIVEN_BACK = 115,
 	DECOY_SET = 116,
 	REPAIRED = 117,
+	PUT_UP = 118,
+	WALL_BROKE = 119,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).
@@ -140,6 +142,7 @@ enum Item {
 	ARMOUR = 11,
 	BAG = 12,
 	DECOY = 13,
+	PIECE = 14,
 }
 
 ## An actor's timed action (DuskWorld.actor_actions(): four numbers an actor).
@@ -193,6 +196,7 @@ enum Action {
 	CAST = 47,
 	WIND = 48,
 	REPAIR = 49,
+	BUILD = 50,
 }
 
 ## A moodle (DuskWorld.character_moodles(): which, then its level).
@@ -245,6 +249,7 @@ enum Edge {
 	WINDOW_OPEN = 5,
 	FENCE = 6,
 	WINDOW_BROKEN = 7,
+	PLANK_WALL = 8,
 }
 
 ## A spell's kind (DuskWorld.spell_info(), spell_zones()).

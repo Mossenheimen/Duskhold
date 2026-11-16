@@ -591,6 +591,9 @@ struct RulesFile {
     /// Optional: a data set with no [barricade] can't board anything up.
     #[serde(default)]
     barricade: Option<barricade::BarricadeFile>,
+    /// Optional: with no [building], doors and walls of your own use the core's defaults.
+    #[serde(default)]
+    building: Option<barricade::BuildingFile>,
     /// Optional: with no [fire], fires use the core's defaults.
     #[serde(default)]
     fire: Option<fire::FireFile>,
@@ -1328,6 +1331,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(b) = &r.barricade {
         rules.barricade = barricade::to_barricade(file, b)?;
+    }
+    if let Some(b) = &r.building {
+        rules.building = barricade::to_building(file, b)?;
     }
     if let Some(f) = &r.fire {
         rules.fire = fire::to_fire(file, f)?;

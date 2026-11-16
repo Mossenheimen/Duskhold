@@ -127,7 +127,7 @@ impl World {
             .chain([Dir8::N, Dir8::E, Dir8::S, Dir8::W])
     }
 
-    fn has_hammer(&self, id: ActorId) -> bool {
+    pub(crate) fn has_hammer(&self, id: ActorId) -> bool {
         let (Some(a), Some(b)) = (self.actors.get(id), &self.defs.boarding) else {
             return false;
         };
@@ -293,14 +293,16 @@ impl World {
         });
     }
 
-    /// How beaten the door on side `dir` of `pos` is: the harm it's taken, per mille of what it
-    /// takes before it gives way (0: whole, or no door).
+    /// How beaten the door, or the wall of planks (`build.rs`), on side `dir` of `pos` is: the
+    /// harm it's taken, per mille of what it takes before it gives way (0: whole, or neither).
     pub fn door_beaten(&self, pos: TilePos, dir: Dir8) -> u32 {
-        if !matches!(self.grid.edge(pos, dir), Edge::Door { .. }) {
-            return 0;
-        }
+        let strength = match self.grid.edge(pos, dir) {
+            Edge::Door { .. } => self.rules.combat.door_strength,
+            Edge::PlankWall => self.rules.building.wall,
+            _ => return 0,
+        };
         let taken = self.door_damage.get(&edge_owner(pos, dir)).copied();
-        let strength = i64::from(self.rules.combat.door_strength.max(1));
+        let strength = i64::from(strength.max(1));
         (i64::from(taken.unwrap_or(0).max(0)) * 1000 / strength).min(1000) as u32
     }
 

@@ -321,6 +321,8 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 			_button(row, "Wear", func() -> void: _dusk.wear(slot, def))
 		Item.DECOY:
 			_button(row, "Set", func() -> void: _dusk.use_item(slot, def))
+		Item.PIECE:
+			_button(row, "Put up", func() -> void: _put_up(slot, def))
 	if wearing:
 		_button(row, "To pockets" if in_bag else "To bag", func() -> void: _shift(slot, def, in_bag))
 	if stash.x >= 0:
@@ -472,6 +474,21 @@ func _take_cure(slot: int, def: int) -> void:
 		say.call("You've no fever to cure. Keep it: a ghoul's bite brings one.")
 	else:
 		_dusk.use_item(slot, def)
+
+
+## A door or a wall of planks put up on the side you face (build.rs), or why not.
+func _put_up(slot: int, def: int) -> void:
+	match _dusk.put_up_check(def):
+		-1:
+			say.call("Face an open side of your tile to put it up on: there's a wall, a door or a window where you face.")
+		-2:
+			say.call("A door hangs only in a gap in a wall: face one framed at both ends, as where a door gave way.")
+		-3:
+			say.call("Not while someone's stepping through.")
+		-4:
+			say.call("You need a hammer to put it up.")
+		_:
+			_dusk.use_item(slot, def)
 
 
 func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array,

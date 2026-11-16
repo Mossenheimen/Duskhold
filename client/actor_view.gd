@@ -53,6 +53,7 @@ const POSES := {
 	Action.BOARD: [-8.0, 1.0, NO_GLOW],  # Carpentry: at the door, hammering
 	Action.UNBOARD: [-8.0, 1.0, NO_GLOW],
 	Action.REPAIR: [-8.0, 1.0, NO_GLOW],  # at the door, hammering, as boarding is
+	Action.BUILD: [-8.0, 1.0, NO_GLOW],  # putting a door or a wall up, hammering
 	Action.CRAFT: [-15.0, 1.0, NO_GLOW],  # bent over what's being made
 	Action.WIND: [-25.0, 0.8, NO_GLOW],  # crouched, winding a decoy to set it down
 }

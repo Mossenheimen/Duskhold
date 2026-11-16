@@ -119,6 +119,24 @@ stack = 5
 fuel = 1.0            # burns, at a pinch: better nailed across a window
 
 [[item]]
+id = "door"
+name = "door"
+# Planks nailed to a frame (build.rs): hung with a hammer in a gap in a wall you face, one framed at
+# both ends (where a door gave way). Then it's a door like any.
+weight = 12.0
+worth = 8
+piece = "door"
+
+[[item]]
+id = "plank_wall"
+name = "wall of planks"
+# Planks nailed edge to edge (build.rs): put up with a hammer on any open side you face. It stops
+# the dead as a wall does, but they beat on it as on a door, and it gives way past its strength.
+weight = 10.0
+worth = 6
+piece = "wall"
+
+[[item]]
 id = "firewood"
 name = "split log"
 weight = 1.5

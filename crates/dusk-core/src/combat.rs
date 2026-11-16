@@ -858,12 +858,23 @@ impl World {
             self.beat_glass(id, pos, dir, harm);
             return;
         }
+        // A door, or a wall of planks (`build.rs`), each with its own strength.
+        let wall = self.grid.edge(pos, dir) == Edge::PlankWall;
+        let strength = if wall {
+            self.rules.building.wall
+        } else {
+            c.door_strength
+        };
         let taken = self.door_damage.entry((at, side)).or_insert(0);
         *taken += harm;
-        if *taken >= c.door_strength {
+        if *taken >= strength {
             self.door_damage.remove(&(at, side));
             self.grid.set_edge(pos, dir, Edge::Open);
-            self.events.push(Event::DoorBroke { at, side });
+            self.events.push(if wall {
+                Event::WallBroke { at, side }
+            } else {
+                Event::DoorBroke { at, side }
+            });
         }
     }
 

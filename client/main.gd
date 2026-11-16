@@ -94,6 +94,7 @@ const DOING := {
 	Action.BOARD: "Boarding it up",
 	Action.UNBOARD: "Prying a board off",
 	Action.REPAIR: "Mending it",
+	Action.BUILD: "Putting it up",
 	Action.STASH: "Making it your stash",
 	Action.PUT: "Putting it away",
 	Action.CURE: "Taking the cure",
@@ -1342,7 +1343,15 @@ func _read_events() -> void:
 					hud.say("You pried a board off: %d left." % extra)
 			Event.REPAIRED:
 				if who == me:
-					hud.say("You mended the door: it's whole again." if extra == 1 else "You re-nailed the board: it's as strong as you nail them.")
+					hud.say("You mended it: it's whole again." if extra == 1 else "You re-nailed the board: it's as strong as you nail them.")
+			Event.PUT_UP:
+				# A door or a wall of your own (build.rs): the edge is drawn again.
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				if who == me:
+					hud.say("You hang the door: it's shut." if extra == 1 else "You put up the wall of planks.")
+			Event.WALL_BROKE:
+				map_view.refresh_edge(Vector2i(events[i + 3], events[i + 4]))
+				hud.say("A wall of planks gave way!")
 			Event.MADE_HOME:
 				if who == me:
 					hud.say("You slept the night through. This is home now: a container under its roof can be your stash.")
@@ -2167,13 +2176,16 @@ func _run_script() -> void:
 					Input.parse_input_event(wheel)
 			"body":  # the worst-wounded part's detail, as if the mouse rested on it
 				hud.hover_worst_part()
-			"bandage", "decoy":  # the first bandage in the pack put on (the core picks the wound), or decoy set down
-				var want: int = Item.BANDAGE if action == "bandage" else Item.DECOY
+			"bandage", "decoy", "putup":  # the first bandage in the pack put on (the core picks the wound), decoy set down, or door or wall put up
+				var want: int = {"bandage": Item.BANDAGE, "decoy": Item.DECOY}.get(action, Item.PIECE)
 				var items: PackedInt32Array = dusk.character_items()
 				var kinds: PackedInt32Array = dusk.item_kinds()
 				for k in range(0, items.size() - 3, 4):
 					if items[k] < kinds.size() and kinds[items[k]] == want:
-						dusk.use_item(k / 4, items[k])
+						if want == Item.PIECE:
+							bag._put_up(k / 4, items[k])  # as its button does: says why not
+						else:
+							dusk.use_item(k / 4, items[k])
 						break
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
@@ -2418,10 +2430,10 @@ func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int)
 		Event.LIGHT_EATEN:
 			if target == me:
 				effects.light_eaten(_drawn(me, x, y))
-		Event.DOOR_BROKE, Event.BOARD_BROKE:
+		Event.DOOR_BROKE, Event.BOARD_BROKE, Event.WALL_BROKE:
 			# The edge is the tile's north or west one: between it and the tile beyond.
 			if map_view.sees(x, y) or map_view.sees(x - 1, y) or map_view.sees(x, y - 1):
-				var wood := Look.DOOR if kind == Event.DOOR_BROKE else Look.BOARD
+				var wood := Look.BOARD if kind == Event.BOARD_BROKE else Look.DOOR
 				effects.splinters(Vector3(x + 0.25, 1.0, y + 0.25), wood)
 
 
