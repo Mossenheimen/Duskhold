@@ -2351,10 +2351,10 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
         pairs(&[
             ("+25% damage", "Masterwork"),
             ("-40% wear", "Masterwork"),
-            ("+80% damage", "Cruel III"),
-            ("+67% attack speed", "Darting III"),
-            ("+25% chance to hit", "Unerring III"),
-            ("-35% breath a blow", "Poised II"),
+            ("+80(64\u{2013}96)% damage", "Cruel III"),
+            ("+67(47\u{2013}92)% attack speed", "Darting III"),
+            ("+25(20\u{2013}30)% chance to hit", "Unerring III"),
+            ("-35(28\u{2013}42)% breath a blow", "Poised II"),
         ])
     );
     // The kinds Diablo has: a body made stronger or fitter, levels in skills (the staff's own,
@@ -2368,7 +2368,10 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
     assert_eq!(
         mods(&card),
         pairs(&[
-            ("Adds 2\u{2013}4 fire damage", "Burning II"),
+            (
+                "Adds 2(1.6\u{2013}2.4) to 4(3.2\u{2013}4.8) fire damage",
+                "Burning II",
+            ),
             ("+2 to Strength", "Mighty II"),
             ("+2 to Blunt", "Seasoned II"),
             ("+3 to Arcana", "Sorcerous III"),
@@ -2382,7 +2385,10 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
     assert_eq!(
         mods(&w.card(&mace, None)),
         pairs(&[
-            ("Adds 4\u{2013}7 holy damage on the dead", "Righteous III"),
+            (
+                "Adds 4(3.2\u{2013}4.8) to 7(5.6\u{2013}8.4) holy damage on the dead",
+                "Righteous III",
+            ),
             ("+1 to Fitness", "Hale I"),
             ("+1 to Devotion", "Blessed I"),
         ])
@@ -2422,7 +2428,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
         mods(&torch),
         pairs(&[
             ("+3 tiles of light", "Bright II"),
-            ("+100% burn time", "Lasting II")
+            ("+100(67\u{2013}150)% burn time", "Lasting II")
         ])
     );
     // In the pack, set against the cudgel in hand.
@@ -2559,8 +2565,8 @@ fn the_games_armour_is_made_well_or_badly_and_its_magic_is_numbers_on_its_card()
         [
             ("+10% chance to turn blows", "Masterwork"),
             ("-40% wear", "Masterwork"),
-            ("+10% chance to turn blows", "Warded II"),
-            ("+6 warmth", "Fleeced II"),
+            ("+10(8\u{2013}12)% chance to turn blows", "Warded II"),
+            ("+6(4.8\u{2013}7.2) warmth", "Fleeced II"),
             ("+2 to Strength", "Powerful II"),
             ("+2 to Athletics", "Fleet II"),
         ]
@@ -2691,10 +2697,13 @@ fn the_games_bows_and_shields_have_their_own_magic_and_cards_in_numbers() {
         mods(&card),
         pairs(&[
             ("+25% damage", "Masterwork"),
-            ("Adds 2\u{2013}4 fire damage", "Flaming II"),
+            (
+                "Adds 2(1.6\u{2013}2.4) to 4(3.2\u{2013}4.8) fire damage",
+                "Flaming II",
+            ),
             ("+4 tiles of range", "Far-flung II"),
             ("+2 to Archery", "Hunter's II"),
-            ("-55% arrows broken", "Frugal II"),
+            ("-55(44\u{2013}66)% arrows broken", "Frugal II"),
         ])
     );
     assert!(
@@ -2730,10 +2739,10 @@ fn the_games_bows_and_shields_have_their_own_magic_and_cards_in_numbers() {
         pairs(&[
             ("+5% chance to block", "Fine"),
             ("-15% wear", "Fine"),
-            ("+10% chance to block", "Steadfast II"),
-            ("+10% chance a bash knocks down", "Spiked II"),
+            ("+10(8\u{2013}12)% chance to block", "Steadfast II"),
+            ("+10(8\u{2013}12)% chance a bash knocks down", "Spiked II",),
             ("+2 to Shield", "Sentinel's II"),
-            ("-35% breath a block", "Featherweight II"),
+            ("-35(28\u{2013}42)% breath a block", "Featherweight II"),
         ])
     );
     assert!(

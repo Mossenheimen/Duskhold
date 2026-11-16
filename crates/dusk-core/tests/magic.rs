@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use dusk_core::archery::{NoShot, Ranged};
 use dusk_core::hash::{Purpose, roll};
-use dusk_core::magic::{NONE, UNIQUE};
+use dusk_core::magic::{MIDDLE, MOST, NONE, UNIQUE};
 use dusk_core::quality::{CRUDE, FINE, MASTERWORK, PLAIN};
 use dusk_core::shield::Guard;
 use dusk_core::world::Swing;
@@ -44,6 +44,7 @@ fn magic(props: [u8; 2], curse: u8) -> Magic {
         props: [props[0], props[1], NONE, NONE],
         name: [NONE; 2],
         curse,
+        rolls: [MIDDLE; 4],
         known: false,
         curse_shown: false,
         uses: 0,
@@ -926,7 +927,7 @@ fn a_rare_has_three_or_four_properties_each_of_its_own_family_and_a_made_up_name
         let (w, _) = tiered(seed, true);
         let knife = w.store(CHEST)[0];
         assert_eq!(knife.magic.rarity, 2);
-        let props: Vec<&Property> = w.defs.properties_of(&knife).collect();
+        let props: Vec<_> = w.defs.properties_of(&knife).collect();
         counts[props.len()] += 1;
         let mut families: Vec<&str> = props.iter().map(|p| p.family_of()).collect();
         families.sort_unstable();
@@ -1867,4 +1868,68 @@ fn a_unique_shield_stings_frightens_and_fells_what_it_blocks() {
     assert!(seen.contains(&Event::Terrified { who: me, target: z }));
     assert!(seen.contains(&Event::Felled { who: me, target: z }));
     assert_eq!(w.actor(z).unwrap().body.health, 1_000_000 - 20);
+}
+
+#[test]
+fn a_tiered_propertys_numbers_roll_within_its_tier_and_its_card_gives_the_range() {
+    // A fifth either way of its data's numbers.
+    let r = dusk_core::MagicRules::default();
+    assert_eq!([r.by(0), r.by(MIDDLE), r.by(MOST)], [800, 1000, 1200]);
+    let (w, _, first) = field_with(vec![
+        Property {
+            damage: 1500,
+            family: "harm".into(),
+            tier: 2,
+            ..on(Fits::Weapon, "Keen")
+        },
+        // No tiers: it doesn't roll.
+        Property {
+            noise: 500,
+            ..on(Fits::Weapon, "Hushed")
+        },
+    ]);
+    let keen_at = |roll: u8| Item {
+        magic: Magic {
+            props: [first, first + 1, NONE, NONE],
+            rolls: [roll, 0, MIDDLE, MIDDLE],
+            known: true,
+            curse_shown: true,
+            ..magic([NONE, NONE], NONE)
+        },
+        ..Item::new(KNIFE, 1)
+    };
+    // Its harm at its tier's least, middle and most (+40%, +50%, +60%), and between; the quiet
+    // one's the same each time.
+    for (roll, harm) in [(0, 140), (MIDDLE, 150), (MOST, 160), (150, 155)] {
+        let card = w.defs.card(&keen_at(roll)).unwrap();
+        assert_eq!(card.swing.damage, (harm, harm), "{roll}");
+        assert_eq!(card.swing.noise, 5);
+    }
+    // Its card: the number as it rolled, and the tier's range after it; none after one that
+    // doesn't roll.
+    let card = w.card(&keen_at(150), None);
+    assert_eq!(
+        styled(&card, CardStyle::Mod),
+        [
+            ("+55(40\u{2013}60)% damage", "Keen II"),
+            ("-50% noise", "Hushed")
+        ]
+    );
+    // Found: each tiered property somewhere in its tier's range, the seed deciding where; one
+    // with no tiers never rolls.
+    let mut rolled = std::collections::BTreeSet::new();
+    for seed in 0..40 {
+        let (w, _) = tiered(seed, true);
+        let knife = w.store(CHEST)[0];
+        for (p, roll) in w.defs.rolls_of(&knife) {
+            match roll {
+                Some(r) => {
+                    assert!(p.tier > 0 && r <= MOST);
+                    rolled.insert(r);
+                }
+                None => assert_eq!(p.tier, 0),
+            }
+        }
+    }
+    assert!(rolled.len() > 20, "{rolled:?}");
 }

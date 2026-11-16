@@ -1,6 +1,7 @@
 //! Saves: a patch saved and loaded is the same world, and goes on the same way; a save holds
 //! only what changed; and what isn't a save of this world is refused.
 
+use dusk_core::magic::Magic;
 use dusk_core::save::{SaveError, peek};
 use dusk_core::{Dir8, Edge, Intent, Item, Part, Skill, TilePos, World, WoundKind};
 use dusk_data::{Data, default_dir, load};
@@ -29,6 +30,22 @@ fn played(data: &Data) -> (World, TilePos) {
         .expect("a front door is by the tile just inside it");
     w.grid.set_edge(at, door, Edge::door(false));
     w.put(TilePos::new(60, 130, 0), Item::new(0, 2));
+    // And a magic sword by it, its property rolled off its tier's middle (`Magic::rolls`).
+    let d = &data.defs;
+    let sword = d.items.iter().position(|i| i.id == "sword").unwrap() as u16;
+    let keen = d.properties.iter().position(|p| p.id == "keen").unwrap() as u8;
+    let mut magic = Magic {
+        rarity: 1,
+        ..Magic::MUNDANE
+    };
+    (magic.props[0], magic.rolls[0]) = (keen, 37);
+    w.put(
+        TilePos::new(60, 130, 0),
+        Item {
+            magic,
+            ..Item::new(sword, 1)
+        },
+    );
     w.wound(me, WoundKind::Laceration, Part::LeftArm);
     w.give_xp(me, Skill::Athletics, 12_345);
     w.intent(

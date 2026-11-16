@@ -172,6 +172,14 @@ pub(crate) struct MagicFile {
     count: [(u8, u8); 2],
     /// Tiles from where you come in at which finds reach the second tier, and the third.
     far: (u32, u32),
+    /// How far a tiered property's numbers roll either way of its data's, as a share of each
+    /// (0 to 0.5; left out, 0.2: Keen's +50% damage is +40% to +60%).
+    #[serde(default = "spread")]
+    spread: f64,
+}
+
+fn spread() -> f64 {
+    0.2
 }
 
 pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataError> {
@@ -195,6 +203,9 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
             "magic.far is [second tier, third]: nearer first",
         ));
     }
+    if !(0.0..=0.5).contains(&m.spread) {
+        return Err(fail(file, "magic.spread is a share, from 0 to 0.5"));
+    }
     let xp = |x: f64| (0.0..=10_000.0).contains(&x);
     if !xp(m.worth.0) || !xp(m.worth.1) || !xp(m.worth.2) {
         return Err(fail(
@@ -213,6 +224,7 @@ pub(crate) fn to_rules(file: &Path, m: &MagicFile) -> Result<MagicRules, DataErr
         learn: m.learn,
         count: m.count,
         far: [m.far.0, m.far.1],
+        spread: (m.spread * 1000.0).round() as u32,
     })
 }
 

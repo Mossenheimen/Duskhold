@@ -10,10 +10,11 @@
 //! - **How it was made** (Diablo II's superior and low-quality weapons): a fine, masterwork or
 //!   crude thing's quality, as numbers: a weapon's or a bow's harm, armour's turning, a shield's
 //!   block, and the wear of what wears.
-//! - **Its magic:** each property as numbers ("+80% damage", "+2 to Strength", "Adds 3–6 fire
-//!   damage"), with its word and tier to the right ("Cruel III"), and a curse marked as one. A
-//!   property that's more than numbers says so in words (Hallowed, Blazing), as a unique's effect
-//!   does; then a unique's story.
+//! - **Its magic:** each property as numbers ("+80% damage", "+2 to Strength", "Adds 3 to 6 fire
+//!   damage"), with its word and tier to the right ("Cruel III"), and a curse marked as one. Each
+//!   number that rolled in its tier gives the tier's range after it, as Path of Exile 2's does:
+//!   "+56(40–60)% damage". A property that's more than numbers says so in words (Hallowed,
+//!   Blazing), as a unique's effect does; then a unique's story.
 //! - **Notes:** what you don't know of it yet, how it stands against the weapon or bow in your
 //!   hand (the shield on your arm, the piece you wear where it goes), and what it pays as a find.
 //!
@@ -25,7 +26,7 @@ use crate::archery::Ranged;
 use crate::armour::Armour;
 use crate::body::Group;
 use crate::items::{Defs, Item, ItemKind, NEW};
-use crate::magic::{Fits, Property, Raises};
+use crate::magic::{Fits, MOST, Property, Raises};
 use crate::quality::PLAIN;
 use crate::shield::Guard;
 use crate::world::{Swing, TICKS_PER_SECOND, World};
@@ -163,6 +164,68 @@ fn span((lo, hi): (i32, i32)) -> String {
     } else {
         format!("{}\u{2013}{}", points(lo), points(hi))
     }
+}
+
+/// Least to most, in tenths of a point, as a property's line says it: "3 to 6", or one number
+/// when they're the same (so a range after each can't be read as part of it).
+fn to((lo, hi): (i32, i32)) -> String {
+    if lo == hi {
+        points(lo)
+    } else {
+        format!("{} to {}", points(lo), points(hi))
+    }
+}
+
+/// A property's line as it rolled, each number that rolled followed by its tier's range, as Path
+/// of Exile 2's: "+56(40–60)% damage". `lo` and `hi` are the same line at its tier's least and
+/// most; a line they don't match (a number gone to nothing at one end) is given as it is.
+fn ranged(now: &str, lo: &str, hi: &str) -> String {
+    let (n, l, h) = (pieces(now), pieces(lo), pieces(hi));
+    let words = |p: &[(bool, &str)]| -> Vec<String> {
+        p.iter()
+            .filter(|(number, _)| !number)
+            .map(|(_, w)| w.to_string())
+            .collect()
+    };
+    if n.len() != l.len() || n.len() != h.len() || words(&n) != words(&l) || words(&n) != words(&h)
+    {
+        return now.to_string();
+    }
+    let mut out = String::new();
+    for ((&(number, text), &(_, a)), &(_, b)) in n.iter().zip(&l).zip(&h) {
+        out.push_str(text);
+        if number && a != b {
+            let value = |x: &str| x.parse::<f64>().unwrap_or(0.0);
+            let (a, b) = if value(a) <= value(b) { (a, b) } else { (b, a) };
+            out.push_str(&format!("({a}\u{2013}{b})"));
+        }
+    }
+    out
+}
+
+/// A line in its pieces, in order: each a number (digits, a point between them) or not.
+fn pieces(s: &str) -> Vec<(bool, &str)> {
+    let b = s.as_bytes();
+    let digit = |i: usize| {
+        b[i].is_ascii_digit()
+            || (b[i] == b'.'
+                && i > 0
+                && b[i - 1].is_ascii_digit()
+                && b.get(i + 1).is_some_and(u8::is_ascii_digit))
+    };
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        let number = digit(i);
+        let mut j = i + 1;
+        while j < b.len() && digit(j) == number {
+            j += 1;
+        }
+        // Every edge between pieces is beside a digit, so on a character's edge.
+        out.push((number, &s[i..j]));
+        i = j;
+    }
+    out
 }
 
 /// Out of 10,000, as a share: "85%", "12.5%".
@@ -321,10 +384,10 @@ impl Defs {
             out.push(format!("{} damage", pct(p.damage)));
         }
         if p.fire.1 > 0 {
-            out.push(format!("Adds {} fire damage", span(p.fire)));
+            out.push(format!("Adds {} fire damage", to(p.fire)));
         }
         if p.holy.1 > 0 {
-            out.push(format!("Adds {} holy damage on the dead", span(p.holy)));
+            out.push(format!("Adds {} holy damage on the dead", to(p.holy)));
         }
         if p.swing != 1000 {
             out.push(format!("{} attack speed", quicker(p.swing)));
@@ -427,7 +490,7 @@ impl Defs {
             } else {
                 "whatever strikes you"
             };
-            out.push(format!("{} harm back on {whatever}", span(p.thorns)));
+            out.push(format!("{} harm back on {whatever}", to(p.thorns)));
         }
         if p.calm != 1000 {
             out.push(format!("{} dread taken", pct(p.calm)));
@@ -697,19 +760,33 @@ impl World {
         if !m.is_magic() {
             return;
         }
-        let mut known: Vec<&Property> = d
-            .rolled_of(item)
-            .filter(|p| m.known || (p.curse && m.curse_shown))
+        // Each as it rolled, and, where it rolls, as its tier's least and most.
+        let mut known: Vec<_> = d
+            .rolls_of(item)
+            .filter(|(p, _)| m.known || (p.curse && m.curse_shown))
+            .map(|(p, roll)| {
+                let ends = roll.map(|_| [p.rolled(d.magic.by(0)), p.rolled(d.magic.by(MOST))]);
+                (d.as_rolled(p, roll), ends)
+            })
             .collect();
-        known.sort_by_key(|p| (p.curse, order(p)));
-        for p in known {
+        known.sort_by_key(|(p, _)| (p.curse, order(p)));
+        for (p, ends) in &known {
             let style = if p.curse {
                 CardStyle::Curse
             } else {
                 CardStyle::Mod
             };
             let tag = tag(p);
-            for line in d.mod_lines(p, item) {
+            let mut lines = d.mod_lines(p, item);
+            if let Some([least, most]) = ends {
+                let (lo, hi) = (d.mod_lines(least, item), d.mod_lines(most, item));
+                if lo.len() == lines.len() && hi.len() == lines.len() {
+                    for (k, line) in lines.iter_mut().enumerate() {
+                        *line = ranged(line, &lo[k], &hi[k]);
+                    }
+                }
+            }
+            for line in lines {
                 c.add(style, line, tag.clone());
             }
         }

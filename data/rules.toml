@@ -411,6 +411,9 @@ worth = [20, 50, 150] # the XP it adds to its kind's worth: Uncommon, Rare, Uniq
 learn = 15            # blows on the dead with an unknown weapon before you know what it is
 count = [[1, 2], [3, 4]] # how many properties: an Uncommon's fewest and most, a Rare's (and its made-up name)
 far = [60, 140]       # tiles from where you come in at which finds reach tier II, and tier III
+spread = 0.2          # a tiered property's numbers roll this share either way of its own (Path of
+                      # Exile's ranges): Keen's +50% damage is +40% to +60%, Cruel's +80% +64% to
+                      # +96%. Tiles, levels and Strength don't roll, nor curses, nor uniques.
 
 [quality]
 # How well a weapon, a bow, a shield or a piece of armour found was made (CONCEPT.md, loot; Diablo

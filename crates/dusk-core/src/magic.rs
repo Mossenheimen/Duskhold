@@ -32,6 +32,11 @@
 //!   How far out a find was made sets the best tier it can roll (`World::find_level`): near where
 //!   you come in, the first; out about the hamlet, the second; far out, the third. A rare's pack
 //!   and an old tomb reach a tier further (`LootTable::level`).
+//! - **Rolled within its tier** (Path of Exile's ranges, 2026-11-15): a tiered property's numbers
+//!   are its tier's middle, and each one found rolls where it falls, a fifth either way
+//!   (`MagicRules::spread`: Keen is +40% to +60% damage, Cruel +64% to +96%), kept with the thing
+//!   (`Magic::rolls`). Its card gives the range after each number that rolls: "+56(40–60)%
+//!   damage". Tiles, levels and Strength don't roll, nor a curse, nor a unique's numbers.
 //! - **Curses** are properties too, the bad kind. A cursed weapon clings: taken in hand, it
 //!   can't be put away or changed for another until its curse is lifted (the abbey does it, for
 //!   coin). Its curse shows itself the moment you take it in hand: the hard way.
@@ -56,6 +61,8 @@
 //!   `World::thorns`) or on your mind (a piece that calms slows your dread's rise:
 //!   `World::worn_calm`).
 
+use std::borrow::Cow;
+
 use crate::actor::ActorId;
 use crate::archery::Ranged;
 use crate::armour::Armour;
@@ -72,6 +79,11 @@ pub const NONE: u8 = u8::MAX;
 /// A unique's rarity (`Magic::rarity`).
 pub const UNIQUE: u8 = 3;
 
+/// Where a property's numbers fall in its tier's range (`Magic::rolls`): 0 its least, `MIDDLE`
+/// its data's own, `MOST` its most.
+pub const MIDDLE: u8 = 100;
+pub const MOST: u8 = 200;
+
 /// What makes an item magic, if anything. Mundane is rarity 0.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
@@ -84,6 +96,9 @@ pub struct Magic {
     /// Its properties and its curse, by their numbers in `Defs::properties` (`NONE`: none).
     pub props: [u8; 4],
     pub curse: u8,
+    /// Where each property's numbers fell in its tier's range, 0 to `MOST` (`MIDDLE`: its data's
+    /// own). A property with no tiers doesn't roll, nor a curse.
+    pub rolls: [u8; 4],
     /// A Rare's made-up name: its first word and its second, by their numbers in
     /// `Defs::thing_names` (`NONE`: it has none, and is called by its properties).
     pub name: [u8; 2],
@@ -101,6 +116,7 @@ impl Magic {
         unique: NONE,
         props: [NONE; 4],
         curse: NONE,
+        rolls: [MIDDLE; 4],
         name: [NONE; 2],
         known: true,
         curse_shown: true,
@@ -254,6 +270,40 @@ pub struct Property {
 }
 
 impl Property {
+    /// As rolled within its tier, `by` per mille of the way from none to its data's numbers (800:
+    /// a fifth less of each, 1200: a fifth more). What rolls: its multipliers, chances, harms,
+    /// warmth and dread; not tiles, levels or Strength, and nothing that's on or off.
+    pub fn rolled(&self, by: u32) -> Property {
+        let scale = |x: i64| (x * i64::from(by) + 500).div_euclid(1000);
+        let times = |m: u32| (1000 + scale(i64::from(m) - 1000)).max(0) as u32;
+        let more = |n: u32| scale(i64::from(n)).max(0) as u32;
+        let points = |n: i32| scale(i64::from(n)) as i32;
+        let span = |(lo, hi): (i32, i32)| (points(lo), points(hi));
+        Property {
+            noise: times(self.noise),
+            damage: times(self.damage),
+            swing: times(self.swing),
+            wear: times(self.wear),
+            endurance: times(self.endurance),
+            wane: times(self.wane),
+            arrows: times(self.arrows),
+            calm: times(self.calm),
+            hit: points(self.hit),
+            drain: more(self.drain),
+            terror: more(self.terror),
+            fell: more(self.fell),
+            ward: more(self.ward),
+            block: more(self.block),
+            bash: more(self.bash),
+            hearten: points(self.hearten),
+            warmth: points(self.warmth),
+            fire: span(self.fire),
+            holy: span(self.holy),
+            thorns: span(self.thorns),
+            ..self.clone()
+        }
+    }
+
     /// Its family: its own, by its id, when it names none.
     pub fn family_of(&self) -> &str {
         if self.family.is_empty() {
@@ -408,6 +458,17 @@ pub struct MagicRules {
     pub worth: [u32; 3],
     /// Blows struck with an unknown magic weapon before you know what it is.
     pub learn: u8,
+    /// Per mille: how far a tiered property's numbers roll either way of its data's (200: a fifth
+    /// less to a fifth more).
+    pub spread: u32,
+}
+
+impl MagicRules {
+    /// A roll (0 to `MOST`) as how much of its data's numbers a property has, per mille.
+    pub fn by(&self, roll: u8) -> u32 {
+        let off = i64::from(roll.min(MOST)) - i64::from(MIDDLE);
+        (1000 + i64::from(self.spread) * off / i64::from(MIDDLE)).max(0) as u32
+    }
 }
 
 impl Default for MagicRules {
@@ -419,6 +480,7 @@ impl Default for MagicRules {
             far: [60, 140],
             worth: [20_000, 50_000, 150_000],
             learn: 15,
+            spread: 200,
         }
     }
 }
@@ -436,33 +498,58 @@ impl Defs {
         }
     }
 
-    /// An item's properties (its curse among them; a unique's, and its effect last), as
-    /// definitions.
-    pub fn properties_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
-        let effect = self.unique_of(item).map(|u| &u.effect);
+    /// An item's properties (its curse among them; a unique's, and its effect last), each as it
+    /// rolled.
+    pub fn properties_of(&self, item: &Item) -> impl Iterator<Item = Cow<'_, Property>> + '_ {
+        let effect = self.unique_of(item).map(|u| Cow::Borrowed(&u.effect));
         self.rolled_of(item).chain(effect)
     }
 
     /// An item's properties but a unique's effect: a unique's own, then what was rolled, then
-    /// its curse.
-    pub fn rolled_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
-        let fixed = self.unique_of(item).map_or(&[][..], |u| u.props.as_slice());
-        fixed
-            .iter()
-            .copied()
-            .chain(item.magic.all())
-            .filter_map(|p| self.properties.get(usize::from(p)))
+    /// its curse; each as it rolled.
+    pub fn rolled_of(&self, item: &Item) -> impl Iterator<Item = Cow<'_, Property>> + '_ {
+        self.rolls_of(item).map(|(p, roll)| self.as_rolled(p, roll))
     }
 
-    /// The properties of an item you know: all of them once it's known, else only a curse that
-    /// has shown itself.
-    pub fn known_of(&self, item: &Item) -> impl Iterator<Item = &Property> + '_ {
+    /// An item's properties but a unique's effect, as the data has them, and where each rolled
+    /// in its tier's range: None for one that doesn't roll (a unique's own, a curse, one with no
+    /// tiers).
+    pub fn rolls_of(&self, item: &Item) -> impl Iterator<Item = (&Property, Option<u8>)> + '_ {
+        let m = item.magic;
+        let fixed = self.unique_of(item).map_or(&[][..], |u| u.props.as_slice());
+        let rolled = m.props.into_iter().zip(m.rolls).map(|(p, r)| (p, Some(r)));
+        fixed
+            .iter()
+            .map(|&p| (p, None))
+            .chain(rolled)
+            .chain(std::iter::once((m.curse, None)))
+            .filter_map(|(p, roll)| {
+                let p = self.properties.get(usize::from(p))?;
+                Some((p, roll.filter(|_| p.tier > 0)))
+            })
+    }
+
+    /// A property as it rolled (`roll`: None, as the data has it).
+    pub fn as_rolled<'a>(&self, p: &'a Property, roll: Option<u8>) -> Cow<'a, Property> {
+        match roll {
+            Some(r) if r != MIDDLE => Cow::Owned(p.rolled(self.magic.by(r))),
+            _ => Cow::Borrowed(p),
+        }
+    }
+
+    /// The properties of an item you know, as they rolled: all of them once it's known, else
+    /// only a curse that has shown itself.
+    pub fn known_of(&self, item: &Item) -> impl Iterator<Item = Cow<'_, Property>> + '_ {
         self.counted(item, true)
     }
 
-    /// The properties that count: all of an item's, or (`known_only`) those you know, as its card
-    /// shows them (a curse once it has shown itself).
-    fn counted(&self, item: &Item, known_only: bool) -> impl Iterator<Item = &Property> + '_ {
+    /// The properties that count, as they rolled: all of an item's, or (`known_only`) those you
+    /// know, as its card shows them (a curse once it has shown itself).
+    fn counted(
+        &self,
+        item: &Item,
+        known_only: bool,
+    ) -> impl Iterator<Item = Cow<'_, Property>> + '_ {
         let m = item.magic;
         self.properties_of(item)
             .filter(move |p| !known_only || m.known || (p.curse && m.curse_shown))
@@ -724,7 +811,7 @@ impl Defs {
         if let Some(own) = self.own_name(item) {
             return format!("{own} ({name})");
         }
-        let words: Vec<&str> = self.properties_of(item).map(|p| p.name.as_str()).collect();
+        let words: Vec<String> = self.properties_of(item).map(|p| p.name.clone()).collect();
         format!("{} {name}", words.join(" "))
     }
 
@@ -775,7 +862,8 @@ impl Defs {
 
     /// A magic item for a loot table's line, by a roll's keys, found where it reaches tier
     /// `level` (1 to 3): its rarity, its properties (that fit its kind, at most one of a family,
-    /// each of a tier it reaches), maybe a curse, and a Rare's made-up name. Unknown.
+    /// each of a tier it reaches, and where in that tier's range it falls), maybe a curse, and a
+    /// Rare's made-up name. Unknown.
     pub(crate) fn roll_magic(&self, item: &Item, level: u8, r: impl Fn(u64) -> u64) -> Magic {
         let Some(kind) = self.fits(item.def) else {
             return Magic::MUNDANE;
@@ -816,6 +904,10 @@ impl Defs {
             let f = families[below(r(fk), families.len() as u32) as usize];
             let tiers: Vec<u8> = good.iter().copied().filter(|&k| family(k) == f).collect();
             magic.props[slot] = tiers[below(r(tk), tiers.len() as u32) as usize];
+            // And where in its tier's range it falls: key 4, mixed with the slot (a line's keys
+            // stop at 15, `World::magic_roll`).
+            let falls = mix64(r(4).wrapping_add(slot as u64));
+            magic.rolls[slot] = below(falls, u32::from(MOST) + 1) as u8;
             good.retain(|&k| family(k) != f);
         }
         let curses = fits(true);
