@@ -35,13 +35,14 @@ talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "ste
 [[class]]
 id = "wizard"
 name = "Wizard"
-line = "fragile, and loud when it counts: spells that work on what the dead sense, slots a night's sleep restores"
+line = "fragile, and loud when it counts: spells that work on what the dead sense, paid for in mana that comes back by the second"
 # Fragile and versatile: the sense fields themselves are its part of the system (spells.toml).
 skills = ["arcana", "first_aid"]
 learn = 1.5
 endurance = 1.1       # fragile: its breath goes quicker than anyone's
 grabbed = 1.15        # and the dead get hold of it more easily
-slots = 3             # spell slots, all back when it has slept the night through
+mana = 40             # points of mana it holds (spells.toml: what each costs)...
+mana_regen = 0.4      # ...and how many come back a second: empty to full in 100 s (Arcana and gear, more)
 spells = ["light", "silence", "fog", "fireball"]
 wield = "quarterstaff"
 kit = ["bandage", "sulphur", "sulphur"]

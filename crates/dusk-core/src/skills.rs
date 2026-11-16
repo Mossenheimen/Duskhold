@@ -194,12 +194,14 @@ pub struct SkillRules {
     pub pick: u32,
     pub forage_more: u32,
     /// Arcana (`spell.rs`): XP for each spell cast; and a level takes `arcana_cast` per mille off
-    /// the words' time, adds `arcana_harm` per mille to a spell's harm (a fireball's), and
-    /// `arcana_lasts` per mille to how long one lasts on its spot.
+    /// the words' time, adds `arcana_harm` per mille to a spell's harm (a fireball's),
+    /// `arcana_lasts` per mille to how long one lasts on its spot, and `arcana_regen` per mille
+    /// to how fast mana comes back.
     pub cast: u32,
     pub arcana_cast: u32,
     pub arcana_harm: u32,
     pub arcana_lasts: u32,
+    pub arcana_regen: u32,
 }
 
 impl Default for SkillRules {
@@ -249,6 +251,7 @@ impl Default for SkillRules {
             arcana_cast: 50,
             arcana_harm: 50,
             arcana_lasts: 100,
+            arcana_regen: 50,
         }
     }
 }

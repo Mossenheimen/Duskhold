@@ -181,7 +181,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `magic.unique` | `#E39A5B` | a unique's name (copper, as Path of Exile's), and what its effect does in the world: the dead sent fleeing; on its card, its effect and its story | |
 | `magic.changed` | `#8FA8FF` | a number on a card that its quality or its magic changed (Path of Exile's blue), and what a weapon in hand gives a skill or a stat in the skills panel ("+2") | |
 | `magic.cursed` | `#E07A7A` | a curse's numbers on a card; it says "(curse)" in words too, so colour isn't the only cue | |
-| `magic.arcane` | `#B3A6FF` | a Wizard's: its spell slots bar, a Light spell's light, a Silence's ring, a readied spell in the panel | |
+| `magic.arcane` | `#B3A6FF` | a Wizard's: its mana bar, a Light spell's light, a Silence's ring, a readied spell in the panel | |
 | `magic.fog` | `#B8BEC7` at 50% | a Fog spell's cloud | |
 
 ### Bars and moodles

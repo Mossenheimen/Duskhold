@@ -99,7 +99,7 @@ const UNIQUE := Color("#E39A5B")  # a unique's name, and what its effect does in
 const LORE := Color("#BFCCE6")  # what a known magic item's properties do, as numbers on its card
 const CHANGED := Color("#8FA8FF")  # a number on a card its quality or magic changed (Path of Exile's blue)
 const CURSED := Color("#E07A7A")  # a curse's numbers on a card: worded as one too, not by colour alone
-const ARCANE := Color("#B3A6FF")  # a Wizard's: its slots, a Light spell's light, a Silence's ring
+const ARCANE := Color("#B3A6FF")  # a Wizard's: its mana, a Light spell's light, a Silence's ring
 const FOG := Color("#B8BEC780")  # a Fog spell's cloud, 50%
 const DREAD := Color("#05000A")  # the screen's edges darkening with dread
 

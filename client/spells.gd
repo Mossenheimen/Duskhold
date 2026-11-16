@@ -28,25 +28,25 @@ func start(dusk: Node) -> void:
 	_items = dusk.item_names()
 
 
-## Each frame: redraw if anything changed (only while it's open): what you know, your slots, and
+## Each frame: redraw if anything changed (only while it's open): what you know, your mana, and
 ## `readied`, the spell readied now (-1 none).
 func refresh(dead: bool, readied: int) -> void:
 	if not _awake(dead):
 		return
-	var now := [_dusk.character_spells(), _dusk.character_slots(), _dusk.spell_info(), readied]
+	var now := [_dusk.character_spells(), _dusk.character_mana(), _dusk.spell_info(), readied]
 	if _changed(now):
 		_draw(now[0], now[1], now[2], readied)
 
 
 ## What a spell costs, its words, its range, and how long it lasts or what it harms, as yours:
-## "2 slots and sulphur  ·  2.5 s  ·  8 tiles  ·  25 to 35 damage", "1 slot  ·  1.5 s  ·  6 tiles
+## "20 mana and sulphur  ·  2.5 s  ·  8 tiles  ·  25 to 35 damage", "12 mana  ·  1.5 s  ·  6 tiles
 ## ·  lasts 30 s".
 func describe(spell: int, info: PackedInt32Array) -> String:
 	var i := spell * INFO
 	if i + INFO > info.size():
 		return ""
-	var slots := info[i + 1]
-	var cost := "a cantrip" if slots == 0 else ("1 slot" if slots == 1 else "%d slots" % slots)
+	var mana := info[i + 1]
+	var cost := "no mana" if mana == 0 else "%d mana" % mana
 	if info[i + 7] >= 0 and info[i + 7] < _items.size():
 		cost += " and " + _items[info[i + 7]]
 	var line := "%s  ·  %.1f s  ·  %d tiles" % [cost, info[i + 2] / 10.0, info[i + 3]]
@@ -67,6 +67,11 @@ func rows() -> PackedStringArray:
 	return out
 
 
+## Mana back a second, from thousandths of a point: "0.4", "0.56".
+static func regen(thousandths: int) -> String:
+	return String.num(thousandths / 1000.0, 2)
+
+
 ## Tenths of a point, as the card writes them: "25", "33.7".
 static func _points(tenths: int) -> String:
 	return str(tenths / 10) if tenths % 10 == 0 else "%.1f" % (tenths / 10.0)
@@ -81,14 +86,15 @@ static func _span(seconds: int) -> String:
 	return "%d min %d s" % [seconds / 60, seconds % 60]
 
 
-func _draw(known: PackedInt32Array, slots: PackedInt32Array, info: PackedInt32Array,
+func _draw(known: PackedInt32Array, mana: PackedInt32Array, info: PackedInt32Array,
 		readied: int) -> void:
 	if known.is_empty():
 		_list.add_child(Look.line("Spells  ·  only a Wizard casts them", Look.HEADING))
 		return
-	var left := slots[0] if slots.size() > 1 else 0
-	var most := slots[1] if slots.size() > 1 else 0
-	_list.add_child(Look.line("Spells  ·  %d of %d slots  ·  all back with a night's sleep" % [left, most], Look.HEADING))
+	var now := mana[0] if mana.size() > 2 else 0
+	var most := mana[1] if mana.size() > 2 else 0
+	var back := mana[2] if mana.size() > 2 else 0
+	_list.add_child(Look.line("Spells  ·  %d of %d mana  ·  %s back a second" % [now, most, regen(back)], Look.HEADING))
 	for k in known.size():
 		var spell := known[k]
 		var row := HBoxContainer.new()

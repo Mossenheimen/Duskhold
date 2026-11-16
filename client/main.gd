@@ -139,7 +139,7 @@ const SLEEP_SPEED := 60.0
 ## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
 const HOLD_MS := 350
 ## Why a readied spell can't be cast on the spot aimed at, by DuskWorld.cast_check()'s code.
-const AIM_WHY := {-2: "not with it holding you", -3: "not slots enough", -4: "you've no component for it",
+const AIM_WHY := {-2: "not with it holding you", -3: "not mana enough", -4: "you've no component for it",
 	-5: "too far", -6: "you can't see that spot"}
 ## The kinds with no blood (by DuskWorld.creature_names()): a blow chips bone off them instead.
 const BLOODLESS := ["skeleton"]
@@ -449,7 +449,7 @@ func _process(delta: float) -> void:
 	hud.show_body(body, dusk.character_wounds(), dusk.can_shove())
 	hud.show_wound_parts(dusk.character_wound_parts())
 	hud.show_faith(dusk.faith())
-	hud.show_slots(dusk.character_slots())
+	hud.show_mana(dusk.character_mana())
 	hud.show_deeds(dusk.character_deeds())
 	if ticked:
 		_here_now(asleep)
@@ -1235,9 +1235,6 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("The blow breaks your words: the %s is lost. Nothing's spent." % _spell_name(extra))
 					effects.spell_broke(actors[me].position)
-			Event.SLOTS_BACK:
-				if who == me:
-					hud.say("Rested, your spell slots are all back.")
 					effects.rise(actors[me].position, Look.ARCANE)
 			Event.GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
@@ -2506,7 +2503,7 @@ func _cast_on(tile: Vector2i) -> void:
 		-2:
 			hud.say(Prompts.keyed("Not with it holding you! Struggle {swing} or shove {shove}."))
 		-3:
-			hud.say("Not slots enough for the %s: they come back when you've slept the night through." % _spell_name(spell))
+			hud.say("Not mana enough for the %s: it comes back by the second." % _spell_name(spell))
 		-4:
 			var info: PackedInt32Array = dusk.spell_info()
 			var i := spell * Spells.INFO + 7

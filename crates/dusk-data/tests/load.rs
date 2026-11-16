@@ -2111,7 +2111,8 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let defs = &data.defs;
     let wizard = defs.classes.iter().find(|c| c.id == "wizard").unwrap();
-    assert_eq!(wizard.slots, 3);
+    // Mana, as Diablo's: 40 to hold, 0.4 back a second (in thousandths of a point).
+    assert_eq!((wizard.mana, wizard.mana_regen), (40_000, 400));
     let known: Vec<&str> = wizard
         .spells
         .iter()
@@ -2121,13 +2122,13 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
     let fireball = defs.spells.iter().find(|s| s.id == "fireball").unwrap();
     assert_eq!(
         (
-            fireball.slots,
+            fireball.mana,
             fireball.cast,
             fireball.radius,
             fireball.damage
         ),
-        (2, 25, 2, (250, 350)),
-        "2.5 s of words, 25 to 35 points"
+        (20_000, 25, 2, (250, 350)),
+        "20 mana, 2.5 s of words, 25 to 35 points"
     );
     let sulphur = defs.items.iter().position(|i| i.id == "sulphur").unwrap() as u16;
     assert_eq!(fireball.component, Some(sulphur));
@@ -2144,7 +2145,7 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
     );
     // A fog that reaches nowhere.
     let mist = "[[spell]]\nid = \"mist\"\nname = \"Mist\"\nline = \"\"\nkind = \"fog\"\n\
-        slots = 1\ncast = 1.0\nrange = 5\nlasts = 10\n";
+        mana = 10\ncast = 1.0\nrange = 5\nlasts = 10\n";
     let mut files = test_files(PREFABS);
     files.push(("spells.toml", mist));
     let err = load(&folder("spell", &files)).unwrap_err();
@@ -2152,6 +2153,60 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
         err.file.ends_with("spells.toml") && err.message.contains("\"mist\""),
         "{err}"
     );
+}
+
+#[test]
+fn mana_and_its_coming_back_are_stats_arcana_and_gear_raise() {
+    use dusk_core::magic::Magic;
+    use dusk_core::{CardStyle, Item, World};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    assert_eq!(
+        data.rules.skills.arcana_regen, 50,
+        "a twentieth faster a level"
+    );
+    let reserve = defs
+        .talents
+        .iter()
+        .find(|t| t.id == "arcane_reserve")
+        .unwrap();
+    assert_eq!(reserve.mana, 15_000);
+    // A staff that's Brimming and Flowing: 20 more mana, and 40% faster back; on its card, as
+    // numbers.
+    let prop = |id: &str| defs.properties.iter().position(|p| p.id == id).unwrap() as u8;
+    let staff = defs
+        .items
+        .iter()
+        .position(|i| i.id == "quarterstaff")
+        .unwrap() as u16;
+    let mut magic = Magic {
+        rarity: 1,
+        known: true,
+        curse_shown: true,
+        ..Magic::MUNDANE
+    };
+    (magic.props[0], magic.props[1]) = (prop("brimming"), prop("flowing"));
+    let item = Item {
+        magic,
+        ..Item::new(staff, 1)
+    };
+    let boosts = defs.boosts_of(&item);
+    assert_eq!((boosts.mana, boosts.mana_regen), (20_000, 400));
+    let w = World::with_defs(1, data.rules, defs.clone());
+    let mods: Vec<String> = w
+        .card(&item, None)
+        .into_iter()
+        .filter(|l| l.style == CardStyle::Mod)
+        .map(|l| l.text)
+        .collect();
+    assert!(
+        mods.contains(&"+20(16\u{2013}24) to maximum mana".to_string())
+            && mods.contains(&"+40(32\u{2013}48)% mana regeneration".to_string()),
+        "{mods:?}"
+    );
+    // Armour brings mana back faster, but holds none.
+    let serene = &defs.properties[usize::from(prop("serene"))];
+    assert_eq!((serene.mana, serene.mana_regen), (0, 150));
 }
 
 #[test]

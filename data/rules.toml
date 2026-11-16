@@ -271,7 +271,8 @@ devotion_cost = 0.04  # ...and faith goes further (28% further at the free cap)
 forage_more = 0.1     # Foraging: a tenth likelier, a level, to find one more of a herb
 arcana_cast = 0.05    # Arcana: a spell's words take less time...
 arcana_harm = 0.05    # ...a fireball harms more (35% more at the free cap)...
-arcana_lasts = 0.1    # ...and a spell lasts longer on its spot (a fireball's flash doesn't)
+arcana_lasts = 0.1    # ...a spell lasts longer on its spot (a fireball's flash doesn't)...
+arcana_regen = 0.05   # ...and mana comes back faster (35% at the free cap)
 
 [deeds]
 # Most of a character's XP comes from what it brings home (CONCEPT.md, pillar 5). Home is where

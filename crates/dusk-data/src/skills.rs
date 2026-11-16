@@ -100,6 +100,8 @@ struct LevelFile {
     arcana_harm: f64,
     #[serde(default)]
     arcana_lasts: f64,
+    #[serde(default)]
+    arcana_regen: f64,
 }
 
 /// The skills' rules, from rules.toml. `ticks_per_minute` is the clock's, for `forget`.
@@ -219,5 +221,6 @@ pub(crate) fn to_skills(
         arcana_cast: mille(l.arcana_cast.clamp(0.0, 0.1)),
         arcana_harm: mille(l.arcana_harm.clamp(0.0, 0.2)),
         arcana_lasts: mille(l.arcana_lasts.clamp(0.0, 0.5)),
+        arcana_regen: mille(l.arcana_regen.clamp(0.0, 0.5)),
     })
 }

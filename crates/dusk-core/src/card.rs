@@ -413,6 +413,13 @@ impl Defs {
         if p.fitness > 0 {
             out.push(format!("+{} to Fitness", level(p.fitness)));
         }
+        // Mana, as Diablo's and Path of Exile's: more to hold, and back faster (`spell.rs`).
+        if p.mana > 0 {
+            out.push(format!("+{} to maximum mana", points(p.mana / 100)));
+        }
+        if p.mana_regen > 0 {
+            out.push(format!("+{} mana regeneration", mille(p.mana_regen)));
+        }
         let skill = match p.raises {
             Raises::Nothing => None,
             Raises::Skill(s) => Some(s.name()),

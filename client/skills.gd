@@ -27,16 +27,16 @@ func start(dusk: Node) -> void:
 
 
 ## Each frame: redraw if anything changed (only while it's open): your skills, the masteries
-## left, your talents taken and offered, and Strength and Fitness (only the two stats: the day's
-## work toward them changes with every breath).
+## left, your talents taken and offered, Strength and Fitness (only the two stats: the day's work
+## toward them changes with every breath), and a caster's mana: the most, and how fast it comes back.
 func refresh(dead: bool) -> void:
 	if not _awake(dead):
 		return
 	var now := [_dusk.character_skills(), _dusk.masteries_left(),
 		[_dusk.character_talents(), _dusk.talent_offer()], _dusk.character_build().slice(0, 2),
-		_dusk.character_boosts()]
+		_dusk.character_boosts(), _dusk.character_mana().slice(1, 3)]
 	if _changed(now):
-		_draw(now[0], now[1], now[3], now[4])
+		_draw(now[0], now[1], now[3], now[4], now[5])
 		_draw_talents(now[2][0], now[2][1])
 
 
@@ -91,8 +91,8 @@ func _boost(row: HBoxContainer, boosts: PackedInt32Array, k: int) -> void:
 
 
 func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array,
-		boosts: PackedInt32Array) -> void:
-	_draw_build(build, boosts)
+		boosts: PackedInt32Array, mana: PackedInt32Array) -> void:
+	_draw_build(build, boosts, mana)
 	_list.add_child(Look.line("Skills  ·  masteries left: %d" % left, Look.HEADING))
 	var hint := Look.line("They grow by real use under real risk.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
@@ -129,8 +129,9 @@ func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array,
 
 
 ## Strength and Fitness, in thousandths of a level: each its level, and how far toward the next,
-## and what the weapon in hand gives it.
-func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array) -> void:
+## and what the weapon in hand gives it; then a caster's mana (`mana`: [the most, back a second]),
+## a stat as Diablo's and Path of Exile's: Arcana, talents and what you carry raise it.
+func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array, mana: PackedInt32Array) -> void:
 	_list.add_child(Look.line("Body", Look.HEADING))
 	var hint := Look.line("Strength and Fitness grow overnight from the day's exertion.", Look.SMALL)
 	hint.modulate = Look.TEXT_DIM
@@ -149,6 +150,15 @@ func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array) -> void:
 		var top := value >= 10000
 		row.add_child(_bar(1.0 if top else (value % 1000) / 1000.0, GOLD if top else BAR))
 		_boost(row, boosts, k)
+	var most := mana[0] if mana.size() > 1 else 0
+	if most > 0:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_list.add_child(row)
+		var called := Look.line("Mana", Look.BODY)
+		called.custom_minimum_size = Vector2(90, 0)
+		row.add_child(called)
+		row.add_child(Look.line("%d  ·  %s back a second" % [most, String.num(mana[1] / 1000.0, 2)], Look.BODY))
 	_list.add_child(Look.line(" ", 8))
 
 

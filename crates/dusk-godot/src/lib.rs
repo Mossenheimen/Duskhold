@@ -537,7 +537,6 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::SpellBroke { who, spell } => {
             (SPELL_BROKE, Some(who), None, at(who), i32::from(spell))
         }
-        Event::SlotsBack { who } => (SLOTS_BACK, Some(who), None, at(who), 0),
         // The stat (0 Strength, 1 Fitness) × 100, plus the level reached.
         Event::Grew { who, stat, level } => {
             let stat = match stat {
@@ -3305,7 +3304,7 @@ impl DuskWorld {
     }
 
     /// Each spell, as you'd cast it, ten numbers each (`spells.gd`'s `INFO`): its kind (0 light,
-    /// 1 silence, 2 fog, 3 fireball), the slots it costs, its words (tenths of a second, as quick
+    /// 1 silence, 2 fog, 3 fireball), the mana it costs (points), its words (tenths of a second, as quick
     /// as you are), its range (yours), how far it reaches, how far it lights, how long it lasts
     /// (seconds, as long as your Arcana makes it), its component (an item's number; -1 none), and
     /// its harm, least and most (tenths of a point, as your Arcana makes it; 0 for none).
@@ -3334,7 +3333,7 @@ impl DuskWorld {
                     SpellKind::Fog => spell::FOG,
                     SpellKind::Fireball => spell::FIREBALL,
                 },
-                i32::from(s.slots),
+                s.mana / 1000,
                 cast as i32,
                 range,
                 s.radius,
@@ -3385,16 +3384,21 @@ impl DuskWorld {
             .collect()
     }
 
-    /// Your spell slots: [left, the most] (both 0 for a class without).
+    /// Your mana (`spell.rs`): [now, the most] in whole points, and how much comes back a
+    /// second, in thousandths of a point (all 0 for a class without).
     #[func]
-    fn character_slots(&self) -> PackedInt32Array {
+    fn character_mana(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
             return PackedInt32Array::new();
         };
         let Some(me) = world.character() else {
             return PackedInt32Array::new();
         };
-        PackedInt32Array::from(&[i32::from(world.slots(me)), i32::from(world.max_slots(me))])
+        PackedInt32Array::from(&[
+            world.mana(me) / 1000,
+            world.max_mana(me) / 1000,
+            world.mana_regen(me),
+        ])
     }
 
     /// Whether `spell` cast on (x, y) would catch you in it (a fireball's burst): for aiming.
@@ -3409,7 +3413,7 @@ impl DuskWorld {
     }
 
     /// Whether you can cast `spell` on (x, y) now: 0, or why not: -1 you don't know it, -2
-    /// something has hold of you, -3 not slots enough, -4 no component, -5 too far, -6 you can't
+    /// something has hold of you, -3 not mana enough, -4 no component, -5 too far, -6 you can't
     /// see it.
     #[func]
     fn cast_check(&self, spell: i32, x: i32, y: i32) -> i32 {
@@ -3423,7 +3427,7 @@ impl DuskWorld {
             Ok(()) => 0,
             Err(NoCast::Unknown) => -1,
             Err(NoCast::Held) => -2,
-            Err(NoCast::NoSlots) => -3,
+            Err(NoCast::NoMana) => -3,
             Err(NoCast::NoComponent) => -4,
             Err(NoCast::TooFar) => -5,
             Err(NoCast::NoSight) => -6,

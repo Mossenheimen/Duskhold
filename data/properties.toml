@@ -1040,3 +1040,81 @@ name = "Rotten"
 on = "shield"
 curse = true
 wear = 3.0
+
+# Mana, as Diablo's and Path of Exile's (spell.rs): more to hold, on a weapon (a staff, a sword)...
+
+[[property]]
+id = "mindful"
+name = "Mindful"
+on = "weapon"
+family = "mana"
+tier = 1
+mana = 10             # points more to hold
+
+[[property]]
+id = "brimming"
+name = "Brimming"
+on = "weapon"
+family = "mana"
+tier = 2
+mana = 20
+
+[[property]]
+id = "overflowing"
+name = "Overflowing"
+on = "weapon"
+family = "mana"
+tier = 3
+mana = 35
+
+# ...and mana back faster: a share more a second, on a weapon...
+
+[[property]]
+id = "restful"
+name = "Restful"
+on = "weapon"
+family = "replenish"
+tier = 1
+mana_regen = 0.2
+
+[[property]]
+id = "flowing"
+name = "Flowing"
+on = "weapon"
+family = "replenish"
+tier = 2
+mana_regen = 0.4
+
+[[property]]
+id = "wellspring"
+name = "Wellspring"
+on = "weapon"
+family = "replenish"
+tier = 3
+mana_regen = 0.6
+
+# ...or worn.
+
+[[property]]
+id = "serene"
+name = "Serene"
+on = "armour"
+family = "replenish_worn"
+tier = 1
+mana_regen = 0.15
+
+[[property]]
+id = "tranquil"
+name = "Tranquil"
+on = "armour"
+family = "replenish_worn"
+tier = 2
+mana_regen = 0.3
+
+[[property]]
+id = "meditative"
+name = "Meditative"
+on = "armour"
+family = "replenish_worn"
+tier = 3
+mana_regen = 0.45

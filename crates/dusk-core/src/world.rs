@@ -421,7 +421,7 @@ pub enum Event {
         level: u8,
     },
     /// `who` cast `spell` on `at`; its fireball burned `target` for `damage`; its words were
-    /// broken by a blow; its slots came back with a night's sleep (`spell.rs`).
+    /// broken by a blow (`spell.rs`).
     Cast {
         who: ActorId,
         spell: u16,
@@ -435,9 +435,6 @@ pub enum Event {
     SpellBroke {
         who: ActorId,
         spell: u16,
-    },
-    SlotsBack {
-        who: ActorId,
     },
     /// At midnight, `who`'s Strength or Fitness reached a whole `level` (`fitness.rs`).
     Grew {
@@ -1379,6 +1376,8 @@ impl World {
         self.grips();
         self.bodies(&strides);
         self.bleed_out(&ids);
+        // A Wizard's mana comes back by the second (`spell.rs`).
+        self.replenish_mana();
         self.needs();
         self.minds();
         self.chills();

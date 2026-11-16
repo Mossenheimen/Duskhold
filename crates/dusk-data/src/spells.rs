@@ -22,9 +22,9 @@ struct SpellFile {
     line: String,
     /// What it does: light, silence, fog or fireball.
     kind: String,
-    /// Slots it costs (0: a cantrip).
+    /// Mana it costs, in points (0, or left out: none).
     #[serde(default)]
-    slots: u8,
+    mana: f64,
     /// Seconds of words.
     cast: f64,
     /// Tiles to the spot.
@@ -78,8 +78,13 @@ fn to_spell(file: &Path, s: &SpellFile, defs: &Defs) -> Result<SpellDef, DataErr
     if tiles.iter().any(|t| !(0..=20).contains(t)) || s.range < 1 {
         return Err(bad("range is 1 to 20 tiles, and radius and light 0 to 20"));
     }
-    if !(0..=60).contains(&s.noise) || !(0..=60).contains(&s.boom) || s.slots > 9 {
-        return Err(bad("noise and boom are 0 to 60 tiles, slots 0 to 9"));
+    if !(0..=60).contains(&s.noise)
+        || !(0..=60).contains(&s.boom)
+        || !(0.0..=200.0).contains(&s.mana)
+    {
+        return Err(bad(
+            "noise and boom are 0 to 60 tiles, mana 0 to 200 points",
+        ));
     }
     if s.damage.0 < 0.0 || s.damage.0 > s.damage.1 || s.damage.1 > 200.0 {
         return Err(bad("damage is [least, most] points, from 0 to 200"));
@@ -111,7 +116,7 @@ fn to_spell(file: &Path, s: &SpellFile, defs: &Defs) -> Result<SpellDef, DataErr
         name: s.name.clone(),
         line: s.line.clone(),
         kind,
-        slots: s.slots,
+        mana: (s.mana * 1000.0).round() as i32,
         cast: (ticks(file, &format!("spell {:?}: cast", s.id), s.cast)? as u32).max(1),
         range: s.range,
         radius: s.radius,

@@ -47,9 +47,12 @@ struct ClassFile {
     /// The armour it starts in, by item id, whatever its kit (left out: none).
     #[serde(default)]
     wear: Vec<String>,
-    /// The spell slots it holds, and the spells it knows, by id (spells.toml); left out, none.
+    /// The mana it holds (points), how much comes back a second, and the spells it knows, by
+    /// id (spells.toml); left out, none.
     #[serde(default)]
-    slots: u8,
+    mana: f64,
+    #[serde(default)]
+    mana_regen: f64,
     #[serde(default)]
     spells: Vec<String>,
 }
@@ -123,10 +126,10 @@ struct TalentFile {
     /// The dead you put down stay down.
     #[serde(default)]
     last_rites: bool,
-    /// Spells: slots it adds; a multiplier on how long the words take; tiles added to every
-    /// spell's range; a multiplier on how far the words carry.
+    /// Spells: mana it adds (points); a multiplier on how long the words take; tiles added to
+    /// every spell's range; a multiplier on how far the words carry.
     #[serde(default)]
-    slots: u8,
+    mana: f64,
     #[serde(default = "one")]
     cast: f64,
     #[serde(default)]
@@ -227,8 +230,7 @@ fn to_class(
                 t.id
             )));
         }
-        if c.spells.is_empty() && (t.slots > 0 || t.cast != 1000 || t.range != 0 || t.hush != 1000)
-        {
+        if c.spells.is_empty() && (t.mana > 0 || t.cast != 1000 || t.range != 0 || t.hush != 1000) {
             return Err(bad(format!(
                 "talent {:?} is for casting spells, and this class knows none",
                 t.id
@@ -246,8 +248,15 @@ fn to_class(
                 .ok_or_else(|| bad(format!("no spell called {s:?} in spells.toml")))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if c.slots > 20 {
-        return Err(bad("slots is 0 to 20".into()));
+    if !(0.0..=500.0).contains(&c.mana) || !(0.0..=50.0).contains(&c.mana_regen) {
+        return Err(bad(
+            "mana is 0 to 500 points, mana_regen 0 to 50 points a second".into(),
+        ));
+    }
+    if c.spells.is_empty() != (c.mana == 0.0) {
+        return Err(bad(
+            "a class with spells holds mana, and one without none".into()
+        ));
     }
     let item = |name: &str| -> Result<u16, DataError> {
         defs.items
@@ -297,7 +306,9 @@ fn to_class(
         turns: c.turns,
         kit,
         wear,
-        slots: c.slots,
+        // In thousandths of a point, as faith is.
+        mana: (c.mana * 1000.0).round() as i32,
+        mana_regen: (c.mana_regen * 1000.0).round() as i32,
         spells,
     })
 }
@@ -322,10 +333,10 @@ fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
     if !(0.1..=2.0).contains(&t.cast)
         || !(0.0..=2.0).contains(&t.hush)
         || !(0..=10).contains(&t.range)
-        || t.slots > 5
+        || !(0.0..=100.0).contains(&t.mana)
     {
         return Err(bad(
-            "cast is a multiplier from 0.1 to 2, hush from 0 to 2, range 0 to 10 tiles, slots 0 to 5",
+            "cast is a multiplier from 0.1 to 2, hush from 0 to 2, range 0 to 10 tiles, mana 0 to 100 points",
         ));
     }
     if !(0.0..=100.0).contains(&t.health) || t.hold > 5 {
@@ -370,7 +381,7 @@ fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
         turn_reach: t.turn_reach,
         sunder: points(t.sunder),
         last_rites: t.last_rites,
-        slots: t.slots,
+        mana: (t.mana * 1000.0).round() as i32,
         cast: per(t.cast),
         range: t.range,
         hush: per(t.hush),

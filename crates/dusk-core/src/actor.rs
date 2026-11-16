@@ -470,8 +470,10 @@ pub struct Actor {
     pub worn: Vec<Item>,
     /// The bag on its back (`bag.rs`): what's in it is the pack's stacks marked `bagged`.
     pub bag: Option<Item>,
-    /// A Wizard's spell slots left (`spell.rs`).
-    pub slots: u8,
+    /// A Wizard's mana, in thousandths of a point (`spell.rs`): spent on spells, coming back by
+    /// the second. Since 2026-11-16: a save from before (slots) loads with none, to come back.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub mana: i32,
     /// A character's Strength and Fitness, in thousandths of a level (`fitness.rs`), and the
     /// day's work toward its Strength (its breath spent, toward Fitness, is the body's).
     pub strength: u32,
@@ -529,7 +531,7 @@ impl Actor {
             faith: 0,
             worn: Vec::new(),
             bag: None,
-            slots: 0,
+            mana: 0,
             strength: 0,
             fitness: 0,
             strain: 0,

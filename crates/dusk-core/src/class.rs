@@ -57,9 +57,11 @@ pub struct Class {
     pub kit: Option<Kit>,
     /// The armour it starts in, by item number (`armour.rs`), whatever its kit.
     pub wear: Vec<u16>,
-    /// The spell slots it holds (0: none), and the spells it knows, by their numbers in
-    /// `Defs::spells` (`spell.rs`): the Wizard's.
-    pub slots: u8,
+    /// The mana it holds, in thousandths of a point (0: none), how much of it comes back a
+    /// second, and the spells it knows, by their numbers in `Defs::spells` (`spell.rs`): the
+    /// Wizard's.
+    pub mana: i32,
+    pub mana_regen: i32,
     pub spells: Vec<u16>,
 }
 
@@ -121,9 +123,9 @@ pub struct Talent {
     pub sunder: i32,
     /// The dead you put down stay down, as with a Hallowed weapon.
     pub last_rites: bool,
-    /// Spells (`spell.rs`): slots it adds; per mille, how long the words take; tiles added to
-    /// every spell's range; and per mille, how far the words carry.
-    pub slots: u8,
+    /// Spells (`spell.rs`): mana it adds (thousandths of a point); per mille, how long the words
+    /// take; tiles added to every spell's range; and per mille, how far the words carry.
+    pub mana: i32,
     pub cast: u32,
     pub range: i32,
     pub hush: u32,
@@ -156,7 +158,7 @@ impl Default for Talent {
             turn_reach: 0,
             sunder: 0,
             last_rites: false,
-            slots: 0,
+            mana: 0,
             cast: 1000,
             range: 0,
             hush: 1000,
@@ -219,11 +221,11 @@ impl World {
     /// in its pack) and its class's faith, full.
     pub(crate) fn equip(&mut self, id: ActorId) {
         let defs = self.defs.clone();
-        let (faith, slots) = (self.max_faith(id), self.max_slots(id));
+        let (faith, mana) = (self.max_faith(id), self.max_mana(id));
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
-        a.slots = slots;
+        a.mana = mana;
         let kit = a
             .class
             .and_then(|c| defs.classes.get(usize::from(c)))
@@ -405,17 +407,18 @@ impl World {
         if !self.talent_offer(id).contains(&talent) {
             return false;
         }
-        let (health, slots) = self
+        let (health, mana) = self
             .defs
             .talents
             .get(usize::from(talent))
-            .map_or((0, 0), |t| (t.health, t.slots));
+            .map_or((0, 0), |t| (t.health, t.mana));
         let Some(a) = self.actors.get_mut(id) else {
             return false;
         };
         a.talents.push(talent);
         a.body.health += health;
-        a.slots = a.slots.saturating_add(slots);
+        // A talent's mana comes at once, as its health does.
+        a.mana += mana;
         self.events.push(Event::TalentChosen { who: id, talent });
         true
     }

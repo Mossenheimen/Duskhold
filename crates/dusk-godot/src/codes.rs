@@ -126,7 +126,6 @@ pub mod event {
         CAST = 108,
         SCORCHED = 109,
         SPELL_BROKE = 110,
-        SLOTS_BACK = 111,
         TERRIFIED = 112,
         SEARED = 113,
         THORNED = 114,

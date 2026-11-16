@@ -176,7 +176,7 @@ Each class plays a different part of the system:
 | Fighter | holds doorways; heavy armour (loud); shields | engagement: the lines to adjacent enemies, and grabs | endurance, more of it than anyone | brace, shield bash, cleave, second wind; shrugs off grabs |
 | Rogue | dark and quiet; backstabs; locks and traps | darkness and the signature | the dark itself | sneak attacks from darkness or behind; reads tracks; picks locks, disarms traps |
 | Cleric | healer, and the dead's natural enemy | dread and the dead | faith, restored by prayer at shrines | turn undead, wards, cures, steadying light |
-| Wizard | fragile, versatile, loud when it counts | the sense fields themselves | spell slots, restored by rest | Silence, Fog, Chill, Light, Knock; fireball (a huge noise and light); identify |
+| Wizard | fragile, versatile, loud when it counts | the sense fields themselves | mana, coming back by the second (slots, restored by rest, until 2026-11-16) | Silence, Fog, Chill, Light, Knock; fireball (a huge noise and light); identify |
 
 Later: Ranger (bows, tracking, reading wind and tracks), Bard (songs ease dread, and carry), Paladin, Warlock (power at the price of corruption).
 
@@ -212,7 +212,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 *(built 2026-11-12)* **The Wizard**, the third class (its numbers and talents are Defaults, not yet played):
 - **Skills:** it learns Arcana (its own: each spell cast teaches it, and each level casts quicker; *since 2026-11-15*, each level also adds a twentieth to a fireball's harm and a tenth to how long a spell lasts on its spot, so "+3 to Arcana" on a staff or a sword is a stronger, longer Wizard, as Diablo's "+skills" are) and First Aid half as fast again. Fragile: its breath goes a tenth quicker, and the dead get hold of it more easily.
 - **Its kit:** a quarterstaff, a wool cloak and two pinches of sulphur.
-- **Spell slots, its resource:** three, all back once it has slept the night through.
+- **Mana, its resource** (since 2026-11-16, the user: "spells should be mana based, and mana regen should be a game stat"; in place of D&D's slots): 40 to hold, coming back 0.4 a second (empty to full in 100 s), asleep or awake. How fast it comes back is a stat of its own, as Diablo's and Path of Exile's: a twentieth faster for each level of Arcana, and faster with what you carry ("+40% mana regeneration": Restful, Flowing, Wellspring on a weapon; Serene, Tranquil, Meditative worn), and more to hold too ("+20 to maximum mana": Mindful, Brimming, Overflowing, on a weapon). Light is free, Silence and Fog cost 12, a Fireball 20 (and its sulphur). The skills panel shows it with Strength and Fitness.
 - **Its spells** (P for the panel; 1 to 4 to ready one, and a click on the spot): Light (a cantrip: a pale light for two minutes, and at night a lure for the dead), Silence (no sound made within 3 tiles for half a minute), Fog (the dead can't see into or out of it for half a minute), Fireball (two slots and a pinch of sulphur: everything within 2 tiles of the spot is burned, you too; what it puts down burns and never gets up; heard across the map). Those are its times with no Arcana; the panel gives each spell's numbers as yours (its words, its reach, how long it lasts or what it harms). The words are a tell, and a blow breaks them.
 - **Talents:** Tough, Steady, Arcane Reserve (a slot more), Quick Casting (words a third quicker), Far Reach (3 tiles farther), Hushed Words (heard a quarter as far).
 
@@ -241,7 +241,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
   - ordinary kills, a little.
 - **Each level offers three curated talents** from the class list, plus:
   - a little health, bounded: *(built 2026-11-10)* 5 points a level, so level 10 has 145 against 100. The 2–3× first written here was D&D's; wounds here are fixed amounts, so 250 health would shrug off a crowd;
-  - more spell slots or faith.
+  - more mana or faith.
 
   There are no trees of one-point wonders (Diablo II's lesson), and a holdout trainer re-picks your talents for a price, so a bad pick is never a trap. Levels run 1–10 in the open world; dungeons take it further.
 - **No enemy level scaling** (Oblivion's lesson). The danger comes from:
@@ -383,7 +383,7 @@ One table of how things act on each other, written before the content, so the ga
   - **A grab has a way out** (decided): struggle free (endurance) or shove (with a hand free). Each extra grabber makes it harder, and three grabbing at once, or an empty endurance bar, is the drag-down. Deaths stay readable ("I let three get round me") without becoming rare.
 - **Spells are timed actions, stated by their limits** (Sanderson: limits are more interesting than powers). Shown while paused:
   - cast time, noise and light;
-  - a cost: a slot, faith, a component;
+  - a cost: mana, faith, a component;
   - line of sight;
   - concentration: a hit can break the cast.
 - **Spells work on the sense fields:**
@@ -399,7 +399,7 @@ One table of how things act on each other, written before the content, so the ga
 
   Fireball lights up the street, and everything on it hears it. Few spells, each a tool for some region's puzzle rather than one more damage number.
 - **Components are loot** (bat guano and sulphur for a fireball, as in D&D), so wizards scavenge too.
-- **Resting** restores slots and health, and means sleeping somewhere that holds: Zomboid's night in a house with zombies outside.
+- **Resting** restores health, and means sleeping somewhere that holds: Zomboid's night in a house with zombies outside. (It restored spell slots too, until mana came back by the second, 2026-11-16.)
 - Default: about 8 spells per caster class at first; each school levels by use.
 
 ## Base-building (decided: from the start)

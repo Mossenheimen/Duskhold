@@ -142,7 +142,7 @@ var _flash_left := 0.0
 var _health: ProgressBar
 var _endurance: ProgressBar
 var _faith: ProgressBar  # a Cleric's (DuskWorld.faith()): hidden for a class without any
-var _slots: ProgressBar  # a Wizard's spell slots (DuskWorld.character_slots()): hidden without
+var _mana: ProgressBar  # a Wizard's mana (DuskWorld.character_mana()): hidden without
 var _choice: Label  # who comes into the world: the classes to choose from
 var _choice_title: Label  # over it, in the serif: "Who comes to the abbey?"
 var _breath: Label
@@ -452,14 +452,14 @@ func show_faith(faith: PackedInt32Array) -> void:
 		_faith.value = faith[0]
 
 
-## Your spell slots (DuskWorld.character_slots(): [left, the most]): a bar under endurance, for a
-## class that casts.
-func show_slots(slots: PackedInt32Array) -> void:
-	var most := slots[1] if slots.size() > 1 else 0
-	_slots.get_parent().visible = most > 0
+## Your mana (DuskWorld.character_mana(): [now, the most, back a second]): a bar under
+## endurance, for a class that casts.
+func show_mana(mana: PackedInt32Array) -> void:
+	var most := mana[1] if mana.size() > 1 else 0
+	_mana.get_parent().visible = most > 0
 	if most > 0:
-		_slots.max_value = most
-		_slots.value = slots[0]
+		_mana.max_value = most
+		_mana.value = mana[0]
 
 
 ## Who comes into the world: a title, and the classes to choose from; both "" once one's chosen.
@@ -810,8 +810,8 @@ func _build_left_column() -> void:
 	_endurance = _bar(bars, "Endurance", Look.ENDURANCE)
 	_faith = _bar(bars, "Faith", Look.FAITH)
 	_faith.get_parent().visible = false
-	_slots = _bar(bars, "Spells", Look.ARCANE)
-	_slots.get_parent().visible = false
+	_mana = _bar(bars, "Mana", Look.ARCANE)
+	_mana.get_parent().visible = false
 	var frame := PanelContainer.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := Look.panel_style()

@@ -126,8 +126,8 @@ last_rites = true
 [[talent]]
 id = "arcane_reserve"
 name = "Arcane Reserve"
-line = "one more spell slot"
-slots = 1
+line = "15 more mana to hold"
+mana = 15
 
 [[talent]]
 id = "quick_casting"

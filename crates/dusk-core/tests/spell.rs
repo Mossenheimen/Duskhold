@@ -1,14 +1,14 @@
-//! Spells: Light (no slot: a light on a spot, fading, and a lure at night), Silence (no sound made
+//! Spells: Light (free: a light on a spot, fading, and a lure at night), Silence (no sound made
 //! inside it), Fog (the dead can't see into it), Fireball (harm within its reach, what it puts down
-//! burns, heard far off); their limits (known, slots, the component, range, sight); a blow breaks
-//! the words and spends nothing; slots come back with a night's sleep; Arcana and the talents.
+//! burns, heard far off); their limits (known, mana, the component, range, sight); a blow breaks
+//! the words and spends nothing; mana comes back by the second; Arcana and the talents.
 
 use std::sync::Arc;
 
 use dusk_core::senses::Cone;
 use dusk_core::{
     ActorId, ActorKind, Class, Defs, Event, Intent, Item, ItemDef, ItemKind, Kit, NoCast, Part,
-    Power, Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, Woke, World, WoundKind,
+    Power, Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, World, WoundKind,
 };
 
 const SULPHUR: u16 = 0;
@@ -23,13 +23,13 @@ fn at(x: i32, y: i32) -> TilePos {
 }
 
 /// A spell's numbers, ticks and tiles.
-fn spell(id: &str, kind: SpellKind, slots: u8, radius: i32, light: i32) -> SpellDef {
+fn spell(id: &str, kind: SpellKind, mana: i32, radius: i32, light: i32) -> SpellDef {
     SpellDef {
         id: id.into(),
         name: id.into(),
         line: String::new(),
         kind,
-        slots,
+        mana,
         cast: 10,
         range: 8,
         radius,
@@ -43,8 +43,9 @@ fn spell(id: &str, kind: SpellKind, slots: u8, radius: i32, light: i32) -> Spell
 }
 
 /// Sulphur; the four spells (a fireball burns within 2 tiles for 100 points, flashes and is heard
-/// 35 tiles off, and uses up a pinch of sulphur); a wizard (3 slots, the four spells, two pinches)
-/// and a fighter (none); and the wizard's three talents.
+/// 35 tiles off, costs 20 mana and uses up a pinch of sulphur); a wizard (30 mana, none coming
+/// back unless a test says so, the four spells, two pinches) and a fighter (none); and the
+/// wizard's three talents.
 fn defs() -> Defs {
     let fireball = SpellDef {
         cast: 25,
@@ -52,7 +53,7 @@ fn defs() -> Defs {
         boom: 35,
         damage: (1000, 1000),
         component: Some(SULPHUR),
-        ..spell("fireball", SpellKind::Fireball, 2, 2, 7)
+        ..spell("fireball", SpellKind::Fireball, 20_000, 2, 7)
     };
     let wizard = Class {
         id: "wizard".into(),
@@ -65,7 +66,8 @@ fn defs() -> Defs {
             wield: None,
             pack: vec![Item::new(SULPHUR, 2)],
         }),
-        slots: 3,
+        mana: 30_000,
+        mana_regen: 0,
         spells: vec![LIGHT, SILENCE, FOG, FIREBALL],
         ..Class::default()
     };
@@ -93,14 +95,14 @@ fn defs() -> Defs {
         }],
         spells: vec![
             spell("light", SpellKind::Light, 0, 0, 4),
-            spell("silence", SpellKind::Silence, 1, 3, 0),
-            spell("fog", SpellKind::Fog, 1, 2, 0),
+            spell("silence", SpellKind::Silence, 10_000, 3, 0),
+            spell("fog", SpellKind::Fog, 10_000, 2, 0),
             fireball,
         ],
         classes: vec![wizard, fighter],
         talents: vec![
             Talent {
-                slots: 1,
+                mana: 10_000,
                 ..talent("reserve")
             },
             Talent {
@@ -193,7 +195,7 @@ fn light_costs_no_slot_lights_its_spot_and_fades() {
             .any(|e| matches!(*e, Event::Sound { at: p, loudness: 2, .. } if p == ME)),
         "the words are heard"
     );
-    assert_eq!(w.slots(me), 3, "a cantrip");
+    assert_eq!(w.mana(me), 30_000, "free");
     assert!(w.light_at(at(5, 0)) > 0);
     assert!(w.light_at(at(7, 0)) > 0, "it lights 4 tiles round");
     run(&mut w, 100);
@@ -217,7 +219,7 @@ fn at_night_the_dead_that_see_the_light_come_to_it() {
 fn inside_a_silence_no_sound_is_made() {
     let (mut w, me) = field(12);
     cast(&mut w, me, SILENCE, at(5, 0));
-    assert_eq!(w.slots(me), 2);
+    assert_eq!(w.mana(me), 20_000);
     w.events().for_each(drop);
     w.make_sound(at(6, 2), 10, None);
     w.make_sound(at(12, 0), 10, None);
@@ -237,7 +239,7 @@ fn the_dead_cant_see_into_a_fog() {
     let z = w.spawn(ActorKind::Creature(0), at(6, 0)).unwrap();
     assert!(w.sees(z, ME));
     cast(&mut w, me, FOG, ME);
-    assert_eq!(w.slots(me), 2);
+    assert_eq!(w.mana(me), 20_000);
     let you = w.actor(me).unwrap().pos;
     assert!(!w.sees(z, you), "you're in the fog");
     let from = w.actor(z).unwrap().pos;
@@ -257,7 +259,7 @@ fn a_fireball_burns_everything_in_its_reach_and_what_it_puts_down_burns() {
         w.wound(body, WoundKind::Bite, Part::Torso);
     }
     let seen = cast(&mut w, me, FIREBALL, at(5, 0));
-    assert_eq!(w.slots(me), 1, "two slots");
+    assert_eq!(w.mana(me), 10_000, "twenty mana");
     assert_eq!(sulphur(&w, me), 1, "and a pinch of sulphur");
     for who in [hit, also] {
         assert!(seen.contains(&Event::Scorched {
@@ -301,7 +303,7 @@ fn a_spell_has_its_limits() {
     );
     assert_eq!(w.can_cast(me, FIREBALL, at(4, 0)), Err(NoCast::NoSight));
     cast(&mut w, me, FIREBALL, at(4, 3));
-    assert_eq!(w.can_cast(me, FIREBALL, at(4, 3)), Err(NoCast::NoSlots));
+    assert_eq!(w.can_cast(me, FIREBALL, at(4, 3)), Err(NoCast::NoMana));
     // A fresh wizard without the sulphur.
     let (mut w, me) = field(12);
     act(
@@ -317,7 +319,7 @@ fn a_spell_has_its_limits() {
     let (mut w, me) = field(12);
     assert!(w.choose_class(me, 1));
     assert_eq!(w.can_cast(me, LIGHT, at(3, 0)), Err(NoCast::Unknown));
-    assert_eq!(w.max_slots(me), 0);
+    assert_eq!(w.max_mana(me), 0);
 }
 
 #[test]
@@ -331,26 +333,36 @@ fn a_blow_breaks_the_words_and_nothing_is_spent() {
         spell: FIREBALL
     }));
     assert!(!seen.iter().any(|e| matches!(e, Event::Cast { .. })));
-    assert_eq!((w.slots(me), sulphur(&w, me)), (3, 2));
+    assert_eq!((w.mana(me), sulphur(&w, me)), (30_000, 2));
 }
 
 #[test]
-fn the_slots_come_back_with_a_nights_sleep() {
-    let (mut w, me) = field(22);
-    cast(&mut w, me, SILENCE, at(3, 0));
-    assert_eq!(w.slots(me), 2);
-    w.rules.needs.fatigue.rise = 100_000;
-    run(&mut w, 25);
-    w.rules.needs.fatigue.rise = 0;
-    w.rules.needs.fatigue.rest = 100_000;
-    act(&mut w, me, Intent::Sleep);
-    let seen = run(&mut w, 50);
-    assert!(seen.contains(&Event::WokeUp {
-        who: me,
-        why: Woke::Rested
-    }));
-    assert!(seen.contains(&Event::SlotsBack { who: me }));
-    assert_eq!(w.slots(me), 3);
+fn mana_comes_back_by_the_second_and_faster_with_arcana() {
+    let (mut w, me) = field(12);
+    // The test wizard's mana comes back a point a second.
+    let mut defs = (*w.defs).clone();
+    defs.classes[0].mana_regen = 1000;
+    w.defs = Arc::new(defs);
+    assert_eq!(w.mana_regen(me), 1000);
+    cast(&mut w, me, FIREBALL, at(4, 3));
+    let spent = w.mana(me);
+    assert!(spent < 20_000, "{spent}");
+    run(&mut w, 10);
+    assert_eq!(w.mana(me), spent + 1000, "a point in a second");
+    run(&mut w, 400);
+    assert_eq!(w.mana(me), 30_000, "and never past the most");
+    // Arcana: a twentieth faster a level.
+    w.give_xp(me, Skill::Arcana, 1_000_000);
+    let level = w.skill_level(me, Skill::Arcana);
+    assert!(level > 0);
+    assert_eq!(
+        w.mana_regen(me),
+        1000 * (1000 + 50 * i32::from(level)) / 1000
+    );
+    // A fighter holds none, and none comes back.
+    let (mut w, me) = field(12);
+    assert!(w.choose_class(me, 1));
+    assert_eq!((w.max_mana(me), w.mana_regen(me)), (0, 0));
 }
 
 #[test]
@@ -425,15 +437,15 @@ fn arcana_makes_a_fireball_harm_more_and_a_spell_last_longer() {
 }
 
 #[test]
-fn the_wizards_talents_add_a_slot_quicken_the_words_and_hush_them() {
+fn the_wizards_talents_add_mana_quicken_the_words_and_hush_them() {
     let (mut w, me) = field(12);
     w.gain_deeds(me, 100_000_000);
     for _ in 0..3 {
         let offer = w.talent_offer(me);
         assert!(w.choose_talent(me, offer[0]));
     }
-    assert_eq!(w.max_slots(me), 4);
-    assert_eq!(w.slots(me), 4, "the new slot comes at once");
+    assert_eq!(w.max_mana(me), 40_000);
+    assert_eq!(w.mana(me), 40_000, "the new mana comes at once");
     assert_eq!(w.cast_ticks(me, SILENCE), 5, "half the time");
     let seen = cast(&mut w, me, LIGHT, at(3, 0));
     assert!(

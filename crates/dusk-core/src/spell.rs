@@ -1,15 +1,18 @@
 //! Spells (`CONCEPT.md`: the Wizard, "Spells are timed actions, stated by their limits", and
 //! "Spells work on the sense fields"): the Wizard's first four.
 //!
-//! - **A spell is data** (`data/spells.toml`): what it does (`SpellKind`), the slots it costs,
+//! - **A spell is data** (`data/spells.toml`): what it does (`SpellKind`), the mana it costs,
 //!   its cast time, its range, how far it reaches round the spot, the light it gives and for how
 //!   long, the noise of its words, and the component it uses up.
 //! - **Casting is a timed action** (`Intent::Cast`) at a tile in range and in sight. The words
 //!   are its wind-up and its tell, heard as far as they carry; a blow during them breaks the spell
-//!   (D&D's concentration), and nothing is spent. On its strike the slots and the component go,
+//!   (D&D's concentration), and nothing is spent. On its strike the mana and the component go,
 //!   and it takes effect.
-//! - **Slots** (`Actor::slots`) are the Wizard's resource: its class's, and more with a talent,
-//!   all back once it has slept the night through. Light costs none: a cantrip.
+//! - **Mana** (`Actor::mana`; since 2026-11-16, in place of D&D's slots) is the Wizard's
+//!   resource, as Diablo's and Path of Exile's: a pool (its class's, more with a talent and with
+//!   what it carries: `Boosts::mana`) that comes back by the second, at a rate that's a stat of
+//!   its own (`World::mana_regen`: its class's, faster with each level of Arcana and with what it
+//!   carries, `Boosts::mana_regen`), asleep or awake. Light costs none.
 //! - **Each spell works on a sense,** on its spot (`World::zones`) for as long as it lasts:
 //!   - Light: a pale light, to see by; and at night the dead that see it come to it, as to a
 //!     fire: a lure.
@@ -48,8 +51,8 @@ pub struct SpellDef {
     /// What it does, in a line.
     pub line: String,
     pub kind: SpellKind,
-    /// Slots it costs (0: a cantrip).
-    pub slots: u8,
+    /// Mana it costs, in thousandths of a point (0: none).
+    pub mana: i32,
     /// Ticks of words: its wind-up.
     pub cast: u32,
     /// Tiles to the spot it's cast on.
@@ -93,8 +96,8 @@ pub enum NoCast {
     Unknown,
     /// Something has hold of you.
     Held,
-    /// Not slots enough left: they come back with a night's sleep.
-    NoSlots,
+    /// Not mana enough: it comes back by the second.
+    NoMana,
     /// Its component isn't in your pack.
     NoComponent,
     /// The spot is out of its range.
@@ -135,22 +138,48 @@ impl World {
         self.class_of(id).map_or(Vec::new(), |c| c.spells.clone())
     }
 
-    /// The most slots `id` holds: its class's, and its talents' (0 for a class without).
-    pub fn max_slots(&self, id: ActorId) -> u8 {
-        let class = self.class_of(id).map_or(0, |c| c.slots);
-        if class == 0 {
+    /// The most mana `id` holds, in thousandths of a point: its class's, its talents' and what
+    /// it carries gives (0 for a class without).
+    pub fn max_mana(&self, id: ActorId) -> i32 {
+        let class = self.class_of(id).map_or(0, |c| c.mana);
+        if class <= 0 {
             return 0;
         }
-        self.talents_of(id)
-            .fold(class, |n, t| n.saturating_add(t.slots))
+        let talents: i32 = self.talents_of(id).map(|t| t.mana).sum();
+        class + talents + self.boosts(id).mana
     }
 
-    /// The slots `id` has left.
-    pub fn slots(&self, id: ActorId) -> u8 {
+    /// The mana `id` has now, in thousandths of a point.
+    pub fn mana(&self, id: ActorId) -> i32 {
         self.actors
             .get(id)
             .filter(|a| !a.dead)
-            .map_or(0, |a| a.slots)
+            .map_or(0, |a| a.mana)
+    }
+
+    /// How fast `id`'s mana comes back, in thousandths of a point a second: its class's, a
+    /// twentieth faster for each level of Arcana (`SkillRules::arcana_regen`), and as what it
+    /// carries makes it (`Boosts::mana_regen`). 0 for a class without mana.
+    pub fn mana_regen(&self, id: ActorId) -> i32 {
+        let Some(class) = self.class_of(id).filter(|c| c.mana > 0) else {
+            return 0;
+        };
+        let level = u32::from(self.skill_level(id, Skill::Arcana));
+        let more = level * self.rules.skills.arcana_regen + self.boosts(id).mana_regen;
+        (i64::from(class.mana_regen) * i64::from(1000 + more) / 1000) as i32
+    }
+
+    /// Each tick: the living's mana comes back toward the most they hold (and what's more than
+    /// that, once what gave it is put away, is let go).
+    pub(crate) fn replenish_mana(&mut self) {
+        for i in 0..self.characters.len() {
+            let id = self.characters[i];
+            let (most, regen) = (self.max_mana(id), self.mana_regen(id));
+            if let Some(a) = self.actors.get_mut(id).filter(|a| !a.dead) {
+                let back = regen / crate::world::TICKS_PER_SECOND as i32;
+                a.mana = (a.mana + back).min(most).max(0);
+            }
+        }
     }
 
     /// How far `id` casts a spell, in tiles: the spell's range, and its talents'.
@@ -207,8 +236,8 @@ impl World {
         if self.is_held(id) {
             return Err(NoCast::Held);
         }
-        if a.slots < s.slots {
-            return Err(NoCast::NoSlots);
+        if a.mana < s.mana {
+            return Err(NoCast::NoMana);
         }
         if let Some(c) = s.component
             && !a.items.iter().any(|i| i.def == c)
@@ -241,7 +270,7 @@ impl World {
         ))
     }
 
-    /// The words are said (the action's strike): the slots and the component go, Arcana learns
+    /// The words are said (the action's strike): the mana and the component go, Arcana learns
     /// from it, and the spell takes effect, as strong and as long as your Arcana before it learnt.
     /// The words are heard as far as they carry.
     pub(crate) fn cast(&mut self, id: ActorId, spell: u16, at: TilePos) {
@@ -256,7 +285,7 @@ impl World {
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
-        a.slots -= s.slots;
+        a.mana -= s.mana;
         if let Some(c) = s.component
             && let Some(slot) = a.items.iter().position(|i| i.def == c)
         {
@@ -386,17 +415,5 @@ impl World {
         }
         let tick = self.tick;
         self.zones.retain(|z| z.until > tick);
-    }
-
-    /// A night's sleep through: `id`'s slots are all back. True if any came back.
-    pub(crate) fn rest_slots(&mut self, id: ActorId) -> bool {
-        let most = self.max_slots(id);
-        match self.actors.get_mut(id) {
-            Some(a) if a.slots < most => {
-                a.slots = most;
-                true
-            }
-            _ => false,
-        }
     }
 }

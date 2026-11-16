@@ -244,6 +244,10 @@ pub struct Property {
     pub fitness: u32,
     pub raises: Raises,
     pub levels: u8,
+    /// Mana it adds to the most its bearer holds, in thousandths of a point, and per mille how
+    /// much faster mana comes back (`World::max_mana`, `World::mana_regen`: `Boosts`).
+    pub mana: i32,
+    pub mana_regen: u32,
     /// A weapon's: the harm its blows add, least and most, in tenths of a point: fire's, on
     /// anything; holy harm, on the dead only (`World::elemental`).
     pub fire: (i32, i32),
@@ -297,6 +301,8 @@ impl Property {
             bash: more(self.bash),
             hearten: points(self.hearten),
             warmth: points(self.warmth),
+            mana: points(self.mana),
+            mana_regen: more(self.mana_regen),
             fire: span(self.fire),
             holy: span(self.holy),
             thorns: span(self.thorns),
@@ -385,6 +391,10 @@ pub struct Boosts {
     pub strength: u32,
     pub fitness: u32,
     pub levels: [u8; SKILLS],
+    /// Mana added to the most its bearer holds (thousandths of a point), and per mille how much
+    /// faster it comes back (`spell.rs`).
+    pub mana: i32,
+    pub mana_regen: u32,
 }
 
 impl Boosts {
@@ -392,6 +402,8 @@ impl Boosts {
     fn and(mut self, other: Boosts) -> Boosts {
         self.strength += other.strength;
         self.fitness += other.fitness;
+        self.mana += other.mana;
+        self.mana_regen += other.mana_regen;
         for (n, more) in self.levels.iter_mut().zip(other.levels) {
             *n = n.saturating_add(more);
         }
@@ -428,6 +440,8 @@ impl Default for Property {
             fitness: 0,
             raises: Raises::Nothing,
             levels: 0,
+            mana: 0,
+            mana_regen: 0,
             fire: (0, 0),
             holy: (0, 0),
             ward: 0,
@@ -574,6 +588,8 @@ impl Defs {
         for p in self.properties_of(item) {
             b.strength += p.strength;
             b.fitness += p.fitness;
+            b.mana += p.mana;
+            b.mana_regen += p.mana_regen;
             let skill = match p.raises {
                 Raises::Nothing => None,
                 Raises::Own => own,

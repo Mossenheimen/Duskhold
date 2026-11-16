@@ -92,6 +92,12 @@ struct PropertyFile {
     skill: String,
     #[serde(default)]
     levels: u8,
+    /// Mana added to the most its bearer holds (points), and a share more mana back a second
+    /// (`spell.rs` in the core: as Diablo's and Path of Exile's).
+    #[serde(default)]
+    mana: f64,
+    #[serde(default)]
+    mana_regen: f64,
     /// A weapon's: the harm its blows add, [least, most] in points: fire's on anything, holy
     /// harm on the dead only.
     #[serde(default)]
@@ -382,6 +388,9 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
     if !level(p.strength) || !level(p.fitness) {
         return Err("strength and fitness are levels, from 0 to 5".into());
     }
+    if !(0.0..=100.0).contains(&p.mana) || !(0.0..=2.0).contains(&p.mana_regen) {
+        return Err("mana is 0 to 100 points, mana_regen a share more from 0 to 2".into());
+    }
     let raises = match p.skill.as_str() {
         "" if p.levels == 0 => Raises::Nothing,
         "" => return Err("levels go to a skill: skill = \"own\", or a skill's id".into()),
@@ -414,7 +423,7 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
     // the dead put to flight or knocked down), and a blow's that lands on you on armour.
     use Fits::{Armour, Bow, Light, Shield, Weapon};
     let held: &[Fits] = &[Weapon, Armour, Bow, Shield];
-    let numbers: [(&str, bool, &[Fits]); 29] = [
+    let numbers: [(&str, bool, &[Fits]); 31] = [
         ("noise", p.noise != 1.0, &[Weapon, Bow]),
         ("damage", p.damage != 1.0, &[Weapon, Bow]),
         ("swing", p.swing != 1.0, &[Weapon, Bow]),
@@ -435,6 +444,8 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         ("strength", p.strength > 0.0, held),
         ("fitness", p.fitness > 0.0, held),
         ("skill", p.levels > 0, held),
+        ("mana", p.mana > 0.0, &[Weapon]),
+        ("mana_regen", p.mana_regen > 0.0, &[Weapon, Armour]),
         ("fire", p.fire.1 > 0.0, &[Weapon, Bow]),
         ("holy", p.holy.1 > 0.0, &[Weapon, Bow]),
         ("ward", p.ward > 0.0, &[Armour]),
@@ -488,6 +499,8 @@ fn to_property(p: &PropertyFile, fits: Fits) -> Result<Property, String> {
         fitness: per(p.fitness),
         raises,
         levels: p.levels,
+        mana: (p.mana * 1000.0).round() as i32,
+        mana_regen: per(p.mana_regen),
         fire: points(p.fire),
         holy: points(p.holy),
         ward: chance(p.ward),
