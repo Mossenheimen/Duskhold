@@ -83,6 +83,19 @@ impl World {
             if a.step.is_some() || !a.intent.is_action() {
                 return false;
             }
+            // A spell cast on a spot too far or out of sight: kept, and walked toward until it can
+            // be cast (`world.rs`'s `walk_toward`), as Diablo's. A character's only.
+            if let (Intent::Cast { spell, at }, true) = (a.intent, a.kind.is_character())
+                && matches!(
+                    self.can_cast(id, spell, at),
+                    Err(crate::spell::NoCast::TooFar | crate::spell::NoCast::NoSight)
+                )
+            {
+                return false;
+            }
+            let Some(a) = self.actors.get_mut(id) else {
+                return true;
+            };
             let intent = std::mem::take(&mut a.intent);
             let Some(action) = self.begin(id, intent) else {
                 return false;

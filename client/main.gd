@@ -2470,15 +2470,19 @@ func _aim() -> void:
 	var reach: int = info[i + 5] if info[i] == Spell.LIGHT else info[i + 4]
 	var can: int = dusk.cast_check(readied, tile.x, tile.y)
 	var burns: bool = dusk.spell_catches(readied, tile.x, tile.y)
-	aim.show_aim(actors[me].position, info[i + 3], tile, reach, can == 0, burns)
+	# Too far or out of sight is a click all the same: you'd go closer first.
+	var closer := can in [-5, -6]
+	aim.show_aim(actors[me].position, info[i + 3], tile, reach, can == 0 or closer, burns)
 	# And in words, under you, so the colours aren't alone (VISUALS.md §4): what a click would do.
 	aiming = true
 	var line := "[Click] Cast the %s here" % _spell_name(readied)
-	if can != 0:
+	if closer:
+		line = "[Click] Go closer and cast the %s here" % _spell_name(readied)
+	elif can != 0:
 		line = "%s: %s" % [_spell_name(readied), AIM_WHY.get(can, "it can't be cast now")]
 	elif burns:
 		line += ": it would burn you too"
-	hud.show_prompts([[line, can == 0], [Prompts.keyed("[Right-click] let it go"), false]])
+	hud.show_prompts([[line, can == 0 or closer], [Prompts.keyed("[Right-click] let it go"), false]])
 
 
 ## A spell of yours landing on tile (x, y) (Event.CAST): its effect, by its kind and how far it
@@ -2497,6 +2501,12 @@ func _cast_on(tile: Vector2i) -> void:
 		0:
 			dusk.cast(spell, tile.x, tile.y)
 			readied = -1
+		-5, -6:
+			# Too far, or out of sight: you go until it's in reach and in sight, then cast, as in
+			# Diablo (the core keeps the cast and walks you: spell.rs). A key or a click stops it.
+			dusk.cast(spell, tile.x, tile.y)
+			readied = -1
+			hud.say("You go closer to cast the %s." % _spell_name(spell))
 		-1:
 			hud.say("You don't know that spell.")
 			readied = -1
@@ -2509,10 +2519,6 @@ func _cast_on(tile: Vector2i) -> void:
 			var i := spell * Spells.INFO + 7
 			var what: int = info[i] if i < info.size() else -1
 			hud.say("You've no %s for it." % (_item_name(what) if what >= 0 else "component"))
-		-5:
-			hud.say("Too far: the %s reaches only so far." % _spell_name(spell))
-		-6:
-			hud.say("You can't see that spot.")
 
 
 func _item_name(def: int) -> String:

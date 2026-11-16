@@ -1428,6 +1428,7 @@ impl World {
         // going somewhere, and what a climb is worth to its search for a way, at its pace.
         let going = self.actors.get(id).and_then(|a| match a.intent {
             Intent::Move { run, .. } | Intent::WalkTo { run, .. } if a.step.is_none() => Some(run),
+            Intent::Cast { .. } if a.step.is_none() => Some(false),
             _ => None,
         });
         let climber = going.and_then(|_| self.climber(id));
@@ -1494,7 +1495,7 @@ impl World {
                 self.grab(e, id);
                 return None;
             }
-            if matches!(a.intent, Intent::WalkTo { .. }) {
+            if matches!(a.intent, Intent::WalkTo { .. } | Intent::Cast { .. }) {
                 a.path.pop();
             }
             let length = if dir.is_diagonal() {
@@ -2011,55 +2012,71 @@ fn next_heading(
 ) -> Heading {
     match a.intent {
         Intent::Move { dir, run } => Heading::Go(dir, run),
-        Intent::WalkTo { to, run } => {
-            if a.pos == to {
+        Intent::WalkTo { to, run } => walk_toward(a, grid, to, run, repath_after, budget, climb),
+        // A spell cast on a spot too far or out of sight: walked toward until it can be cast
+        // (`combat.rs`'s `act` keeps the intent while it can't).
+        Intent::Cast { at, .. } => walk_toward(a, grid, at, false, repath_after, budget, climb),
+        // Idle, or an action waiting for the step under way to end: the legs stand.
+        _ => Heading::Stand,
+    }
+}
+
+/// The way to `to` (a walk's goal), a tile at a time: planned when there's none, or it's stale,
+/// or the way's been blocked long enough; done (the intent let go) once there, or when there's
+/// no way at all.
+fn walk_toward(
+    a: &mut Actor,
+    grid: &Grid,
+    to: TilePos,
+    run: bool,
+    repath_after: u32,
+    budget: usize,
+    climb: Option<ClimbCost>,
+) -> Heading {
+    if a.pos == to {
+        a.intent = Intent::Idle;
+        a.path.clear();
+        a.path_goal = None;
+        return Heading::Stand;
+    }
+    let stale =
+        a.path_goal != Some(to) || a.path.last().is_none_or(|&next| a.pos.steps_to(next) != 1);
+    // Waited long enough on the way ahead: plan again only if the map itself now bars
+    // it (a door shut). Barred only by someone standing there, a search would find the
+    // very same way (it doesn't count actors), so it waits on.
+    let barred = a.path.last().is_none_or(|&next| {
+        Dir8::toward(next.x - a.pos.x, next.y - a.pos.y).is_none_or(|d| {
+            !grid.can_step(a.pos, d) && !(climb.is_some() && grid.can_climb(a.pos, d))
+        })
+    });
+    if a.blocked >= repath_after && !barred && !stale {
+        a.blocked = 0;
+    }
+    if stale || a.blocked >= repath_after {
+        a.blocked = 0;
+        match find_way(grid, a.pos, to, budget, climb) {
+            Some(mut path) => {
+                path.reverse();
+                a.path = path;
+                a.path_goal = Some(to);
+                a.no_way = None;
+            }
+            None => {
                 a.intent = Intent::Idle;
                 a.path.clear();
                 a.path_goal = None;
-                return Heading::Stand;
-            }
-            let stale = a.path_goal != Some(to)
-                || a.path.last().is_none_or(|&next| a.pos.steps_to(next) != 1);
-            // Waited long enough on the way ahead: plan again only if the map itself now bars
-            // it (a door shut). Barred only by someone standing there, a search would find the
-            // very same way (it doesn't count actors), so it waits on.
-            let barred = a.path.last().is_none_or(|&next| {
-                Dir8::toward(next.x - a.pos.x, next.y - a.pos.y).is_none_or(|d| {
-                    !grid.can_step(a.pos, d) && !(climb.is_some() && grid.can_climb(a.pos, d))
-                })
-            });
-            if a.blocked >= repath_after && !barred && !stale {
-                a.blocked = 0;
-            }
-            if stale || a.blocked >= repath_after {
-                a.blocked = 0;
-                match find_way(grid, a.pos, to, budget, climb) {
-                    Some(mut path) => {
-                        path.reverse();
-                        a.path = path;
-                        a.path_goal = Some(to);
-                        a.no_way = None;
-                    }
-                    None => {
-                        a.intent = Intent::Idle;
-                        a.path.clear();
-                        a.path_goal = None;
-                        a.no_way = Some(to);
-                        return Heading::NoWay(to);
-                    }
-                }
-            }
-            match a
-                .path
-                .last()
-                .and_then(|&next| Dir8::toward(next.x - a.pos.x, next.y - a.pos.y))
-            {
-                Some(dir) => Heading::Go(dir, run),
-                None => Heading::Stand,
+                a.no_way = Some(to);
+                return Heading::NoWay(to);
             }
         }
-        // Idle, or an action waiting for the step under way to end: the legs stand.
-        _ => Heading::Stand,
+    }
+    match a
+        .path
+        .last()
+        .and_then(|&next| Dir8::toward(next.x - a.pos.x, next.y - a.pos.y))
+    {
+        Some(dir) => Heading::Go(dir, run),
+        None => Heading::Stand,
     }
 }
 

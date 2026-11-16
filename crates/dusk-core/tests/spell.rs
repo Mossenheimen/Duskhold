@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use dusk_core::senses::Cone;
 use dusk_core::{
-    ActorId, ActorKind, Class, Defs, Event, Intent, Item, ItemDef, ItemKind, Kit, NoCast, Part,
-    Power, Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, World, WoundKind,
+    ActorId, ActorKind, Class, Defs, Dir8, Edge, Event, Intent, Item, ItemDef, ItemKind, Kit,
+    NoCast, Part, Power, Remains, Skill, SpellDef, SpellKind, Talent, Tile, TilePos, World,
+    WoundKind,
 };
 
 const SULPHUR: u16 = 0;
@@ -483,4 +484,55 @@ fn a_fireball_catches_its_caster_only_within_its_reach() {
     // Nothing else harms its caster.
     assert!(!w.spell_catches(me, LIGHT, ME));
     assert!(!w.spell_catches(me, FOG, ME));
+}
+
+#[test]
+fn a_spell_cast_out_of_reach_walks_you_into_reach_then_casts() {
+    let (mut w, me) = field(12);
+    // Light reaches 8 tiles: cast on a spot 12 off, you walk until it's in reach, then cast.
+    let spot = at(12, 0);
+    assert_eq!(w.can_cast(me, LIGHT, spot), Err(NoCast::TooFar));
+    w.intent(
+        me,
+        Intent::Cast {
+            spell: LIGHT,
+            at: spot,
+        },
+    );
+    let mut from = None;
+    for _ in 0..200 {
+        w.step(1);
+        if w.events().any(|e| matches!(e, Event::Cast { .. })) {
+            from = Some(w.actor(me).unwrap().pos);
+            break;
+        }
+    }
+    assert_eq!(from, Some(at(4, 0)), "cast from the first tile in reach");
+    // A spot no way leads to, walled round: given up, never cast.
+    let (mut w, me) = field(12);
+    for d in [Dir8::N, Dir8::E, Dir8::S, Dir8::W] {
+        w.grid.set_edge(at(11, 0), d, Edge::Wall);
+    }
+    w.intent(
+        me,
+        Intent::Cast {
+            spell: LIGHT,
+            at: at(11, 0),
+        },
+    );
+    let seen = run(&mut w, 100);
+    assert!(!seen.iter().any(|e| matches!(e, Event::Cast { .. })));
+    assert_eq!(w.actor(me).unwrap().intent, Intent::Idle, "given up");
+    // Not mana enough: refused where you stand, no walk.
+    let (mut w, me) = field(12);
+    cast(&mut w, me, FIREBALL, at(4, 3));
+    w.intent(
+        me,
+        Intent::Cast {
+            spell: FIREBALL,
+            at: at(12, 0),
+        },
+    );
+    run(&mut w, 30);
+    assert_eq!(w.actor(me).unwrap().pos, ME);
 }
