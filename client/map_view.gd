@@ -44,7 +44,10 @@ func _init() -> void:
 	var plain := StandardMaterial3D.new()
 	plain.vertex_color_use_as_albedo = true
 	plain.roughness = 0.95
-	_materials = {"cut_away": cut_away, "solid": solid, "glass": glass, "plain": plain}
+	# The kit's (looks.gdshader): furniture, trees and plants, cut away where a part may be.
+	var kit := ShaderMaterial.new()
+	kit.shader = preload("res://shaders/looks.gdshader")
+	_materials = {"cut_away": cut_away, "solid": solid, "glass": glass, "plain": plain, "kit": kit}
 	_watched_material.shader = preload("res://shaders/watched.gdshader")
 	_fog_material.shader = preload("res://shaders/fog_of_war.gdshader")
 	_fog_material.render_priority = Material.RENDER_PRIORITY_MIN  # before the cones and rings
@@ -128,6 +131,14 @@ func refresh_tile(tile: Vector2i) -> void:
 func set_focus(at: Vector3) -> void:
 	_materials["cut_away"].set_shader_parameter("focus", at)
 	_materials["glass"].set_shader_parameter("focus", at)
+	_materials["kit"].set_shader_parameter("focus", at)
+
+
+## Where a fire laid in the fixture on `tile` burns, in the world (its look's fire, as it stands
+## there), or null if its chunk isn't drawn or it takes none.
+func fire_spot(tile: Vector2i) -> Variant:
+	var at := Vector2i(floori(tile.x / float(_chunk_size)), floori(tile.y / float(_chunk_size)))
+	return _chunks[at].fire_spot(tile) if _chunks.has(at) else null
 
 
 ## What the dead can see, from DuskWorld.watched().

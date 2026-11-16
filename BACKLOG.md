@@ -18,7 +18,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 | 6 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
 | 7 | **The map** (a book panel) | the GUI | Zomboid's map that holds only what you've seen, and your notes. The fog of war already remembers it | M | `CONCEPT.md` |
 | 8 | **`main.gd` in parts:** the news (`_read_events`, 431 lines) to `news.gd`; the script runner (188) to `script.gd` as a table of actions; the bridge's shared guard (95 of its 178 functions open the same way) | code | The review's merges still to do | S–M | the review |
-| 9 | **Looks as data** (`VISUALS.md` §16, slice 8): `data/looks.toml` for furniture and plants | the look | A person can change a look without code | M | `VISUALS.md` |
+| 9 | **The rest of the assets, in the kit** (`VISUALS.md` §5): the terrain (trees, plants and wheat of their own, things on the ground, softer edges between grounds); items' looks, in hand and on the floor, and each item's icon drawn from its look (§16, slice 10); the bodies, heads, shoulders and what's in hand (slice 11) | the look | The user's ask, 2026-11-13: assets for models, items, terrain and objects in one style throughout. Slice 8 made the kit and every fixture's look; these are what's still primitives | L | the user; `VISUALS.md` |
 | 10 | **The Warren Hills:** the second region, goblins that see and think | world | The concept's next step after the first playable, to prove the first pillar | L+ | `CONCEPT.md` |
 | 11 | **The Rogue:** the fourth class (dark, quiet, sneak attacks), with locks and traps | character | The concept's "four to start"; locks and traps serve the base too | L | `CONCEPT.md` |
 | 12 | **The Dusk Director, and quests from the holdouts** (rescues, recoveries, caravans) | events | The concept's pacing: build-up, peak and relax, and reasons to go out beyond bounties | L | `CONCEPT.md` |
@@ -73,7 +73,8 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - Panels fading in and out (§12's 0.12 s); small caps or italics; a prompt for what's within reach (zone G lists it already).
 
 **The look** (`VISUALS.md` §16)
-- Slice 8, looks as data; slice 9, screens (both in the queue); slice 10, icons, by kind and then each item's own; slice 11, shapes: heads, shoulders and the thing in hand for people and the dead; slice 12, regions.
+- Slice 9, screens (in the queue); slice 10, icons, each item's own drawn from its look, and slice 11, shapes: heads, shoulders and the thing in hand for people and the dead (both in the queue's assets); slice 12, regions, each with its own materials in `looks.toml`.
+- The kit, after slice 8: a fixture in a corner with two walls turns to the north or west one, which isn't always the right one (a wardrobe beside a door); a fixture across a chunk's edge from what it faces doesn't find it.
 - Wear showing: blood, dirt and scorch on gear and the character, damage on bases.
 - Poses: a climb, one turned by the holy symbol (it's marked, not posed); armour and bags drawn on the character and the dead.
 - Effects still to come: a window's glass flying as it breaks; the Tolling's bell; a burning body's sparks; a fireball's flames seen through trees between it and the camera (crowns aren't cut away for a spell's spot).

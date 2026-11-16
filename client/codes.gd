@@ -256,3 +256,39 @@ enum Power {
 	MEND = 2,
 	SPELL = 3,
 }
+
+## A part's shape (DuskWorld.looks(): each part's first number).
+enum Shape {
+	BOX = 0,
+	CYLINDER = 1,
+	BALL = 2,
+	PRISM = 3,
+}
+
+## What a surface is drawn as (a part's sixteenth number; the shaders' sf_surface).
+enum Surface {
+	PLAIN = 0,
+	PLASTER = 1,
+	WOOD = 2,
+	STONE = 3,
+	FOLIAGE = 4,
+	STRAW = 5,
+	CLOTH = 6,
+	IRON = 7,
+	BARK = 8,
+}
+
+## How a fixture stands on its tile (DuskWorld.looks(): a fixture's "placed").
+enum Placed {
+	WALL = 0,
+	FIXED = 1,
+	LOOSE = 2,
+}
+
+## A side of a tile, as a bit (DuskWorld.chunk_walls()).
+enum Side {
+	NORTH = 1,
+	EAST = 2,
+	SOUTH = 4,
+	WEST = 8,
+}

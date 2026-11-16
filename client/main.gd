@@ -48,8 +48,8 @@ const Skills = preload("res://skills.gd")
 const Craft = preload("res://craft.gd")
 const Spells = preload("res://spells.gd")
 const Zones = preload("res://zones.gd")
-const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
+const Looks = preload("res://looks.gd")
 const Prompts = preload("res://prompts.gd")
 const Settings = preload("res://settings.gd")
 ## The numbers DuskWorld hands over, by name (codes.gd, made from the bridge's codes.rs).
@@ -128,6 +128,9 @@ const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it stau
 	"feverfew": "Feverfew grows here, where the dead lie: brewed at a fire, it cures the fever"}
 ## How high one climbing is lifted halfway over, in metres (a window's sill is 0.9).
 const CLIMB_LIFT := 0.55
+## A fire's light sits this far over its embers (looks.toml's fire), so its fixture doesn't shut
+## it in.
+const FIRE_OVER := 0.45
 ## Asleep, the game runs this many times as fast (an hour of sleep in a few seconds).
 const SLEEP_SPEED := 60.0
 ## E held this long (ms) lists everything you can do here; a shorter press does the likeliest.
@@ -322,6 +325,8 @@ func _start(carry_on := false) -> void:
 		if not problem.is_empty():
 			hud.show_problem("The game's data has a problem:\n" + problem)
 			return
+	# The looks of things, and the world's colours with them, before anything's drawn.
+	Looks.read(dusk)
 	map_view.build(dusk, low_walls)
 	for view in actors:
 		view.queue_free()
@@ -1847,8 +1852,13 @@ func _light_the_fires() -> void:
 		var at := Vector2i(lit[i], lit[i + 1])
 		alight[at] = true
 		if not fires.has(at):
-			fires[at] = _make_fire(at, lit[i + 4])
+			fires[at] = _make_fire()
 		var fire: OmniLight3D = fires[at]
+		# Over its embers, where its look lays a fire (looks.toml's fire), as it stands; over the
+		# tile till its chunk is drawn.
+		var spot: Variant = map_view.fire_spot(at)
+		fire.position = (spot if spot != null else Vector3(at.x + 0.5, 1.0, at.y + 0.5)) \
+			+ Vector3(0.0, FIRE_OVER, 0.0)
 		fire.omni_range = lit[i + 2] + 1.0
 		var phase := float(at.x * 7 + at.y * 13)
 		fire.light_energy = 2.6 * (1.0 + 0.08 * sin(now * 11.0 + phase) + 0.05 * sin(now * 27.0 + phase))
@@ -1858,16 +1868,12 @@ func _light_the_fires() -> void:
 			fires.erase(at)
 
 
-## A fire's light over the fixture on `at` (its number `fixture`), and its embers on top.
-func _make_fire(at: Vector2i, fixture: int) -> OmniLight3D:
-	var id: String = fixture_names[fixture] if fixture < fixture_names.size() else ""
-	var height: float = ChunkView.FURNITURE[id][0].y if ChunkView.FURNITURE.has(id) else 1.0
+## A fire's light, and its embers under it (`_light_the_fires` sets it over its fixture's fire).
+func _make_fire() -> OmniLight3D:
 	var fire := OmniLight3D.new()
 	fire.light_color = Look.FIRE
 	fire.shadow_enabled = true
 	fire.omni_attenuation = 1.3
-	# Above the fixture, so its own box doesn't shut the light in.
-	fire.position = Vector3(at.x + 0.5, height + 0.45, at.y + 0.5)
 	var embers := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3(0.5, 0.12, 0.45)
@@ -1879,7 +1885,7 @@ func _make_fire(at: Vector2i, fixture: int) -> OmniLight3D:
 	glow.emission_energy_multiplier = 4.0
 	embers.material_override = glow
 	embers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	embers.position = Vector3(0.0, -0.39, 0.0)
+	embers.position = Vector3(0.0, -FIRE_OVER, 0.0)
 	fire.add_child(embers)
 	add_child(fire)
 	return fire

@@ -18,6 +18,7 @@ func _init() -> void:
 
 ## `tiles` holds (x, y) pairs; nothing is redrawn unless they changed.
 func show_floors(tiles: PackedInt32Array) -> void:
+	_material.albedo_color = Look.LITTER  # data/looks.toml's, once the looks are read
 	if tiles == _shown:
 		return
 	_shown = tiles

@@ -290,6 +290,53 @@ pub mod edge {
     pub const BOARD: i32 = 16;
 }
 
+/// A part's shape (`looks`: each part's first number), as `dusk_data::Shape`.
+pub mod shape {
+    use dusk_data::Shape;
+    codes! {
+        BOX = Shape::Box.code() as i32,
+        CYLINDER = Shape::Cylinder.code() as i32,
+        BALL = Shape::Ball.code() as i32,
+        PRISM = Shape::Prism.code() as i32,
+    }
+}
+
+/// What a surface is drawn as (`looks`: a part's sixteenth number; the shaders' `sf_surface`).
+pub mod surface {
+    use dusk_data::Surface;
+    codes! {
+        PLAIN = Surface::Plain.code() as i32,
+        PLASTER = Surface::Plaster.code() as i32,
+        WOOD = Surface::Wood.code() as i32,
+        STONE = Surface::Stone.code() as i32,
+        FOLIAGE = Surface::Foliage.code() as i32,
+        STRAW = Surface::Straw.code() as i32,
+        CLOTH = Surface::Cloth.code() as i32,
+        IRON = Surface::Iron.code() as i32,
+        BARK = Surface::Bark.code() as i32,
+    }
+}
+
+/// How a fixture stands on its tile (`looks`: a fixture's "placed").
+pub mod placed {
+    use dusk_data::Placed;
+    codes! {
+        WALL = Placed::Wall.code() as i32,
+        FIXED = Placed::Fixed.code() as i32,
+        LOOSE = Placed::Loose.code() as i32,
+    }
+}
+
+/// A side of a tile, as a bit (`chunk_walls`).
+pub mod side {
+    codes! {
+        NORTH = 1,
+        EAST = 2,
+        SOUTH = 4,
+        WEST = 8,
+    }
+}
+
 /// A group's codes, each a name and its number.
 pub type Codes = &'static [(&'static str, i32)];
 
@@ -342,6 +389,26 @@ pub const GROUPS: &[Group] = &[
         "Power",
         "What a number key holds (DuskWorld.character_powers(): this, then a spell's number).",
         power::ALL,
+    ),
+    (
+        "Shape",
+        "A part's shape (DuskWorld.looks(): each part's first number).",
+        shape::ALL,
+    ),
+    (
+        "Surface",
+        "What a surface is drawn as (a part's sixteenth number; the shaders' sf_surface).",
+        surface::ALL,
+    ),
+    (
+        "Placed",
+        "How a fixture stands on its tile (DuskWorld.looks(): a fixture's \"placed\").",
+        placed::ALL,
+    ),
+    (
+        "Side",
+        "A side of a tile, as a bit (DuskWorld.chunk_walls()).",
+        side::ALL,
     ),
 ];
 

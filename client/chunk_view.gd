@@ -1,6 +1,7 @@
 extends Node3D
 ## One chunk of the map, as the core gives it: its ground as one textured square, its fixtures
-## (trees, furniture), and the walls, doors, windows and fences on its tiles' edges.
+## (trees, plants, furniture: each its look from data/looks.toml, through looks.gd), and the
+## walls, doors, windows and fences on its tiles' edges.
 
 const WALL_HEIGHT := 2.2
 const LOW_WALL_HEIGHT := 0.35
@@ -11,83 +12,19 @@ const WINDOW_TOP := 1.65
 const FENCE_HEIGHT := 0.9
 
 const Look = preload("res://look.gd")
-## Ground colours by the core's ground code (DuskWorld.chunk_tiles()): Look's.
-const GROUND := Look.GROUND
-const WALL := Look.WALL
-const DOOR := Look.DOOR
-const BOARD := Look.BOARD
+const Looks = preload("res://looks.gd")
 ## Room across an opening for this many boards; each one tilts a little, nailed by hand.
 const BOARD_SLOTS := 4
 const BOARD_TILT := 9.0
-const FENCE := Look.FENCE
 ## What things are made of, for their look (shaders/wall.gdshader draws each, as a code over 16 in
-## an instance's custom data): 0 plain colour.
-const PLAIN := 0
-const PLASTER := 1
-const WOOD := 2
-const STONE := 3
-const FOLIAGE := 4
-const STRAW := 5
-const CLOTH := 6
-const IRON := 7
-const BARK := 8
-## Furniture's, by fixture id; anything not listed is wood.
-const SURFACES := {
-	"bed": CLOTH, "sister": CLOTH, "sack": CLOTH,
-	"stove": IRON, "anvil": IRON,
-	"altar": STONE, "forge": STONE, "hearth": STONE, "well": STONE, "grave": STONE, "tomb": STONE,
-	"wheat": STRAW, "hay": STRAW,
-}
-const TRUNK := Look.TRUNK
-const LEAVES := Look.LEAVES
-
-## Wild plants (fixtures.toml's forage), by fixture id: a low clump of leaves (how wide, how tall,
-## its green) and, on the herbs in flower, a flat cap of flowers (its colour, or null).
-## "picked_plant" is one picked bare.
-const PLANTS := {
-	"yarrow": [0.68, 0.52, Color(0.42, 0.5, 0.36), Color(0.93, 0.93, 0.87)],  # flat white flower heads
-	"chamomile": [0.62, 0.4, Color(0.45, 0.56, 0.35), Color(0.96, 0.93, 0.68)],  # small daisies
-	"feverfew": [0.62, 0.5, Color(0.4, 0.48, 0.3), Color(0.94, 0.88, 0.42)],  # yellow-white
-	"bramble": [1.0, 0.8, Color(0.17, 0.23, 0.16), null],  # a dark, thorny tangle
-	"picked_plant": [0.42, 0.22, Color(0.46, 0.41, 0.27), null],  # stalks, picked bare
-}
-
-## How furniture looks, by fixture id: its size (x, height, z) and colour. Anything not listed is
-## a plain crate-sized box; "tree" is drawn as a tree.
-const FURNITURE := {
-	"bed": [Vector3(0.9, 0.45, 0.9), Color(0.58, 0.47, 0.38)],
-	"wardrobe": [Vector3(0.85, 1.9, 0.6), Color(0.33, 0.22, 0.14)],
-	"cupboard": [Vector3(0.85, 0.95, 0.6), Color(0.42, 0.3, 0.2)],
-	"table": [Vector3(0.9, 0.75, 0.9), Color(0.45, 0.32, 0.2)],
-	"chair": [Vector3(0.45, 0.9, 0.45), Color(0.4, 0.28, 0.18)],
-	"stove": [Vector3(0.8, 0.9, 0.7), Color(0.22, 0.22, 0.24)],
-	"crate": [Vector3(0.75, 0.7, 0.75), Color(0.5, 0.39, 0.25)],
-	"barrel": [Vector3(0.6, 0.85, 0.6), Color(0.42, 0.3, 0.18)],
-	"shelf": [Vector3(0.9, 1.8, 0.4), Color(0.36, 0.25, 0.16)],
-	"pew": [Vector3(0.95, 0.5, 0.5), Color(0.4, 0.28, 0.17)],
-	"altar": [Vector3(0.95, 1.0, 0.7), Color(0.62, 0.6, 0.56)],
-	"counter": [Vector3(0.95, 1.0, 0.8), Color(0.5, 0.36, 0.22)],
-	# The sister who keeps the counter: a figure in grey, until a holdout's people are actors.
-	"sister": [Vector3(0.42, 1.6, 0.42), Color(0.36, 0.38, 0.46)],
-	# The market town's shops.
-	"forge": [Vector3(0.95, 1.0, 0.9), Color(0.3, 0.27, 0.26)],
-	"anvil": [Vector3(0.6, 0.7, 0.35), Color(0.17, 0.17, 0.19)],
-	"rack": [Vector3(0.9, 1.6, 0.3), Color(0.38, 0.27, 0.17)],
-	"till": [Vector3(0.95, 1.0, 0.8), Color(0.46, 0.33, 0.2)],
-	"shop_shelf": [Vector3(0.9, 1.7, 0.45), Color(0.47, 0.35, 0.22)],
-	"bar": [Vector3(0.95, 1.05, 0.8), Color(0.32, 0.2, 0.12)],
-	"cask": [Vector3(0.75, 0.8, 0.9), Color(0.46, 0.32, 0.17)],
-	"hearth": [Vector3(0.95, 1.2, 0.7), Color(0.42, 0.4, 0.38)],
-	# The farms. Wheat is walked through, so it stands thinner than its tile.
-	"wheat": [Vector3(0.7, 1.3, 0.7), Color(0.72, 0.62, 0.32)],
-	"well": [Vector3(0.9, 0.9, 0.9), Color(0.45, 0.45, 0.47)],
-	"sack": [Vector3(0.6, 0.7, 0.6), Color(0.6, 0.52, 0.38)],
-	"hay": [Vector3(0.9, 0.8, 0.9), Color(0.74, 0.66, 0.38)],
-	"tools": [Vector3(0.9, 1.5, 0.3), Color(0.4, 0.3, 0.2)],
-	# The graveyard: headstones, and its old tombs.
-	"grave": [Vector3(0.55, 0.75, 0.18), Color(0.52, 0.53, 0.55)],
-	"tomb": [Vector3(0.95, 0.75, 0.95), Color(0.47, 0.47, 0.45)],
-}
+## an instance's custom data): codes.gd's Surface.
+const Surface = preload("res://codes.gd").Surface
+const Placed = preload("res://codes.gd").Placed
+const Side = preload("res://codes.gd").Side
+## Where a fixture's back goes, by its tile's walls (DuskWorld.chunk_walls()), the far walls first:
+## north, west, east, then south. Each with the way out through it, in tiles.
+const BACKS := [[Side.NORTH, Vector2(0, -1)], [Side.WEST, Vector2(-1, 0)],
+	[Side.EAST, Vector2(1, 0)], [Side.SOUTH, Vector2(0, 1)]]
 
 const SIDE_WEST := 1
 ## An edge's kind, by name (codes.gd).
@@ -103,6 +40,13 @@ var _chunk := Vector2i.ZERO
 var _low_walls := false
 var _fixtures: Node3D  # the furniture and trees, rebuilt when a piece is broken up
 var _names := PackedStringArray()
+var _fires := {}  # Vector2i: where the embers of a fire laid in the fixture there sit, in the world
+
+
+## Where a fire laid in the fixture on `tile` burns (its look's fire, turned and placed as it
+## stands), or null if it takes none.
+func fire_spot(tile: Vector2i) -> Variant:
+	return _fires.get(tile)
 
 
 ## Builds the chunk (cx, cy) from the core. `names` are the fixtures' ids by number;
@@ -195,8 +139,8 @@ func build_walls(low_walls: bool) -> void:
 				glass.append(place)
 			else:
 				solid.append(place)
-				colours.append({"wall": WALL, "door": DOOR, "fence": FENCE}[what].srgb_to_linear())
-				surfaces.append(PLASTER if what == "wall" else WOOD)
+				colours.append({"wall": Look.WALL, "door": Look.DOOR, "fence": Look.FENCE}[what].srgb_to_linear())
+				surfaces.append(Surface.PLASTER if what == "wall" else Surface.WOOD)
 		# Boards nailed across a door or window, sticking out a little on both sides.
 		var opening := Vector2(0.2, DOOR_TOP - 0.15) if kind in [Edge.DOOR_SHUT, Edge.DOOR_OPEN] \
 			else Vector2(SILL, WINDOW_TOP)
@@ -209,14 +153,14 @@ func build_walls(low_walls: bool) -> void:
 			var turn := Basis(Vector3.RIGHT, tilt) if west else Basis(Vector3.BACK, tilt)
 			var centre := Vector3(x, mid, y + 0.5) if west else Vector3(x + 0.5, mid, y)
 			planks.append(Transform3D(turn * Basis.from_scale(size), centre))
-			plank_colours.append(BOARD.darkened(_shade(x + b, y)).srgb_to_linear())
+			plank_colours.append(Look.BOARD.darkened(_shade(x + b, y)).srgb_to_linear())
 	_add_cut_away(_walls, BoxMesh.new(), solid, colours, surfaces)
 	# Boards aren't cut away, as glass isn't: the ones you've just nailed are right beside you,
 	# where the cut-away is, and you want to see them.
 	if not planks.is_empty():
 		var wood := PackedFloat32Array()
 		wood.resize(planks.size())
-		wood.fill(WOOD)
+		wood.fill(Surface.WOOD)
 		_walls.add_child(_instances(BoxMesh.new(), planks, plank_colours, _materials["solid"], wood))
 	var white := PackedColorArray()
 	white.resize(glass.size())
@@ -231,7 +175,7 @@ func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void
 	for y in size:
 		for x in size:
 			var ground := tiles[y * size + x] & 15
-			var colour: Color = GROUND[ground].darkened(_shade(origin.x + x, origin.y + y))
+			var colour: Color = Look.GROUND[ground].darkened(_shade(origin.x + x, origin.y + y))
 			colour.a = (ground + 0.5) / 16.0  # its kind, for its surface (ground.gdshader)
 			image.set_pixel(x, y, colour)
 	var material := ShaderMaterial.new()
@@ -251,90 +195,122 @@ func _build_ground(tiles: PackedInt32Array, origin: Vector2i, size: int) -> void
 
 func _build_fixtures(tiles: PackedInt32Array, origin: Vector2i, size: int,
 		names: PackedStringArray) -> void:
-	var trunks: Array[Transform3D] = []
-	var trunk_colours := PackedColorArray()
-	var crowns: Array[Transform3D] = []
-	var crown_colours := PackedColorArray()
-	var boxes: Array[Transform3D] = []
-	var box_colours := PackedColorArray()
-	var box_surfaces := PackedFloat32Array()
-	var clumps: Array[Transform3D] = []
-	var clump_colours := PackedColorArray()
-	var flowers: Array[Transform3D] = []
-	var flower_colours := PackedColorArray()
+	_fires.clear()
+	var walls: PackedByteArray = _dusk.chunk_walls(_chunk.x, _chunk.y)
+	# Each look's variant drawn here, as one MultiMesh: "id:variant" -> [id, variant, places, tints].
+	var groups := {}
 	for y in size:
 		for x in size:
 			var fixture := tiles[y * size + x] >> 4
 			if fixture <= 0 or fixture >= names.size():
 				continue
+			var id := names[fixture]
+			var look := Looks.fixture(id)
 			var tx := origin.x + x
 			var ty := origin.y + y
-			var centre := Vector3(tx + 0.5, 0.0, ty + 0.5)
-			var shade := _shade(tx, ty)
-			if names[fixture] == "tree":
-				# A little variety from tile to tile: height, girth, the green.
-				var grow := 0.85 + 2.0 * shade * 3.0
-				trunks.append(Transform3D(Basis.from_scale(Vector3(1, grow, 1)), centre + Vector3(0, 0.7 * grow, 0)))
-				trunk_colours.append(TRUNK.srgb_to_linear())
-				var crown := Basis.from_euler(Vector3(0, shade * 40.0, 0)).scaled(Vector3(grow, grow, grow))
-				crowns.append(Transform3D(crown, centre + Vector3(0, 1.9 * grow, 0)))
-				crown_colours.append(LEAVES.lightened(shade * 2.5).srgb_to_linear())
-			elif PLANTS.has(names[fixture]):
-				# A low clump, a little wider or narrower from tile to tile, and its flowers on top.
-				var plant: Array = PLANTS[names[fixture]]
-				var wide: float = plant[0] * (0.85 + shade * 3.0)
-				var tall: float = plant[1]
-				clumps.append(Transform3D(Basis.from_scale(Vector3(wide, tall, wide)), centre + Vector3(0, tall * 0.45, 0)))
-				clump_colours.append((plant[2] as Color).darkened(shade).srgb_to_linear())
-				if plant[3] != null:
-					flowers.append(Transform3D(Basis.from_scale(Vector3(wide * 0.5, 0.08, wide * 0.5)), centre + Vector3(0, tall * 0.92, 0)))
-					flower_colours.append((plant[3] as Color).srgb_to_linear())
-			else:
-				var look: Array = FURNITURE.get(names[fixture], [Vector3(0.75, 0.7, 0.75), Color(0.5, 0.39, 0.25)])
-				var box: Vector3 = look[0]
-				boxes.append(Transform3D(Basis.from_scale(box), centre + Vector3(0, box.y / 2.0, 0)))
-				box_colours.append((look[1] as Color).darkened(shade).srgb_to_linear())
-				box_surfaces.append(SURFACES.get(names[fixture], WOOD))
-	if not trunks.is_empty():
-		var trunk := CylinderMesh.new()
-		trunk.top_radius = 0.09
-		trunk.bottom_radius = 0.14
-		trunk.height = 1.4
-		trunk.radial_segments = 6
-		trunk.rings = 1
-		var bark := PackedFloat32Array()
-		bark.resize(trunks.size())
-		bark.fill(BARK)
-		_fixtures.add_child(_instances(trunk, trunks, trunk_colours, _materials["solid"], bark))
-		var leaves := SphereMesh.new()
-		leaves.radius = 0.85
-		leaves.height = 1.5
-		leaves.radial_segments = 7
-		leaves.rings = 4
-		var leafy := PackedFloat32Array()
-		leafy.resize(crowns.size())
-		leafy.fill(FOLIAGE)
-		_add_cut_away(_fixtures, leaves, crowns, crown_colours, leafy)
-	if not boxes.is_empty():
-		_add_cut_away(_fixtures, BoxMesh.new(), boxes, box_colours, box_surfaces)
-	if not clumps.is_empty():
-		var clump := SphereMesh.new()
-		clump.radius = 0.5
-		clump.height = 1.0
-		clump.radial_segments = 6
-		clump.rings = 3
-		var leafy := PackedFloat32Array()
-		leafy.resize(clumps.size())
-		leafy.fill(FOLIAGE)
-		_add_cut_away(_fixtures, clump, clumps, clump_colours, leafy)
-	if not flowers.is_empty():
-		var cap := SphereMesh.new()
-		cap.radius = 0.5
-		cap.height = 1.0
-		cap.radial_segments = 6
-		cap.rings = 2
-		_add_cut_away(_fixtures, cap, flowers, flower_colours)
+			var variant := _hash(tx, ty, 1) % (look.variants as Array).size()
+			var grow: Vector2 = look.grow
+			var turn := Basis(Vector3.UP, _yaw(look, tiles, walls, Vector2i(x, y), size, names))
+			var place := Transform3D(turn.scaled(Vector3.ONE * lerpf(grow.x, grow.y, _rand(tx, ty, 2))),
+				Vector3(tx + 0.5, 0.0, ty + 0.5))
+			var key := "%s:%d" % [id, variant]
+			if not groups.has(key):
+				groups[key] = [id, variant, [] as Array[Transform3D], []]
+			groups[key][2].append(place)
+			var tint := 1.0 + (_rand(tx, ty, 3) - 0.5) * 2.0 * float(look.vary)
+			groups[key][3].append(Color(tint, tint, tint))
+			if look.has("fire"):
+				_fires[Vector2i(tx, ty)] = place * (look.fire as Vector3)
+	for group: Array in groups.values():
+		var seen := _instances(Looks.fixture_mesh(group[0], group[1]), group[2],
+			PackedColorArray(group[3]), _materials["kit"])
+		seen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_fixtures.add_child(seen)
+		var shadows := MultiMeshInstance3D.new()
+		shadows.multimesh = seen.multimesh
+		shadows.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		_fixtures.add_child(shadows)
 
+
+## How a fixture's turned on its tile (looks.toml): its front toward what it `faces`, or its back
+## toward what it `backs`, if one's within its reach in this chunk; else as it's `placed`: its back
+## to a wall of its tile (the far walls first), its front south, or a quarter turn by its place and
+## a little more. A turn about y, in radians: its model's front is -z.
+func _yaw(look: Dictionary, tiles: PackedInt32Array, walls: PackedByteArray, at: Vector2i,
+		size: int, names: PackedStringArray) -> float:
+	for which in ["faces", "backs"]:
+		var target: String = look.get(which, "")
+		if target.is_empty():
+			continue
+		var way := _nearest(target, tiles, at, size, int(look.reach), names)
+		if way != Vector2.ZERO:
+			return _front_to(way if which == "faces" else -way)
+	var tx := _chunk.x * size + at.x
+	var ty := _chunk.y * size + at.y
+	match int(look.placed):
+		Placed.LOOSE:
+			return (_hash(tx, ty, 4) % 4) * PI / 2.0 + (_rand(tx, ty, 5) - 0.5) * deg_to_rad(20.0)
+		Placed.WALL:
+			var bits := walls[at.y * size + at.x] if at.y * size + at.x < walls.size() else 0
+			for back: Array in BACKS:
+				if bits & int(back[0]):
+					return _front_to(-(back[1] as Vector2))
+	return _front_to(Vector2(0, 1))
+
+
+## The turn about y that sets a model's front (-z) toward `way` (x east, y south, in tiles).
+static func _front_to(way: Vector2) -> float:
+	return atan2(-way.x, -way.y)
+
+
+## The way to the nearest tile of fixture `target` within `reach` of `at` in this chunk, as one of
+## the four (zero if there's none). One in a row of its own kind (pews, chairs at a long table)
+## faces across its row, toward it; one alone, along whichever axis it's further, north or south
+## when it's as far both ways.
+func _nearest(target: String, tiles: PackedInt32Array, at: Vector2i, size: int, reach: int,
+		names: PackedStringArray) -> Vector2:
+	for ring in range(1, reach + 1):
+		for dy in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
+				if maxi(absi(dx), absi(dy)) != ring:
+					continue
+				var x := at.x + dx
+				var y := at.y + dy
+				if x < 0 or y < 0 or x >= size or y >= size:
+					continue
+				var fixture := tiles[y * size + x] >> 4
+				if fixture > 0 and fixture < names.size() and names[fixture] == target:
+					var own := tiles[at.y * size + at.x] >> 4
+					var along_x := _is(tiles, at + Vector2i(-1, 0), size, own) \
+						or _is(tiles, at + Vector2i(1, 0), size, own)
+					var along_y := _is(tiles, at + Vector2i(0, -1), size, own) \
+						or _is(tiles, at + Vector2i(0, 1), size, own)
+					var across_y := absi(dx) <= absi(dy)
+					if along_x != along_y:
+						across_y = along_x
+					if across_y and dy != 0:
+						return Vector2(0, signi(dy))
+					return Vector2(signi(dx), 0) if dx != 0 else Vector2(0, signi(dy))
+	return Vector2.ZERO
+
+
+## Whether the tile `at` of this chunk holds fixture number `fixture`.
+static func _is(tiles: PackedInt32Array, at: Vector2i, size: int, fixture: int) -> bool:
+	return at.x >= 0 and at.y >= 0 and at.x < size and at.y < size \
+		and tiles[at.y * size + at.x] >> 4 == fixture
+
+
+## A tile's own number for `salt`, the same every time: what it takes of a look's variants, turns
+## and sizes.
+static func _hash(x: int, y: int, salt: int) -> int:
+	var h := (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
+	h = (h ^ (h >> 13)) * 1274126177
+	return absi(h ^ (h >> 16))
+
+
+## The same as a number from 0 to 1.
+static func _rand(x: int, y: int, salt: int) -> float:
+	return float(_hash(x, y, salt) % 10007) / 10007.0
 
 ## Instances drawn with the cut-away material, plus a shadow-only copy: a hole cut for the
 ## camera mustn't let the sun in.
@@ -362,7 +338,7 @@ func _instances(mesh: Mesh, places: Array[Transform3D], colours: PackedColorArra
 	for i in places.size():
 		multimesh.set_instance_transform(i, places[i])
 		multimesh.set_instance_color(i, colours[i])
-		var surface: float = surfaces[i] if i < surfaces.size() else float(PLAIN)
+		var surface: float = surfaces[i] if i < surfaces.size() else float(Surface.PLAIN)
 		multimesh.set_instance_custom_data(i, Color(surface / 16.0, 0.0, 0.0, 0.0))
 	var node := MultiMeshInstance3D.new()
 	node.multimesh = multimesh

@@ -25,6 +25,7 @@ mod injury;
 mod items;
 mod legacy;
 mod light;
+mod looks;
 mod magic;
 mod needs;
 mod rare;
@@ -37,6 +38,10 @@ mod tolling;
 mod weather;
 
 pub use farm::FarmsFile;
+pub use looks::{
+    FIXTURE_TRIANGLES, Look, Looks, Material, PART_FLOATS, Part, Placed, Shape, Surface,
+    parse as parse_looks, unit_points,
+};
 pub use rare::RaresFile;
 pub use remains::PressureFile;
 pub use river::RiverFile;
@@ -67,6 +72,8 @@ pub struct Data {
     pub fixtures: Vec<Fixture>,
     pub prefabs: Vec<Prefab>,
     pub regions: Vec<Region>,
+    /// How everything looks (`looks.toml`): only the client and the tools read it.
+    pub looks: Looks,
 }
 
 impl Data {
@@ -530,6 +537,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         "region",
         regions.iter().map(|r| &r.id),
     )?;
+    let looks = looks::load(dir, &fixtures)?;
 
     Ok(Data {
         rules,
@@ -537,6 +545,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         fixtures,
         prefabs,
         regions,
+        looks,
     })
 }
 

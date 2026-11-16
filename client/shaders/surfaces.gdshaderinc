@@ -57,3 +57,51 @@ vec3 sf_boards(vec2 uv, float width, float len) {
 	float grain = sf_noise(vec2(uv.x * 1.6, across * 9.0 + row * 3.1 + shade * 5.0));
 	return vec3(shade, max(side, end), grain);
 }
+
+// A surface's look (VISUALS.md §6), by its code (codes.gd's Surface): how much it lightens or
+// darkens its colour at `w`, a point on it, whose face's normal is `n` (both in the world, or in
+// the thing's own space for what moves), and how rough and metallic it is there. Plaster sits on a
+// plinth of stone under 0.5 m. One place for every surface: the walls' shader and the kit's
+// (looks.gdshader) both draw with it.
+float sf_surface(int kind, vec3 w, vec3 n, out float rough, out float metal) {
+	// The face's own coordinates: along a side and up it, or a top's ground plan.
+	vec2 uv = abs(n.y) > 0.5 ? w.xz : vec2(abs(n.x) > abs(n.z) ? w.z : w.x, w.y);
+	float shade = 1.0;
+	rough = 0.9;
+	metal = 0.0;
+	if (kind == 1) {
+		// Plaster over a plinth of stone, damp-stained low down.
+		if (w.y < 0.5) {
+			vec2 b = sf_blocks(vec2(uv.x * 3.2, w.y * 6.0), 0.12);
+			shade = mix(0.55 + 0.2 * b.x, 0.35, b.y);
+		} else {
+			float damp = smoothstep(1.1, 0.5, w.y) * sf_fbm(uv * 0.8);
+			shade = 0.86 + 0.22 * sf_fbm(uv * 2.5) - 0.2 * damp;
+		}
+	} else if (kind == 2) {
+		// Wood: boards and their grain.
+		vec3 b = sf_boards(uv, 0.18, 1.2);
+		shade = (0.84 + 0.24 * b.x) * (0.88 + 0.2 * b.z) * (1.0 - 0.4 * b.y);
+	} else if (kind == 3) {
+		// Stone: weathered, flecked.
+		shade = 0.78 + 0.3 * sf_fbm(uv * 4.0 + w.y) + 0.1 * step(0.9, sf_hash(floor(uv * 14.0)));
+	} else if (kind == 4) {
+		// Leaves, in clumps with dark between.
+		shade = 0.6 + 0.7 * sf_fbm(w.xz * 2.4 + w.y * 1.7);
+	} else if (kind == 5) {
+		// Straw: stalks standing up.
+		shade = 0.82 + 0.3 * sf_noise(vec2(uv.x * 34.0, uv.y * 2.5));
+	} else if (kind == 6) {
+		// Cloth: a weave.
+		shade = 0.92 + 0.08 * sin(uv.x * 140.0) * sin(uv.y * 140.0) + 0.06 * (sf_fbm(uv * 3.0) - 0.5);
+	} else if (kind == 7) {
+		// Iron: dark, drawn in streaks, with a little shine.
+		shade = 0.85 + 0.2 * sf_noise(vec2(uv.x * 2.0, uv.y * 40.0));
+		rough = 0.45;
+		metal = 0.35;
+	} else if (kind == 8) {
+		// Bark: ridges up the trunk.
+		shade = 0.75 + 0.4 * sf_noise(vec2((w.x + w.z) * 14.0, w.y * 2.2));
+	}
+	return shade;
+}

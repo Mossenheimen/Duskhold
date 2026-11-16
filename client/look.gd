@@ -6,8 +6,9 @@ extends RefCounted
 ## through srgb_to_linear()). Each script that draws preloads it, as the client's scripts are:
 ## const Look = preload("res://look.gd").
 ##
-## Not here yet: the looks of things (furniture, plants: chunk_view.gd's FURNITURE and PLANTS),
-## which move to data/looks.toml in a later slice (VISUALS.md §16).
+## The world's own colours, the ground's, the buildings' and a bundle on a floor, are
+## data/looks.toml's materials (VISUALS.md §4, §14), as are the looks of things: `take_materials`
+## brings them in when the looks are read (looks.gd), and until then they're the guide's own.
 ##
 ## The settings that change the look (VISUALS.md §13; settings.gd sets them) live here too. A token
 ## a setting changes is a static var, not a constant: the alert states (colour-blind mode) and the
@@ -28,19 +29,19 @@ static var reduce_motion := false
 ## The bars say their numbers, not only on hover.
 static var show_numbers := false
 
-# The world: the Hushlands (§4).
+# The world: the Hushlands (§4). Data/looks.toml's materials by these names (`take_materials`).
 
 ## The ground, by DuskWorld's ground code: nothing, grass, dirt, road, water, a plank floor,
-## shallows, a bridge.
-const GROUND: Array[Color] = [Color("#12141A"), Color("#5E6B4F"), Color("#6E5940"),
+## shallows, a bridge ("ground." and these, in looks.toml).
+const GROUND_NAMES: Array[String] = ["void", "grass", "dirt", "road", "water", "floor", "shallows",
+	"bridge"]
+static var GROUND: Array[Color] = [Color("#12141A"), Color("#5E6B4F"), Color("#6E5940"),
 	Color("#857A66"), Color("#334D61"), Color("#78593D"), Color("#4D6B78"), Color("#664A2E")]
-const WALL := Color("#A8A191")
-const DOOR := Color("#614026")
-const BOARD := Color("#9E7A4D")
-const FENCE := Color("#73614D")
-const TRUNK := Color("#4D3B2B")
-const LEAVES := Color("#3D5436")
-const LITTER := Color("#9E855C")  # what lies on a floor
+static var WALL := Color("#A8A191")  # build.wall
+static var DOOR := Color("#614026")  # build.door
+static var BOARD := Color("#9E7A4D")  # build.board
+static var FENCE := Color("#73614D")  # build.fence
+static var LITTER := Color("#9E855C")  # world.litter: what lies on a floor
 
 # Actors: the second cue after their shape (§4, §5).
 
@@ -181,6 +182,18 @@ static func set_look(blind: bool, contrast: bool) -> void:
 	DANGER_TEXT = signals[3]
 	PANEL = PANEL_SOLID if contrast else Color("#0D0F14B8")
 	version += 1
+
+
+## The world's colours from data/looks.toml's materials (DuskWorld.looks()'s "materials", by
+## name): the ground's kinds, the buildings' and a bundle on a floor. What's missing keeps its own.
+static func take_materials(materials: Dictionary) -> void:
+	for i in GROUND_NAMES.size():
+		GROUND[i] = materials.get("ground." + GROUND_NAMES[i], GROUND[i])
+	WALL = materials.get("build.wall", WALL)
+	DOOR = materials.get("build.door", DOOR)
+	BOARD = materials.get("build.board", BOARD)
+	FENCE = materials.get("build.fence", FENCE)
+	LITTER = materials.get("world.litter", LITTER)
 
 
 ## Every panel under `node` built before a setting changed (`panel_style`), with the ground it

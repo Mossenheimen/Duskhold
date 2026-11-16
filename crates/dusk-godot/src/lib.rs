@@ -32,7 +32,7 @@ use godot::prelude::*;
 pub mod codes;
 
 use codes::event::*;
-use codes::{action, edge, item, power, remains, spell, state};
+use codes::{action, edge, item, power, remains, side, spell, state};
 
 struct DuskExtension;
 
@@ -608,6 +608,33 @@ fn edge_code(e: Edge) -> i32 {
     kind + edge::BOARD * i32::from(e.boards())
 }
 
+/// A fixture's look as `client/looks.gd` reads it: "variants", an array of PackedFloat32Arrays,
+/// each a set of parts, `PART_FLOATS` numbers a part (`Part::floats`: shape, sides, taper, size,
+/// at, turn in degrees, colour in sRGB, surface, cut); "placed" (`codes.gd`'s `Placed`); "faces"
+/// and "backs" (fixture ids, or ""), and how far it looks for them ("reach", in tiles); "grow"
+/// (the least and most it's scaled by); "vary" (how far its colour strays); "fire" (where its
+/// embers sit, if it takes a fire); "height" (metres).
+fn look_dict(look: &dusk_data::Look) -> VarDictionary {
+    let mut d = VarDictionary::new();
+    let mut variants = VarArray::new();
+    for parts in &look.variants {
+        let floats: Vec<f32> = parts.iter().flat_map(|p| p.floats()).collect();
+        variants.push(&PackedFloat32Array::from(&floats[..]).to_variant());
+    }
+    d.set("variants", &variants);
+    d.set("placed", i32::from(look.placed.code()));
+    d.set("faces", look.faces.as_deref().unwrap_or(""));
+    d.set("backs", look.backs.as_deref().unwrap_or(""));
+    d.set("reach", i32::from(look.reach));
+    d.set("grow", Vector2::new(look.grow[0], look.grow[1]));
+    d.set("vary", look.vary);
+    if let Some([x, y, z]) = look.fire {
+        d.set("fire", Vector3::new(x, y, z));
+    }
+    d.set("height", look.height());
+    d
+}
+
 #[godot_api]
 impl INode for DuskWorld {
     fn process(&mut self, delta: f64) {
@@ -891,6 +918,64 @@ impl DuskWorld {
             }
         }
         PackedInt32Array::from(&out[..])
+    }
+
+    /// Which sides of each of a chunk's tiles have a wall, a window or a fence (not a door), row
+    /// by row (32 × 32), as `codes.gd`'s `Side` bits: what furniture turns its back to
+    /// (`looks.toml`'s `placed`). The east and south sides are the next tiles' own edges, read
+    /// all the same, across the chunk's edge too.
+    #[func]
+    fn chunk_walls(&self, cx: i32, cy: i32) -> PackedByteArray {
+        let Some(world) = &self.world else {
+            return PackedByteArray::new();
+        };
+        let backed = |e: Edge| matches!(e, Edge::Wall | Edge::Window { .. } | Edge::Fence);
+        let origin = ChunkPos { x: cx, y: cy }.origin(0);
+        let mut out = Vec::with_capacity((CHUNK_SIZE * CHUNK_SIZE) as usize);
+        for y in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let pos = origin.offset(x, y);
+                let sides = [
+                    (side::NORTH, world.grid.north(pos)),
+                    (side::EAST, world.grid.west(pos.offset(1, 0))),
+                    (side::SOUTH, world.grid.north(pos.offset(0, 1))),
+                    (side::WEST, world.grid.west(pos)),
+                ];
+                let bits = sides
+                    .iter()
+                    .filter(|(_, e)| backed(*e))
+                    .fold(0, |all, (bit, _)| all | bit);
+                out.push(bits as u8);
+            }
+        }
+        PackedByteArray::from(&out[..])
+    }
+
+    /// How everything looks (`looks.toml`, as `dusk_data::Looks`), for `client/looks.gd`.
+    /// "materials": each material's colour by name ("ground.grass": sRGB). "fixture": each
+    /// fixture's look by id, as `look_dict` gives it. Loads the data if it isn't yet; empty if it
+    /// won't load, or there's no `looks.toml`.
+    #[func]
+    fn looks(&mut self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        if self.load_data().is_err() {
+            return out;
+        }
+        let Some(data) = &self.data else {
+            return out;
+        };
+        let mut materials = VarDictionary::new();
+        for (name, m) in &data.looks.materials {
+            let [r, g, b] = m.colour;
+            materials.set(name.as_str(), Color::from_rgb(r, g, b));
+        }
+        out.set("materials", &materials);
+        let mut fixtures = VarDictionary::new();
+        for (id, look) in &data.looks.fixtures {
+            fixtures.set(id.as_str(), &look_dict(look));
+        }
+        out.set("fixture", &fixtures);
+        out
     }
 
     /// The creatures' names, by their number in the data.
