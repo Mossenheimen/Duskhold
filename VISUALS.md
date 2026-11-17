@@ -447,7 +447,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Panels don't stack.** Opening a book panel (J) closes the other one, and the keys (I), which would lie over it; opening the keys closes the book panel. A modal screen dims the world (`ui.dim`) and pauses the game.
 - **Esc** closes the top panel first, and only then opens the menu.
 
-  **Today** (2026-11-12): Esc closes E's list, lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). Since 2026-11-17 it first puts back what the inventory holds, then shuts the inventory.
+  **Today** (2026-11-12): Esc closes E's list, lets a readied spell go, then closes the keys, then the book panel. Since the first playtest (2026-11-16: "Escape should be pause/menu"), with none of those open it opens the menu, and the world waits under it (`client/menu.gd`); it no longer saves and quits. Since 2026-11-17 it first puts back what the inventory holds, then shuts the inventory.
 
 ### The keys
 
@@ -455,11 +455,11 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 
 | Group | Keys | Where the hand is |
 |---|---|---|
-| **Move and fight** | WASD walk (and climb); Shift run; C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing; Q shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
-| **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light (dead, the next survivor); Z sleep | the left hand |
+| **Move and fight** | WASD walk (and climb); Shift switches between walking and running (running from the start, since the first playtest); C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing (Shift held so switches nothing); Space shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
+| **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); T a light (dead, the next survivor); Z sleep | the left hand |
 | **Your powers and belt** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order until you drag them into another on the bar (zone K); 5 to 8: the belt's potions | the left hand, over WASD |
 | **Panels** | I or Tab the inventory; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
-| **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = zoom (as the wheel does); Ctrl+- and Ctrl+= the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
+| **The game** | F2, F3, F4 the speeds; F5 save; V low walls; - and = zoom (as the wheel does); Ctrl+- and Ctrl+= the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else opens the menu, which pauses | the F keys; two hands for what can't be undone |
 
 **Rules:**
 
@@ -476,8 +476,8 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 |---|---|---|
 | Title | the name in the serif, a dusk scene behind (the abbey, a slow camera); Carry on, New world, Settings, Quit | a key or a click in reach of everything; carrying on is one click, since the game saves itself |
 | Who comes to the abbey? | each class, its line and its kit; a number or a click takes one | dims and pauses the world; today as text in the middle |
-| Paused | the world stilled under a dim; "Paused" banner; Space to go on | nothing else changes |
-| Menu (Esc) | Resume, Settings, Save and quit | centred; dims |
+| Paused | the world stilled under a dim; "Paused" banner; Space to go on | nothing else changes. **Since 2026-11-16** the menu is the pause: there's no key of its own |
+| Menu (Esc) | Resume, Settings, Save and quit | centred; dims. **Today** (2026-11-16): as here (`client/menu.gd`), "Paused" over it, the world waiting; a trial run's last button is Quit |
 | Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once. **Today** (2026-11-12): on F10 (`client/settings.gd`), over the world dimmed (`ui.dim`) and paused, on a ground at 95% so nothing shows through: the GUI's size, the four switches, and all 34 keys. Esc closes it |
 | Death | "This is how you died": the cause, the days, the deeds, where the body lies; R for the next survivor | the serif title; the world behind, dimmed, the body in view |
 
@@ -778,7 +778,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 4. *(Done 2026-11-12.)* **Here and now:** prompts under you (zone F). *(The act's bar under you, and the keys behind F1, came first.)*
 5. *(Done 2026-11-12.)* **Book panels:** Esc closes panels first, and the keys (F1) don't open over a book panel. *(Making on the left, one book panel at a time, came first.)*
 6. *(Done 2026-11-12.)* **The body diagram** in zone B.
-7. *(Done 2026-11-12.)* **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
+7. *(Done 2026-11-12.)* **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping; since 2026-11-16, the sound rings and what the dead see on the ground, both off unless asked for. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
 8. *(Done 2026-11-15.)* **Looks as data:** `data/looks.toml`, the world's materials and every fixture's look made of the kit's parts (§5); the looks gallery (§14). Then the terrain in it, the same day: four trees, each plant its own shape, wheat you can't see through, what's strewn on the ground, and borders between grounds that wander (§6). *(The bodies' looks wait for slice 11.)*
 9. **Screens:** title, the class choice as a screen, and death as a story.
 10. *(Done 2026-11-17.)* **Icons:** each item's icon drawn from its own look (§5, What you carry; §11, Icons), with no glyphs by kind on the way; and the inventory they're drawn in, as Path of Exile 2's (§10, zone H; §11, Grid). *(Items in hand and lying on the floor wait for slice 11 and loot on the ground, `BACKLOG.md` #6.)*
