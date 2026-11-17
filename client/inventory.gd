@@ -273,6 +273,7 @@ func _draw_pack() -> void:
 		weight.text = "%.1f / %.1f kg%s  ·  %d coin" % [carried[0] / 1000.0, carried[1] / 1000.0,
 			", too heavy to run" if heavy else "", coins]
 		title.add_child(weight)
+	_pack_box.add_child(Look.rule())
 	# The figure, what you hold and wear on it, and the belt.
 	var figure := Control.new()
 	figure.custom_minimum_size = FIGURE
@@ -524,6 +525,7 @@ func _draw_place(p: Array, reach: PackedInt32Array) -> void:
 		("  ·  your stash" if mine else "") + ("  (empty)" if n == 0 else "") + bag.fire_line(x, y)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
+	_reach_box.add_child(Look.rule())
 	if n > 1:
 		var defs := []
 		for s in n:
@@ -741,24 +743,25 @@ func _tile(what: Dictionary) -> Panel:
 	return tile
 
 
-func _tile_style(rarity: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
+## A thing's ground over its cells (art.gd's Glow): its rarity's colour welling up behind its icon,
+## edged in it, so rarity shows before the name; a plain thing's a faint warm glow, unedged.
+func _tile_style(rarity: int) -> StyleBox:
+	var style := Look.Art.Glow.new()
 	var tint: Color = bag.rarity_colour(rarity)
-	style.bg_color = Look.TILE_GROUND.lerp(Color(tint, 1.0), 0.22) if tint.a > 0.0 else Look.TILE_GROUND
-	style.border_color = Color(tint, 0.8) if tint.a > 0.0 else Look.EDGE
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
+	if tint.a > 0.0:
+		style.colour = Color(tint, 0.55)
+		style.edge = Color(tint, 0.7)
+	else:
+		style.colour = Color(Look.HEADING_GOLD, 0.16)
 	return style
 
 
 ## A slot's ground: a cell's, its edge faint; where what you hold would go, green, or red where it
 ## won't (`state` 1 or -1).
-func _slot_style(state: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Look.CELL_GROUND
-	style.border_color = Look.EDGE if state == 0 else (Look.GOOD if state > 0 else Look.DANGER)
-	style.set_border_width_all(1 if state == 0 else 2)
-	style.set_corner_radius_all(4)
+func _slot_style(state: int) -> StyleBox:
+	var style := Look.Art.Well.new()
+	if state != 0:
+		style.edge = Look.GOOD if state > 0 else Look.DANGER
 	return style
 
 
@@ -770,6 +773,7 @@ func _grid(kind: String, cells: Vector2i, at := Vector2i(-1, -1)) -> Grid:
 	grid.px = CELL
 	grid.ground = Look.CELL_GROUND
 	grid.edge = Look.CELL_EDGE
+	grid.well = Look.Art.Well.new()
 	grid.good = Color(Look.GOOD, 0.35)
 	grid.bad = Color(Look.DANGER, 0.4)
 	grid.custom_minimum_size = Vector2(cells * CELL)
@@ -1389,6 +1393,7 @@ class Grid extends Control:
 	var px := 50
 	var ground := Color()
 	var edge := Color()
+	var well: StyleBox  # each cell's (art.gd's Well), sunk into the panel; flat ground if none
 	var good := Color()
 	var bad := Color()
 	var clicked: Callable  # (grid, event)
@@ -1410,8 +1415,11 @@ class Grid extends Control:
 		for y in cells.y:
 			for x in cells.x:
 				var r := Rect2(Vector2(x, y) * px, Vector2(px, px))
-				draw_rect(r, ground)
-				draw_rect(r, edge, false, 1.0)
+				if well != null:
+					draw_style_box(well, r)
+				else:
+					draw_rect(r, ground)
+					draw_rect(r, edge, false, 1.0)
 
 	func _draw_mark() -> void:
 		if _state != 0:

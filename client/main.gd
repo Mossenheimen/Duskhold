@@ -340,6 +340,7 @@ func _ready() -> void:
 	inventory.uncard = hud.unhover_card
 	inventory.bag = bag
 	inventory.icons = icons
+	hotbar.icons = icons
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <!-- Duskhold, a panel's frame: a bronze band, a gold hairline inside it, and a plate set with a garnet at each corner; nine pieces, its corners 24 units (VISUALS.md §11; drawn by art.gd). -->
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22170c"/><stop offset="0.18" stop-color="#cfa96a"/><stop offset="0.42" stop-color="#8e6b3b"/><stop offset="0.78" stop-color="#4a3519"/><stop offset="1" stop-color="#170f07"/></linearGradient>
+    <linearGradient id="bottom" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#22170c"/><stop offset="0.18" stop-color="#cfa96a"/><stop offset="0.42" stop-color="#8e6b3b"/><stop offset="0.78" stop-color="#4a3519"/><stop offset="1" stop-color="#170f07"/></linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22170c"/><stop offset="0.18" stop-color="#cfa96a"/><stop offset="0.42" stop-color="#8e6b3b"/><stop offset="0.78" stop-color="#4a3519"/><stop offset="1" stop-color="#170f07"/></linearGradient>
+    <linearGradient id="right" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#22170c"/><stop offset="0.18" stop-color="#cfa96a"/><stop offset="0.42" stop-color="#8e6b3b"/><stop offset="0.78" stop-color="#4a3519"/><stop offset="1" stop-color="#170f07"/></linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8c987"/><stop offset="0.5" stop-color="#9a7542"/><stop offset="1" stop-color="#3b2a14"/></linearGradient>
+    <radialGradient id="gem" cx="0.38" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8a70"/><stop offset="0.35" stop-color="#b3261c"/><stop offset="1" stop-color="#3a0806"/></radialGradient>
+  </defs>
+  <rect x="0" y="0" width="96" height="7" fill="url(#top)"/>
+  <rect x="0" y="89" width="96" height="7" fill="url(#bottom)"/>
+  <rect x="0" y="0" width="7" height="96" fill="url(#left)"/>
+  <rect x="89" y="0" width="7" height="96" fill="url(#right)"/>
+  <rect x="0.5" y="0.5" width="95" height="95" fill="none" stroke="#070504" stroke-width="1"/>
+  <rect x="7.5" y="7.5" width="81" height="81" fill="none" stroke="#070504" stroke-width="1"/>
+  <rect x="10.5" y="10.5" width="75" height="75" fill="none" stroke="#b08a4c" stroke-opacity="0.45" stroke-width="1"/>
+  <g transform="translate(0 0)">
+    <path d="M0 0 L21 0 L21 9 L9 21 L0 21 Z" fill="url(#plate)" stroke="#070504" stroke-width="1"/>
+    <path d="M2 19 L2 2 L19 2" fill="none" stroke="#f6e0a6" stroke-opacity="0.55" stroke-width="1"/>
+    <path d="M21 1.5 L24 3.5 L21 5.5 Z M1.5 21 L3.5 24 L5.5 21 Z" fill="#d9b779"/>
+    <circle cx="8.5" cy="8.5" r="4.2" fill="url(#gem)" stroke="#1a0605" stroke-width="0.9"/>
+    <circle cx="7.2" cy="7" r="1.2" fill="#ffd8cc" fill-opacity="0.85"/>
+  </g>
+  <g transform="translate(96 0) scale(-1 1)">
+    <path d="M0 0 L21 0 L21 9 L9 21 L0 21 Z" fill="url(#plate)" stroke="#070504" stroke-width="1"/>
+    <path d="M2 19 L2 2 L19 2" fill="none" stroke="#f6e0a6" stroke-opacity="0.55" stroke-width="1"/>
+    <path d="M21 1.5 L24 3.5 L21 5.5 Z M1.5 21 L3.5 24 L5.5 21 Z" fill="#d9b779"/>
+    <circle cx="8.5" cy="8.5" r="4.2" fill="url(#gem)" stroke="#1a0605" stroke-width="0.9"/>
+    <circle cx="7.2" cy="7" r="1.2" fill="#ffd8cc" fill-opacity="0.85"/>
+  </g>
+  <g transform="translate(0 96) scale(1 -1)">
+    <path d="M0 0 L21 0 L21 9 L9 21 L0 21 Z" fill="url(#plate)" stroke="#070504" stroke-width="1"/>
+    <path d="M2 19 L2 2 L19 2" fill="none" stroke="#f6e0a6" stroke-opacity="0.55" stroke-width="1"/>
+    <path d="M21 1.5 L24 3.5 L21 5.5 Z M1.5 21 L3.5 24 L5.5 21 Z" fill="#d9b779"/>
+    <circle cx="8.5" cy="8.5" r="4.2" fill="url(#gem)" stroke="#1a0605" stroke-width="0.9"/>
+    <circle cx="7.2" cy="7" r="1.2" fill="#ffd8cc" fill-opacity="0.85"/>
+  </g>
+  <g transform="translate(96 96) scale(-1 -1)">
+    <path d="M0 0 L21 0 L21 9 L9 21 L0 21 Z" fill="url(#plate)" stroke="#070504" stroke-width="1"/>
+    <path d="M2 19 L2 2 L19 2" fill="none" stroke="#f6e0a6" stroke-opacity="0.55" stroke-width="1"/>
+    <path d="M21 1.5 L24 3.5 L21 5.5 Z M1.5 21 L3.5 24 L5.5 21 Z" fill="#d9b779"/>
+    <circle cx="8.5" cy="8.5" r="4.2" fill="url(#gem)" stroke="#1a0605" stroke-width="0.9"/>
+    <circle cx="7.2" cy="7" r="1.2" fill="#ffd8cc" fill-opacity="0.85"/>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="12" viewBox="0 0 40 12">
+  <!-- Duskhold, a rule's ornament: a garnet in a gold lozenge, with a bead either side; its lines are drawn to the panel's edges (VISUALS.md §11; drawn by art.gd). -->
+  <rect x="0" y="5.5" width="6" height="1" fill="#c9a466"/>
+  <rect x="34" y="5.5" width="6" height="1" fill="#c9a466"/>
+  <circle cx="9" cy="6" r="1.7" fill="#c9a466"/>
+  <circle cx="31" cy="6" r="1.7" fill="#c9a466"/>
+  <path d="M20 0.5 L26 6 L20 11.5 L14 6 Z" fill="#c9a466" stroke="#3b2a14" stroke-width="0.8"/>
+  <path d="M20 3.4 L22.6 6 L20 8.6 L17.4 6 Z" fill="#8a1d14"/>
+</svg>

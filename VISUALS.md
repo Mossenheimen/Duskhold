@@ -211,7 +211,9 @@ A potion's flask takes its bar's colour where it has one: life `bar.health`, man
 
 | Token | Value | Used for |
 |---|---|---|
-| `ui.panel` | `#0D0F14`, 72% | every panel's ground (95% in high contrast, §13) |
+| `ui.panel` | `#140F0B`, 90% | every panel's ground, under its grain and frame (97% in high contrast, §13). A cold `#0D0F14` at 72% until the GUI's dress (2026-11-17) |
+| `ui.heading` | `#E3C68C` | headings and banners, in small capitals (§8): gold |
+| `ui.button_text` | `#EBDDBE` | a button's word on its bronze |
 | `ui.edge` | white, 10% | a panel's 1 px edge (Default) |
 | `ui.text` | `#FFFFFF` | text |
 | `ui.text_dim` | white, 70% | hints, secondary lines, what can't be done yet |
@@ -222,7 +224,21 @@ A potion's flask takes its bar's colour where it has one: life `bar.health`, man
 | `ui.hurt` | `#B30000`, up to 35% | the flash when you're hurt |
 | `ui.cell_ground` | white, 6% | an empty cell of the inventory's grids, and a slot of its figure (§11, Grid) |
 | `ui.cell_edge` | black, 60% | the lines between a grid's cells |
-| `ui.tile_ground` | `#262B36`, 90% | a thing's tile over its cells; a magic one's takes its rarity's colour at 22%, and its edge in it |
+| `ui.tile_ground` | `#262B36`, 90% | a thing's tile over its cells; a magic one's takes its rarity's colour at 22%, and its edge in it. Since the GUI's dress: its ground is a glow instead (below) |
+
+### The GUI's dress (since 2026-11-17)
+
+The user: "work on styling the ui more ... turn the inventory/etc. into a more artistic rendering (again, similar to Diablo/poe)". Nothing on the GUI is flat colour any more: it's drawn (`client/art.gd`), from SVG drawn by hand in `client/icons/ui/` and a grain and glows made as the game starts. Its own colours are the art's: bronze (`#8E6B3B` to a lit `#CFA96A`), gold (`#C9A466`, a rule's), and garnet (`#B3261C`, the frame's stones).
+
+| Piece | What it is | Where |
+|---|---|---|
+| Frame | `ui.panel` under a soft warm grain, darker toward its edges, in a bronze band with a gold hairline inside it and a plate set with a garnet at each corner (`frame.svg`, nine pieces, its corners 24 px) | every panel (`Look.panel_style`): the inventory, what's within reach, the book panels, a card, the menu, the settings, the keys, the bar's base |
+| Well | a square sunk into the ground, shadowed at its top and left and lit at its foot (`well.svg`); an edge lit 2 px in `signal.good` or `signal.danger` (where what you hold would go), or `magic.arcane` (a spell readied) | the inventory's cells and the figure's slots; the bar's slots; a bar's track |
+| Plate | bronze with a gold rim (`button.svg`): lighter under the mouse, darker pressed, dim when it can't be pressed; or a header pointed at both ends (`banner.svg`), made a rarity's colour | every button; a card's title |
+| Glow | a thing's rarity's colour welling up behind its icon, at 55%, edged in it at 70%; a plain thing's `ui.heading` at 16%, unedged | a thing's tile in the inventory |
+| Fill | a bar's colour, lit along its top 40% and shaded along its foot | the bars |
+| Rule | a gold line fading out either side of a garnet in a gold lozenge (`divider.svg`) | between a card's parts, under a panel's title |
+| Globe | a liquid in a glass ball, filled as you're full, its surface stirring, lit from the upper left, in a bronze ring (`shaders/globe.gdshader`) | either side of the bar (§10, zone K; §11) |
 
 The inventory's panels (§10, zone H) are on `ui.panel` at high contrast's 95% always, as Path of Exile's are: the news and moodles never show through them.
 
@@ -348,6 +364,8 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 
   Both are under the SIL Open Font License, so they ship in `client/fonts/` with their licence. If Alegreya Sans reads poorly at 18 px, swap it for Noto Sans.
 
+  **Since 2026-11-17** (the GUI's dress): headings and banners in **Alegreya SC**, the family's small capitals, in `ui.heading`'s gold; titles in **Cinzel**'s capitals, the Roman letters Diablo's titles are cut in. Both SIL OFL, in `client/fonts/` with their licences (`Look.sized`).
+
   **Today** (2026-11-12): both in, in `client/fonts/` with their licences. Alegreya Sans Regular is the project's default font, so everything takes it; Alegreya Sans Medium is for headings (`type.heading`) and banners (`type.banner`); the serif, Alegreya, is for titles (`type.title`): the class choice and the death screen. `Look.sized` gives each size its face. Alegreya Sans read well at 18 px, so Noto Sans wasn't needed.
 - **Must:** the body text is a plain sans. A decorative face never carries information (Microsoft XAG 101).
 - **Sizes** at the base screen. Microsoft's minimum for PC is 18 px at 1080p, measured from the top of the tallest letter to the bottom of the lowest.
@@ -438,7 +456,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **H** The inventory | Path of Exile 2's: what you hold and wear round a figure (in hand on the left, the off arm on the right, the head over the body, the bag on your back beside the head, arms and legs at the body's foot), the belt's four loops under it; then your pockets' grid and the bag's side by side, twelve cells across, each thing its icon over its cells; weight and coin in its title. On the left while it's open, under zones A and B: a tab for each container and the ground within reach, each a grid, and a holdout's counter as a vendor (its wares a grid, its services and bounties over them) | top right, 24 px in; 50 px cells, about 650 wide; zones D and E move to its left, under zone A, while it's open | I or Tab; Esc, I or Tab shuts it | since 2026-11-17 (the user, 2026-11-16: "an inventory system that looks like PoE 2"; `client/inventory.gd`). It was a list (Zomboid's), open from the start |
 | **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre, above the bar, instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
 | **J** Book panels | Strength, Fitness, skills and talents (K), making (B), spells (P); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
-| **K** The bar | your powers on the number keys, then the belt's loops and their potions (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
+| **K** The bar | in a frame of its own, between the globes (§11, Globe): your powers on the number keys, then the belt's loops and their potions, each its own icon (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
 
 **Rules:**
 
@@ -486,18 +504,19 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 ## 11. The GUI: parts
 
 - **Panel:**
-  - Background `ui.panel` with a 1 px `ui.edge` and 4 px corners (Default).
+  - Background `ui.panel` with a 1 px `ui.edge` and 4 px corners (Default). **Since 2026-11-17** a Frame (§4, the GUI's dress): the ground under a grain in a bronze frame, 18 px across and 16 down inside it.
   - Padding is 12 px across and 10 px down, with 6 px between rows.
   - Its title, in `type.heading`, says what it holds and what it weighs.
   - A panel never grows past 45% of the screen's height; past that it scrolls.
 - **Bar:**
-  - A label 110 px wide, then a 240 × 18 bar: the fill's token on a `ui.track` back.
+  - A label 110 px wide, then a 240 × 18 bar: the fill's token on a `ui.track` back. **Since 2026-11-17** the fill lit along its top, in a well.
   - Numbers show on hover, or always with "show numbers" on (§13). **Today** (2026-11-12): as here, "80 / 100" over the fill, outlined.
   - Under 25%, the fill pulses in brightness once a second.
 - **Button:**
-  - Its word, then its key: "Take all [T]".
+  - Its word, then its key: "Take all [T]". **Since 2026-11-17** on a bronze plate, its word in `ui.button_text`.
   - A click target is at least 32 × 32 px, with 8 px between targets.
   - It never relies on a hover to say what it does.
+- **Globe** (since 2026-11-17; Diablo's and Path of Exile's): 116 px across, either side of the bar's frame, their feet on its foot. Health on the left, in `bar.health`; on the right mana in `magic.arcane` (a Wizard's), else faith in `bar.faith` (a Cleric's), else breath in `bar.endurance`. Filled as you're full, its surface stirring (still, with less motion); under a quarter it throbs in brightness, as a low bar does. Its name and numbers ("Health 72 / 100") show on hover, or always with numbers on (§13). The bars at the top left still say the same (`BACKLOG.md`: one or the other, the user's).
 - **Key caps:** a key always appears in brackets in the same face as its line, such as "[E] Pick chamomile". Remapping a key changes every place it's shown. The keys panel's own column of keys is the one place without brackets: it's a table of them.
 - **Item row:**
   - Name ×count, weight, then the actions on the right.

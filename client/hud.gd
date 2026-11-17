@@ -172,8 +172,10 @@ var _room := 0.0  # how far zones D and E stand off the right edge (`make_room`)
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
 var _detail: PanelContainer  # a hovered moodle's or body part's detail, or a thing's card
-var _detail_style: StyleBoxFlat  # its ground: a card's solid (_build_card)
+var _detail_style  # its ground (art.gd's Frame, a panel_style): a card's solid (_build_card)
 var _detail_name: Label
+var _title_plate: PanelContainer  # a card's title on its plate (art.gd's banner), in its rarity's colour
+var _plate_style: StyleBox
 var _detail_lines: Label
 var _card_rows: VBoxContainer  # a thing's card: its lines (DuskWorld.card_lines()), as drawn
 var _card_built := PackedStringArray()  # the lines _card_rows was last built from
@@ -631,16 +633,25 @@ func hover_worst_part() -> void:
 ## when they change: this runs every frame it shows.
 func _show_detail() -> void:
 	_detail_name.text = _hover_text[0]
-	if _hover_colour.a > 0.0:
-		_detail_name.add_theme_color_override("font_color", _hover_colour)
-	else:
-		_detail_name.remove_theme_color_override("font_color")
 	_detail_lines.text = _hover_text[1]
 	_detail_lines.visible = _hover_text[1] != ""
 	var rows: PackedStringArray = _hover_text[2] if _hover_text.size() > 2 else PackedStringArray()
 	if rows != _card_built:
 		_build_card(rows)
 	_card_rows.visible = not rows.is_empty()
+	# Its title's colour after its face (a card's heading would be gold): its magic's, else plain.
+	if _hover_colour.a > 0.0:
+		_detail_name.add_theme_color_override("font_color", _hover_colour)
+	else:
+		_detail_name.remove_theme_color_override("font_color")
+	# A card's title on its plate, the plate in its magic's colour (a plain thing's, bronze).
+	if rows.is_empty():
+		_title_plate.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		_detail_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	else:
+		_plate_style.modulate = _hover_colour if _hover_colour.a > 0.0 else Look.HEADING_GOLD
+		_title_plate.add_theme_stylebox_override("panel", _plate_style)
+		_detail_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_detail.visible = true
 	_detail.reset_size()
 	var rect := _hovered.get_global_rect()
@@ -671,8 +682,22 @@ func _build_detail() -> void:
 	lines.add_theme_constant_override("separation", 2)
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_detail.add_child(lines)
+	# A card's title stands on a plate, as Path of Exile's does (art.gd's banner, made its rarity's
+	# colour); a moodle's or the body's detail has none.
+	_title_plate = PanelContainer.new()
+	_title_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_title_plate.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	lines.add_child(_title_plate)
+	_plate_style = Look.Art.Plate.new()
+	_plate_style.texture = Look.Art.Paint.BANNER
+	_plate_style.ends = true
+	_plate_style.corner = 24.0
+	_plate_style.content_margin_left = 34.0
+	_plate_style.content_margin_right = 34.0
+	_plate_style.content_margin_top = 6.0
+	_plate_style.content_margin_bottom = 8.0
 	_detail_name = Look.text(Label.new(), Look.BODY)
-	lines.add_child(_detail_name)
+	_title_plate.add_child(_detail_name)
 	_detail_lines = Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 	lines.add_child(_detail_lines)
 	_card_rows = VBoxContainer.new()
@@ -716,13 +741,7 @@ func _build_card(rows: PackedStringArray) -> void:
 func _card_line(style: String, text: String, value: String) -> Control:
 	match style:
 		"rule":
-			var rule := HSeparator.new()
-			var edge := StyleBoxLine.new()
-			edge.color = Look.EDGE
-			rule.add_theme_stylebox_override("separator", edge)
-			rule.add_theme_constant_override("separation", 8)
-			rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			return rule
+			return Look.rule()
 		"stat", "changed", "fire", "holy":
 			var shown: Color = {"stat": Look.TEXT, "changed": Look.CHANGED, "fire": Look.FIRE,
 				"holy": Look.HOLY}[style]
@@ -1002,8 +1021,8 @@ func _build_keys() -> void:
 	_keys_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_keys_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	# Above the bar (hotbar.gd), which has the bottom centre.
-	_keys_hint.offset_top -= Look.SLOT + 12
-	_keys_hint.offset_bottom -= Look.SLOT + 12
+	_keys_hint.offset_top -= Look.SLOT + 40
+	_keys_hint.offset_bottom -= Look.SLOT + 40
 	_keys_hint.visible = false
 	_keys = PanelContainer.new()
 	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE

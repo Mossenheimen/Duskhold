@@ -141,8 +141,10 @@ const POTIONS: Array[Color] = [HEALTH, ARCANE, HASTE, IRON, ENDURANCE, COURAGE]
 
 # The GUI (§4).
 
-static var PANEL := Color("#0D0F14B8")  # every panel's ground, 72%; 95% in high contrast
-const PANEL_SOLID := Color("#0D0F14F2")  # high contrast's
+## Every panel's ground under its grain and frame (art.gd): a warm near-black, 90%; 97% in high
+## contrast (since 2026-11-17, the GUI's dress; it was a cold #0D0F14 at 72%).
+static var PANEL := Color("#140F0BE6")
+const PANEL_SOLID := Color("#140F0BF7")  # high contrast's, and the inventory's and the cards'
 const DIM := Color("#00000080")  # the world behind a choice or a menu, 50%
 const EDGE := Color("#FFFFFF1A")  # a panel's 1 px edge, 10%
 const TEXT := Color("#FFFFFF")
@@ -173,6 +175,12 @@ const OUTLINE_SIZE := 6
 
 const SANS_MEDIUM := preload("res://fonts/AlegreyaSans-Medium.ttf")
 const SERIF := preload("res://fonts/Alegreya-Variable.ttf")
+## Since the GUI's dress (2026-11-17): headings and banners in Alegreya's small capitals, in
+## gold; titles in Cinzel's capitals, Diablo's Roman kind (both SIL OFL, in fonts/).
+const SMALL_CAPS := preload("res://fonts/AlegreyaSC-Medium.ttf")
+const CAPITALS := preload("res://fonts/Cinzel-Variable.ttf")
+const HEADING_GOLD := Color("#E3C68C")  # a heading's and a banner's words
+const BUTTON_TEXT := Color("#EBDDBE")  # a button's word, on its bronze
 
 # Layout (§10).
 
@@ -184,6 +192,9 @@ const MARGIN := 24  # every panel's distance from the screen's edges
 const TILE := 44  # a moodle's tile
 const GLYPH := 32  # the glyph on it
 const SLOT := 60  # a slot of the bar (§11): a power, or a loop of the belt
+## The GUI's dress (art.gd): what panels, wells, plates, glows, fills and rules are drawn as.
+const Art = preload("res://art.gd")
+static var _titles: FontVariation  # Cinzel, at a weight for titles (`title_font`)
 const SLOT_GLYPH := 36  # the glyph in it
 const POP := 1.25  # a new or worsened moodle's tile starts this big...
 const POP_TIME := 0.3  # ...and shrinks back over this many seconds
@@ -201,7 +212,7 @@ static func set_look(blind: bool, contrast: bool) -> void:
 	ALERT = signals[1]
 	DANGER = signals[2]
 	DANGER_TEXT = signals[3]
-	PANEL = PANEL_SOLID if contrast else Color("#0D0F14B8")
+	PANEL = PANEL_SOLID if contrast else Color("#140F0BE6")
 	version += 1
 
 
@@ -222,9 +233,9 @@ static func take_materials(materials: Dictionary) -> void:
 static func restyle(node: Node) -> void:
 	var control := node as Control
 	if control != null and control.has_theme_stylebox_override("panel"):
-		var style := control.get_theme_stylebox("panel") as StyleBoxFlat
+		var style := control.get_theme_stylebox("panel")
 		if style != null and style.has_meta("panel"):
-			style.bg_color = PANEL
+			style.set("bg_color", PANEL)
 	for child in node.get_children():
 		restyle(child)
 
@@ -241,40 +252,50 @@ static func tile_style(colour: Color) -> StyleBoxFlat:
 	return style
 
 
-## A slot of the bar (§11): the panel's ground, with a 1 px EDGE; the one readied, 2 px of `edge`.
-static func slot_style(edge := EDGE, width := 1) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
+## A slot of the bar (§11): a well (art.gd), sunk into the ground; the one readied, its edge lit 2 px
+## in `edge`.
+static func slot_style(edge := EDGE, width := 1) -> StyleBox:
+	var well := Art.Well.new()
+	if edge != EDGE:
+		well.edge = edge
+		well.width = width
+	return well
+
+
+## A panel (§11, Panel; art.gd's Frame): PANEL under a grain, darker toward its edges, in a bronze
+## frame with a garnet at each corner; 18 px across and 16 down inside it. Its `bg_color` is the
+## ground's, as a flat panel's was, so what set that still does.
+static func panel_style() -> StyleBox:
+	var style := Art.Frame.new()
 	style.bg_color = PANEL
 	style.set_meta("panel", true)  # for restyle: high contrast changes its ground
-	style.border_color = edge
-	style.set_border_width_all(width)
-	style.set_corner_radius_all(4)
 	return style
 
 
-## A panel's ground (§11): PANEL with a 1 px EDGE, 4 px corners, 12 px across and 10 down.
-static func panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = PANEL
-	style.set_meta("panel", true)  # for restyle: high contrast changes its ground
-	style.border_color = EDGE
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
-	style.content_margin_left = 12.0
-	style.content_margin_right = 12.0
-	style.content_margin_top = 10.0
-	style.content_margin_bottom = 10.0
-	return style
+## A rule between a panel's parts (art.gd's): a gold line fading out from an ornament.
+static func rule() -> Control:
+	return Art.Rule.new()
 
 
-## Text at `size`, in the face that size calls for (§8): the serif for a title, Medium for a
-## heading or a banner, else the project's own (Alegreya Sans).
+## The titles' face: Cinzel, at a weight for them (made once).
+static func title_font() -> Font:
+	if _titles == null:
+		_titles = FontVariation.new()
+		_titles.base_font = CAPITALS
+		_titles.variation_opentype = {"wght": 600}
+	return _titles
+
+
+## Text at `size`, in the face that size calls for (§8): Cinzel's capitals for a title; small
+## capitals in gold for a heading or a banner (a colour given after takes its place); else the
+## project's own (Alegreya Sans).
 static func sized(control: Control, size: int) -> Control:
 	control.add_theme_font_size_override("font_size", size)
 	if size >= TITLE:
-		control.add_theme_font_override("font", SERIF)
+		control.add_theme_font_override("font", title_font())
 	elif size >= HEADING:
-		control.add_theme_font_override("font", SANS_MEDIUM)
+		control.add_theme_font_override("font", SMALL_CAPS)
+		control.add_theme_color_override("font_color", HEADING_GOLD)
 	return control
 
 
@@ -317,16 +338,33 @@ static func button(word: String, pressed: Callable, least := Vector2.ZERO) -> Bu
 	made.add_theme_font_size_override("font_size", SMALL)
 	made.custom_minimum_size = least
 	made.focus_mode = Control.FOCUS_NONE
+	plated(made)
 	made.pressed.connect(pressed)
 	return made
 
 
-## A bar's fill in `colour`, on the TRACK (§11).
+## A button on a bronze plate (art.gd's Plate): lighter under the mouse, darker pressed, dim when it
+## can't be pressed; its word in BUTTON_TEXT.
+static func plated(button: Button) -> Button:
+	var looks := {"normal": Color.WHITE, "hover": Color(1.3, 1.22, 1.1), "pressed": Color(0.8, 0.78, 0.75),
+		"hover_pressed": Color(0.85, 0.82, 0.78), "disabled": Color(0.55, 0.55, 0.55, 0.8)}
+	for state: String in looks:
+		var plate := Art.Plate.new()
+		plate.modulate = looks[state]
+		button.add_theme_stylebox_override(state, plate)
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	button.add_theme_color_override("font_color", BUTTON_TEXT)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", BUTTON_TEXT)
+	return button
+
+
+## A bar's fill in `colour`, lit along its top (art.gd's Fill), in a well (§11).
 static func bar(progress: ProgressBar, colour: Color) -> ProgressBar:
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = colour
-	var back := StyleBoxFlat.new()
-	back.bg_color = TRACK
+	var fill := Art.Fill.new()
+	fill.colour = colour
+	var back := Art.Well.new()
+	back.corner = 6.0
 	progress.add_theme_stylebox_override("fill", fill)
 	progress.add_theme_stylebox_override("background", back)
 	progress.show_percentage = false

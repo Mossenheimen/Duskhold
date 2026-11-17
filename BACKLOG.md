@@ -76,6 +76,7 @@ Ranking: since the playtest, what got in the way of play comes first, the quicke
 **Senses and the GUI**
 - The signature HUD: how loud, bright, warm and scented you are.
 - Scent trails and heat as fields; heat-hunters seeing warmth.
+- The GUI's dress, after its first pass (2026-11-17): the figure's empty slots as faint silhouettes (a helm, a glove, a boot); the top-left bars or the globes, not both (the user's call); the moodles' tiles and the status line dressed too; glints along the frames.
 - A gamepad; text size on its own; the title screen (`VISUALS.md` §16, slice 9's rest: the menu is in the queue's first).
 - The figure for creatures; wounds shown closing as they heal.
 - Panels fading in and out (§12's 0.12 s); small caps or italics; a prompt for what's within reach (zone G lists it already).

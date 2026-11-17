@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="34" viewBox="0 0 120 34">
+  <!-- Duskhold, a card's header: a plate pointed at both ends, grey to be tinted by the thing's rarity; three pieces, its ends 24 units (VISUALS.md §11; drawn by art.gd). -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#707070"/><stop offset="0.5" stop-color="#303030"/><stop offset="1" stop-color="#141414"/></linearGradient>
+  </defs>
+  <path d="M14 2 L106 2 L118 17 L106 32 L14 32 L2 17 Z" fill="url(#face)" stroke="#050505" stroke-width="1.2"/>
+  <path d="M15 5 L105 5 L114 17 L105 29 L15 29 L6 17 Z" fill="none" stroke="#e0e0e0" stroke-opacity="0.55"/>
+</svg>

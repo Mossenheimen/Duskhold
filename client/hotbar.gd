@@ -16,6 +16,10 @@ const Spell = Codes.Spell
 
 ## The powers' slots (the number keys power_1 to power_4), then the belt's loops (belt_1 to belt_4).
 const POWERS := 4
+## The globes either side of the bar (VISUALS.md §11, Globe; Diablo's and Path of Exile's): across,
+## in pixels at the base screen.
+const GLOBE := 116.0
+const GLOBE_SHADER := preload("res://shaders/globe.gdshader")
 const LOOPS := 4
 ## The numbers a spell takes in DuskWorld.spell_info() (spells.gd's INFO), a potion in
 ## potion_info(), and a loop in character_belt().
@@ -34,8 +38,8 @@ const POWER_TEXTS := {
 }
 ## What each slot shows (`_shown`), by place: its glyph, the glyph's colour, its count, the
 ## count's colour, whether it can be used now, whether it's readied, its key, whether anything's
-## there.
-enum { GLYPH, TINT, COUNT, COUNT_TINT, CAN, READIED, KEY, FILLED }
+## there, and a potion's own icon once it's drawn (icons.gd), in place of the glyph.
+enum { GLYPH, TINT, COUNT, COUNT_TINT, CAN, READIED, KEY, FILLED, ICON }
 
 ## Uses what's on a slot (main.gd's): the power on `k`, the potion in loop `k`.
 var use_power: Callable
@@ -45,9 +49,14 @@ var card: Callable
 var uncard: Callable
 ## Where the bar's order is kept (settings.gd's bar_order and set_bar_order).
 var settings: Node
+## The items' icons (icons.gd): a loop shows its potion's own, drawn from its look.
+var icons: Node
 
 var _dusk: Node
+var _base: PanelContainer  # the bar's frame
 var _strip: HBoxContainer
+var _globes: Array[ColorRect] = []  # health on the left; mana, faith or breath on the right
+var _globe_words: Array[Label] = []  # each one's numbers: on hover, or always with numbers on
 var _slots: Array[Button] = []
 var _glyphs: Array[TextureRect] = []
 var _caps: Array[Label] = []  # each slot's key
@@ -66,10 +75,21 @@ var _hovered := -1  # the slot under the mouse, -1 none
 
 
 func _ready() -> void:
+	# The bar stands in a frame of its own, as Diablo's does (art.gd's).
+	var base := PanelContainer.new()
+	_base = base
+	var frame := Look.panel_style()
+	frame.content_margin_left = 16.0
+	frame.content_margin_right = 16.0
+	frame.content_margin_top = 12.0
+	frame.content_margin_bottom = 12.0
+	base.add_theme_stylebox_override("panel", frame)
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(base)
 	_strip = HBoxContainer.new()
 	_strip.add_theme_constant_override("separation", 8)
 	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_strip)
+	base.add_child(_strip)
 	for k in POWERS + LOOPS:
 		if k == POWERS:
 			# The belt's loops a little apart from the powers.
@@ -78,10 +98,12 @@ func _ready() -> void:
 			split.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_strip.add_child(split)
 		_strip.add_child(_slot(k))
-	_strip.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM,
+	base.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM,
 		Control.PRESET_MODE_MINSIZE, Look.MARGIN)
-	_strip.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	base.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	base.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	for k in 2:
+		_make_globe()
 	visible = false
 
 
@@ -104,6 +126,7 @@ func refresh(dead: bool, readied: int, here: Vector2i) -> void:
 	visible = not dead and _dusk != null
 	if not visible:
 		return
+	_show_globes()
 	_powers = _arrange()
 	var info: PackedInt32Array = _dusk.spell_info()
 	_belt = _dusk.character_belt()
@@ -120,6 +143,62 @@ func refresh(dead: bool, readied: int, here: Vector2i) -> void:
 	# What's hovered changed under the mouse: its detail with it.
 	if _hovered >= 0:
 		_hover(_hovered)
+
+
+## The globes, each frame: health on the left; on the right mana (a Wizard's), else faith (a
+## Cleric's), else your breath. Beside the bar's frame, their feet on its foot.
+func _show_globes() -> void:
+	var r := _base.get_rect()
+	_globes[0].position = Vector2(r.position.x - GLOBE - 2.0, r.end.y - GLOBE + 4.0)
+	_globes[1].position = Vector2(r.end.x + 2.0, r.end.y - GLOBE + 4.0)
+	var body: PackedInt32Array = _dusk.character_body()
+	var deeds: PackedInt32Array = _dusk.character_deeds()
+	var most := deeds[4] / 10.0 if deeds.size() > 4 else 100.0
+	_globe(0, body[0] / 10.0 if body.size() > 0 else 0.0, most, Look.HEALTH, "Health")
+	var mana: PackedInt32Array = _dusk.character_mana()
+	var faith: PackedInt32Array = _dusk.faith()
+	if mana.size() > 1 and mana[1] > 0:
+		_globe(1, mana[0], mana[1], Look.ARCANE, "Mana")
+	elif faith.size() > 1 and faith[1] > 0:
+		_globe(1, faith[0], faith[1], Look.FAITH, "Faith")
+	else:
+		_globe(1, body[1] / 10.0 if body.size() > 1 else 0.0, 100.0, Look.ENDURANCE, "Breath")
+
+
+## Globe `k` filled to `now` of `most`, its liquid `colour`; low (under a quarter), it throbs, as a
+## low bar does (none with less motion).
+func _globe(k: int, now: float, most: float, colour: Color, word: String) -> void:
+	var material := _globes[k].material as ShaderMaterial
+	var fill := clampf(now / maxf(most, 1.0), 0.0, 1.0)
+	material.set_shader_parameter("fill", fill)
+	material.set_shader_parameter("liquid", colour)
+	material.set_shader_parameter("deep", colour.darkened(0.82))
+	material.set_shader_parameter("motion", 0.0 if Look.reduce_motion else 1.0)
+	var low := fill > 0.0 and fill < 0.25 and not Look.reduce_motion
+	material.set_shader_parameter("pulse",
+		0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if low else 0.0)
+	var words := _globe_words[k]
+	words.text = "%s\n%d / %d" % [word, roundi(now), roundi(most)]
+	words.visible = Look.show_numbers or bool(words.get_meta("hovered", false))
+
+
+func _make_globe() -> void:
+	var globe := ColorRect.new()
+	globe.size = Vector2(GLOBE, GLOBE)
+	var material := ShaderMaterial.new()
+	material.shader = GLOBE_SHADER
+	globe.material = material
+	add_child(globe)
+	var words := Look.text(Label.new(), Look.SMALL, Look.TEXT, true)
+	words.set_anchors_preset(Control.PRESET_FULL_RECT)
+	words.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	globe.add_child(words)
+	globe.mouse_entered.connect(func() -> void: words.set_meta("hovered", true))
+	globe.mouse_exited.connect(func() -> void: words.set_meta("hovered", false))
+	_globes.append(globe)
+	_globe_words.append(words)
 
 
 ## The power on key `k + 1`, in the bar's order: [its code, the spell's number], or [] for none.
@@ -293,12 +372,15 @@ func _loop_shown(k: int) -> Array:
 	var effect := _potions[def * POTION] if def * POTION < _potions.size() else -1
 	var tint: Color = Look.POTIONS[effect] if effect >= 0 and effect < Look.POTIONS.size() else Look.TEXT
 	var can: bool = _dusk.use_ticks(_belt[i], def) >= 0
-	return ["potion", tint, str(_belt[i + 2]), Look.TEXT, can, false, key, true]
+	var icon: Texture2D = icons.icon(def) if icons != null else null
+	return ["potion", tint, str(_belt[i + 2]), Look.TEXT, can, false, key, true, icon]
 
 
 func _draw_slot(k: int, shown: Array) -> void:
-	_glyphs[k].texture = _texture(shown[GLYPH])
-	var tint: Color = shown[TINT]
+	# A potion's own icon when it's drawn (its own colours), else the glyph in its tint.
+	var icon: Texture2D = shown[ICON] if shown.size() > ICON else null
+	_glyphs[k].texture = icon if icon != null else _texture(shown[GLYPH])
+	var tint: Color = Color.WHITE if icon != null else shown[TINT]
 	# Dimmed while it can't be used; an empty slot's glyph only a trace.
 	var alpha := 1.0 if shown[CAN] else (0.35 if shown[FILLED] else 0.12)
 	_glyphs[k].modulate = Color(tint, tint.a * alpha)
