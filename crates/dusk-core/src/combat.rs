@@ -986,6 +986,7 @@ impl World {
         t.step = None;
         t.carry = 0;
         t.pos = back;
+        t.offset = (0, 0);
         for tile in freed {
             if self.occupied.get(&tile) == Some(&target) {
                 self.occupied.remove(&tile);

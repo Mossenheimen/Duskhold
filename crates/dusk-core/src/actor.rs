@@ -407,6 +407,12 @@ pub struct Speeds {
 pub struct Actor {
     pub kind: ActorKind,
     pub pos: TilePos,
+    /// Where in its tile it stands, in thousandths of a tile from the tile's middle (x east, y
+    /// south; each from -500 up to 500): a character moves a little at a time (`World::glide`,
+    /// since 2026-11-16), the dead a tile at a time, at their tiles' middles. Every rule goes by
+    /// `pos`, the tile it's in.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub offset: (i32, i32),
     pub facing: Dir8,
     pub intent: Intent,
     pub step: Option<Step>,
@@ -495,6 +501,7 @@ impl Actor {
         Actor {
             kind,
             pos,
+            offset: (0, 0),
             facing: Dir8::S,
             intent: Intent::Idle,
             step: None,
@@ -538,8 +545,8 @@ impl Actor {
         }
     }
 
-    /// Where the actor is in tiles, part way between two while a step is under way. For drawing
-    /// it smoothly; game logic uses `pos`.
+    /// Where the actor is in tiles, part way between two while a step is under way, and where in
+    /// its tile it stands (`offset`). For drawing it smoothly; game logic uses `pos`.
     pub fn position(&self) -> (f32, f32) {
         match self.step {
             Some(s) => {
@@ -549,7 +556,10 @@ impl Actor {
                     s.from.y as f32 + (s.to.y - s.from.y) as f32 * t,
                 )
             }
-            None => (self.pos.x as f32, self.pos.y as f32),
+            None => (
+                self.pos.x as f32 + self.offset.0 as f32 / 1000.0,
+                self.pos.y as f32 + self.offset.1 as f32 / 1000.0,
+            ),
         }
     }
 

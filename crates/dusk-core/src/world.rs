@@ -1446,6 +1446,19 @@ impl World {
                 a.carry = 0;
                 return None;
             }
+            // A character glides, a little each tick, and stops where it's let go (`glide`).
+            if a.kind == ActorKind::Character {
+                let legs = Legs {
+                    speeds,
+                    budget: path_budget,
+                    heavy,
+                    fear,
+                    athletics,
+                    climber,
+                    climb_cost,
+                };
+                return self.glide(id, legs, &on_me);
+            }
             let heading = next_heading(a, &self.grid, rules.repath_after, path_budget, climb_cost);
             let (dir, run) = match heading {
                 // Out of breath or weighed down, nobody runs.
@@ -1609,6 +1622,256 @@ impl World {
             self.landed(id, edge);
         }
         Some(hard)
+    }
+
+    /// A character's walk, a little each tick (since 2026-11-16; the user: "the model moves
+    /// entire blocks away off of single input, it should be more resolute and granular"): it goes
+    /// only while it's asked to (a key held, a walk's way, a spell walked into reach), as far a
+    /// tick as its pace takes it, anywhere in its tile (`Actor::offset`), and stops where it's let
+    /// go. The two ways (east-west, then north-south) go one at a time, so a wall slides it along.
+    /// Its tile (`pos`), which every rule goes by, changes as it passes the middle of the edge
+    /// between: if it could step there (`passable`), and nobody's grip catches it as it parts;
+    /// else it goes no nearer than a quarter of a tile (`BODY_ROOM`). Pushing at a window or a
+    /// fence, it climbs (`climb.rs`), a tile at a time as before. A footstep a tile it goes, heard
+    /// as a step's was (`footstep`). A walk ended in its tile settles to the tile's middle.
+    fn glide(&mut self, id: ActorId, legs: Legs, on_me: &[(ActorId, TilePos)]) -> Option<bool> {
+        let rules = self.rules;
+        let a = self.actors.get_mut(id)?;
+        let walking = matches!(a.intent, Intent::WalkTo { .. } | Intent::Cast { .. });
+        // Where it heads, as thousandths of a tile from where it stands, and whether it runs.
+        let ((tx, ty), run) = match a.intent {
+            // A walk at its goal's tile settles to the middle before it's done.
+            Intent::WalkTo { to, run } if a.pos == to && a.offset != (0, 0) => {
+                ((-a.offset.0, -a.offset.1), run)
+            }
+            _ => match next_heading(
+                a,
+                &self.grid,
+                rules.repath_after,
+                legs.budget,
+                legs.climb_cost,
+            ) {
+                Heading::Go(dir, run) => {
+                    let (dx, dy) = dir.delta();
+                    // A walk heads for its next tile's middle; keys, straight on.
+                    let (dx, dy) = (dx * 1000, dy * 1000);
+                    let toward = if walking {
+                        (dx - a.offset.0, dy - a.offset.1)
+                    } else {
+                        (dx, dy)
+                    };
+                    (toward, run)
+                }
+                Heading::Stand => return None,
+                Heading::NoWay(to) => {
+                    self.events.push(Event::NoWay { who: id, to });
+                    return None;
+                }
+            },
+        };
+        // Out of breath or weighed down, sneaking or braced, nobody runs.
+        let run = run && !a.body.exhausted && !legs.heavy && !a.sneaking && !a.bracing;
+        let wading = self.grid.tile(a.pos).ground == crate::grid::Ground::Shallows;
+        let mut speed = if run {
+            rules.skills.run_speed(legs.speeds.run, legs.athletics)
+        } else {
+            legs.speeds.walk
+        };
+        // Wading is slow going, for everyone.
+        if wading {
+            speed = speed * rules.shallows.pace / 1000;
+        }
+        let reach = i64::from(speed / TICKS_PER_SECOND);
+        let (tx, ty) = (i64::from(tx), i64::from(ty));
+        let length = (tx * tx + ty * ty).isqrt();
+        if length == 0 {
+            return None;
+        }
+        let (mx, my) = if length <= reach {
+            (tx, ty)
+        } else {
+            (tx * reach / length, ty * reach / length)
+        };
+        if let Some(dir) = Dir8::nearest(tx as i32, ty as i32) {
+            a.facing = dir;
+        }
+        let (from, start) = (a.pos, a.offset);
+        for (east_west, m) in [(true, mx), (false, my)] {
+            if m == 0 {
+                continue;
+            }
+            let dir = match (east_west, m > 0) {
+                (true, true) => Dir8::E,
+                (true, false) => Dir8::W,
+                (false, true) => Dir8::S,
+                (false, false) => Dir8::N,
+            };
+            let a = self.actors.get(id)?;
+            let pos = a.pos;
+            let now = i64::from(if east_west { a.offset.0 } else { a.offset.1 });
+            let mut next = now + m;
+            let toward = if m > 0 {
+                next > BODY_ROOM
+            } else {
+                next < -BODY_ROOM
+            };
+            if toward && !self.passable(id, pos, dir, legs.fear) {
+                // A window or a fence it climbs, pushing at it: a step of its own (`climb.rs`).
+                let to = pos.step(dir);
+                let climb = legs.climber.filter(|_| {
+                    !self.grid.can_step(pos, dir)
+                        && self.grid.can_climb(pos, dir)
+                        && !self.occupied.contains_key(&to)
+                });
+                if let Some(c) = climb {
+                    if self.parting_grab(id, to, on_me) {
+                        return None;
+                    }
+                    let length = c.ticks(self.grid.edge(pos, dir), run);
+                    let wade = self.grid.tile(to).ground == crate::grid::Ground::Shallows;
+                    let a = self.actors.get_mut(id)?;
+                    a.offset = (0, 0);
+                    a.carry = 0;
+                    a.step = Some(Step {
+                        from: pos,
+                        to,
+                        dir,
+                        progress: 0,
+                        length,
+                        run,
+                        wade,
+                        climb: true,
+                    });
+                    self.occupied.insert(to, id);
+                    return Some(true);
+                }
+                // Up to a quarter of a tile from it, and no nearer (nor back, if it's nearer).
+                next = if m > 0 {
+                    next.min(BODY_ROOM.max(now))
+                } else {
+                    next.max((-BODY_ROOM).min(now))
+                };
+            }
+            // Past the middle of the edge: into the next tile, unless a grip catches it parting.
+            if !(-500..500).contains(&next) {
+                let to = pos.step(dir);
+                if self.parting_grab(id, to, on_me) {
+                    return None;
+                }
+                if self.occupied.get(&pos) == Some(&id) {
+                    self.occupied.remove(&pos);
+                }
+                self.occupied.insert(to, id);
+                next -= if m > 0 { 1000 } else { -1000 };
+                let a = self.actors.get_mut(id)?;
+                a.pos = to;
+                if walking && a.path.last() == Some(&to) {
+                    a.path.pop();
+                }
+            }
+            let a = self.actors.get_mut(id)?;
+            if east_west {
+                a.offset.0 = next as i32;
+            } else {
+                a.offset.1 = next as i32;
+            }
+        }
+        // How far it went, and a footstep each tile of it.
+        let a = self.actors.get_mut(id)?;
+        let dx = i64::from(a.pos.x - from.x) * 1000 + i64::from(a.offset.0 - start.0);
+        let dy = i64::from(a.pos.y - from.y) * 1000 + i64::from(a.offset.1 - start.1);
+        let went = (dx * dx + dy * dy).isqrt() as u32;
+        if went == 0 {
+            if walking {
+                a.blocked += 1;
+            }
+            return None;
+        }
+        a.blocked = 0;
+        a.carry += went;
+        let mut steps = 0;
+        while a.carry >= 1000 {
+            a.carry -= 1000;
+            steps += 1;
+        }
+        let at = a.pos;
+        for _ in 0..steps {
+            self.footstep(id, at, run, wading);
+        }
+        Some(run)
+    }
+
+    /// Whether a character on `pos` could go on into the tile on side `dir`: the way's open
+    /// (`Grid::can_step`), nobody else is there, and it isn't nearer what the character fears
+    /// (`dread.rs`: it balks).
+    fn passable(&mut self, id: ActorId, pos: TilePos, dir: Dir8, fear: Option<TilePos>) -> bool {
+        let to = pos.step(dir);
+        if !self.grid.can_step(pos, dir) || self.occupied.get(&to).is_some_and(|&o| o != id) {
+            return false;
+        }
+        if fear.is_some_and(|f| to.dist2(f) < pos.dist2(f)) {
+            self.events.push(Event::Balked { who: id });
+            return false;
+        }
+        true
+    }
+
+    /// As a character leaves for `to`, the dead on it that can't reach it there may grab it as it
+    /// goes (`grab.rs`): true if one did.
+    fn parting_grab(&mut self, id: ActorId, to: TilePos, on_me: &[(ActorId, TilePos)]) -> bool {
+        let (seed, tick, chance) = (self.seed, self.tick, self.rules.combat.parting_grab);
+        let caught = on_me.iter().find(|&&(e, at)| {
+            !reaches(&self.grid, at, to)
+                && below(roll(seed, tick, e.index() as u64, Purpose::Grab), 10_000) < chance
+        });
+        match caught {
+            Some(&(e, _)) => {
+                self.grab(e, id);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// A character's footstep on `at`, a tile's walk or run: heard as far as its pace, its mail
+    /// and its sneaking make it, and farther wading; a run teaches Athletics, sneaking Stealth; and
+    /// under a heavy load, it works toward Strength (`fitness.rs`).
+    fn footstep(&mut self, id: ActorId, at: TilePos, run: bool, wading: bool) {
+        let rules = self.rules;
+        let Some(a) = self.actors.get(id) else {
+            return;
+        };
+        let sneaking = a.sneaking;
+        let clink = if a.worn.is_empty() {
+            0
+        } else {
+            self.armour_noise(id)
+        };
+        let mut loudness = clink
+            + if run {
+                rules.run_noise
+            } else {
+                rules.walk_noise
+            };
+        if sneaking {
+            loudness = (i64::from(loudness) * i64::from(rules.sneak.noise) / 1000).max(1) as i32;
+        }
+        if wading {
+            loudness = (i64::from(loudness) * i64::from(rules.shallows.noise) / 1000) as i32;
+        }
+        self.emit(Sound {
+            at,
+            loudness,
+            by: Some(id),
+        });
+        if run {
+            self.train_run(id);
+        } else if sneaking {
+            self.train_sneak(id);
+        }
+        if u64::from(self.load(id)) * 2 > u64::from(self.carry(id)) {
+            self.strain(id, rules.strength.haul);
+        }
     }
 
     /// Creatures hear this tick's sounds: each goes after the nearest one it heard.
@@ -2000,6 +2263,23 @@ enum Heading {
     /// A `WalkTo` that found no way there.
     NoWay(TilePos),
 }
+
+/// A character's legs this tick, as `move_actor` worked them out, for `World::glide`: its pace,
+/// how far it searches for a way, whether it's weighed down, what it fears, its Athletics, and
+/// how it climbs.
+struct Legs {
+    speeds: Speeds,
+    budget: usize,
+    heavy: bool,
+    fear: Option<TilePos>,
+    athletics: u8,
+    climber: Option<crate::climb::Climber>,
+    climb_cost: Option<ClimbCost>,
+}
+
+/// How near a character comes, in thousandths of a tile from its tile's middle, to the edge of
+/// something it can't pass: a quarter of a tile short of it.
+const BODY_ROOM: i64 = 250;
 
 /// The heading an actor's intent asks for now. Plans (and re-plans) the path of a `WalkTo`: when
 /// the goal changed, when the next tile isn't next to it any more, or after waiting too long.

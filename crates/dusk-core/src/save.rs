@@ -503,6 +503,7 @@ impl Remap {
             class,
             talents,
             pos: _,
+            offset: _,
             facing: _,
             step: _,
             path: _,

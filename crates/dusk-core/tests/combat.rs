@@ -179,6 +179,13 @@ fn running_tires_you_and_rest_brings_your_breath_back() {
             run: true,
         },
     );
+    // How far you go in 20 ticks, in tiles.
+    let went = |w: &mut World| {
+        let x = w.actor(me).unwrap().position().0;
+        w.step(20);
+        w.actor(me).unwrap().position().0 - x
+    };
+    let running = went(&mut w);
     let mut tired_at = None;
     for t in 0..400 {
         w.step(1);
@@ -188,14 +195,10 @@ fn running_tires_you_and_rest_brings_your_breath_back() {
         }
     }
     assert!(tired_at.is_some(), "you never ran out of breath");
-    let mut strides = Vec::new();
-    for _ in 0..20 {
-        w.step(1);
-        strides.extend(w.actor(me).unwrap().step.map(|s| s.run));
-    }
+    let walking = went(&mut w);
     assert!(
-        !strides.is_empty() && strides.iter().all(|&run| !run),
-        "out of breath, you walk"
+        walking > 0.0 && walking < running,
+        "out of breath, you walk: {walking} tiles against {running}"
     );
     w.intent(me, Intent::Idle);
     w.step(60);

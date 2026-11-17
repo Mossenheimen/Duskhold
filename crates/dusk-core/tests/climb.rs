@@ -26,15 +26,20 @@ fn pos(w: &World, id: ActorId) -> TilePos {
     w.actor(id).unwrap().pos
 }
 
-/// Steps until `id` is on `x` (at most `most` ticks): the ticks it took, and the climbs on the
+/// Steps until `id` is on `x` (at most `most` ticks): the ticks it spent climbing (a character
+/// walks up to what it climbs first, a little at a time: `World::glide`), and the climbs on the
 /// way.
 fn until_x(w: &mut World, id: ActorId, x: i32, most: u32) -> (u32, Vec<Event>) {
     let mut climbs = Vec::new();
-    for t in 1..=most {
+    let mut climbing = 0;
+    for _ in 1..=most {
         w.step(1);
         climbs.extend(w.events().filter(|e| matches!(e, Event::Climbed { .. })));
+        if w.actor(id).unwrap().step.is_some_and(|s| s.climb) {
+            climbing += 1;
+        }
         if pos(w, id).x == x {
-            return (t, climbs);
+            return (climbing, climbs);
         }
     }
     panic!("never got to x = {x}: at {:?}", pos(w, id));
