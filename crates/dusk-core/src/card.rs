@@ -27,6 +27,7 @@ use crate::armour::Armour;
 use crate::body::Group;
 use crate::items::{Defs, Item, ItemKind, NEW};
 use crate::magic::{Fits, MOST, Property, Raises};
+use crate::potion::{Draught, Effect};
 use crate::quality::PLAIN;
 use crate::shield::Guard;
 use crate::world::{Swing, TICKS_PER_SECOND, World};
@@ -155,6 +156,41 @@ fn signed(x: f64, places: usize) -> String {
 /// Tenths of a point, to read: "12", "12.5".
 fn points(tenths: i32) -> String {
     number(f64::from(tenths) / 10.0, 1)
+}
+
+/// Mana, from thousandths of a point: "25", "12.5".
+fn mana_points(thousandths: i32) -> String {
+    number(f64::from(thousandths) / 1000.0, 1)
+}
+
+/// Per mille, as a share: "30%", "12.5%".
+fn per_cent(per_mille: i32) -> String {
+    format!("{}%", number(f64::from(per_mille) / 10.0, 1))
+}
+
+impl Defs {
+    /// What a potion does, in a line, for the news and the bar (`potion.rs`): "35 health back over
+    /// 4 s", "30% faster on your feet for 30 s". Empty for what's no potion.
+    pub fn potion_line(&self, def: u16) -> String {
+        let Some(d) = self.potion(def) else {
+            return String::new();
+        };
+        let t = seconds(d.lasts);
+        match d.effect {
+            Effect::Life => format!("{} health back over {t}", points(d.amount)),
+            Effect::Mana => format!("{} mana back over {t}", mana_points(d.amount)),
+            Effect::Haste => format!("{} faster on your feet for {t}", per_cent(d.amount)),
+            Effect::IronSkin => format!(
+                "blows do {} less harm, and bleed less, for {t}",
+                per_cent(d.amount)
+            ),
+            Effect::Vigour => format!(
+                "your breath back, and {} less spent, for {t}",
+                per_cent(d.amount)
+            ),
+            Effect::Courage => format!("dread gone, and none rises, for {t}"),
+        }
+    }
 }
 
 /// Least to most, in tenths of a point: "11–16", or one number when they're the same.
@@ -531,6 +567,7 @@ impl World {
                 | ItemKind::Shield(_)
                 | ItemKind::Armour(_)
                 | ItemKind::Light { .. }
+                | ItemKind::Potion(_)
         );
         if !carded && !item.magic.is_magic() {
             return Vec::new();
@@ -544,6 +581,7 @@ impl World {
             ItemKind::Shield(g) => self.shield_numbers(&mut c, item, &g),
             ItemKind::Armour(a) => self.armour_numbers(&mut c, item, &a, def.weight),
             ItemKind::Light { radius, wane } => self.light_numbers(&mut c, item, radius, wane),
+            ItemKind::Potion(d) => self.potion_numbers(&mut c, d),
             _ => {}
         }
         c.rule();
@@ -578,6 +616,7 @@ impl World {
             Some(ItemKind::Shield(_)) => "Shield".into(),
             Some(ItemKind::Armour(_)) => "Armour".into(),
             Some(ItemKind::Light { .. }) => "Light".into(),
+            Some(ItemKind::Potion(_)) => "Potion".into(),
             _ => String::new(),
         };
         let rarity = if item.magic.is_magic() {
@@ -592,6 +631,39 @@ impl World {
         };
         if !line.is_empty() {
             c.add(CardStyle::Kind, line, "");
+        }
+    }
+
+    /// A potion's numbers (`potion.rs`): what it does, for how long, and how long it takes to
+    /// drink on the belt and off it; then what's more than numbers, in words.
+    fn potion_numbers(&self, c: &mut Lines, d: Draught) {
+        match d.effect {
+            Effect::Life => c.stat("Health back", points(d.amount), false),
+            Effect::Mana => c.stat("Mana back", mana_points(d.amount), false),
+            Effect::Haste => c.stat("Faster on your feet", per_cent(d.amount), false),
+            Effect::IronSkin => c.stat("Less harm from blows", per_cent(d.amount), false),
+            Effect::Vigour => c.stat("Less breath spent", per_cent(d.amount), false),
+            Effect::Courage => {}
+        }
+        let lasts = if d.effect.wears_off() {
+            "Lasts"
+        } else {
+            "Over"
+        };
+        c.stat(lasts, seconds(d.lasts), false);
+        c.stat("To drink, from the belt", seconds(d.time), false);
+        let off = d.time + self.rules.belt.rummage;
+        c.stat("From the pack", seconds(off), false);
+        let words = match d.effect {
+            Effect::Mana => "Only one with mana to fill can drink it",
+            Effect::IronSkin => "A wound it lets through bleeds as much less",
+            Effect::Vigour => "Your breath back at once",
+            Effect::Courage => "Dread gone at once, and none rises while it lasts",
+            Effect::Life | Effect::Haste => "",
+        };
+        if !words.is_empty() {
+            c.rule();
+            c.add(CardStyle::Effect, words, "");
         }
     }
 

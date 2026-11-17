@@ -144,6 +144,9 @@ pub enum Intent {
     DropBag,
     /// Cast `spell` (its number in `Defs::spells`) on the tile `at` (`spell.rs`).
     Cast { spell: u16, at: TilePos },
+    /// Put the potions at `slot` of your pack on your belt, as many as fit, or take them off it
+    /// into your bag and pockets (`potion.rs`).
+    Belt { slot: u16, def: u16 },
 }
 
 impl Intent {
@@ -294,6 +297,11 @@ pub enum ActionKind {
     Cast {
         spell: u16,
         at: TilePos,
+    },
+    /// Putting potions on the belt, or taking them off (`potion.rs`).
+    Belt {
+        slot: u16,
+        def: u16,
     },
 }
 
@@ -485,6 +493,9 @@ pub struct Actor {
     pub strength: u32,
     pub fitness: u32,
     pub strain: u32,
+    /// The potions working on it (`potion.rs`), in the order drunk.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub doses: Vec<crate::potion::Dose>,
 }
 
 impl Actor {
@@ -542,6 +553,7 @@ impl Actor {
             strength: 0,
             fitness: 0,
             strain: 0,
+            doses: Vec::new(),
         }
     }
 

@@ -210,7 +210,8 @@ impl World {
     }
 
     /// Each game minute: each character's dread moves toward what the moment is worth, and
-    /// asleep or on hallowed ground ebbs away. A change of level is news.
+    /// asleep, on hallowed ground or with a potion of courage in it (`potion.rs`), ebbs away. A
+    /// change of level is news.
     pub(crate) fn minds(&mut self) {
         let per = u64::from(self.rules.clock.ticks_per_minute.max(1));
         if !self.tick.is_multiple_of(per) {
@@ -222,10 +223,14 @@ impl World {
             // A calming piece worn slows dread's rise, and holding a light up, Steady
             // (`faith.rs`).
             let rise = i64::from(d.rise) * i64::from(self.dread_rise(id)) / 1000;
+            let brave = self.under(id, crate::potion::Effect::Courage);
             let Some(a) = self.actors.get(id).filter(|a| !a.dead) else {
                 continue;
             };
-            let (now, calm) = (a.body.dread, a.body.asleep || self.is_hallowed(a.pos));
+            let (now, calm) = (
+                a.body.dread,
+                a.body.asleep || brave || self.is_hallowed(a.pos),
+            );
             let (due, rate) = if calm {
                 (0, d.calm)
             } else {

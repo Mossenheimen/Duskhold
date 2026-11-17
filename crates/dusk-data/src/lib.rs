@@ -594,6 +594,9 @@ struct RulesFile {
     /// Optional: with no [building], doors and walls of your own use the core's defaults.
     #[serde(default)]
     building: Option<barricade::BuildingFile>,
+    /// Optional: with no [belt], the belt of potions is the core's.
+    #[serde(default)]
+    belt: Option<items::BeltFile>,
     /// Optional: with no [fire], fires use the core's defaults.
     #[serde(default)]
     fire: Option<fire::FireFile>,
@@ -1334,6 +1337,9 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
     }
     if let Some(b) = &r.building {
         rules.building = barricade::to_building(file, b)?;
+    }
+    if let Some(b) = &r.belt {
+        rules.belt = items::to_belt(file, b)?;
     }
     if let Some(f) = &r.fire {
         rules.fire = fire::to_fire(file, f)?;

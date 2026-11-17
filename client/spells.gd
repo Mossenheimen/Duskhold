@@ -1,12 +1,11 @@
 extends "res://book_panel.gd"
 ## Spells (P): the ones you know, each with what it costs, how long its words take, how far it
 ## reaches, and how long it lasts or what it harms (as your Arcana makes them), and a Ready button
-## (or its number key: your powers). A readied spell is cast on the next spot you click (main.gd);
+## (or its number key: the bar's, hotbar.gd). A readied spell is cast on the next spot you click (main.gd);
 ## right-click lets it go. The core decides what can be cast and does it; this only shows it and
 ## asks.
 
 const Prompts = preload("res://prompts.gd")
-const Power = preload("res://codes.gd").Power
 const Spell = preload("res://codes.gd").Spell
 
 ## The numbers a spell takes in DuskWorld.spell_info() (main.gd reads it too).
@@ -14,6 +13,8 @@ const INFO := 10
 
 ## Readies a spell, by its number (main.gd's).
 var ready_spell: Callable
+## The bar's slot a spell is on, -1 for none (hotbar.gd's slot_of_spell): its number key.
+var slot_of: Callable
 
 var _names := PackedStringArray()
 var _lines := PackedStringArray()
@@ -28,12 +29,17 @@ func start(dusk: Node) -> void:
 	_items = dusk.item_names()
 
 
-## Each frame: redraw if anything changed (only while it's open): what you know, your mana, and
-## `readied`, the spell readied now (-1 none).
+## Each frame: redraw if anything changed (only while it's open): what you know, your mana,
+## `readied` (the spell readied now, -1 none), and the bar's keys.
 func refresh(dead: bool, readied: int) -> void:
 	if not _awake(dead):
 		return
-	var now := [_dusk.character_spells(), _dusk.character_mana(), _dusk.spell_info(), readied]
+	var known: PackedInt32Array = _dusk.character_spells()
+	# And the keys they're on: a spell moved on the bar moves its key here too.
+	var keys := []
+	for spell in known:
+		keys.append(slot_of.call(spell) if slot_of.is_valid() else -1)
+	var now := [known, _dusk.character_mana(), _dusk.spell_info(), readied, keys]
 	if _changed(now):
 		_draw(now[0], now[1], now[2], readied)
 
@@ -120,11 +126,8 @@ func _draw(known: PackedInt32Array, mana: PackedInt32Array, info: PackedInt32Arr
 	_list.add_child(hint)
 
 
-## The number key a spell is on, as its cap and a space ("[2] "), by DuskWorld.character_powers();
+## The number key a spell is on, as its cap and a space ("[2] "), by the bar's order (hotbar.gd);
 ## "" if it's on none (a fifth spell, say).
 func _key_for(spell: int) -> String:
-	var powers: PackedInt32Array = _dusk.character_powers()
-	for p in range(0, mini(powers.size(), 8), 2):
-		if powers[p] == Power.SPELL and powers[p + 1] == spell:
-			return Prompts.keyed("{power_%d} " % (p / 2 + 1))
-	return ""
+	var k: int = slot_of.call(spell) if slot_of.is_valid() else -1
+	return Prompts.keyed("{power_%d} " % (k + 1)) if k >= 0 else ""

@@ -2,7 +2,7 @@
 //! test (`codes_gd_is_current`) fails when the two differ, and with `DUSK_WRITE_CODES` set it
 //! writes the file instead. So a code added here reaches the client by name, and can't drift.
 
-use dusk_core::{Moodle, SpellKind};
+use dusk_core::{Effect, Moodle, SpellKind};
 
 /// A group of codes: a constant each, and the group's table (`ALL`), for `codes.gd`.
 macro_rules! codes {
@@ -134,6 +134,8 @@ pub mod event {
         REPAIRED = 117,
         PUT_UP = 118,
         WALL_BROKE = 119,
+        QUAFFED = 120,
+        WANED = 121,
     }
 }
 
@@ -155,6 +157,7 @@ pub mod item {
         BAG = 12,
         DECOY = 13,
         PIECE = 14,
+        POTION = 15,
     }
 }
 
@@ -212,6 +215,7 @@ pub mod action {
         WIND = 48,
         REPAIR = 49,
         BUILD = 50,
+        BELT = 51,
     }
 }
 
@@ -238,6 +242,12 @@ pub mod moodle {
         BRACING = Moodle::Bracing as i32,
         COLD = Moodle::Cold as i32,
         WET = Moodle::Wet as i32,
+        REVIVING = Moodle::Reviving as i32,
+        MANA_RISING = Moodle::ManaRising as i32,
+        QUICKENED = Moodle::Quickened as i32,
+        IRON_SKIN = Moodle::IronSkin as i32,
+        VIGOROUS = Moodle::Vigorous as i32,
+        FEARLESS = Moodle::Fearless as i32,
     }
 }
 
@@ -270,6 +280,19 @@ pub mod spell {
         SILENCE = SpellKind::Silence as i32,
         FOG = SpellKind::Fog as i32,
         FIREBALL = SpellKind::Fireball as i32,
+    }
+}
+
+/// What a potion does (`potion_info`): the core's `Effect`.
+pub mod potion {
+    use super::Effect;
+    codes! {
+        LIFE = Effect::Life as i32,
+        MANA = Effect::Mana as i32,
+        HASTE = Effect::Haste as i32,
+        IRON_SKIN = Effect::IronSkin as i32,
+        VIGOUR = Effect::Vigour as i32,
+        COURAGE = Effect::Courage as i32,
     }
 }
 
@@ -394,6 +417,11 @@ pub const GROUPS: &[Group] = &[
         "Spell",
         "A spell's kind (DuskWorld.spell_info(), spell_zones()).",
         spell::ALL,
+    ),
+    (
+        "Potion",
+        "What a potion does (DuskWorld.potion_info(), character_doses()).",
+        potion::ALL,
     ),
     (
         "Power",

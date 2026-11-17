@@ -24,8 +24,9 @@ extends CanvasLayer
 const Look = preload("res://look.gd")
 const Prompts = preload("res://prompts.gd")
 
-## An item's kind, by name (codes.gd).
+## An item's kind, by name (codes.gd), and a potion's.
 const Item = preload("res://codes.gd").Item
+const Potion = preload("res://codes.gd").Potion
 ## The places armour covers, by DuskWorld.item_covers()' bits.
 const PLACES := [[1, "head"], [2, "torso"], [4, "arms"], [8, "legs"]]
 ## Numbers a stack takes, and a container's header, in DuskWorld's arrays.
@@ -58,6 +59,7 @@ var _kinds := PackedInt32Array()
 var _weights := PackedInt32Array()
 var _worths := PackedInt32Array()
 var _covers := PackedInt32Array()
+var _potions := PackedInt32Array()  # what each item does as a potion (DuskWorld.potion_info())
 var _cards := []  # the lines with a card: [row, a Callable giving it, opens right, place, def]
 var _fixtures := PackedStringArray()
 var _pack: VBoxContainer
@@ -89,6 +91,7 @@ func start(dusk: Node) -> void:
 	_weights = dusk.item_weights()
 	_worths = dusk.item_worths()
 	_covers = dusk.item_covers()
+	_potions = dusk.potion_info()
 	_fixtures = dusk.fixture_names()
 	_shown_pack = []
 	_shown_reach = PackedInt32Array()
@@ -129,8 +132,9 @@ func refresh(busy: bool, dead: bool) -> void:
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
 	var bagged: PackedInt32Array = _dusk.character_bagged()
+	var belted: PackedInt32Array = _dusk.character_belted()
 	var pack := [hands, items, carried, light, stash, counter, coins, labels, rarity, shield, worn,
-		worn_labels, shield_label, bag, pockets, bagged]
+		worn_labels, shield_label, bag, pockets, bagged, belted]
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack(hands, items, carried, light, stash, counter, coins)
@@ -255,6 +259,17 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			if cost > 0 or cost == -2:
 				_button(row, "Mend", func() -> void: _mend(counter[0], counter[1]))
 		_mine(row, -2 - piece, def)  # DuskWorld.card_lines(): -2 the first piece worn, -3 the next
+	# Your belt (potion.rs): its loops' potions, in their order, on the keys after your powers.
+	var belted: PackedInt32Array = _dusk.character_belted()
+	var on_belt := []
+	for slot in range(items.size() / STACK):
+		if slot < belted.size() and belted[slot] > 0:
+			on_belt.append(slot)
+	on_belt.sort_custom(func(a: int, b: int) -> bool: return belted[a] < belted[b])
+	if not on_belt.is_empty():
+		_line(_pack, Prompts.keyed("Belt  ·  {belt_1} to {belt_4} to drink"), Look.SMALL)
+		for slot: int in on_belt:
+			_pack_line(slot, items, labels, rarity, stash, counter, false, false, belted[slot])
 	# Your pockets, then the bag on your back (bag.rs): each stack's line under the one it's in.
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
@@ -273,15 +288,16 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 			_button(row, "Drop", func() -> void: _dusk.drop_bag())
 		for slot in range(items.size() / STACK):
 			var in_bag := slot < bagged.size() and bagged[slot] == 1
-			if int(in_bag) == place:
+			if int(in_bag) == place and not on_belt.has(slot):
 				_pack_line(slot, items, labels, rarity, stash, counter, wearing, in_bag)
 
 
 ## One stack of the pack: what it is, and its buttons. `wearing`: a bag's on your back, so the
-## stack can move between your pockets and the bag; `in_bag`: it's in the bag now.
+## stack can move between your pockets and the bag; `in_bag`: it's in the bag now; `loop`: the
+## loop of the belt it's in (potion.rs), its key before it, 0 for none.
 func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 		rarity: PackedInt32Array, stash: Vector2i, counter: PackedInt32Array, wearing: bool,
-		in_bag: bool) -> void:
+		in_bag: bool, loop := 0) -> void:
 	var i := slot * STACK
 	var def := items[i]
 	var count := items[i + 1]
@@ -294,6 +310,8 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 		label += "  ·  " + _freshness(items[i + 2])  # food that's begun to go off
 	if _kind(def) == Item.ARMOUR:
 		label += "  ·  " + _places(def)  # where it goes
+	if loop > 0:
+		label = Prompts.keyed("{belt_%d} " % loop) + label
 	var row := _row(_pack, "   " + label)
 	_tint(row, rarity, 2 + slot)
 	match _kind(def):
@@ -323,6 +341,12 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 			_button(row, "Set", func() -> void: _dusk.use_item(slot, def))
 		Item.PIECE:
 			_button(row, "Put up", func() -> void: _put_up(slot, def))
+		Item.POTION:
+			_button(row, "Drink", func() -> void: _drink(slot, def))
+			if loop > 0:
+				_button(row, "Off belt", func() -> void: _dusk.belt_item(slot, def))
+			elif _dusk.belt_check(slot, def) > 0:
+				_button(row, "To belt", func() -> void: _dusk.belt_item(slot, def))
 	if wearing:
 		_button(row, "To pockets" if in_bag else "To bag", func() -> void: _shift(slot, def, in_bag))
 	if stash.x >= 0:
@@ -334,6 +358,15 @@ func _pack_line(slot: int, items: PackedInt32Array, labels: PackedStringArray,
 			_button(row, "Sell · %d" % price, func() -> void: _dusk.sell(counter[0], counter[1], slot, def))
 	_button(row, "Drop", func() -> void: _dusk.drop_item(slot, def))
 	_mine(row, 2 + slot, def)
+
+
+## A potion drunk from the pack (potion.rs), or why not: quickest from the belt.
+func _drink(slot: int, def: int) -> void:
+	if _dusk.use_ticks(slot, def) >= 0:
+		_dusk.use_item(slot, def)
+	elif say.is_valid():
+		var mana := def * 4 < _potions.size() and _potions[def * 4] == Potion.MANA
+		say.call("You've no mana for it to fill: only a Wizard has." if mana else "You can't drink that now.")
 
 
 ## "To bag", "To pockets": as many as fit. The core says how many, and this says why none.

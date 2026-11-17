@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the Silence spell: a sound struck out. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M6 24 L17 24 L31 11 L31 53 L17 40 L6 40 Z"/>
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" d="M39 23 L57 41 M57 23 L39 41"/>
+</svg>

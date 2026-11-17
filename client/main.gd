@@ -16,7 +16,9 @@ extends Node3D
 ## that can be made), butcher, hunt (shoot the nearest
 ## beast within a bow's reach), turn (the dead), pray, consecrate, ward, mend,
 ## pick (the wild plant beside you), use (E tapped: the likeliest thing here), here (E held: all
-## of it, listed), power1 to power4 (the number keys), keys (F1), moodle (the worst one's detail, as if hovered),
+## of it, listed), power1 to power4 (the number keys), belt1 to belt4 (the belt's keys), tobelt (the
+## first potion off the belt, put on it), bar (the bar in words), swap (the bar's first two powers),
+## keys (F1), moodle (the worst one's detail, as if hovered),
 ## esc (closes what Esc would, never quits), settings (the screen, F10), zoom_in and zoom_out (three
 ## notches of the wheel), body (the worst-wounded part's detail), bandage (the
 ## first in the pack)
@@ -52,6 +54,7 @@ const Look = preload("res://look.gd")
 const Looks = preload("res://looks.gd")
 const Prompts = preload("res://prompts.gd")
 const Settings = preload("res://settings.gd")
+const Hotbar = preload("res://hotbar.gd")
 ## The numbers DuskWorld hands over, by name (codes.gd, made from the bridge's codes.rs).
 const Codes = preload("res://codes.gd")
 const Event = Codes.Event
@@ -61,6 +64,7 @@ const Moodle = Codes.Moodle
 const State = Codes.State
 const Remains = Codes.Remains
 const Power = Codes.Power
+const Potion = Codes.Potion
 const Spell = Codes.Spell
 
 ## Zomboid's angle: 30° down, so tiles are 2:1 diamonds, and north up and to the right.
@@ -123,7 +127,13 @@ const DOING := {
 	Action.TAKE_OFF: "Taking it off",
 	Action.CAST: "Casting",
 	Action.WIND: "Winding it",
+	Action.BELT: "Moving it",
 }
+## What the news says as a potion's lasting effect wears off (potion.rs), by DuskWorld's potion code.
+const WANED_TOLD := {Potion.HASTE: "The haste wears off: your legs are your own again.",
+	Potion.IRON_SKIN: "The iron skin wears off: blows bite as they did.",
+	Potion.VIGOUR: "The vigour ebbs: your breath costs what it did.",
+	Potion.COURAGE: "The courage ebbs. The dark is the dark again."}
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
 	"chamomile": "Chamomile grows here: steeped at a fire, its tea calms",
@@ -183,6 +193,8 @@ var dread_was := 0  # your dread's level, as the core last said
 var cold_was := 0  # how cold you are, its level, as the core last said (cold.rs)
 var craft: Node  # the crafting panel (B)
 var spells: Node  # the spells panel (P)
+var hotbar: Hotbar  # the bar: your powers on the number keys, then the belt's loops
+var potion_lines := PackedStringArray()  # what each item does as a potion (DuskWorld.potion_lines())
 var zones: Node3D  # the spells lasting on their spots, drawn
 var readied := -1  # the spell readied, cast on the next spot clicked; -1 none
 var spell_names := PackedStringArray()
@@ -262,11 +274,19 @@ func _ready() -> void:
 	add_child(settings)
 	settings.shown.connect(_on_settings)
 	_settle_window()
+	# The bar before the HUD: the HUD's details and cards draw over it.
+	hotbar = Hotbar.new()
+	add_child(hotbar)
+	hotbar.settings = settings
+	hotbar.use_power = _power
+	hotbar.use_loop = _drink_loop
 	hud = Hud.new()
 	hud.echo = print_news
 	add_child(hud)
 	settings.keys_changed.connect(hud.rebuild_keys)
 	hud.chose.connect(_do_here)
+	hotbar.card = hud.hover_card
+	hotbar.uncard = hud.unhover_card
 	if not ClassDB.class_exists("DuskWorld"):
 		hud.show_problem("The game's core (the Rust extension) isn't loaded.\n"
 			+ "Start the game with play.cmd in 12_Duskhold: it builds the extension first.")
@@ -304,6 +324,7 @@ func _ready() -> void:
 	spells = Spells.new()
 	add_child(spells)
 	spells.ready_spell = _ready_spell
+	spells.slot_of = hotbar.slot_of_spell
 	zones = Zones.new()
 	add_child(zones)
 	_start(true)
@@ -359,6 +380,8 @@ func _start(carry_on := false) -> void:
 	skills.start(dusk)
 	craft.start(dusk)
 	spells.start(dusk)
+	hotbar.start(dusk)
+	potion_lines = dusk.potion_lines()
 	zones.clear()
 	readied = -1
 	spell_names = dusk.spell_names()
@@ -460,6 +483,7 @@ func _process(delta: float) -> void:
 	skills.refresh(dead)
 	craft.refresh(dead)
 	spells.refresh(dead, readied)
+	hotbar.refresh(dead or choosing_class, readied, _my_tile())
 	zones.show_zones(dusk.spell_zones())
 	litter.show_floors(dusk.floor_items())
 	hud.show_action(DOING.get(doing.x, ""), doing.y / 1000.0)
@@ -583,6 +607,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		_power(2)
 	elif event.is_action_pressed("power_4") and not dead:
 		_power(3)
+	elif event.is_action_pressed("belt_1") and not dead:
+		_drink_loop(0)
+	elif event.is_action_pressed("belt_2") and not dead:
+		_drink_loop(1)
+	elif event.is_action_pressed("belt_3") and not dead:
+		_drink_loop(2)
+	elif event.is_action_pressed("belt_4") and not dead:
+		_drink_loop(3)
 	elif event.is_action_pressed("pause"):
 		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
@@ -830,18 +862,18 @@ func _drink() -> void:
 		hud.say("There's no water within reach.")
 
 
-## The number keys: the power on key `k + 1` (DuskWorld.character_powers(): turning the dead,
-## the Second Wind, Mending, then the spells you know). Its handler asks the core, and says why
-## not.
+## The number keys, and a click on the bar: the power on key `k + 1`, in the bar's order (hotbar.gd:
+## yours as you put them; else turning the dead, the Second Wind, Mending, then the spells you
+## know). Its handler asks the core, and says why not.
 func _power(k: int) -> void:
-	var powers: PackedInt32Array = dusk.character_powers()
-	if k * 2 + 1 >= powers.size():
-		if powers.is_empty():
+	var power: Array = hotbar.power_at(k)
+	if power.is_empty():
+		if dusk.character_powers().is_empty():
 			hud.say(Prompts.keyed("{power_1} to {power_4} hold your powers: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells."))
 		else:
 			hud.say(Prompts.keyed("Nothing on {power_%d} yet." % (k + 1)))
 		return
-	match powers[k * 2]:
+	match power[0]:
 		Power.TURN:
 			_turn_the_dead()
 		Power.SECOND_WIND:
@@ -849,7 +881,26 @@ func _power(k: int) -> void:
 		Power.MEND:
 			_mend()
 		Power.SPELL:
-			_ready_spell(powers[k * 2 + 1])
+			_ready_spell(power[1])
+
+
+## The belt's keys, and a click on its loop: drink the potion in loop `k` (DuskWorld.character_belt(),
+## potion.rs), or say why not. Quickest from the belt.
+func _drink_loop(k: int) -> void:
+	var belt: PackedInt32Array = dusk.character_belt()
+	var i := k * 3
+	if i + 2 >= belt.size() or belt[i] < 0:
+		hud.say(Prompts.keyed("Nothing on {belt_%d}: a potion you take goes on your belt." % (k + 1)))
+		return
+	if held > 0:
+		hud.say(Prompts.keyed("Not with it holding you! Struggle {swing} or shove {shove}."))
+		return
+	if dusk.use_ticks(belt[i], belt[i + 1]) < 0:
+		var potions: PackedInt32Array = dusk.potion_info()
+		var mana := belt[i + 1] * 4 < potions.size() and potions[belt[i + 1] * 4] == Potion.MANA
+		hud.say("You've no mana for it to fill: only a Wizard has." if mana else "You can't drink that now.")
+		return
+	dusk.use_item(belt[i], belt[i + 1])
 
 
 ## A power: catch your second wind (the Fighter's talent), once between sleeps.
@@ -1297,6 +1348,15 @@ func _read_events() -> void:
 			Event.DRANK_WATER:
 				if who == me:
 					hud.say("You drank your fill.")
+			Event.QUAFFED:
+				# A potion (potion.rs): what it does, in the core's words.
+				if who == me:
+					var does: String = potion_lines[extra] if extra >= 0 and extra < potion_lines.size() else ""
+					hud.say("You drink the %s%s." % [_item_name(extra), ": " + does if does != "" else ""])
+					hud.flash_good()
+			Event.WANED:
+				if who == me:
+					hud.say(WANED_TOLD.get(extra, "A potion wears off."))
 			Event.FELL_ASLEEP:
 				if who == me:
 					hud.say("You fell asleep in the bed." if extra == 1 else "You fell asleep on the ground.")
@@ -1772,6 +1832,7 @@ func _next_survivor() -> void:
 	skills.start(dusk)
 	craft.start(dusk)
 	spells.start(dusk)
+	hotbar.start(dusk)
 	readied = -1
 	hud.say("%s comes to the abbey. Somewhere out there, the last one's body lies in its gear." % dusk.actor_name(me))
 	_save("")
@@ -2184,6 +2245,22 @@ func _run_script() -> void:
 						else:
 							dusk.use_item(k / 4, items[k])
 						break
+			"belt1", "belt2", "belt3", "belt4":  # the belt's keys: the potion in that loop drunk
+				_drink_loop(action.right(1).to_int() - 1)
+			"tobelt":  # the first potion off the belt put on it, as its button does
+				var stacks: PackedInt32Array = dusk.character_items()
+				var belted: PackedInt32Array = dusk.character_belted()
+				var kinds: PackedInt32Array = dusk.item_kinds()
+				for k in range(0, stacks.size() - 3, 4):
+					if kinds[stacks[k]] == Item.POTION and belted[k / 4] == 0:
+						dusk.belt_item(k / 4, stacks[k])
+						break
+			"bar":  # the bar's slots in words, for a script's news
+				if print_news:
+					for row in hotbar.words():
+						print("Bar: ", row)
+			"swap":  # the bar's first two powers swapped, as a drag does (a trial run keeps it only while it runs)
+				hotbar.swap(0, 1)
 			"cook":  # the last cooked recipe that can be made now (a stew before a roast)
 				var checks: PackedInt32Array = dusk.craft_checks()
 				var texts: PackedStringArray = dusk.recipe_texts()

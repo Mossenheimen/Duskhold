@@ -97,6 +97,8 @@ pub struct Rules {
     pub edges: crate::edge::Edges,
     /// Doors and walls of your own (`build.rs`).
     pub building: crate::build::Building,
+    /// The belt of potions (`potion.rs`).
+    pub belt: crate::potion::Belt,
     /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
     pub strength: crate::fitness::StrengthRules,
     pub fitness: crate::fitness::FitnessRules,
@@ -335,6 +337,7 @@ impl Default for Rules {
             heavy: crate::combat::Heavy::default(),
             edges: crate::edge::Edges::default(),
             building: crate::build::Building::default(),
+            belt: crate::potion::Belt::default(),
             strength: crate::fitness::StrengthRules::default(),
             fitness: crate::fitness::FitnessRules::default(),
         }
@@ -472,6 +475,16 @@ pub enum Event {
     DrivenBack {
         who: ActorId,
         target: ActorId,
+    },
+    /// `who` drank a potion (`potion.rs`): it works on it a while.
+    Quaffed {
+        who: ActorId,
+        item: u16,
+    },
+    /// A potion's lasting effect on `who` wore off: haste, iron skin, vigour or courage.
+    Waned {
+        who: ActorId,
+        effect: crate::potion::Effect,
     },
     /// `who` wound a decoy and set it down on `at`: it starts in `delay` ticks (`decoy.rs`).
     DecoySet {
@@ -1378,6 +1391,7 @@ impl World {
         self.bleed_out(&ids);
         // A Wizard's mana comes back by the second (`spell.rs`).
         self.replenish_mana();
+        self.work_doses();
         self.needs();
         self.minds();
         self.chills();
@@ -1411,6 +1425,12 @@ impl World {
         // Frightened, a character won't step nearer what it's frightened of (`dread.rs`).
         let fear = if starting { self.fear(id) } else { None };
         let athletics = self.skill_level(id, Skill::Athletics);
+        // A potion of haste (`potion.rs`): only a character drinks one.
+        let haste = if starting {
+            self.dose(id, crate::potion::Effect::Haste)
+        } else {
+            0
+        };
         let on_me: Vec<(ActorId, TilePos)> = if starting && !held {
             self.engaged(id)
                 .into_iter()
@@ -1456,6 +1476,7 @@ impl World {
                     athletics,
                     climber,
                     climb_cost,
+                    haste,
                 };
                 return self.glide(id, legs, &on_me);
             }
@@ -1681,6 +1702,8 @@ impl World {
         if wading {
             speed = speed * rules.shallows.pace / 1000;
         }
+        // And haste quick (`potion.rs`).
+        let speed = (i64::from(speed) * i64::from(1000 + legs.haste.max(0)) / 1000) as u32;
         let reach = i64::from(speed / TICKS_PER_SECOND);
         let (tx, ty) = (i64::from(tx), i64::from(ty));
         let length = (tx * tx + ty * ty).isqrt();
@@ -2265,8 +2288,8 @@ enum Heading {
 }
 
 /// A character's legs this tick, as `move_actor` worked them out, for `World::glide`: its pace,
-/// how far it searches for a way, whether it's weighed down, what it fears, its Athletics, and
-/// how it climbs.
+/// how far it searches for a way, whether it's weighed down, what it fears, its Athletics, how it
+/// climbs, and how much faster a potion of haste makes it (per mille more: `potion.rs`).
 struct Legs {
     speeds: Speeds,
     budget: usize,
@@ -2275,6 +2298,7 @@ struct Legs {
     athletics: u8,
     climber: Option<crate::climb::Climber>,
     climb_cost: Option<ClimbCost>,
+    haste: i32,
 }
 
 /// How near a character comes, in thousandths of a tile from its tile's middle, to the edge of

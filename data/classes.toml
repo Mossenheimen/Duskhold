@@ -29,7 +29,7 @@ faith = 100           # points: spent turning the dead and the rest (rules.toml'
                       # prayer at a shrine
 turns = true          # its signature: held up, the holy symbol turns the dead (a power: 1)
 wield = "cudgel"
-kit = ["bandage", "bandage", "torch", "holy_water", "holy_water"]
+kit = ["bandage", "bandage", "torch", "holy_water", "holy_water", "life_potion"]
 talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "steady", "rebuke", "sunder", "last_rites"]
 
 [[class]]
@@ -45,6 +45,6 @@ mana = 40             # points of mana it holds (spells.toml: what each costs)..
 mana_regen = 0.4      # ...and how many come back a second: empty to full in 100 s (Arcana and gear, more)
 spells = ["light", "silence", "fog", "fireball"]
 wield = "quarterstaff"
-kit = ["bandage", "sulphur", "sulphur"]
+kit = ["bandage", "sulphur", "sulphur", "life_potion", "mana_potion"]
 wear = ["wool_cloak"]
 talents = ["tough", "arcane_reserve", "quick_casting", "far_reach", "hushed_words", "steady"]

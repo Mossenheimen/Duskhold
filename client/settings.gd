@@ -38,6 +38,11 @@ const KEYS := {
 	"power_2": [KEY_2],
 	"power_3": [KEY_3],
 	"power_4": [KEY_4],
+	# Your belt: the potion in each loop, drunk.
+	"belt_1": [KEY_5],
+	"belt_2": [KEY_6],
+	"belt_3": [KEY_7],
+	"belt_4": [KEY_8],
 	# The panels.
 	"pack": [KEY_TAB, KEY_I],
 	"craft": [KEY_B],
@@ -66,7 +71,8 @@ const REMAP := [
 	["walk_right", "Walk right"], ["run", "Run (held)"], ["sneak", "Sneak"], ["swing", "Swing"],
 	["shove", "Shove"], ["use", "Use what's here"], ["light", "Light; dead, the next"],
 	["sleep", "Sleep"], ["power_1", "Power 1"], ["power_2", "Power 2"], ["power_3", "Power 3"],
-	["power_4", "Power 4"], ["pack", "Your pack"], ["craft", "Making"], ["skills", "Skills"],
+	["power_4", "Power 4"], ["belt_1", "Belt 1"], ["belt_2", "Belt 2"], ["belt_3", "Belt 3"],
+	["belt_4", "Belt 4"], ["pack", "Your pack"], ["craft", "Making"], ["skills", "Skills"],
 	["spells", "Spells"], ["keys", "The keys"], ["settings", "Settings"], ["pause", "Pause"],
 	["speed_1", "Speed 1×"], ["speed_2", "Speed 2×"], ["speed_3", "Speed 5×"], ["save", "Save"],
 	["low_walls", "Low walls"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"],
@@ -101,6 +107,9 @@ var _key_buttons := {}  # an action: its button
 var _hint: Label
 var _waiting := ""  # the action whose new key is awaited; "" for none
 var _modifier := KEY_NONE  # a modifier pressed while waiting: bound alone if it's let go first
+## The bar's order by class name (hotbar.gd): its powers as the player put them, for the next of
+## that class too. A trial run keeps it only while it runs.
+var _bars := {}
 
 
 ## The keys at their defaults, into the InputMap: once, at the start.
@@ -225,6 +234,9 @@ func load_kept() -> void:
 		for action in file.get_section_keys("keys"):
 			if InputMap.has_action(action):
 				_bind(action, file.get_value("keys", action, []))
+	if file.has_section("bar"):
+		for called in file.get_section_keys("bar"):
+			_bars[called] = PackedStringArray(file.get_value("bar", called, PackedStringArray()))
 	_restyle()
 
 
@@ -253,6 +265,18 @@ func scale_gui(step: int) -> int:
 	_refresh()
 	_save()
 	return roundi(gui_scale * 100.0)
+
+
+## The bar's order for a class, by its name (hotbar.gd's keys for powers), as the player left it;
+## empty for none yet.
+func bar_order(called: String) -> PackedStringArray:
+	return _bars.get(called, PackedStringArray())
+
+
+## The bar's order for a class, as the player puts it: kept, in the player's own game.
+func set_bar_order(called: String, order: PackedStringArray) -> void:
+	_bars[called] = order
+	_save()
 
 
 ## The zoom the camera settled on (main.gd's): kept, for the next time.
@@ -433,6 +457,8 @@ func _save() -> void:
 		var now := codes_of(row[0])
 		if now != KEYS[row[0]]:
 			file.set_value("keys", row[0], now)
+	for called: String in _bars:
+		file.set_value("bar", called, _bars[called])
 	file.save(FILE)
 
 

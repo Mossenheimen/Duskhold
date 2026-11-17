@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the iron-skin moodle (a potion of iron skin): an anvil. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M2 16 L58 16 L58 28 L45 28 C43 34 43 38 45 44 L51 44 L51 51 L13 51 L13 44 L19 44 C21 38 21 34 19 28 L13 28 C8 28 4 24 2 16 Z"/>
+  <path fill="#fff" d="M9 54 L55 54 L55 60 L9 60 Z"/>
+</svg>

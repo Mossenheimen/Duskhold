@@ -44,7 +44,8 @@ const KEYS := [
 		["{sleep}", "sleep, or get up"],
 	]],
 	["Your powers", [
-		["{power_1} {power_2} {power_3} {power_4}", "a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells (then click the spot; right-click lets it go)"],
+		["{power_1} {power_2} {power_3} {power_4}", "a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells (then click the spot; right-click lets it go); on the bar, drag one onto another to swap them"],
+		["{belt_1} {belt_2} {belt_3} {belt_4}", "drink the potion in that loop of your belt: a potion you take goes on it first"],
 	]],
 	["Panels", [
 		["{pack|all}", "your pack"],
@@ -118,6 +119,13 @@ const MOODLES := [
 		["wet makes you colder  ·  dry off under a roof",
 			"wet makes you colder  ·  dry off under a roof, faster by a fire",
 			"much colder, and your clothes keep half their warmth  ·  dry off by a fire"], 0, "wet"],
+	# A potion working (potion.rs): good ones.
+	[["Reviving"], ["a potion of life: your health coming back, a little each moment"], -1, "reviving"],
+	[["Mana rising"], ["a potion of mana: your mana coming back, a little each moment"], -1, "mana_rising"],
+	[["Quickened"], ["a potion of haste: faster on your feet, walking and running"], -1, "quickened"],
+	[["Iron skin"], ["a potion of iron skin: blows do less harm  ·  their wounds bleed less"], -1, "iron_skin"],
+	[["Vigorous"], ["a potion of vigour: running, swings and struggles cost less breath"], -1, "vigorous"],
+	[["Fearless"], ["a potion of courage: no dread rises, whatever's in the dark"], -1, "fearless"],
 ]
 ## The moodle column's width: the tiles stay in one line down the screen, however long the names.
 const MOODLE_WIDTH := 250.0
@@ -963,6 +971,9 @@ func _build_keys() -> void:
 	_keys_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_keys_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_keys_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	# Above the bar (hotbar.gd), which has the bottom centre.
+	_keys_hint.offset_top -= Look.SLOT + 12
+	_keys_hint.offset_bottom -= Look.SLOT + 12
 	_keys_hint.visible = false
 	_keys = PanelContainer.new()
 	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE

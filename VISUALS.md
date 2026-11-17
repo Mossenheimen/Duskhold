@@ -181,7 +181,7 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `magic.unique` | `#E39A5B` | a unique's name (copper, as Path of Exile's), and what its effect does in the world: the dead sent fleeing; on its card, its effect and its story | |
 | `magic.changed` | `#8FA8FF` | a number on a card that its quality or its magic changed (Path of Exile's blue), and what a weapon in hand gives a skill or a stat in the skills panel ("+2") | |
 | `magic.cursed` | `#E07A7A` | a curse's numbers on a card; it says "(curse)" in words too, so colour isn't the only cue | |
-| `magic.arcane` | `#B3A6FF` | a Wizard's: its mana bar, a Light spell's light, a Silence's ring, a readied spell in the panel | |
+| `magic.arcane` | `#B3A6FF` | a Wizard's: its mana bar, a Light spell's light, a Silence's ring, a readied spell in the panel and on the bar (its slot's edge), a spell's glyph and cost on the bar | |
 | `magic.fog` | `#B8BEC7` at 50% | a Fog spell's cloud | |
 
 ### Bars and moodles
@@ -201,6 +201,11 @@ Ghouls and skeletons are close in colour on purpose. Their posture tells them ap
 | `ui.hurt_text` | `#FFD1C7` | your wounds, listed under the bars |
 | `body.whole` | `#5E6573` | a part of the body diagram with no wound (3.3:1 on the panel's own colour). A wounded part takes its worst wound's moodle tint: a scratch `moodle.mild`, a laceration `moodle.bad`, a bite `moodle.worst` |
 | `body.dressing` | `#F2EEE6` | the bands round a bandaged part, each on a dark `ui.outline` edge so it shows on any tint |
+| `potion.haste` | `#8CE0B0` | a potion of haste's flask, on the bar (since 2026-11-16) |
+| `potion.iron` | `#A6B0BF` | a potion of iron skin's: steel |
+| `potion.courage` | `#F2A07A` | a potion of courage's: dawn |
+
+A potion's flask takes its bar's colour where it has one: life `bar.health`, mana `magic.arcane`, vigour `bar.endurance` (`Look.POTIONS`, by the core's potion code). Its name and its count are beside it, and its card on hover, so the colour isn't alone.
 
 ### The GUI
 
@@ -410,7 +415,8 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 │ G  Within reach                                       H  Your pack (Tab)     │
 │    Stove · alight, 3h 50m                                In hand: cudgel     │
 │    Crate              [Take all]                         bandage ×2    [Use] │
-│ I  F1: the keys                                                              │
+│                           I  [F1] every key                                  │
+│                    K  [1][2][3][4]  [5][6][7][8]: the bar                    │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -424,8 +430,9 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **F** Here and now | what you can do beside you: E's prompt, and what holding E offers besides; while E is held, all of it, numbered; and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
 | **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
 | **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
-| **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
+| **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre, above the bar, instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
 | **J** Book panels | Strength, Fitness, skills and talents (K), making (B), spells (P); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
+| **K** The bar | your powers on the number keys, then the belt's loops and their potions (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
 
 **Rules:**
 
@@ -444,7 +451,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 |---|---|---|
 | **Move and fight** | WASD walk (and climb); Shift run; C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing; Q shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
 | **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light (dead, the next survivor); Z sleep | the left hand |
-| **Your powers** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order | the left hand, over WASD |
+| **Your powers and belt** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order until you drag them into another on the bar (zone K); 5 to 8: the belt's potions | the left hand, over WASD |
 | **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
 | **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = zoom (as the wheel does); Ctrl+- and Ctrl+= the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
 
@@ -465,7 +472,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | Who comes to the abbey? | each class, its line and its kit; a number or a click takes one | dims and pauses the world; today as text in the middle |
 | Paused | the world stilled under a dim; "Paused" banner; Space to go on | nothing else changes |
 | Menu (Esc) | Resume, Settings, Save and quit | centred; dims |
-| Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once. **Today** (2026-11-12): on F10 (`client/settings.gd`), over the world dimmed (`ui.dim`) and paused, on a ground at 95% so nothing shows through: the GUI's size, the four switches, and all 30 keys. Esc closes it |
+| Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once. **Today** (2026-11-12): on F10 (`client/settings.gd`), over the world dimmed (`ui.dim`) and paused, on a ground at 95% so nothing shows through: the GUI's size, the four switches, and all 34 keys. Esc closes it |
 | Death | "This is how you died": the cause, the days, the deeds, where the body lies; R for the next survivor | the serif title; the world behind, dimmed, the body in view |
 
 ---
@@ -504,6 +511,13 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - The column is worst first, and 250 px wide, so the tiles stay in one line however long the names are.
 
   **Today** (2026-11-12): as here (`hud.gd`; `Look.tile_style`). A pop always plays; reducing motion waits for the settings (§13).
+- **Bar slot** (zone K):
+  - 60 × 60 px on `ui.panel` with a 1 px `ui.edge` (`ui.text_dim` under the mouse); the readied spell's edge is 2 px of `magic.arcane`.
+  - Its glyph in the middle, 36 px: a spell's in `magic.arcane`, the Cleric's powers in `signal.holy`, the Second Wind in `bar.endurance`, a potion's flask in what it does (§4). It's dimmed to 35% while it can't be used now (not mana enough, no component, an empty loop); an empty slot shows only a trace (12%).
+  - Its key at the top left, in `type.small` and `ui.text_dim`; at the bottom right, a spell's mana in `magic.arcane` or a loop's count in `ui.text`, both outlined.
+  - A click uses it, as its key does. Hovering it (0.4 s) opens its card beside it: a spell's numbers (mana, component, words, range, damage or how long it lasts, then what it does), a potion's own card. The powers' cards open to the left, the belt's to the right, never over the bar.
+
+  **Today** (2026-11-16): as here (`client/hotbar.gd`).
 - **Mark over a head:**
   - A glyph 0.45 m above the head, billboarded, in `type.banner` scaled to the zoom, with an outline.
   - It pops when it changes.
@@ -539,7 +553,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - Moodles get a glyph each, and items get a glyph by kind until they have models; then each item's icon is drawn from its own model (§16).
   - Icons scale with the text, up to 200%.
 
-  **Today** (2026-11-12): the moodles' 19 glyphs are in `client/icons/moodles/`, drawn here, with nothing downloaded. Every texture is imported at twice its canvas with mipmaps (`project.godot`'s `[importer_defaults]`), so a glyph stays sharp from 75% to 200%. Their `.import` files are committed, and `play.cmd` imports any icon not yet imported.
+  **Today** (2026-11-12): the moodles' 19 glyphs are in `client/icons/moodles/`, drawn here, with nothing downloaded; since 2026-11-16, 25, with a potion's six, and the bar's (`icons/powers/`: Light, Silence, Fog, Fireball, turning the dead, Mending, the Second Wind; `icons/potion.svg`, a flask), inked as they're drawn. Every texture is imported at twice its canvas with mipmaps (`project.godot`'s `[importer_defaults]`), so a glyph stays sharp from 75% to 200%. Their `.import` files are committed, and `play.cmd` imports any icon not yet imported.
 - **Body diagram:**
   - A front silhouette, 120 px high, its parts tinted by their worst wound: scratch, laceration or bite, plus bleeding and dressed.
   - Hovering a part lists its wounds.

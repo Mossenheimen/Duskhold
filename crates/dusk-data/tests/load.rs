@@ -492,7 +492,8 @@ fn the_games_items_and_loot_load() {
         d.kit,
         vec![
             dusk_core::Item::new(id("bandage"), 1),
-            dusk_core::Item::new(id("torch"), 1)
+            dusk_core::Item::new(id("torch"), 1),
+            dusk_core::Item::new(id("life_potion"), 1)
         ]
     );
     assert_eq!(d.carry, 15_000);
@@ -3004,4 +3005,69 @@ fn a_bows_property_on_a_shield_or_a_shields_on_a_weapon_is_refused() {
         let err = try_with(&format!("bad-gear-{n}"), &bad).unwrap_err();
         assert!(err.message.contains(why), "{err}");
     }
+}
+
+#[test]
+fn the_potions_load_in_the_cores_units_with_a_belt_and_one_doing_two_things_is_refused() {
+    use dusk_core::{Belt, Effect, ItemKind};
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let d = &data.defs;
+    let id = |name: &str| d.items.iter().position(|i| i.id == name).unwrap() as u16;
+    let potion = |name: &str| d.potion(id(name)).unwrap();
+    let life = potion("life_potion");
+    assert_eq!(
+        (life.effect, life.amount, life.lasts, life.time),
+        (Effect::Life, 350, 40, 10),
+        "35 points of health over 4 s, a second to drink"
+    );
+    assert_eq!(potion("mana_potion").amount, 25_000, "mana in thousandths");
+    assert_eq!(potion("haste_potion").amount, 300, "per mille");
+    assert_eq!(potion("courage_potion").amount, 1000);
+    for effect in Effect::ALL {
+        assert!(
+            d.items
+                .iter()
+                .any(|i| matches!(i.kind, ItemKind::Potion(p) if p.effect == effect)),
+            "{effect:?}"
+        );
+    }
+    assert_eq!(
+        data.rules.belt,
+        Belt {
+            loops: 4,
+            holds: 3,
+            rummage: 10
+        }
+    );
+    // Found, and sold at the abbey; everyone starts with one of life, a Wizard one of mana too.
+    let found = |def: u16| {
+        d.loot
+            .iter()
+            .any(|t| t.entries.iter().any(|e| e.item == def))
+    };
+    for name in [
+        "life_potion",
+        "haste_potion",
+        "iron_skin_potion",
+        "courage_potion",
+    ] {
+        assert!(found(id(name)), "{name} is found");
+    }
+    let abbey = d.holdouts.iter().find(|h| h.id == "abbey").unwrap();
+    assert!(abbey.sells.iter().any(|s| s.item == id("life_potion")));
+    assert!(d.kit.contains(&dusk_core::Item::new(id("life_potion"), 1)));
+    let wizard = d.classes.iter().find(|c| c.id == "wizard").unwrap();
+    let kit = &wizard.kit.as_ref().expect("its own kit").pack;
+    assert!(kit.iter().any(|i| i.def == id("mana_potion")));
+    let both = r#"
+[[item]]
+id = "muddle"
+name = "muddled potion"
+weight = 0.3
+potion = { life = 10, haste = 10, lasts = 5.0, time = 1.0 }
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/muddle.toml", both));
+    let err = load(&folder("potion", &files)).unwrap_err();
+    assert!(err.message.contains("\"muddle\""), "{err}");
 }

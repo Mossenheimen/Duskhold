@@ -48,6 +48,15 @@ const MAX_TICKS_PER_FRAME: u32 = 20;
 const WATCH_RANGE: i32 = 64;
 
 /// A stack as the client gets it: definition, count, condition, and 1 if it's a find.
+/// A potion's strength as the client shows it (`potion_info`): points of health or mana, else per
+/// cent.
+fn potion_amount(effect: dusk_core::Effect, amount: i32) -> i32 {
+    match effect {
+        dusk_core::Effect::Mana => amount / 1000,
+        _ => amount / 10,
+    }
+}
+
 fn stack_row(i: Item) -> [i32; 4] {
     [
         i32::from(i.def),
@@ -521,6 +530,9 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         // A spear's blow drove it back a tile (`edge.rs`): where it stands now.
         Event::DrivenBack { who, target } => (DRIVEN_BACK, Some(who), Some(target), at(target), 0),
         // A decoy set down, wound (`decoy.rs`): where, and the seconds before it starts.
+        // A potion drunk (`potion.rs`): the item; and a lasting one's effect wearing off.
+        Event::Quaffed { who, item } => (QUAFFED, Some(who), None, at(who), i32::from(item)),
+        Event::Waned { who, effect } => (WANED, Some(who), None, at(who), effect as i32),
         Event::DecoySet { who, at: p, delay } => {
             (DECOY_SET, Some(who), None, (p.x, p.y), (delay / 10) as i32)
         }
@@ -1266,9 +1278,9 @@ impl DuskWorld {
             .collect()
     }
 
-    /// Each item's kind, by definition number: 0 other, 1 a weapon, 2 a bandage, 3 food,
-    /// 4 drink, 5 a light, 6 the cure for ghoul fever, 7 oil (to burn the dead), 8 a shield,
-    /// 9 a bow, 10 holy water (to consecrate the dead), 11 armour, 12 a bag.
+    /// Each item's kind, by definition number (`codes::item`): other, a weapon, a bandage,
+    /// food, drink, a light, the cure for ghoul fever, oil (to burn the dead), a shield, a bow,
+    /// holy water (to consecrate the dead), armour, a bag, a decoy, a piece to put up, a potion.
     #[func]
     fn item_kinds(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -1294,6 +1306,7 @@ impl DuskWorld {
                 ItemKind::Bag(_) => item::BAG,
                 ItemKind::Decoy(_) => item::DECOY,
                 ItemKind::Piece(_) => item::PIECE,
+                ItemKind::Potion(_) => item::POTION,
             })
             .collect()
     }
@@ -1516,7 +1529,7 @@ impl DuskWorld {
                         ActionKind::Use { def, .. } => {
                             match world.defs.item(def).map(|d| &d.kind) {
                                 Some(ItemKind::Food { .. }) => action::EAT,
-                                Some(ItemKind::Drink { .. }) => action::DRINK,
+                                Some(ItemKind::Drink { .. } | ItemKind::Potion(_)) => action::DRINK,
                                 Some(ItemKind::Cure { .. }) => action::CURE,
                                 Some(ItemKind::Decoy(_)) => action::WIND,
                                 Some(ItemKind::Piece(_)) => action::BUILD,
@@ -1565,6 +1578,7 @@ impl DuskWorld {
                         ActionKind::Shift { .. } => action::TAKE,
                         ActionKind::DropBag => action::DROP,
                         ActionKind::Cast { .. } => action::CAST,
+                        ActionKind::Belt { .. } => action::BELT,
                     },
                     (act.elapsed * 1000 / act.strike.max(1)).min(1000) as i32,
                     at.x,
@@ -3273,6 +3287,150 @@ impl DuskWorld {
             slot: slot as u16,
             def: def as u16,
         });
+    }
+
+    /// Each item as a potion, four numbers each by definition number (-1s for what's no potion):
+    /// what it does (`codes::potion`), how much (points of health or mana; per cent for haste,
+    /// iron skin and vigour; 100 for courage), and how long it works and takes to drink from the
+    /// belt (tenths of a second).
+    #[func]
+    fn potion_info(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for def in 0..world.defs.items.len() {
+            out.extend(match world.defs.potion(def as u16) {
+                Some(d) => [
+                    d.effect as i32,
+                    potion_amount(d.effect, d.amount),
+                    d.lasts as i32,
+                    d.time as i32,
+                ],
+                None => [-1; 4],
+            });
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// What each item does as a potion, a line each by definition number ("" for what's no
+    /// potion): "35 health back over 4 s".
+    #[func]
+    fn potion_lines(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        (0..world.defs.items.len())
+            .map(|def| GString::from(world.defs.potion_line(def as u16).as_str()))
+            .collect()
+    }
+
+    /// Your belt (`potion.rs`), three numbers a loop, the first loop first: the slot of your pack
+    /// its potions are at, what they are, and how many (-1, -1, 0 for an empty loop).
+    #[func]
+    fn character_belt(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some((me, a)) = world
+            .character()
+            .and_then(|id| world.actor(id).map(|a| (id, a)))
+        else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for slot in world.belt(me) {
+            out.extend(
+                match slot.and_then(|s| a.items.get(usize::from(s)).map(|i| (s, i))) {
+                    Some((s, i)) => [i32::from(s), i32::from(i.def), i32::from(i.count)],
+                    None => [-1, -1, 0],
+                },
+            );
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// For each stack of your pack, in order: the loop of your belt it's in (from 1), 0 for none.
+    #[func]
+    fn character_belted(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        a.items.iter().map(|i| i32::from(i.belt)).collect()
+    }
+
+    /// How many of the stack at `slot` of your pack (still `def`) would go on your belt, or come
+    /// off it: 0 for none (no potion, no room).
+    #[func]
+    fn belt_check(&self, slot: i32, def: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        world.character().map_or(0, |me| {
+            i32::from(world.can_belt(me, slot as u16, def as u16))
+        })
+    }
+
+    /// Puts the potions at `slot` of your pack on your belt, or takes them off it.
+    #[func]
+    fn belt_item(&mut self, slot: i32, def: i32) {
+        self.act(Intent::Belt {
+            slot: slot as u16,
+            def: def as u16,
+        });
+    }
+
+    /// The tenths of a second it would take you to use the thing at `slot` of your pack (still
+    /// `def`) now, -1 if you can't (a mana potion with no mana to fill, a bandage with no wound).
+    #[func]
+    fn use_ticks(&self, slot: i32, def: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return -1;
+        };
+        world
+            .character()
+            .and_then(|me| world.use_ticks(me, slot as u16, def as u16))
+            .map_or(-1, |t| t as i32)
+    }
+
+    /// The potions working on you, four numbers each, in the order drunk: what (`codes::potion`),
+    /// the tenths of a second it has left and had in all, and how strong (as `potion_info`).
+    #[func]
+    fn character_doses(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let Some(me) = world.character() else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for d in world.doses(me) {
+            out.extend([
+                d.effect as i32,
+                d.left as i32,
+                d.lasts as i32,
+                potion_amount(d.effect, d.amount),
+            ]);
+        }
+        PackedInt32Array::from(&out[..])
+    }
+
+    /// The spells' ids, in the order their numbers name them: what the bar keeps its order by.
+    #[func]
+    fn spell_ids(&self) -> PackedStringArray {
+        let Some(world) = &self.world else {
+            return PackedStringArray::new();
+        };
+        world
+            .defs
+            .spells
+            .iter()
+            .map(|s| GString::from(s.id.as_str()))
+            .collect()
     }
 
     /// The spells' names, in the order their numbers name them (`spell.rs`).

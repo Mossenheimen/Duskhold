@@ -22,7 +22,7 @@ health = 100          # points
 carry = 15.0          # kg you carry before you're weighed down: no running
 pockets = 5.0         # kg your pockets hold: a bag (items/bags.toml) holds more
 wield = "cudgel"      # in hand at the start (items/*.toml)
-kit = ["bandage", "torch"]   # and in the pack (name one twice for two)
+kit = ["bandage", "torch", "life_potion"]   # and in the pack (name one twice for two; a potion goes on the belt)
 
 [items]
 # Seconds each item action takes. Like every timed action, a blow breaks it off.
@@ -474,6 +474,14 @@ remove_noise = 6
 # in a gap framed at both ends (where one gave way, or one left in a line of your walls).
 time = 10.0           # seconds to put one up
 wall = 80             # what a wall of planks takes before it gives way (a door takes 60)
+
+[belt]
+# The belt of potions (potion.rs; items/potions.toml): loops at your waist, each holding a few of one
+# potion, on the number keys after your powers. A potion that comes to you goes on it first, while
+# there's room. It weighs on you, but takes none of the pockets' room.
+loops = 4
+holds = 3             # potions a loop holds
+rummage = 1.0         # seconds more to dig a potion out of your pockets than off the belt (the bag's from_bag on top)
 
 [faith]
 # The Cleric's (classes.toml: faith, turns; talents.toml). Faith, in points (a Cleric holds 100),

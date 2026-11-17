@@ -63,6 +63,9 @@ struct ItemFile {
     /// Something to put up (`build.rs` in the core): "door" or "wall".
     #[serde(default)]
     piece: Option<String>,
+    /// A potion, drunk to work on you a while (`potion.rs` in the core).
+    #[serde(default)]
+    potion: Option<PotionFile>,
     /// Oil: poured on a body and set alight, it burns it (`oil = true`).
     #[serde(default)]
     oil: bool,
@@ -240,6 +243,76 @@ fn bag(file: &Path, id: &str, b: &BagFile) -> Result<ItemKind, DataError> {
     }))
 }
 
+/// A potion: what it does, one of these (health or mana points back over its time; per cent
+/// faster, less harm from blows, or less breath spent; or courage), the seconds it works for, and
+/// the seconds to drink it from the belt.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PotionFile {
+    #[serde(default)]
+    life: Option<f64>,
+    #[serde(default)]
+    mana: Option<f64>,
+    #[serde(default)]
+    haste: Option<f64>,
+    #[serde(default)]
+    iron_skin: Option<f64>,
+    #[serde(default)]
+    vigour: Option<f64>,
+    #[serde(default)]
+    courage: bool,
+    lasts: f64,
+    time: f64,
+}
+
+fn potion(file: &Path, id: &str, p: &PotionFile) -> Result<ItemKind, DataError> {
+    use dusk_core::Effect;
+    let what = |part: &str| format!("item {id:?}: potion.{part}");
+    // Points (out of 100 for health), and per cent: at most a share of all there is.
+    let share = |x: f64| x > 0.0 && x <= 100.0;
+    let effects = [
+        p.life
+            .map(|x| (Effect::Life, share(x), (x * 10.0).round() as i32)),
+        p.mana.map(|x| {
+            (
+                Effect::Mana,
+                x > 0.0 && x <= 1000.0,
+                (x * 1000.0).round() as i32,
+            )
+        }),
+        p.haste
+            .map(|x| (Effect::Haste, share(x), (x * 10.0).round() as i32)),
+        p.iron_skin
+            .map(|x| (Effect::IronSkin, share(x), (x * 10.0).round() as i32)),
+        p.vigour
+            .map(|x| (Effect::Vigour, share(x), (x * 10.0).round() as i32)),
+        p.courage.then_some((Effect::Courage, true, 1000)),
+    ];
+    let mut given = effects.into_iter().flatten();
+    let (Some((effect, sane, amount)), None) = (given.next(), given.next()) else {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a potion does one of life, mana, haste, iron_skin, vigour and courage"
+            ),
+        ));
+    };
+    if !sane || p.lasts <= 0.0 || p.time <= 0.0 {
+        return Err(fail(
+            file,
+            format!(
+                "item {id:?}: a potion's life is points out of 100, its mana points up to 1000, its                  haste, iron skin and vigour per cent up to 100; it lasts and takes time to drink"
+            ),
+        ));
+    }
+    Ok(ItemKind::Potion(dusk_core::Draught {
+        effect,
+        amount,
+        lasts: (ticks(file, &what("lasts"), p.lasts)? as u32).max(1),
+        time: (ticks(file, &what("time"), p.time)? as u32).max(1),
+    }))
+}
+
 /// A decoy: seconds to wind it and set it down, before it starts, between rattles and in all;
 /// and the tiles each rattle is heard.
 #[derive(Deserialize)]
@@ -355,6 +428,30 @@ pub(crate) struct ItemTimesFile {
     shift: f64,
 }
 
+/// rules.toml's [belt]: its loops, how many of a potion each holds, and the seconds more a
+/// potion takes to dig out of the pockets than to take off the belt (`potion.rs` in the core).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BeltFile {
+    loops: u8,
+    holds: u16,
+    rummage: f64,
+}
+
+pub(crate) fn to_belt(file: &Path, b: &BeltFile) -> Result<dusk_core::Belt, DataError> {
+    if !(1..=8).contains(&b.loops) || !(1..=20).contains(&b.holds) || b.rummage < 0.0 {
+        return Err(fail(
+            file,
+            "belt: 1 to 8 loops, each holding 1 to 20, and rummage seconds of 0 or more",
+        ));
+    }
+    Ok(dusk_core::Belt {
+        loops: b.loops,
+        holds: b.holds,
+        rummage: ticks(file, "belt.rummage", b.rummage)? as u32,
+    })
+}
+
 /// What a character starts with and can carry: rules.toml's [character].
 pub(crate) struct Kit<'a> {
     pub carry: f64,
@@ -463,12 +560,13 @@ pub(crate) fn load_defs(
                 i.bag.is_some(),
                 i.decoy.is_some(),
                 i.piece.is_some(),
+                i.potion.is_some(),
             ];
             if kinds.iter().filter(|&&k| k).count() > 1 {
                 return Err(fail(
                     &file,
                     format!(
-                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour, bag, decoy and piece",
+                        "item {:?} is more than one of weapon, bandage, food, drink, light, cure, oil, holy, shield, bow, armour, bag, decoy, piece and potion",
                         i.id
                     ),
                 ));
@@ -557,6 +655,8 @@ pub(crate) fn load_defs(
                 bag(&file, &i.id, b)?
             } else if let Some(d) = &i.decoy {
                 decoy(&file, &i.id, d)?
+            } else if let Some(p) = &i.potion {
+                potion(&file, &i.id, p)?
             } else if let Some(p) = &i.piece {
                 ItemKind::Piece(match p.as_str() {
                     "door" => dusk_core::Piece::Door,

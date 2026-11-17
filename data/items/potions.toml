@@ -1,0 +1,59 @@
+# Potions (potion.rs): drunk, each works on you a while. One of:
+#   life       points of health back (out of 100), a little each moment over `lasts`
+#   mana       points of mana back the same way (only one with mana to fill drinks it)
+#   haste      per cent faster on your feet, walking and running, for `lasts`
+#   iron_skin  per cent less harm from a blow that lands on you, and its wound bleeds as much
+#              less, for `lasts`
+#   vigour     your breath back at once, and per cent less of it spent, for `lasts`
+#   courage    = true: dread gone at once, and none rises, for `lasts`
+# lasts: seconds it works. time: seconds to drink it from the belt (rules.toml's [belt]: from the
+# pockets it takes longer, from the bag longer still). Another of a lasting one drunk while it
+# works makes it the stronger and the longer of the two; life and mana drunk together both run.
+
+[[item]]
+id = "life_potion"
+name = "potion of life"
+weight = 0.3
+worth = 6
+stack = 5
+potion = { life = 35, lasts = 4.0, time = 1.0 }
+
+[[item]]
+id = "mana_potion"
+name = "potion of mana"
+weight = 0.3
+worth = 6
+stack = 5
+potion = { mana = 25, lasts = 4.0, time = 1.0 }
+
+[[item]]
+id = "haste_potion"
+name = "potion of haste"
+weight = 0.3
+worth = 8
+stack = 5
+potion = { haste = 30, lasts = 30.0, time = 1.0 }
+
+[[item]]
+id = "iron_skin_potion"
+name = "potion of iron skin"
+weight = 0.3
+worth = 8
+stack = 5
+potion = { iron_skin = 40, lasts = 30.0, time = 1.0 }
+
+[[item]]
+id = "vigour_potion"
+name = "potion of vigour"
+weight = 0.3
+worth = 5
+stack = 5
+potion = { vigour = 50, lasts = 60.0, time = 1.0 }
+
+[[item]]
+id = "courage_potion"
+name = "potion of courage"
+weight = 0.3
+worth = 5
+stack = 5
+potion = { courage = true, lasts = 120.0, time = 1.0 }

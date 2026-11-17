@@ -525,6 +525,8 @@ fn describe(w: &World, e: Event) -> String {
         }
         Event::Ate { who, item } => format!("{} ate item {item}", name(who)),
         Event::Drank { who, item } => format!("{} drank item {item}", name(who)),
+        Event::Quaffed { who, item } => format!("{} drank the potion, item {item}", name(who)),
+        Event::Waned { who, effect } => format!("{}'s {effect:?} wore off", name(who)),
         Event::DrankWater { who } => format!("{} drank from the water", name(who)),
         Event::FellAsleep { who, in_bed } => format!(
             "{} fell asleep{}",

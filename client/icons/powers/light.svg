@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the Light spell: a lit orb. A solid white silhouette (VISUALS.md, section 11). -->
+  <circle cx="32" cy="32" r="11" fill="#fff"/>
+  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="M32 4 L32 14 M32 50 L32 60 M4 32 L14 32 M50 32 L60 32 M12.2 12.2 L19.3 19.3 M44.7 44.7 L51.8 51.8 M12.2 51.8 L19.3 44.7 M44.7 19.3 L51.8 12.2"/>
+</svg>

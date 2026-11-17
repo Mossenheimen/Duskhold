@@ -45,6 +45,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - Strength and Fitness falling back without use, or with hunger; Strength in climbing and struggling free.
 - The Cleric's other verbs (wards of salt and words on a whole house, cures for others); holy water thrown; the sisters teaching prayers or blessing weapons.
 - The Wizard: Knock (locks first), Chill and Warmth (heat-hunters first), Identify, scrolls and learning new spells, other schools; the Fog hiding the dead from you too.
+- The bar, after its first cut (2026-11-16): a spell dragged from the spells panel onto it, and more than four powers on keys once a class has more; a potion's time left on its moodle and its slot; a cast's or a drink's progress on its slot.
 - What you learned and the places you found carrying over to the next character; the holdouts remembering you; the revenant fighting the way you did (a bot trained on your play).
 
 **Items**
@@ -56,6 +57,7 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 - Attunement; the Lore skill and scrolls of identify; Very Rare and Legendary; a broken magic item kept, to be mended.
 - Making armour (a hide jerkin from the deer); armour wet and cold in the rain; the Fighter's talents for armour.
 - A sack carried in hand; a container's own capacity; a dropped bag's things taken one by one.
+- Potions and the belt, after the first six (2026-11-16): brewing them (Alchemy, at a workbench, from what's foraged); greater potions found farther out, as magic's tiers are; a belt worn as gear, with more loops or deeper ones (Diablo II's); loops arranged by hand; a potion thrown (holy water on the dead, oil alight).
 
 **The base and the holdouts**
 - Clearing the glass from a frame; shutters; locks.

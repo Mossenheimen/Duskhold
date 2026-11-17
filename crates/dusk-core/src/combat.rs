@@ -163,6 +163,7 @@ impl World {
                 ActionKind::Shift { slot, def } => self.shift(id, slot, def),
                 ActionKind::DropBag => self.drop_bag(id),
                 ActionKind::Cast { spell, at } => self.cast(id, spell, at),
+                ActionKind::Belt { slot, def } => self.belt_item(id, slot, def),
             }
         }
         true
@@ -254,6 +255,14 @@ impl World {
             Intent::DropBag => {
                 a.bag?;
                 (ActionKind::DropBag, a.facing, self.defs.drop.max(1), 0, 0)
+            }
+            // The belt (`potion.rs`): potions put on it, or taken off, in a moment.
+            Intent::Belt { slot, def } => {
+                if self.can_belt(id, slot, def) == 0 {
+                    return None;
+                }
+                let kind = ActionKind::Belt { slot, def };
+                (kind, a.facing, self.defs.shift.max(1), 0, 0)
             }
             // A spell's words are its wind-up (`spell.rs`): a blow breaks them.
             Intent::Cast { spell, at } => {
@@ -696,6 +705,17 @@ impl World {
             ActorKind::Creature(_) => (0, 0),
         };
         let damage = damage + fire + holy;
+        // Iron skin (a potion: `potion.rs`): less harm gets through, and the wound bleeds less.
+        let kept = self.iron_kept(target);
+        let (damage, wound) = if kept < 1000 {
+            let less = |n: i64| n * i64::from(kept) / 1000;
+            (
+                less(i64::from(damage)) as i32,
+                wound.map(|(k, p, bleed)| (k, p, less(i64::from(bleed)) as u32)),
+            )
+        } else {
+            (damage, wound)
+        };
         if unaware {
             self.events.push(Event::SneakAttack { who: id, target });
             self.train(

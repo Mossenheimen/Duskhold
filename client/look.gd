@@ -125,6 +125,15 @@ const HURT_TEXT := Color("#FFD1C7")  # your wounds, listed
 const WHOLE := Color("#5E6573")
 const DRESSING := Color("#F2EEE6")
 
+# Potions (§4): a flask on the bar, and its glyph in the pack, inked in what it does: its bar's
+# colour where it has one (health, mana, breath), else its own.
+
+const HASTE := Color("#8CE0B0")  # a potion of haste: quick green
+const IRON := Color("#A6B0BF")  # a potion of iron skin: steel
+const COURAGE := Color("#F2A07A")  # a potion of courage: dawn
+## By DuskWorld's potion code (codes.gd's Potion): life, mana, haste, iron skin, vigour, courage.
+const POTIONS: Array[Color] = [HEALTH, ARCANE, HASTE, IRON, ENDURANCE, COURAGE]
+
 # The GUI (§4).
 
 static var PANEL := Color("#0D0F14B8")  # every panel's ground, 72%; 95% in high contrast
@@ -164,6 +173,8 @@ const MARGIN := 24  # every panel's distance from the screen's edges
 
 const TILE := 44  # a moodle's tile
 const GLYPH := 32  # the glyph on it
+const SLOT := 60  # a slot of the bar (§11): a power, or a loop of the belt
+const SLOT_GLYPH := 36  # the glyph in it
 const POP := 1.25  # a new or worsened moodle's tile starts this big...
 const POP_TIME := 0.3  # ...and shrinks back over this many seconds
 const HOVER := 0.4  # seconds of hovering before a detail shows
@@ -217,6 +228,17 @@ static func tile_style(colour: Color) -> StyleBoxFlat:
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(4)
 	style.set_content_margin_all((TILE - GLYPH) / 2.0)
+	return style
+
+
+## A slot of the bar (§11): the panel's ground, with a 1 px EDGE; the one readied, 2 px of `edge`.
+static func slot_style(edge := EDGE, width := 1) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = PANEL
+	style.set_meta("panel", true)  # for restyle: high contrast changes its ground
+	style.border_color = edge
+	style.set_border_width_all(width)
+	style.set_corner_radius_all(4)
 	return style
 
 

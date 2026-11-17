@@ -7,7 +7,9 @@
 //! - **What you take is bounded:** from a floor, a container or a counter, it goes into the bag
 //!   while there's room, then the pockets, as many of a stack as fit; with no room, none. What
 //!   comes to you otherwise (made, picked, cut up, coin for a sale, put away from your hand) is
-//!   never refused: into the bag while there's room, then the pockets, over full if need be.
+//!   never refused: into the bag while there's room, then the pockets, over full if need be. A
+//!   potion goes on the belt before either, while it has room (`potion.rs`): the belt is a place
+//!   of its own, weighing on you but taking none of the pockets' room.
 //! - **The bag is slower to reach into:** using a thing from it, taking it in hand, lighting it
 //!   or putting it on takes `Defs::from_bag` more. Moving a stack between the pockets and the
 //!   bag takes `Defs::shift`.
@@ -52,10 +54,12 @@ impl Defs {
 }
 
 impl Item {
-    /// Out of any bag: what a stack is once it's off its carrier (on a floor, in a container).
+    /// Out of any bag, off any belt: what a stack is once it's off its carrier (on a floor, in a
+    /// container).
     pub fn loose(self) -> Item {
         Item {
             bagged: false,
+            belt: 0,
             ..self
         }
     }
@@ -92,24 +96,29 @@ impl World {
         self.defs.weight(item) + inside
     }
 
-    /// What's in `id`'s pockets and in its bag, in grams, as they'd weigh in hand.
+    /// What's in `id`'s pockets and in its bag, in grams, as they'd weigh in hand: not what's on
+    /// its belt, a place of its own (`World::belt_weight`).
     pub fn filled(&self, id: ActorId) -> (u32, u32) {
         self.actors.get(id).map_or((0, 0), |a| {
-            a.items.iter().fold((0, 0), |(pockets, bag), i| {
-                let w = self.weight_of(i);
-                if i.bagged {
-                    (pockets, bag + w)
-                } else {
-                    (pockets + w, bag)
-                }
-            })
+            a.items
+                .iter()
+                .filter(|i| i.belt == 0)
+                .fold((0, 0), |(pockets, bag), i| {
+                    let w = self.weight_of(i);
+                    if i.bagged {
+                        (pockets, bag + w)
+                    } else {
+                        (pockets + w, bag)
+                    }
+                })
         })
     }
 
-    /// What `id`'s pack weighs on it: its pockets, and its bag with what's in it, which weighs
-    /// the bag's share less.
+    /// What `id`'s pack weighs on it: its pockets and its belt, and its bag with what's in it,
+    /// which weighs the bag's share less.
     pub(crate) fn pack_weight(&self, id: ActorId) -> u32 {
         let (pockets, bagged) = self.filled(id);
+        let pockets = pockets + self.belt_weight(id);
         match self.worn_bag(id) {
             Some((bag, b)) => {
                 pockets + per(bagged, 1000u32.saturating_sub(b.reduce)) + self.defs.weight(&bag)
@@ -132,9 +141,18 @@ impl World {
         )
     }
 
-    /// Puts a stack on `id`, never refusing it: into its bag as far as there's room, the rest
-    /// into its pockets (over full, if need be).
+    /// Puts a stack on `id`, never refusing it: a potion on the belt while it has room
+    /// (`potion.rs`), then into its bag as far as there's room, the rest into its pockets (over
+    /// full, if need be).
     pub(crate) fn carry_in(&mut self, id: ActorId, item: Item) {
+        if let Some(rest) = self.belt_in(id, item) {
+            self.stow_in(id, rest);
+        }
+    }
+
+    /// As `carry_in`, but never onto the belt: into the bag as far as there's room, the rest into
+    /// the pockets.
+    pub(crate) fn stow_in(&mut self, id: ActorId, item: Item) {
         let (in_bag, _) = self.room_for(id, &item);
         let defs = self.defs.clone();
         let Some(a) = self.actors.get_mut(id) else {
@@ -158,8 +176,8 @@ impl World {
     }
 
     /// Whether `id` can take the stack at `slot` of what's on `at` (still `def`), and how many of
-    /// it: as many as there's room for. A full bag is taken whole (one): onto your back, or with
-    /// a bag on already, as much of what's in it as fits.
+    /// it: as many as there's room for (a potion's on the belt too). A full bag is taken whole
+    /// (one): onto your back, or with a bag on already, as much of what's in it as fits.
     pub fn can_take(&self, id: ActorId, at: TilePos, slot: u16, def: u16) -> Result<u16, NoTake> {
         let a = self
             .actors
@@ -184,11 +202,17 @@ impl World {
                 });
             return if room { Ok(1) } else { Err(NoTake::NoRoom) };
         }
-        match self.room_for(id, &item) {
+        // A potion's room on the belt first (`potion.rs`), then the bag's and the pockets'.
+        let belt = self.belt_room(id, &item);
+        let rest = Item {
+            count: item.count - belt,
+            ..item
+        };
+        match self.room_for(id, &rest) {
             // A bag with no room for it, and a bare back: it goes on (`take`).
-            (0, 0) if a.bag.is_none() && self.defs.bag(def).is_some() => Ok(1),
-            (0, 0) => Err(NoTake::NoRoom),
-            (b, p) => Ok(b + p),
+            (0, 0) if belt == 0 && a.bag.is_none() && self.defs.bag(def).is_some() => Ok(1),
+            (0, 0) if belt == 0 => Err(NoTake::NoRoom),
+            (b, p) => Ok(belt + b + p),
         }
     }
 
@@ -220,7 +244,7 @@ impl World {
             let (b, p) = self.room_for(id, &c);
             let n = b + p;
             if n > 0 {
-                self.carry_in(id, Item { count: n, ..c });
+                self.stow_in(id, Item { count: n, ..c });
                 self.events.push(Event::Took {
                     who: id,
                     item: c.def,
@@ -235,7 +259,7 @@ impl World {
             }
         }
         if left.is_empty() && self.room_for(id, &bag) != (0, 0) {
-            self.carry_in(id, bag);
+            self.stow_in(id, bag);
             self.events.push(Event::Took {
                 who: id,
                 item: bag.def,
@@ -305,11 +329,12 @@ impl World {
             .into_iter()
             .partition(|i| i.bagged);
         a.items = rest;
+        // From bag to bag, as they were: not onto the belt.
         for c in contents {
-            self.carry_in(id, c);
+            self.stow_in(id, c);
         }
         if let Some(old) = old {
-            self.carry_in(id, old);
+            self.stow_in(id, old);
         }
         self.events.push(Event::Wore {
             who: id,
@@ -329,13 +354,14 @@ impl World {
     }
 
     /// How many of the stack at `slot` of `id`'s pack (still `def`) would move between its
-    /// pockets and its bag: as many as there's room for on the other side, none with no bag on.
+    /// pockets and its bag: as many as there's room for on the other side, none with no bag on,
+    /// nor for one on the belt (`World::can_belt` takes it off).
     pub fn can_shift(&self, id: ActorId, slot: u16, def: u16) -> u16 {
         let Some(item) = self
             .actors
             .get(id)
             .and_then(|a| a.items.get(usize::from(slot)))
-            .filter(|i| i.def == def)
+            .filter(|i| i.def == def && i.belt == 0)
         else {
             return 0;
         };

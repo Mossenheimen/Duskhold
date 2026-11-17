@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the Fireball spell: a ball of fire in flight. A solid white silhouette (VISUALS.md, section 11). -->
+  <circle cx="40" cy="24" r="16" fill="#fff"/>
+  <path fill="#fff" d="M27 29 C19 35 11 41 4 47 C14 48 24 44 31 37 Z"/>
+  <path fill="#fff" d="M33 38 C29 46 23 54 18 61 C29 58 36 51 40 41 Z"/>
+</svg>

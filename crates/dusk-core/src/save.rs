@@ -532,6 +532,7 @@ impl Remap {
             strength: _,
             fitness: _,
             strain: _,
+            doses: _,
         } = a;
         if let ActorKind::Creature(n) = kind {
             *n = self.creatures.get(*n)?;
@@ -583,6 +584,7 @@ impl Remap {
             quality: _,
             bagged: _,
             holds: _,
+            belt: _,
         } = item;
         *def = self.items.get(*def)?;
         let Magic {

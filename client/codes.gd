@@ -123,6 +123,8 @@ enum Event {
 	REPAIRED = 117,
 	PUT_UP = 118,
 	WALL_BROKE = 119,
+	QUAFFED = 120,
+	WANED = 121,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).
@@ -142,6 +144,7 @@ enum Item {
 	BAG = 12,
 	DECOY = 13,
 	PIECE = 14,
+	POTION = 15,
 }
 
 ## An actor's timed action (DuskWorld.actor_actions(): four numbers an actor).
@@ -196,6 +199,7 @@ enum Action {
 	WIND = 48,
 	REPAIR = 49,
 	BUILD = 50,
+	BELT = 51,
 }
 
 ## A moodle (DuskWorld.character_moodles(): which, then its level).
@@ -219,6 +223,12 @@ enum Moodle {
 	BRACING = 16,
 	COLD = 17,
 	WET = 18,
+	REVIVING = 19,
+	MANA_RISING = 20,
+	QUICKENED = 21,
+	IRON_SKIN = 22,
+	VIGOROUS = 23,
+	FEARLESS = 24,
 }
 
 ## An actor's state (DuskWorld.actor_states()).
@@ -257,6 +267,16 @@ enum Spell {
 	SILENCE = 1,
 	FOG = 2,
 	FIREBALL = 3,
+}
+
+## What a potion does (DuskWorld.potion_info(), character_doses()).
+enum Potion {
+	LIFE = 0,
+	MANA = 1,
+	HASTE = 2,
+	IRON_SKIN = 3,
+	VIGOUR = 4,
+	COURAGE = 5,
 }
 
 ## What a number key holds (DuskWorld.character_powers(): this, then a spell's number).

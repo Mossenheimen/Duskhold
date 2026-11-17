@@ -37,6 +37,10 @@ pub struct Item {
     pub bagged: bool,
     /// A bag lying full: what's in it is `World::held`'s, under this number (0: empty).
     pub holds: u32,
+    /// The loop of its carrier's belt it's in, from 1 (`potion.rs`); 0 for none: only ever so in
+    /// a pack.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub belt: u8,
 }
 
 impl Item {
@@ -51,6 +55,7 @@ impl Item {
             quality: crate::quality::PLAIN,
             bagged: false,
             holds: 0,
+            belt: 0,
         }
     }
 }
@@ -103,6 +108,9 @@ pub enum ItemKind {
     Decoy(crate::decoy::Decoy),
     /// A door or a wall of planks, to put up on the side you face (`build.rs`).
     Piece(crate::build::Piece),
+    /// Drunk, it works on you a while: life or mana back, haste, iron skin, vigour, courage
+    /// (`potion.rs`). Quickest from the belt.
+    Potion(crate::potion::Draught),
     /// Everything else: materials, junk.
     Other,
 }
@@ -331,8 +339,8 @@ impl Defs {
     }
 
     /// How a stack goes into a list: onto a stack of the same, in the same condition and the
-    /// same place (pockets or bag), that has room (a half-burnt candle doesn't join new ones),
-    /// else on its own.
+    /// same place (pockets, bag or a loop of the belt), that has room (a half-burnt candle doesn't
+    /// join new ones), else on its own.
     pub fn stow(&self, list: &mut Vec<Item>, item: Item) {
         let stack = self.item(item.def).map_or(1, |d| d.stack.max(1));
         let mut left = item.count;
@@ -344,6 +352,7 @@ impl Defs {
                     && held.magic == item.magic
                     && held.quality == item.quality
                     && held.bagged == item.bagged
+                    && held.belt == item.belt
                     && held.holds == item.holds;
                 if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
@@ -640,8 +649,8 @@ impl World {
     }
 
     /// Takes the stack at `slot` of what's on `at` (it must still be `def`, within reach, with
-    /// room for some of it): as many as fit, into the bag, then the pockets (`bag.rs`). A full
-    /// bag is taken whole.
+    /// room for some of it): as many as fit, a potion onto the belt (`potion.rs`), then into the
+    /// bag, then the pockets (`bag.rs`). A full bag is taken whole.
     pub(crate) fn take(&mut self, id: ActorId, at: TilePos, slot: u16, def: u16) {
         let Ok(n) = self.can_take(id, at, slot, def) else {
             return;
@@ -660,7 +669,7 @@ impl World {
             return;
         }
         // A bag there's no room for, taken with a bare back: it goes straight on.
-        if self.room_for(id, &item) == (0, 0) {
+        if self.room_for(id, &item) == (0, 0) && self.belt_room(id, &item) == 0 {
             self.don_bag(id, Item { count: 1, ..item });
             return;
         }
@@ -763,6 +772,11 @@ impl World {
             self.put_up(id, slot, def, *piece);
             return;
         }
+        // A potion is drunk, and works on you a while (`potion.rs`).
+        if let Some(ItemKind::Potion(d)) = defs.item(def).map(|d| &d.kind) {
+            self.drink_potion(id, slot, def, *d);
+            return;
+        }
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
@@ -831,7 +845,8 @@ impl World {
 
     /// The ticks it takes to use the item at `slot` (`using`) or take it in hand, if that can
     /// start: it's there (as `def`), a weapon to take in hand, a bandage with a wound to dress,
-    /// food or drink, or the cure with a fever. From the bag, it takes longer (`bag.rs`).
+    /// food or drink, the cure with a fever, or a potion (`potion.rs`: quickest from the belt).
+    /// From the bag, it takes longer (`bag.rs`).
     pub(crate) fn item_ticks(&self, id: ActorId, slot: u16, def: u16, using: bool) -> Option<u32> {
         let a = self.actors.get(id)?;
         a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
@@ -852,9 +867,16 @@ impl World {
             (true, ItemKind::Piece(p)) if self.can_put_up(id, *p).is_ok() => {
                 Some(self.rules.building.time.max(1))
             }
+            (true, ItemKind::Potion(d)) => self.drink_ticks(id, slot, d),
             _ => None,
         };
         ticks.map(|t| t + reach)
+    }
+
+    /// The ticks `id` would take to use the item at `slot` of its pack (still `def`) now, if it
+    /// can: as `Intent::Use` would start it (for the client's bar and buttons).
+    pub fn use_ticks(&self, id: ActorId, slot: u16, def: u16) -> Option<u32> {
+        self.item_ticks(id, slot, def, true)
     }
 
     /// Ticks for `id` to take a stack, if it can: a moment, and more the heavier what it takes

@@ -218,7 +218,7 @@ impl World {
     }
 
     /// Gives a character its class's kit (or the rules', everyone's: something in hand, the rest
-    /// in its pack) and its class's faith, full.
+    /// in its pack, a potion on its belt) and its class's faith, full.
     pub(crate) fn equip(&mut self, id: ActorId) {
         let defs = self.defs.clone();
         let (faith, mana) = (self.max_faith(id), self.max_mana(id));
@@ -235,8 +235,13 @@ impl World {
             None => (defs.wield, defs.kit.as_slice()),
         };
         a.hands = wield.map(|def| Item::new(def, 1));
+        let mut potions = Vec::new();
         for &item in pack {
-            defs.stow(&mut a.items, item);
+            if defs.potion(item.def).is_some() {
+                potions.push(item);
+            } else {
+                defs.stow(&mut a.items, item);
+            }
         }
         a.faith = faith;
         // And the armour it comes in (`armour.rs`).
@@ -247,6 +252,10 @@ impl World {
             .unwrap_or_default();
         for def in wear {
             self.don(id, Item::new(def, 1));
+        }
+        // Its potions on its belt (`potion.rs`).
+        for item in potions {
+            self.carry_in(id, item);
         }
     }
 
@@ -299,7 +308,8 @@ impl World {
     }
 
     /// Per mille: what `id`'s endurance costs come to, by its class and talents, its pain
-    /// (`dread.rs`), the armour it wears (`armour.rs`) and its Fitness (`fitness.rs`).
+    /// (`dread.rs`), the armour it wears (`armour.rs`), its Fitness (`fitness.rs`) and a potion
+    /// of vigour (`potion.rs`).
     pub(crate) fn endurance_rate(&self, id: ActorId) -> i32 {
         let class = self.class_of(id).map_or(1000, |c| c.endurance);
         let rate = self.talents_of(id).fold(class, |r, t| per(r, t.endurance));
@@ -307,7 +317,9 @@ impl World {
         let rate = per(rate, self.armour_endurance(id));
         // Shivering, everything costs more (`cold.rs`).
         let rate = per(rate, self.cold_cost(id));
-        per(rate, self.fitness_cost(id)) as i32
+        let rate = per(rate, self.fitness_cost(id));
+        let vigour = self.dose(id, crate::potion::Effect::Vigour).clamp(0, 1000);
+        per(rate, (1000 - vigour) as u32) as i32
     }
 
     /// The chance, out of 10,000, that a creature's hit takes hold of `id`, by its class and

@@ -101,6 +101,14 @@ pub enum Moodle {
     /// Cold (chilly, cold, freezing) and wet (damp, wet, soaked: `cold.rs`).
     Cold,
     Wet,
+    /// A potion working (`potion.rs`): life and mana coming back, haste, iron skin, vigour and
+    /// courage. Good ones, after the troubles.
+    Reviving,
+    ManaRising,
+    Quickened,
+    IronSkin,
+    Vigorous,
+    Fearless,
 }
 
 /// Why someone woke.
@@ -180,6 +188,12 @@ impl World {
             (Moodle::Bracing, u8::from(a.bracing)),
         ]
         .into_iter()
+        // And a potion working, each kind once (`potion.rs`).
+        .chain(
+            crate::potion::Effect::ALL
+                .into_iter()
+                .map(|e| (e.moodle(), u8::from(self.under(id, e)))),
+        )
         .filter(|&(_, l)| l > 0)
         .collect()
     }

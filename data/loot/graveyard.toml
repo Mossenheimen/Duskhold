@@ -15,4 +15,6 @@ items = [
   { item = "spear", weight = 1, magic = 0.4, unique = 0.08 },
   { item = "heater_shield", weight = 1, magic = 0.4, unique = 0.08 },   # an old knight's, iron-rimmed
   { item = "iron_helm", weight = 1, magic = 0.4, unique = 0.08 },   # and his helm
+  { item = "haste_potion", weight = 1 },       # old work (items/potions.toml), stoppered with wax
+  { item = "iron_skin_potion", weight = 1 },
 ]

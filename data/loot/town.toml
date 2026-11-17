@@ -47,6 +47,11 @@ items = [
   { item = "satchel", weight = 1 },
   { item = "knapsack", weight = 1 },
   { item = "sulphur", weight = 1, count = [2, 5] },
+  # Potions (items/potions.toml): the ones a shop would keep. Haste and iron skin are older work.
+  { item = "life_potion", weight = 2 },
+  { item = "mana_potion", weight = 1 },
+  { item = "vigour_potion", weight = 1 },
+  { item = "courage_potion", weight = 1 },
 ]
 
 [[loot]]
