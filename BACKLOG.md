@@ -2,24 +2,29 @@
 
 One list, made on 2026-11-13 from the 32 "not yet" lists in the build log (`HISTORY.md`; the ones built since are left out), `CONCEPT.md`'s systems not yet started, `VISUALS.md` §16's slices to come, and the 2026-11-13 review. When a slice leaves something for later, it goes here, ranked, rather than only into its history entry.
 
-Decisions that are the user's are in `ARCHITECTURE.md`, "Open questions": a playtest first, what comes next, and the repo.
+Decisions that are the user's are in `ARCHITECTURE.md`, "Open questions". The first playtest was on 2026-11-16: its notes are the queue's first eight, in the user's words where they're quoted.
 
 ## Queue (most useful first)
 
-Ranking: does it protect or test play (a game that's played needs saves that last, and numbers someone has felt)? Does the game lack it where the player would notice now? Then: does it deepen the loop (scavenge by day, hold by night, bring it home), or prove the next pillar? Size: S an afternoon, M a slice, L a few slices.
+Ranking: since the playtest, what got in the way of play comes first, the quickest first; then what makes the fight readable and fair; then the Diablo and Path of Exile ways the user asked for (spells, loot, the inventory, the map); then the rest as it was. Size: S an afternoon, M a slice, L a few slices.
 
 | # | Item | Area | Why | Size | From |
 |---|---|---|---|---|---|
-| 1 | **A playtest night, then tuning** (in `data/` only) | the loop | The concept's first question, whether surviving the Hushlands is tense and fun, isn't answered by play: 46 slices were checked by tests, headless runs and pictures. Needs the user | M | the review; `CONCEPT.md` |
-| 2 | **The Esc menu, the title and death screens** (`VISUALS.md` §16, slice 9) | the GUI | Esc with nothing open saves and quits at once; the settings are only on F10; there's no title, so a new world is Ctrl+N | M | `VISUALS.md` |
-| 3 | **Sound, a first pass:** footsteps, a groan, a blow landing, a door, the bell; a cue for where a sound came from | sound | "Sound is gameplay" (`CONCEPT.md`), and the game is silent. Every sound is already a ring and an event, so it's playing what the core says | L | `CONCEPT.md`; settings |
-| 4 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
-| 5 | **The map** (a book panel) | the GUI | Zomboid's map that holds only what you've seen, and your notes. The fog of war already remembers it | M | `CONCEPT.md` |
-| 6 | **`main.gd` in parts:** the news (`_read_events`, 431 lines) to `news.gd`; the script runner (188) to `script.gd` as a table of actions; the bridge's shared guard (95 of its 178 functions open the same way) | code | The review's merges still to do | S–M | the review |
-| 7 | **The rest of the assets, in the kit** (`VISUALS.md` §5): items' looks, in hand and on the floor, and each item's icon drawn from its look (§16, slice 10); the bodies, heads, shoulders and what's in hand (slice 11) | the look | The user's ask, 2026-11-13: assets for models, items, terrain and objects in one style throughout. Slice 8 made the kit, every fixture's look and the terrain; these are what's still primitives | L | the user; `VISUALS.md` |
-| 8 | **The Warren Hills:** the second region, goblins that see and think | world | The concept's next step after the first playable, to prove the first pillar | L+ | `CONCEPT.md` |
-| 9 | **The Rogue:** the fourth class (dark, quiet, sneak attacks), with locks and traps | character | The concept's "four to start"; locks and traps serve the base too | L | `CONCEPT.md` |
-| 10 | **The Dusk Director, and quests from the holdouts** (rescues, recoveries, caravans) | events | The concept's pacing: build-up, peak and relax, and reasons to go out beyond bounties | L | `CONCEPT.md` |
+| 1 | **The playtest's quick fixes:** the sound rings and the dead's sight on the ground no longer drawn (a setting brings each back); Space shoves, Esc pauses and opens the menu (Resume, Settings, Save and quit: `VISUALS.md` §16, slice 9's menu); T holds a torch up; running from the start, Shift switching between walking and running, and quicker on your feet; the death screen without what the body carried, in plainer, darker words; windows no longer showing through the unexplored dark | the GUI, the feel | "The sound circle is annoying to see during gameplay", "I also do not need to see enemy range/agro tiles", "Spacebar should be push, not pause. Escape should be pause/menu", "Using a torch should be bound to T", "Move speed is pretty slow. Can we also start with running on and make run/walk a toggle?", "I do not care what my body had when I die", "Windows can be seen from far away on the screen in unexplored areas" | M | the playtest |
+| 2 | **Combat you can read:** Zomboid's combat stance (the right mouse button held: on guard, slower, facing the cursor, stepping back allowed; a left click swings that way; a shield braced in it, a bow drawn); damage numbers where blows land; health bars over what you fight | combat | "Holding right click should put you in a combat stance ... and swing with left click"; "I'd also like to see damage numbers and health bars during combat" | M–L | the playtest |
+| 3 | **Tuning the dead** (in `data/`): until a few in a row can be put down: the shamblers' grabs, harm and health, and your swing; after the stance, which changes the fight | balance | "Enemies may also be overtuned at the moment, as I was struggling to kill a few in a row" | S–M | the playtest |
+| 4 | **Walls that stay:** no wall or door vanishing as you walk behind it, you seen through it instead (Diablo's and Path of Exile's outline), and walls and doors the same from every side; the fog of war soft at its edges, not in tiles | the look | "Objects shouldn't disappear, like walls, when you walk behind them ... The transparency feature is not well built and needs work"; "Can the fog of war be less blocky on the edges?" | M–L | the playtest |
+| 5 | **Spells that hit hard:** the Wizard's spells made for the fight (harm, areas, missiles: Path of Exile's and Diablo's), the utility taking a back seat; the dead getting up again playing a smaller part | magic | "Spells are underwhelming. I don't so much care about stopping zombies from getting up, etc." | L | the playtest |
+| 6 | **Loot on the ground, as Diablo's:** each thing drawn where it lies; a key (Alt) shows every name on the ground in its rarity's colour, and a click on one takes it; the dead drop theirs as they fall | loot | "I like diablo/PoE loot drop style, more than zomboid. I like to see the loot on the ground. I also want a button that will show loot names on the ground" | L | the playtest |
+| 7 | **The inventory as Diablo's and Path of Exile's:** a grid of icons, what you wear and hold round a figure, the belt under it, cards on hover | the GUI | "Inventory should also look more like diablo/PoE". Wants items' icons (#12) | L | the playtest |
+| 8 | **The map:** M the world map, as far as you've seen it; Tab switching between no mini-map, a small one in a corner, and a see-through map over the screen (Diablo's and Path of Exile's); the pack moving to I | the GUI | "We will also need a map/mini-map at some point. M should open the map/world map. Tab should switch from no mini-map, small corner mini-map, and transparent map overlaid on the screen" | M–L | the playtest; `CONCEPT.md` |
+| 9 | **Sound, a first pass:** footsteps, a groan, a blow landing, a door, the bell; a cue for where a sound came from (the rings, no longer drawn, were the only one) | sound | "Sound is gameplay" (`CONCEPT.md`), and the game is silent. Every sound is already an event, so it's playing what the core says | L | `CONCEPT.md`; settings |
+| 10 | **Replays:** the player's intents kept with their ticks; `dusk-cli replay` plays a death back; a fixed-step flag for scripted runs | tools | `ARCHITECTURE.md`'s first decision promises "any bug or death can be replayed". It would also make pictures and `check.cmd`'s runs come out the same every time | M | the review |
+| 11 | **`main.gd` in parts:** the news (`_read_events`) to `news.gd`; the script runner to `script.gd` as a table of actions; the bridge's shared guard | code | The review's merges still to do; `main.gd` is past 2,500 lines | S–M | the review |
+| 12 | **The rest of the assets, in the kit** (`VISUALS.md` §5): items' looks, in hand and on the floor, and each item's icon drawn from its look (§16, slice 10); the bodies, heads, shoulders and what's in hand (slice 11) | the look | The user's ask, 2026-11-13: assets in one style throughout. Loot on the ground (#6) and the inventory (#7) want them | L | the user; `VISUALS.md` |
+| 13 | **The Warren Hills:** the second region, goblins that see and think | world | The concept's next step after the first playable, to prove the first pillar | L+ | `CONCEPT.md` |
+| 14 | **The Rogue:** the fourth class (dark, quiet, sneak attacks), with locks and traps | character | The concept's "four to start"; locks and traps serve the base too | L | `CONCEPT.md` |
+| 15 | **The Dusk Director, and quests from the holdouts** (rescues, recoveries, caravans) | events | The concept's pacing: build-up, peak and relax, and reasons to go out beyond bounties | L | `CONCEPT.md` |
 
 ## By area
 
@@ -70,12 +75,12 @@ Ranking: does it protect or test play (a game that's played needs saves that las
 **Senses and the GUI**
 - The signature HUD: how loud, bright, warm and scented you are.
 - Scent trails and heat as fields; heat-hunters seeing warmth.
-- A bar on screen showing your powers; a gamepad; text size on its own.
+- A gamepad; text size on its own; the title screen (`VISUALS.md` §16, slice 9's rest: the menu is in the queue's first).
 - The figure for creatures; wounds shown closing as they heal.
 - Panels fading in and out (§12's 0.12 s); small caps or italics; a prompt for what's within reach (zone G lists it already).
 
 **The look** (`VISUALS.md` §16)
-- Slice 9, screens (in the queue); slice 10, icons, each item's own drawn from its look, and slice 11, shapes: heads, shoulders and the thing in hand for people and the dead (both in the queue's assets); slice 12, regions, each with its own materials in `looks.toml`.
+- Slice 9, screens (the menu in the queue's first, the title screen under the GUI above); slice 10, icons, each item's own drawn from its look, and slice 11, shapes: heads, shoulders and the thing in hand for people and the dead (both in the queue's assets); slice 12, regions, each with its own materials in `looks.toml`.
 - The kit, after slice 8: a fixture in a corner with two walls turns to the north or west one, which isn't always the right one (a wardrobe beside a door); a fixture across a chunk's edge from what it faces doesn't find it.
 - The terrain, after its first pass: fallen logs and stumps in the woods; stones along a shore; the strewn grass worn away where paths are walked.
 - Wear showing: blood, dirt and scorch on gear and the character, damage on bases.

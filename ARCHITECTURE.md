@@ -516,6 +516,6 @@ Game first: every step ends with something to look at or play. What each step an
 
 From the 2026-11-13 review (`ARCHITECTURE.md`'s build log and `CONCEPT.md` against the code); each is the user's to decide:
 
-- **A playtest before more content?** The concept's first question, whether surviving the Hushlands is tense and fun, hasn't been answered by play: the 46 slices since the 2026-11-09 review were checked by tests, headless runs and pictures. The Cleric's and the Wizard's numbers say "not yet played".
+- **A playtest before more content?** *(Answered 2026-11-16: the user played the game; their notes are `BACKLOG.md`'s queue, first to eighth.)* The concept's first question, whether surviving the Hushlands is tense and fun, hasn't been answered by play: the 46 slices since the 2026-11-09 review were checked by tests, headless runs and pictures. The Cleric's and the Wizard's numbers say "not yet played".
 - **What next, after the cleanup:** the Warren Hills (the concept's next step after the first playable, to prove the first pillar: enemies that see and think), base-building (walls and doors of your own, repairs, traps and decoys, the Hushlands' own base tool), or the Dusk Director and quests?
 - **The repo:** every Duskhold commit is on the `ppo-zombie` branch, and `main` has none (it can be fast-forwarded); GitHub's copy is behind by the commits since the Wizard.

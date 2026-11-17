@@ -37,6 +37,13 @@
 
 - **A hot bar and a belt of potions** (2026-11-16; the user: "create a hot bar for spells, as well as a potion belt (life, mana, haste, iron skin, etc.)"). One strip at the bottom centre, as Diablo's: your powers on the number keys 1 to 4, in the order you set by dragging one onto another (kept for your class), then the belt's four loops on 5 to 8. Potions as Diablo's and Path of Exile's: life and mana back over a few seconds, and haste, iron skin, vigour and courage for a while. A potion is quickest drunk from the belt, slower dug out of the pockets, slower still from the bag; one you take goes on the belt first. Default.
 
+- **The first playtest** (2026-11-16; the user played, and wrote notes: `BACKLOG.md`'s queue, first to eighth, quotes them). What they decide:
+  - **Diablo's and Path of Exile's loot and inventory, not Zomboid's:** what drops is drawn on the ground, its names shown on a key; the inventory a grid of icons round a figure. This replaces "lists with weights, not a grid" (Loot, below) once it's built.
+  - **Zomboid's combat stance:** the right mouse button held puts you on guard, facing the cursor; a left click swings. Damage numbers and health bars in the fight.
+  - **Spells for the fight:** harm, areas, missiles first; keeping the dead from getting up matters less.
+  - **Less drawn:** no sound rings, no sight of the dead's on the ground (a setting each brings them back); walls that stay as you walk behind them; a fog of war soft at its edges.
+  - **The keys:** Space shoves, Esc pauses and opens the menu, T holds a torch up, Shift switches between walking and running (running from the start, and quicker), M the map, Tab the mini-map, I the pack.
+
 - **The kit, one style for every model** (2026-11-13; the user: "start working on sprites/assets for models/items/terrain/objects... Ensure that there is a homogenous theme/style throughout", choosing a kit made in data over model files and over 2D sprites). Everything drawn is made of four shapes, flat-shaded, in a small palette of materials, written in `data/looks.toml`: furniture and the terrain first, then items and the bodies. A model from outside keeps to the same palette. CC0 kits are no longer the first source: kits from different hands don't make one style. The rules are `VISUALS.md` §5, "The kit".
 
 **Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited. The review's choices are Defaults too, and not yet confirmed by the user.
