@@ -13,8 +13,8 @@ shut_door = 2
 shut_window = 1
 
 [character]
-walk = 1.5            # tiles a second
-run = 3.0
+walk = 2.0            # tiles a second (1.5 and 3.0 until the 2026-11-16 playtest: "move speed is pretty slow")
+run = 3.5             # you run from the start: Shift switches to walking (client)
 walk_noise = 3        # how far footsteps carry, in tiles
 run_noise = 8
 path_budget = 4096    # the most tiles one search for a way looks at
@@ -40,8 +40,8 @@ shift = 0.5           # to move a stack between your pockets and your bag
 [endurance]
 # A bar of 100 points that pays for everything active. Empty, you're out of breath: no running,
 # and slow, weak swings, until it's back to recover_at.
-run = 4.0             # spent a second running
-walk = 3.0            # got back a second walking
+run = 2.5             # spent a second running: 40 s from full (4 until running was the default)
+walk = 4.0            # got back a second walking
 rest = 10.0           # got back a second standing still
 recover_at = 30
 

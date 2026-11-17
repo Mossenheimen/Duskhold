@@ -42,7 +42,7 @@ rem The bar and the belt (hotbar.gd, potion.rs): a Wizard's spells on the number
 rem potions on the belt; one from the kit drunk, and one given put on the belt (into the loop it
 rem left empty) and drunk; then the bar's first two powers swapped, the first key readying what's
 rem on it now, and the kit's potion of mana drunk from the second loop.
-call :run 3500 "--seed=7 --class=wizard --give=haste_potion --do=1:bar,1.5:belt1,3:tobelt,3.5:belt1,5:swap,5.5:bar,6:power1,6.5:belt2"
+call :run 3500 "--seed=7 --class=wizard --give=haste_potion --do=1:bar,1.5:belt1,3:tobelt,3.5:belt1,5:swap,5.5:bar,6:power1,6.5:belt2,7.5:esc,8:esc,8.5:esc,8.8:run"
 rem Every setting on, through the near farm and its fight.
 call :run 6000 "--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --do=20:here,21:esc"
 rem Every effect made once and left to play out: what the runs above can't reach (a block, a
@@ -51,7 +51,7 @@ echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: 35 health back over 4 s" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Silence ready" "EFFECTS OK") do (
+for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: 35 health back over 4 s" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Silence ready" "Menu opened" "Walking." "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

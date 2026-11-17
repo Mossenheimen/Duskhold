@@ -30,14 +30,14 @@ thump = [2, 4]        # what a blow does to a shut door in its way (rules.toml, 
 # [burning]). It gets up once: put down a second time, it stays down.
 get_up = { chance = 1.0, after = [12.0, 36.0] }   # game hours after it fell
 
-# The reason to run (CONCEPT.md, the Hushlands' four): faster than your walk (1.5), slower than
-# your run (3.0), even at night (2.5). You out-run one, while your breath lasts; you don't
+# The reason to run (CONCEPT.md, the Hushlands' four): faster than your walk (2.0), slower than
+# your run (3.5), even at night (3.0). You out-run one, while your breath lasts; you don't
 # out-walk it. It makes no groan (it doesn't share), and it follows blood: with a wound bleeding
 # it can't be lost, so bandage first, run second. Its wounds may carry ghoul fever.
 [[creature]]
 id = "ghoul"
 walk = 0.8            # prowling
-run = 2.0             # after you
+run = 2.4             # after you
 night_speed = 1.25
 sight = 10
 darkvision = 3        # it hunts by night better than a shambler
@@ -65,7 +65,7 @@ get_up = { chance = 1.0, after = [12.0, 36.0] }
 [[creature]]
 id = "revenant"
 walk = 0.6
-run = 1.7             # faster than your walk (1.5), slower than your run (3.0)
+run = 2.3             # faster than your walk (2.0), slower than your run (3.5)
 night_speed = 1.25
 sight = 10
 darkvision = 2
@@ -91,7 +91,7 @@ turned = 0.5          # your own dead, and stubborn: a holy symbol holds it half
 [[creature]]
 id = "skeleton"
 walk = 0.6
-run = 1.3             # quicker than a shambler (0.8), slower than your walk (1.5)
+run = 1.3             # quicker than a shambler (0.8), slower than your walk (2.0)
 night_speed = 1.25
 sight = 10
 darkvision = 4        # empty sockets see in any light
@@ -119,7 +119,7 @@ bleeds = false        # bone has no blood: an axe's blow leaves it no bleeding w
 [[creature]]
 id = "wight"
 walk = 0.7
-run = 1.8
+run = 2.4             # faster than your walk (2.0), slower than your run (3.5)
 night_speed = 1.0     # it is the night's: no faster for it
 sight = 12
 darkvision = 6
@@ -144,7 +144,7 @@ wears = "barrow_mail" # neck to knee (items/armour.toml): a blade skids off it; 
                       # mace. It's left where the wight falls.
 
 # The Hushlands' wildlife (crates/dusk-core/src/hunting.rs): beasts that run from you and are
-# after nobody. A deer outruns you (4.0 to your 3.0), sees far and nearly all round, and bolts
+# after nobody. A deer outruns you (4.0 to your 3.5), sees far and nearly all round, and bolts
 # from anyone it sees within flees tiles, from your footsteps (rules.toml: walk_noise 3), and from
 # a blow or an arrow. Sneak up from behind, or shoot it from where it hasn't seen you: unaware,
 # an arrow does a sneak attack's harm. Cut up with a knife or an axe, it gives raw venison.
@@ -170,7 +170,7 @@ flees = 9             # tiles: one of the living seen nearer than this, and it b
 butcher = { item = "raw_venison", count = 3, time = 20.0 }   # seconds kneeling over it
 
 # A wolf: a wild hunter (wild = true), of the living world and not the dead. It hunts you as the
-# dead do, and it's worse: a little faster than your run (3.3 to your 3.0), it sees in the dark,
+# dead do, and it's worse: a little faster than your run (3.8 to your 3.5), it sees in the dark,
 # follows blood, and howls on sight to bring the pack. Its bite wounds deep. But the pressure
 # doesn't count wolves, neither the bell nor a fire draws them, and a dead one is skinned, not
 # burned: its pelt is worth bringing home.
@@ -178,7 +178,7 @@ butcher = { item = "raw_venison", count = 3, time = 20.0 }   # seconds kneeling 
 [[creature]]
 id = "wolf"
 walk = 1.2
-run = 3.3
+run = 3.8
 night_speed = 1.0
 sight = 10
 darkvision = 6        # tiles: the night is theirs

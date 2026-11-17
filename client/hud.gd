@@ -28,7 +28,7 @@ const CARD_WIDTH := 400.0  # a thing's card: its numbers line up at the right, i
 const KEYS := [
 	["Move and fight", [
 		["{walk_up}{walk_left}{walk_down}{walk_right}", "walk; into an open window or a fence, climb it"],
-		["{run}", "run, held"],
+		["{run}", "walk or run: running from the start"],
 		["{sneak}", "sneak, or stand"],
 		["click", "walk there; beside one of the dead, swing"],
 		["{swing}", "swing; at a shut window, smash it; held, struggle"],
@@ -55,20 +55,19 @@ const KEYS := [
 		["{keys}", "these keys"],
 	]],
 	["The game", [
-		["{pause}", "pause"],
 		["{speed_1} {speed_2} {speed_3}", "speed: 1×, 2×, 5×"],
 		["{low_walls}", "low walls"],
 		["{gui_smaller} {gui_larger}", "a smaller or larger GUI"],
 		["{save}", "save"],
 		["{settings}", "settings: colour, flashes, numbers, every key"],
 		["{new_world}", "a new world (it asks twice)"],
-		["{quit}", "close what's open, else save and quit"],
+		["{quit}", "close what's open, else the menu: the game waits"],
 	]],
 ]
 ## The keys panel's three columns, by KEYS' groups: moving and fighting; what you do here and your
 ## powers; the panels and the game.
 const KEY_COLUMNS := [[0], [1, 2], [3, 4]]
-const LEGEND := "On the ground, what the dead can see:  pale, not after you  ·  amber, heard something (?)  ·  red, sees you (!)\nRings: how far a sound carries  ·  red lines: the dead on you (thick: it has hold of you)."
+const LEGEND := "Over the dead: ? heard something  ·  ! sees you  ·  red lines: the dead on you (thick: it has hold of you).\nThe settings ({settings}) can draw how far each sound carries, and what the dead can see, on the ground."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level; what it does to you
 ## and what eases it (shown on hover, a line for each part between "  ·  "); how bad its first
@@ -154,6 +153,7 @@ var _mana: ProgressBar  # a Wizard's mana (DuskWorld.character_mana()): hidden w
 var _choice: Label  # who comes into the world: the classes to choose from
 var _choice_title: Label  # over it, in the serif: "Who comes to the abbey?"
 var _breath: Label
+var _pace: Label  # "Walking", once Shift has switched you to it (running is the default)
 var _wounds: Label
 var _level: Label
 var _gold_left := 0.0  # the level-up glow
@@ -763,9 +763,16 @@ func show_asleep(asleep: bool, clock: PackedInt32Array) -> void:
 	_asleep.text = Prompts.keyed("Asleep\n%s\n\n{sleep} to get up") % time_of_day(clock) if asleep else ""
 
 
+## Walking or running (main.gd's: Shift switches, running from the start): a dim line under the
+## bars while you walk.
+func show_pace(walking: bool) -> void:
+	_pace.text = Prompts.keyed("Walking  ·  {run} to run") if walking else ""
+
+
 ## The end, as a recap (CONCEPT.md, death and legacy): who, how they died, how long they lasted
-## in game time (DuskWorld.character_lasted()), what they carried, and what becomes of the body.
-func show_death(name: String, how: String, minutes: int, carried: String, rises: bool) -> void:
+## in game time (DuskWorld.character_lasted()), and what becomes of the body. Plain words: the
+## playtest found the old ones corny, and had no use for what the body carried.
+func show_death(name: String, how: String, minutes: int, rises: bool) -> void:
 	var days := floori(minutes / 1440.0)
 	var hours := floori((minutes % 1440) / 60.0)
 	var lasted := "%d hours %d minutes" % [hours, minutes % 60]
@@ -773,13 +780,11 @@ func show_death(name: String, how: String, minutes: int, carried: String, rises:
 		lasted = "%d minutes" % minutes
 	if days > 0:
 		lasted = "%d day%s %d hours" % [days, "" if days == 1 else "s", hours]
-	var lines := ["Lasted %s." % lasted, how]
-	if carried != "":
-		lines.append("Carrying %s." % carried)
+	var lines := [how, "Lasted %s." % lasted]
 	if rises:
-		lines.append("The body lies where it fell. Unburned, at midnight it rises as a revenant, in that gear.")
+		lines.append("At midnight, the body gets up.")
 	lines.append("")
-	lines.append(Prompts.keyed("{light} The next survivor comes to the abbey, in this world.     {new_world} A new world."))
+	lines.append(Prompts.keyed("{light} Someone else comes to the abbey.     {new_world} A new world."))
 	_death_title.text = name if name != "" else "You died"
 	_death_title.visible = true
 	_death.text = "\n".join(lines)
@@ -833,6 +838,8 @@ func _build_left_column() -> void:
 	# Under the bars, beside the diagram: out of breath, and the wounds in words.
 	_breath = Look.text(Label.new(), Look.BODY, Look.ALERT, true)
 	bars.add_child(_breath)
+	_pace = Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM, true)
+	bars.add_child(_pace)
 	_wounds = Look.text(Label.new(), Look.SMALL, Look.HURT_TEXT, true)
 	bars.add_child(_wounds)
 
@@ -982,7 +989,7 @@ func _build_keys() -> void:
 	lines.add_theme_constant_override("separation", 12)
 	_keys.add_child(lines)
 	var legend := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
-	legend.text = LEGEND
+	legend.text = Prompts.keyed(LEGEND)
 	lines.add_child(legend)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 32)

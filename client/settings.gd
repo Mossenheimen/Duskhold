@@ -15,7 +15,7 @@ const FILE := "user://settings.cfg"
 const GUI_SCALES := [0.75, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0]
 
 ## Every key's default (VISUALS.md §10, The keys). The left hand stays on WASD: what's pressed in a
-## fight or a hurry is within reach of it (Shift, C, F, Q, E, R, Z, the number row). E does
+## fight or a hurry is within reach of it (Shift, Space, C, F, E, T, Z, the number row). E does
 ## whatever is beside you, as in Zomboid, so the world's verbs need no keys of their own. The
 ## right hand's letters only open panels; the F keys are the game's own. A key held with Ctrl is
 ## KEY_MASK_CTRL | its key.
@@ -25,13 +25,13 @@ const KEYS := {
 	"walk_down": [KEY_S, KEY_DOWN],
 	"walk_left": [KEY_A, KEY_LEFT],
 	"walk_right": [KEY_D, KEY_RIGHT],
-	"run": [KEY_SHIFT],
+	"run": [KEY_SHIFT],  # switches between walking and running (main.gd); held, a heavy swing's
 	"sneak": [KEY_C],
 	"swing": [KEY_F],
-	"shove": [KEY_Q],
+	"shove": [KEY_SPACE],  # the playtest's: "Spacebar should be push"
 	# Here: E for whatever's beside you, held for all of it.
 	"use": [KEY_E],
-	"light": [KEY_R],  # dead, the next survivor
+	"light": [KEY_T],  # dead, the next survivor
 	"sleep": [KEY_Z],
 	# Your powers: a class's own, its talents', its spells.
 	"power_1": [KEY_1],
@@ -51,7 +51,6 @@ const KEYS := {
 	"keys": [KEY_F1],
 	"settings": [KEY_F10],
 	# The game.
-	"pause": [KEY_SPACE],
 	"speed_1": [KEY_F2],
 	"speed_2": [KEY_F3],
 	"speed_3": [KEY_F4],
@@ -62,18 +61,18 @@ const KEYS := {
 	"gui_smaller": [KEY_MASK_CTRL | KEY_MINUS],  # as an app's text size is
 	"gui_larger": [KEY_MASK_CTRL | KEY_EQUAL],
 	"new_world": [KEY_MASK_CTRL | KEY_N],
-	"quit": [KEY_ESCAPE],
+	"quit": [KEY_ESCAPE],  # closes what's open, else the menu, which pauses (menu.gd)
 }
 ## What the screen offers to remap, in its order: [the action, its name]. Not Esc: it's the way
 ## out, of this screen too.
 const REMAP := [
 	["walk_up", "Walk up"], ["walk_left", "Walk left"], ["walk_down", "Walk down"],
-	["walk_right", "Walk right"], ["run", "Run (held)"], ["sneak", "Sneak"], ["swing", "Swing"],
+	["walk_right", "Walk right"], ["run", "Walk or run"], ["sneak", "Sneak"], ["swing", "Swing"],
 	["shove", "Shove"], ["use", "Use what's here"], ["light", "Light; dead, the next"],
 	["sleep", "Sleep"], ["power_1", "Power 1"], ["power_2", "Power 2"], ["power_3", "Power 3"],
 	["power_4", "Power 4"], ["belt_1", "Belt 1"], ["belt_2", "Belt 2"], ["belt_3", "Belt 3"],
 	["belt_4", "Belt 4"], ["pack", "Your pack"], ["craft", "Making"], ["skills", "Skills"],
-	["spells", "Spells"], ["keys", "The keys"], ["settings", "Settings"], ["pause", "Pause"],
+	["spells", "Spells"], ["keys", "The keys"], ["settings", "Settings"],
 	["speed_1", "Speed 1×"], ["speed_2", "Speed 2×"], ["speed_3", "Speed 5×"], ["save", "Save"],
 	["low_walls", "Low walls"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"],
 	["gui_smaller", "Smaller GUI"], ["gui_larger", "Larger GUI"],
@@ -85,6 +84,8 @@ const TOGGLES := [
 	["high_contrast", "High contrast", "panels nearly solid, and every text outlined"],
 	["reduce_motion", "Fewer flashes, less motion", "no flash at the screen's edge, no breathing dread, nothing pops"],
 	["show_numbers", "Numbers on the bars", "health, endurance, faith and spells, always (else on hover)"],
+	["show_rings", "Sound rings", "how far each sound carries, drawn on the ground"],
+	["show_sight", "What the dead see", "the tiles they can see, tinted by what they know of you"],
 ]
 const NAME_WIDTH := 330.0  # a setting's name, before its button
 
@@ -149,6 +150,10 @@ static func is_on(setting: String) -> bool:
 			return Look.high_contrast
 		"reduce_motion":
 			return Look.reduce_motion
+		"show_rings":
+			return Look.show_rings
+		"show_sight":
+			return Look.show_sight
 		_:
 			return Look.show_numbers
 
@@ -427,6 +432,10 @@ func _turn(setting: String, on: bool) -> void:
 		"show_numbers":
 			Look.show_numbers = on
 			Look.version += 1
+		"show_rings":
+			Look.show_rings = on
+		"show_sight":
+			Look.show_sight = on
 
 
 ## What's built already, as a setting now has it: the panels' ground, and every text outlined in

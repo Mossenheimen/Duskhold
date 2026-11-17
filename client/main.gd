@@ -55,6 +55,7 @@ const Looks = preload("res://looks.gd")
 const Prompts = preload("res://prompts.gd")
 const Settings = preload("res://settings.gd")
 const Hotbar = preload("res://hotbar.gd")
+const Menu = preload("res://menu.gd")
 ## The numbers DuskWorld hands over, by name (codes.gd, made from the bridge's codes.rs).
 const Codes = preload("res://codes.gd")
 const Event = Codes.Event
@@ -248,6 +249,12 @@ var choose_asked := false  # --choose: a trial run asks who comes, as the player
 var keys_mode := 0  # the keys panel (F1): 0 for a world's first game hour, 1 shown, 2 hidden
 var settings: Settings  # the settings screen (F10), and the keys' defaults and remapping
 var paused_before := false  # whether the game was paused when the settings opened
+var menu: Menu  # Esc's menu, which pauses (menu.gd)
+var menu_paused_before := false  # whether the game was paused when the menu opened
+## Running, or walking: Shift switches (the playtest: "start with running on and make run/walk a
+## toggle"). Held with a swing or a click, Shift is a heavy swing's, and switches nothing.
+var running := true
+var run_tapped := false  # Shift went down, and nothing else has used it yet
 var look_flags := ""  # --look: settings a trial run turns on
 var gives := PackedStringArray()  # --give: finds a trial run starts with
 ## --aim=DX,DY: for pictures, the tile aimed at is yours plus this, not the mouse's, and a script's
@@ -273,6 +280,9 @@ func _ready() -> void:
 	settings.keep = OS.get_cmdline_user_args().is_empty()
 	add_child(settings)
 	settings.shown.connect(_on_settings)
+	menu = Menu.new()
+	add_child(menu)
+	menu.chose.connect(_on_menu)
 	_settle_window()
 	# The bar before the HUD: the HUD's details and cards draw over it.
 	hotbar = Hotbar.new()
@@ -433,15 +443,19 @@ func _process(delta: float) -> void:
 	_steer()
 	_mind_held_buttons()
 	_draw_actors(delta)
+	# The sound rings and what the dead see, only with their settings on (the playtest's).
 	for noise in dusk.take_noises():
-		rings.add(noise.x, noise.y, noise.z)
+		if Look.show_rings:
+			rings.add(noise.x, noise.y, noise.z)
+	rings.visible = Look.show_rings
 	rings.advance(0.0 if dusk.paused else delta * dusk.speed)
 	_read_events()
 	var tick: int = dusk.tick()
 	var ticked := tick != last_tick
 	if ticked:
 		last_tick = tick
-		map_view.show_watched(dusk.watched())
+		if Look.show_sight:
+			map_view.show_watched(dusk.watched())
 		map_view.show_view(dusk.view_tiles())
 	_light_the_sky(dusk.daylight())
 	_hold_up_light()
@@ -461,7 +475,9 @@ func _process(delta: float) -> void:
 	moodles = dusk.character_moodles()
 	var asleep := _moodle(Moodle.ASLEEP) > 0
 	_sleep_speed(asleep)
-	hud.show_state(region_name, clock, roundi(dusk.speed), dusk.paused, dusk.pressure(),
+	# Paused under the menu or the settings: their own screens say so.
+	var paused: bool = dusk.paused and not menu.is_open() and not settings.is_open()
+	hud.show_state(region_name, clock, roundi(dusk.speed), paused, dusk.pressure(),
 		dusk.tolling(), dusk.rain(), dusk.place(), -1 if save_path != "" else town_seed)
 	_mind_the_keys(clock)
 	hud.show_moodles(moodles)
@@ -473,6 +489,7 @@ func _process(delta: float) -> void:
 	hud.show_wound_parts(dusk.character_wound_parts())
 	hud.show_faith(dusk.faith())
 	hud.show_mana(dusk.character_mana())
+	hud.show_pace(not running and not dead)
 	hud.show_deeds(dusk.character_deeds())
 	if ticked:
 		_here_now(asleep)
@@ -495,8 +512,7 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("quit"):
 		if not _close_top():
-			_save("")
-			get_tree().quit()
+			_open_menu()
 		return
 	if dusk == null:
 		return
@@ -505,6 +521,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if settings.is_open():
 		return  # the settings screen has the keys (and Esc closes it)
+	if menu.is_open():
+		return  # the menu has the world waiting: Esc goes on
+	# Shift on its own switches between walking and running; held with a swing or a click, it's
+	# a heavy swing's, and switches nothing.
+	if event.is_action_pressed("run"):
+		run_tapped = true
+	elif event.is_action_released("run") and run_tapped:
+		run_tapped = false
+		_toggle_run()
 	var key := event as InputEventKey
 	var number := int(key.physical_keycode) - int(KEY_1) if key and key.pressed and not key.echo else -1
 	# Who comes into the world: a number takes up that class, and nothing else is heeded.
@@ -538,11 +563,13 @@ func _unhandled_input(event: InputEvent) -> void:
 						dusk.struggle()
 					elif Input.is_action_pressed("run"):
 						# Shift-click: a heavy swing, your weight behind it.
+						run_tapped = false
 						dusk.heavy_attack(aim.x, aim.y)
 					else:
 						dusk.attack(aim.x, aim.y)
 				else:
-					dusk.walk_to(tile.x, tile.y, Input.is_action_pressed("run"))
+					run_tapped = false
+					dusk.walk_to(tile.x, tile.y, running)
 			MOUSE_BUTTON_RIGHT:
 				# A readied spell let go; with a shield on your arm, a brace behind it while the
 				# button's held (_mind_held_buttons); else a bow's shot at the spot.
@@ -565,6 +592,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if held > 0:
 			dusk.struggle()
 		elif Input.is_action_pressed("run"):
+			run_tapped = false
 			dusk.heavy_attack(0, 0)
 		else:
 			dusk.attack(0, 0)
@@ -615,8 +643,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_drink_loop(2)
 	elif event.is_action_pressed("belt_4") and not dead:
 		_drink_loop(3)
-	elif event.is_action_pressed("pause"):
-		dusk.paused = not dusk.paused
 	elif event.is_action_pressed("speed_1"):
 		_set_speed(0)
 	elif event.is_action_pressed("speed_2"):
@@ -695,7 +721,7 @@ func _steer() -> void:
 		return
 	var right := int(Input.is_action_pressed("walk_right")) - int(Input.is_action_pressed("walk_left"))
 	var up := int(Input.is_action_pressed("walk_up")) - int(Input.is_action_pressed("walk_down"))
-	dusk.steer(right, up, Input.is_action_pressed("run"))
+	dusk.steer(right, up, running)
 
 
 func _set_speed(index: int) -> void:
@@ -1798,17 +1824,9 @@ func _die() -> void:
 	_save("")  # the world keeps your death: there's no going back to before it
 
 
-## The death screen's recap: who, how, how long, and what they carried (the body still has it).
+## The death screen's recap: who, how, and how long.
 func _show_recap(how: String) -> void:
-	var carried := []
-	var hands: PackedInt32Array = dusk.character_hands()
-	if hands.size() >= 2:
-		carried.append(_item_name(hands[0]))
-	var items: PackedInt32Array = dusk.character_items()
-	for i in range(0, items.size() - 3, 4):
-		var count := items[i + 1]
-		carried.append(_item_name(items[i]) + ("" if count == 1 else " ×%d" % count))
-	hud.show_death(dusk.actor_name(me), how, dusk.character_lasted(), ", ".join(carried), true)
+	hud.show_death(dusk.actor_name(me), how, dusk.character_lasted(), true)
 
 
 ## After a death: the next survivor comes to the abbey, in this world. The old body stays where
@@ -2069,6 +2087,38 @@ func _on_settings(open: bool) -> void:
 	else:
 		dusk.paused = paused_before
 
+## Esc with nothing open: the menu, the world waiting under it (menu.gd).
+func _open_menu() -> void:
+	if dusk != null:
+		menu_paused_before = dusk.paused
+		dusk.paused = true
+	menu.open(save_path != "")
+
+
+## The menu closed: the world goes on as it was.
+func _close_menu() -> void:
+	menu.close()
+	if dusk != null:
+		dusk.paused = menu_paused_before
+
+
+## A button of the menu: go on, the settings over it, or save and quit.
+func _on_menu(what: String) -> void:
+	match what:
+		"resume":
+			_close_menu()
+		"settings":
+			settings.open()
+		"quit":
+			_save("")
+			get_tree().quit()
+
+
+## Shift tapped: running, or walking (quieter, and your breath comes back).
+func _toggle_run() -> void:
+	running = not running
+
+
 ## F1's keys (zone I): open while F1 has them; for a world's first game hour in the player's own
 ## game, until F1 is first pressed, a line saying they're there.
 func _mind_the_keys(clock: PackedInt32Array) -> void:
@@ -2096,12 +2146,16 @@ func _book(panel: Node) -> void:
 		keys_mode = 2
 
 
-## Esc backs out of what's open before it quits (VISUALS.md §10): the settings close, E's list
-## closes, a readied spell is let go, then the keys close, then the book panel. True if it closed something. The
-## pack stays: it's open from the start, as part of the HUD, and Tab closes it.
+## Esc backs out of what's open before it opens the menu (VISUALS.md §10): the settings close, the
+## menu closes (the game goes on), E's list closes, a readied spell is let go, then the keys close,
+## then the book panel. True if it closed something. The pack stays: it's open from the start, as
+## part of the HUD, and Tab closes it.
 func _close_top() -> bool:
 	if settings != null and settings.is_open():
 		settings.close()
+		return true
+	if menu != null and menu.is_open():
+		_close_menu()
 		return true
 	if dusk == null:
 		return false
@@ -2221,8 +2275,15 @@ func _run_script() -> void:
 				var shown: String = bag.card_first()
 				if print_news and shown != "":
 					print("Card: ", shown)
-			"esc":  # what Esc closes first; a script never quits by it
-				_close_top()
+			"esc":  # what Esc closes first, else the menu (a script never quits by it)
+				if not _close_top():
+					_open_menu()
+					if print_news:
+						print("Menu opened.")
+			"run":  # Shift tapped: walking or running
+				_toggle_run()
+				if print_news:
+					print("Running." if running else "Walking.")
 			"settings":  # F10: the settings screen
 				settings.toggle()
 			"zoom_in", "zoom_out":  # three notches of the wheel, sent as a mouse sends them

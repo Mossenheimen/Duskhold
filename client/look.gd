@@ -28,6 +28,11 @@ static var high_contrast := false
 static var reduce_motion := false
 ## The bars say their numbers, not only on hover.
 static var show_numbers := false
+## How far each sound carries, drawn as rings on the ground; what the dead can see, tinted on the
+## ground by what they know. Both off since the 2026-11-16 playtest ("annoying to see during
+## gameplay"): the dead's marks over their heads still say it.
+static var show_rings := false
+static var show_sight := false
 
 # The world: the Hushlands (§4). Data/looks.toml's materials by these names (`take_materials`).
 

@@ -78,6 +78,9 @@ func update(focus: Vector3) -> void:
 		_watched_material.set_shader_parameter("unaware", Look.CALM)
 		_watched_material.set_shader_parameter("curious", Look.ALERT)
 		_watched_material.set_shader_parameter("hunting", Look.DANGER)
+	# What the dead can see, drawn only with its setting on (the playtest's: Look.show_sight).
+	if _overlay:
+		_overlay.visible = Look.show_sight
 	var middle := Vector2i(floori(focus.x / _chunk_size), floori(focus.z / _chunk_size))
 	var chunks := Vector2i(ceili(map_size.x / float(_chunk_size)), ceili(map_size.y / float(_chunk_size)))
 	var wanted: Array[Vector2i] = []
@@ -171,6 +174,9 @@ func _build_fog() -> void:
 	_view_texture = ImageTexture.create_from_image(_view_image)
 	_fog_material.set_shader_parameter("view", _view_texture)
 	_fog_material.set_shader_parameter("map_size", Vector2(map_size))
+	# Glass is drawn after the fog's pass, so it takes the fog itself (glass.gdshader).
+	_materials["glass"].set_shader_parameter("view", _view_texture)
+	_materials["glass"].set_shader_parameter("map_size", Vector2(map_size))
 	var quad := QuadMesh.new()
 	quad.size = Vector2(2.0, 2.0)
 	_fog = MeshInstance3D.new()
