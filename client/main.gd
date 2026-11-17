@@ -313,6 +313,7 @@ func _ready() -> void:
 	add_child(hud)
 	settings.keys_changed.connect(hud.rebuild_keys)
 	hud.chose.connect(_do_here)
+	hud.death_chose.connect(_on_death_chose)
 	hotbar.card = hud.hover_card
 	hotbar.uncard = hud.unhover_card
 	if not ClassDB.class_exists("DuskWorld"):
@@ -1925,6 +1926,15 @@ func _die() -> void:
 ## The death screen's recap: who, how, and how long.
 func _show_recap(how: String) -> void:
 	hud.show_death(dusk.actor_name(me), how, dusk.character_lasted(), true)
+
+
+## A button of the death screen: Restart (the next survivor, in this world), or New World.
+func _on_death_chose(what: String) -> void:
+	if what == "restart":
+		_next_survivor()
+	else:
+		town_seed += 1
+		_start()
 
 
 ## After a death: the next survivor comes to the abbey, in this world. The old body stays where

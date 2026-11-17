@@ -422,10 +422,10 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ A  the Hushlands · Day 2 · 21:40 · 1× · rain          D  News (6 lines, fade)│
 │ B  Level 3 · 120 / 160 XP                                You pick it: ...    │
-│    Health     ███████████░░░                             A howl: something...│
-│    Endurance  █████████████░                                                 │
-│    Faith      ██████░░░░░░░░                          E  Moodles             │
-│    (body diagram: wounds by part)                        ▣ Hungry            │
+│    (body diagram: wounds by part)                        A howl: something...│
+│                                                                              │
+│                                                       E  Moodles             │
+│                                                          ▣ Hungry            │
 │                   C   Three of them have hold of you     ▣ Uneasy            │
 │                                                          ▣ Bleeding          │
 │ J  Skills (K)                                                                │
@@ -440,14 +440,14 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 │    Stove · alight, 3h 50m                                (open: Path of      │
 │    Crate              [Take all]                          Exile 2's grids)   │
 │                           I  [F1] every key                                  │
-│                    K  [1][2][3][4]  [5][6][7][8]: the bar                    │
+│              (health)  K  [1][2][3][4]  [5][6][7][8]  (mana): the bar        │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Zone | What | Where, how big | Shows | Today |
 |---|---|---|---|---|
 | **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here since 2026-11-13 (it was two lines: a title with the newest feature, and the seed). A trial run adds its seed at the end, for pictures and bugs |
-| **B** Body | level and XP; health, endurance and faith bars; out of breath; wounds | top left, under A; the bars 350 wide, the body diagram beside them | always (faith only for a class that has it) | as here: out of breath and the wounds in words under the bars, beside the diagram |
+| **B** Body | level and XP in words; out of breath; wounds; the body diagram | top left, under A | always | since 2026-11-17 (the second playtest: "get rid of the upper left health/endurance, since we have the hot bar circles") with no bars: the globes say health and mana, faith or breath, and the bar its XP (zone K). Out of breath and the wounds in words beside the diagram |
 | **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
@@ -456,7 +456,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **H** The inventory | Path of Exile 2's: what you hold and wear round a figure (in hand on the left, the off arm on the right, the head over the body, the bag on your back beside the head, arms and legs at the body's foot), the belt's four loops under it; then your pockets' grid and the bag's side by side, twelve cells across, each thing its icon over its cells; weight and coin in its title. On the left while it's open, under zones A and B: a tab for each container and the ground within reach, each a grid, and a holdout's counter as a vendor (its wares a grid, its services and bounties over them) | top right, 24 px in; 50 px cells, about 650 wide; zones D and E move to its left, under zone A, while it's open | I or Tab; Esc, I or Tab shuts it | since 2026-11-17 (the user, 2026-11-16: "an inventory system that looks like PoE 2"; `client/inventory.gd`). It was a list (Zomboid's), open from the start |
 | **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre, above the bar, instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
 | **J** Book panels | Strength, Fitness, skills and talents (K), making (B), spells (P); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
-| **K** The bar | in a frame of its own, between the globes (§11, Globe): your powers on the number keys, then the belt's loops and their potions, each its own icon (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
+| **K** The bar | in a frame of its own, between the globes (§11, Globe), with XP along its top and, for a class whose right globe holds mana or faith, breath along its foot (§11, XP and breath on the bar): your powers on the number keys, then the belt's loops and their potions, each its own icon (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
 
 **Rules:**
 
@@ -483,7 +483,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 
 - **The world's verbs are E's, not keys of their own.** A new thing to do beside you is a new line in E's list (`client/prompts.gd`), never a new key.
 - **E's choice is the one its prompt shows.** Both come from `Prompts.first`, over the core's own checks. The door or window you face comes first, then a body, a plant, an altar, a fire, and water when you're thirsty; a door beside you that you don't face comes last, with no prompt, as E did before. What's done on purpose (boarding up, prying off, a ward, putting a fire out) is never E's alone: holding E offers it, and the line under the prompt names it.
-- **Every key cap is read from the InputMap** (`Prompts.keyed`): the prompts, the news, the moodles' tips, the death screen and the keys panel. Remapping (§13) changes them all.
+- **Every key cap is read from the InputMap** (`Prompts.keyed`): the prompts, the news, the moodles' tips and the keys panel. Remapping (§13) changes them all.
 - **One action a key.** A remapped key taken from another action leaves that one without it, so two actions never share a key by accident. The one that once shared R, the next survivor, is now what the light's key does when you're dead.
 
 **Today** (2026-11-12): as here.
@@ -497,7 +497,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | Paused | the world stilled under a dim; "Paused" banner; Space to go on | nothing else changes. **Since 2026-11-16** the menu is the pause: there's no key of its own |
 | Menu (Esc) | Resume, Settings, Save and quit | centred; dims. **Today** (2026-11-16): as here (`client/menu.gd`), "Paused" over it, the world waiting; a trial run's last button is Quit |
 | Settings | the GUI, text, colour, flashes, keys, sound, the game (§13) | every setting saved; changes show at once. **Today** (2026-11-12): on F10 (`client/settings.gd`), over the world dimmed (`ui.dim`) and paused, on a ground at 95% so nothing shows through: the GUI's size, the four switches, and all 34 keys. Esc closes it |
-| Death | "This is how you died": the cause, the days, the deeds, where the body lies; R for the next survivor | the serif title; the world behind, dimmed, the body in view |
+| Death | "This is how you died": the cause, the days, the deeds, where the body lies; Restart (the next survivor, in this world) and New World | a framed panel (§4), the name of who died as its title, a rule under it; the world behind, dimmed, the body in view; no key shown. **Today** (2026-11-17, the second playtest: "The death menu should have a panel and buttons for Restart / New World. No keybind shown"): as here (`hud.gd`'s `_build_death`, `death_chose`); the keys that did it before still do, unlisted |
 
 ---
 
@@ -517,7 +517,8 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - A click target is at least 32 × 32 px, with 8 px between targets.
   - It never relies on a hover to say what it does.
 - **Health bar** (over the dead; since 2026-11-17, `client/bars.gd`): 56 × 7 px, 2.1 m over the feet of each of the dead you see that's hurt, and of every rare you see; `bar.health` lit along its top on a dark track, in a 1 px bronze line (gold for a rare, whose name is over it already). Path of Exile's: a whole one stays bare.
-- **Globe** (since 2026-11-17; Diablo's and Path of Exile's): 116 px across, either side of the bar's frame, their feet on its foot. Health on the left, in `bar.health`; on the right mana in `magic.arcane` (a Wizard's), else faith in `bar.faith` (a Cleric's), else breath in `bar.endurance`. Filled as you're full, its surface stirring (still, with less motion); under a quarter it throbs in brightness, as a low bar does. Its name and numbers ("Health 72 / 100") show on hover, or always with numbers on (§13). The bars at the top left still say the same (`BACKLOG.md`: one or the other, the user's).
+- **Globe** (since 2026-11-17; Diablo's and Path of Exile's): 116 px across, either side of the bar's frame, their feet on its foot. Health on the left, in `bar.health`; on the right mana in `magic.arcane` (a Wizard's), else faith in `bar.faith` (a Cleric's), else breath in `bar.endurance`. Filled as you're full, its surface stirring (still, with less motion); under a quarter it throbs in brightness, as a low bar does. Its name and numbers ("Health 72 / 100") show on hover, or always with numbers on (§13). **Since the second playtest** (2026-11-17: "get rid of the upper left health/endurance, since we have the hot bar circles") they're the only ones: the bars at the top left are gone.
+- **XP and breath on the bar** (since 2026-11-17, the second playtest: "I want to see an xp bar for the character level on the main ui"): XP, 8 px high, along the top of the bar's frame, in `signal.gold`, how far into this level, on a track with a faint gold edge so it reads with none in it yet (the level and its numbers on hover); breath, 6 px, in `bar.endurance`, along the frame's foot, only while the right globe holds mana or faith. Kept apart on purpose: the first picture had breath right under the XP, and gold over amber read as one full bar.
 - **Key caps:** a key always appears in brackets in the same face as its line, such as "[E] Pick chamomile". Remapping a key changes every place it's shown. The keys panel's own column of keys is the one place without brackets: it's a table of them.
 - **Item row:**
   - Name ×count, weight, then the actions on the right.

@@ -560,7 +560,8 @@ fn a_new_bag_takes_over_what_was_in_the_old_one() {
     w.put(HERE, Item::new(KNAPSACK, 1));
     take(&mut w, me, KNAPSACK);
     let at = slot(&w, me, KNAPSACK, false);
-    let took = ticks(
+    // Out of a fight a bag goes on at once (`guard.rs`'s `equip_ticks`).
+    act(
         &mut w,
         me,
         Intent::Wear {
@@ -568,7 +569,6 @@ fn a_new_bag_takes_over_what_was_in_the_old_one() {
             def: KNAPSACK,
         },
     );
-    assert_eq!(took, BAG_ON, "from the pockets: no reaching into the bag");
     assert_eq!(w.actor(me).unwrap().bag.map(|b| b.def), Some(KNAPSACK));
     assert_eq!(
         cells(&w, me, STONE, true),

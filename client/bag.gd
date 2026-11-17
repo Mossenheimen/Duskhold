@@ -356,7 +356,8 @@ func _draw_reach(reach: PackedInt32Array, water: bool, counter: PackedInt32Array
 		if mine:
 			header.get_child(0).add_theme_color_override("font_color", Look.GOLD)
 			_button(header, "Stash all finds", func() -> void: stash_finds(x, y))
-		elif fixture != 0:
+		elif fixture != 0 and _dusk.stash_check(x, y) == 0:
+			# Only where it can be (the second playtest: "obnoxious when you see it everywhere").
 			_button(header, "Make it your stash", func() -> void: mark_stash(x, y))
 		if n > 1:
 			var defs := []

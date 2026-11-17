@@ -38,7 +38,7 @@ planks = 2
 
 [[fixture]]
 id = "chair"
-solid = true
+solid = false         # walked through (the second playtest: "You should be able to walk through chairs")
 planks = 1
 
 [[fixture]]

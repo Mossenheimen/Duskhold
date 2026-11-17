@@ -255,12 +255,14 @@ impl World {
             }
             Intent::Unwield => {
                 a.hands?;
-                (ActionKind::Unwield, a.facing, self.defs.unwield_time, 0, 0)
+                let ticks = self.equip_ticks(id, self.defs.unwield_time);
+                (ActionKind::Unwield, a.facing, ticks, 0, 0)
             }
             Intent::Shoot { at } => self.shoot_action(id, at)?,
             Intent::Unshield => {
                 a.shield?;
-                (ActionKind::Unshield, a.facing, self.defs.unwield_time, 0, 0)
+                let ticks = self.equip_ticks(id, self.defs.unwield_time);
+                (ActionKind::Unshield, a.facing, ticks, 0, 0)
             }
             Intent::Wear { slot, def } => {
                 let ticks = self.wear_ticks(id, slot, def)?;
@@ -396,10 +398,12 @@ impl World {
                 let kind = ActionKind::Uncurse { at };
                 (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
             }
+            // A bounty is claimed at once (the second playtest: "Claiming a bounty shouldnt take
+            // any time").
             Intent::Claim { at, rare } => {
                 self.can_claim(id, at, rare).ok()?;
                 let kind = ActionKind::Claim { at, rare };
-                (kind, self.toward(id, at), self.deal_ticks(at), 0, 0)
+                (kind, self.toward(id, at), 1, 0, 0)
             }
             Intent::Burn => {
                 let (kind, dir, ticks) = self.burn_action(id)?;

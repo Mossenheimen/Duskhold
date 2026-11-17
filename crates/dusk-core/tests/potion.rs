@@ -457,7 +457,10 @@ fn a_stack_goes_on_the_belt_and_off_it_and_drops_loose() {
 #[test]
 fn a_potions_card_and_line_say_what_it_does() {
     let w = field(1);
-    assert_eq!(w.defs.potion_line(LIFE), "35 health back over 4 s");
+    assert_eq!(
+        w.defs.potion_line(LIFE),
+        "every wound closed, the fever cured, and 35 health back over 4 s"
+    );
     assert_eq!(
         w.defs.potion_line(HASTE),
         "30% faster on your feet for 30 s"

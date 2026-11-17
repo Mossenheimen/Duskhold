@@ -9,10 +9,17 @@
 //! - **A swing on guard goes where it faces** (`combat.rs`'s `aim`), not to the nearest of the
 //!   dead beside it.
 //! - A shield on the arm braces in the stance too: the client asks for both (`shield.rs`).
+//! - **In a fight** (`World::in_combat`): held, or seen by one of the dead near you. Out of one,
+//!   taking a thing in hand, putting it away or putting armour on or off is done at once (the
+//!   second playtest: "Equipping items shouldnt take time out of combat, but should take time when
+//!   in combat"; `World::equip_ticks`).
 
-use crate::actor::ActorId;
+use crate::actor::{ActorId, Mind};
 use crate::geom::Dir8;
 use crate::world::World;
+
+/// Tiles within which one of the dead that sees you puts you in a fight.
+pub const IN_COMBAT: i32 = 8;
 
 impl World {
     /// Takes up the stance (`on`), or leaves it: a living character's.
@@ -40,6 +47,30 @@ impl World {
         {
             a.facing = dir;
         }
+    }
+
+    /// Whether `id` is in a fight: held, or one of the dead within `IN_COMBAT` tiles sees it.
+    pub fn in_combat(&self, id: ActorId) -> bool {
+        let Some(a) = self.actors.get(id) else {
+            return false;
+        };
+        if self.is_held(id) {
+            return true;
+        }
+        let r2 = i64::from(IN_COMBAT).pow(2);
+        self.actors.iter().any(|(_, o)| {
+            !o.dead
+                && o.kind.hostile_to(a.kind)
+                && matches!(o.mind, Mind::Hunt { sees: true, .. })
+                && o.pos.z == a.pos.z
+                && o.pos.dist2(a.pos) <= r2
+        })
+    }
+
+    /// The ticks taking a thing in hand, putting it away or putting armour on or off takes `id`:
+    /// `ticks` in a fight, a moment (one) out of one.
+    pub(crate) fn equip_ticks(&self, id: ActorId, ticks: u32) -> u32 {
+        if self.in_combat(id) { ticks } else { 1 }
     }
 
     /// What's left of `id`'s pace on guard, per mille.

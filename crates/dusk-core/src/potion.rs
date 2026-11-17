@@ -208,6 +208,12 @@ impl World {
             }),
         }
         match d.effect {
+            // Life closes every wound and cures ghoul fever at once (the second playtest:
+            // "Potions should heal/clear wounds and ghoul fever"), its health coming back after.
+            Effect::Life => {
+                a.body.wounds.clear();
+                a.body.fever = None;
+            }
             Effect::Vigour => {
                 a.body.endurance = FULL;
                 a.body.exhausted = false;

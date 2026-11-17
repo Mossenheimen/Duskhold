@@ -14,6 +14,8 @@ const Prompts = preload("res://prompts.gd")
 
 ## A line of zone F's list was clicked (E held): its place in the list.
 signal chose(index: int)
+## A button of the death screen: "restart" (the next survivor, in this world) or "new_world".
+signal death_chose(what: String)
 
 const LINE_LIFE := 6.0  # seconds a line of news stays
 const FLASH_LIFE := 0.6
@@ -160,6 +162,7 @@ var _level: Label
 var _gold_left := 0.0  # the level-up glow
 var _death: Label
 var _death_title: Label  # the name of the one who died, in the serif
+var _death_panel: PanelContainer  # the death screen: who, how, how long, and the two ways on
 var _held: Label
 var _doing: Label
 var _doing_bar: ProgressBar
@@ -232,9 +235,7 @@ func _ready() -> void:
 	_held.position.y += 190.0
 	_problem = _label(Look.HEADING, Control.PRESET_CENTER)
 	# The death screen and the class choice: a title in the serif over their lines.
-	var death := _screen()
-	_death_title = death[0]
-	_death = death[1]
+	_build_death()
 	var choice := _screen()
 	_choice_title = choice[0]
 	_choice = choice[1]
@@ -459,7 +460,8 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray, can_shove := t
 ## that has any.
 func show_faith(faith: PackedInt32Array) -> void:
 	var most := faith[1] if faith.size() > 1 else 0
-	_faith.get_parent().visible = most > 0
+	# The globe says it now (hotbar.gd): no bar at the top left (the second playtest's).
+	_faith.get_parent().visible = false
 	if most > 0:
 		_faith.max_value = most
 		_faith.value = faith[0]
@@ -469,7 +471,7 @@ func show_faith(faith: PackedInt32Array) -> void:
 ## endurance, for a class that casts.
 func show_mana(mana: PackedInt32Array) -> void:
 	var most := mana[1] if mana.size() > 1 else 0
-	_mana.get_parent().visible = most > 0
+	_mana.get_parent().visible = false
 	if most > 0:
 		_mana.max_value = most
 		_mana.value = mana[0]
@@ -810,19 +812,53 @@ func show_death(name: String, how: String, minutes: int, rises: bool) -> void:
 	var lines := [how, "Lasted %s." % lasted]
 	if rises:
 		lines.append("At midnight, the body gets up.")
-	lines.append("")
-	lines.append(Prompts.keyed("{light} Someone else comes to the abbey.     {new_world} A new world."))
 	_death_title.text = name if name != "" else "You died"
-	_death_title.visible = true
 	_death.text = "\n".join(lines)
+	_death_panel.visible = true
 	_veil.visible = false
 	_asleep.text = ""
 
 
 func hide_death() -> void:
 	_death_title.text = ""
-	_death_title.visible = false
+	_death_panel.visible = false
 	_death.text = ""
+
+
+## The death screen (the second playtest: "a panel and buttons for Restart / New World. No keybind
+## shown"): who died, in Cinzel, then how, how long they lasted and what becomes of the body, then
+## Restart (the next survivor comes to the abbey, in this world) and New World.
+func _build_death() -> void:
+	_death_panel = PanelContainer.new()
+	var style := Look.panel_style()
+	style.bg_color = Look.PANEL_SOLID
+	style.remove_meta("panel")
+	style.set_content_margin_all(32.0)
+	_death_panel.add_theme_stylebox_override("panel", style)
+	add_child(_death_panel)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 14)
+	_death_panel.add_child(rows)
+	_death_title = Look.text(Label.new(), Look.TITLE)
+	_death_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rows.add_child(_death_title)
+	rows.add_child(Look.rule())
+	_death = Look.text(Label.new(), Look.BODY)
+	_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rows.add_child(_death)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 24)
+	rows.add_child(buttons)
+	for row: Array in [["Restart", "restart"], ["New World", "new_world"]]:
+		var what: String = row[1]
+		var button := Look.button(row[0], func() -> void: death_chose.emit(what), Vector2(200, 48))
+		button.add_theme_font_size_override("font_size", Look.BODY)
+		buttons.add_child(button)
+	_death_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	_death_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_death_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_death_panel.visible = false
 
 
 ## Zones A and B, down the top left: the status, then your level, and the body's bars, breath and
@@ -848,6 +884,10 @@ func _build_left_column() -> void:
 	body_row.add_child(bars)
 	_health = _bar(bars, "Health", Look.HEALTH)
 	_endurance = _bar(bars, "Endurance", Look.ENDURANCE)
+	# The globes either side of the bar say these now (the second playtest: "get rid of the upper
+	# left health/endurance, since we have the hot bar circles"); breath and XP are thin bars there.
+	_health.get_parent().visible = false
+	_endurance.get_parent().visible = false
 	_faith = _bar(bars, "Faith", Look.FAITH)
 	_faith.get_parent().visible = false
 	_mana = _bar(bars, "Mana", Look.ARCANE)

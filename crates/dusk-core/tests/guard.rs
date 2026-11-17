@@ -88,3 +88,27 @@ fn a_swing_on_guard_goes_where_you_face_not_at_the_nearest() {
     }
     assert_eq!(missed, Some(TilePos::new(0, 0, 0)), "north, where it faces");
 }
+
+#[test]
+fn one_of_the_dead_that_sees_you_near_puts_you_in_a_fight() {
+    // It stands north of you, facing south (as everyone starts): it sees you.
+    let (mut w, _) = World::from_text(
+        1,
+        "+-+-+
+|z .|
++ + +
+|@ .|
++-+-+
+",
+    )
+    .unwrap();
+    w.creature_mut(0).wander = 0;
+    (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
+    let me = w.character().unwrap();
+    // It hasn't thought yet: nothing sees you.
+    assert!(!w.in_combat(me));
+    for _ in 0..20 {
+        w.step(1);
+    }
+    assert!(w.in_combat(me), "it sees you");
+}

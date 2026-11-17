@@ -225,10 +225,9 @@ fn armour_goes_on_in_time_and_what_covered_the_same_places_comes_off() {
             def: JERKIN,
         },
     );
-    run(&mut w, 3);
-    assert!(worn(&w, me).is_empty(), "it takes its time");
-    let seen = run(&mut w, 5);
-    assert_eq!(worn(&w, me), vec![JERKIN]);
+    // Out of a fight it goes on at once (`guard.rs`'s `equip_ticks`): the next tick.
+    let seen = run(&mut w, 2);
+    assert_eq!(worn(&w, me), vec![JERKIN], "at once, out of a fight");
     assert!(!in_pack(&w, me, JERKIN));
     assert!(seen.contains(&Event::Wore {
         who: me,

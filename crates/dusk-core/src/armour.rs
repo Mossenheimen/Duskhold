@@ -234,7 +234,8 @@ impl World {
             Some(_) => self.defs.bag_on,
             None => self.armour_of(item)?.time,
         };
-        Some(time.max(1) + self.reach_into(id, slot))
+        // At once out of a fight (`guard.rs`).
+        Some(self.equip_ticks(id, time.max(1) + self.reach_into(id, slot)))
     }
 
     /// Puts on the piece at `slot` of `id`'s pack (still `def`).
@@ -271,7 +272,7 @@ impl World {
         let a = self.actors.get(id)?;
         let item = a.worn.get(usize::from(piece)).filter(|i| i.def == def)?;
         let time = self.armour_of(item)?.time;
-        Some(per(time, self.rules.armour.off).max(1))
+        Some(self.equip_ticks(id, per(time, self.rules.armour.off).max(1)))
     }
 
     /// Takes off `id`'s `piece` (still `def`), into the pack.

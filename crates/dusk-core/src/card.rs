@@ -177,7 +177,10 @@ impl Defs {
         };
         let t = seconds(d.lasts);
         match d.effect {
-            Effect::Life => format!("{} health back over {t}", points(d.amount)),
+            Effect::Life => format!(
+                "every wound closed, the fever cured, and {} health back over {t}",
+                points(d.amount)
+            ),
             Effect::Mana => format!("{} mana back over {t}", mana_points(d.amount)),
             Effect::Haste => format!("{} faster on your feet for {t}", per_cent(d.amount)),
             Effect::IronSkin => format!(
@@ -659,7 +662,8 @@ impl World {
             Effect::IronSkin => "A wound it lets through bleeds as much less",
             Effect::Vigour => "Your breath back at once",
             Effect::Courage => "Dread gone at once, and none rises while it lasts",
-            Effect::Life | Effect::Haste => "",
+            Effect::Life => "Every wound closed and ghoul fever cured, at once",
+            Effect::Haste => "",
         };
         if !words.is_empty() {
             c.rule();

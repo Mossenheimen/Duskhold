@@ -533,7 +533,8 @@ func _draw_place(p: Array, reach: PackedInt32Array) -> void:
 		head.add_child(Look.button("Take all", func() -> void: bag.take_all(x, y, defs)))
 	if mine:
 		head.add_child(Look.button("Stash all finds", func() -> void: bag.stash_finds(x, y)))
-	elif fixture != 0:
+	elif fixture != 0 and _dusk.stash_check(x, y) == 0:
+		# Only where it can be (the second playtest: "obnoxious when you see it everywhere").
 		head.add_child(Look.button("Make it your stash", func() -> void: bag.mark_stash(x, y)))
 	var stacks := []
 	for s in n:

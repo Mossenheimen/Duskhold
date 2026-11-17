@@ -965,7 +965,14 @@ impl World {
             (true, ItemKind::Potion(d)) => self.drink_ticks(id, slot, d),
             _ => None,
         };
-        ticks.map(|t| t + reach)
+        // Taking a thing in hand is at once out of a fight (`guard.rs`).
+        ticks.map(|t| {
+            if using {
+                t + reach
+            } else {
+                self.equip_ticks(id, t + reach)
+            }
+        })
     }
 
     /// The ticks `id` would take to use the item at `slot` of its pack (still `def`) now, if it

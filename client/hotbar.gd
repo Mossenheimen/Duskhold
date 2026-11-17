@@ -57,6 +57,8 @@ var _base: PanelContainer  # the bar's frame
 var _strip: HBoxContainer
 var _globes: Array[ColorRect] = []  # health on the left; mana, faith or breath on the right
 var _globe_words: Array[Label] = []  # each one's numbers: on hover, or always with numbers on
+var _xp: ProgressBar  # how far into this level: thin, gold, along the bar's top
+var _breath: ProgressBar  # your breath, thin, along its foot: when the right globe holds mana or faith
 var _slots: Array[Button] = []
 var _glyphs: Array[TextureRect] = []
 var _caps: Array[Label] = []  # each slot's key
@@ -86,10 +88,34 @@ func _ready() -> void:
 	base.add_theme_stylebox_override("panel", frame)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(base)
+	# XP along the bar's top (the second playtest: "an xp bar for the character level on the main
+	# ui"), and breath along its foot, thin, when the right globe holds mana or faith: kept apart,
+	# as Diablo II keeps stamina from XP, since gold over amber reads as one bar.
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	base.add_child(column)
+	_xp = Look.bar(ProgressBar.new(), Look.GOLD)
+	_xp.custom_minimum_size = Vector2(0, 8)
+	_xp.max_value = 1.0
+	_xp.step = 0.0
+	_xp.mouse_filter = Control.MOUSE_FILTER_PASS  # for its tooltip
+	# A faint gold edge, so the track reads as a bar even with no XP in it yet.
+	var track: StyleBox = _xp.get_theme_stylebox("background")
+	track.set("edge", Color(Look.GOLD, 0.35))
+	track.set("width", 1.0)
+	column.add_child(_xp)
 	_strip = HBoxContainer.new()
 	_strip.add_theme_constant_override("separation", 8)
 	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base.add_child(_strip)
+	column.add_child(_strip)
+	_breath = Look.bar(ProgressBar.new(), Look.ENDURANCE)
+	_breath.custom_minimum_size = Vector2(0, 6)
+	_breath.max_value = 1.0
+	_breath.step = 0.0
+	_breath.mouse_filter = Control.MOUSE_FILTER_PASS
+	_breath.visible = false
+	column.add_child(_breath)
 	for k in POWERS + LOOPS:
 		if k == POWERS:
 			# The belt's loops a little apart from the powers.
@@ -157,12 +183,22 @@ func _show_globes() -> void:
 	_globe(0, body[0] / 10.0 if body.size() > 0 else 0.0, most, Look.HEALTH, "Health")
 	var mana: PackedInt32Array = _dusk.character_mana()
 	var faith: PackedInt32Array = _dusk.faith()
+	var breath := body[1] / 10.0 if body.size() > 1 else 0.0
+	_breath.value = breath / 100.0
+	_breath.tooltip_text = "Breath  ·  %d / 100" % roundi(breath)
+	_breath.visible = true
 	if mana.size() > 1 and mana[1] > 0:
 		_globe(1, mana[0], mana[1], Look.ARCANE, "Mana")
 	elif faith.size() > 1 and faith[1] > 0:
 		_globe(1, faith[0], faith[1], Look.FAITH, "Faith")
 	else:
-		_globe(1, body[1] / 10.0 if body.size() > 1 else 0.0, 100.0, Look.ENDURANCE, "Breath")
+		_globe(1, breath, 100.0, Look.ENDURANCE, "Breath")
+		_breath.visible = false
+	# How far into this level (DuskWorld.character_deeds(): its XP, where the level began, the next).
+	if deeds.size() > 3:
+		var span := deeds[3] - deeds[2]
+		_xp.value = 1.0 if deeds[3] < 0 or span <= 0 else clampf(float(deeds[1] - deeds[2]) / span, 0.0, 1.0)
+		_xp.tooltip_text = "Level %d  ·  %d / %d XP" % [deeds[0], deeds[1], deeds[3]] if deeds[3] >= 0 else "Level %d" % deeds[0]
 
 
 ## Globe `k` filled to `now` of `most`, its liquid `colour`; low (under a quarter), it throbs, as a
