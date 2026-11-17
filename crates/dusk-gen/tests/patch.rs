@@ -372,6 +372,42 @@ fn each_shop_holds_its_own_loot() {
 }
 
 #[test]
+fn every_containers_things_are_laid_out_in_its_grid() {
+    let data = data();
+    let region = data.region("hushlands").unwrap();
+    let mut laid = 0;
+    for seed in 1..=6 {
+        let (w, layout) = patch(seed, &data, region);
+        for lot in &layout.lots {
+            let inside = lot.inside();
+            for y in inside.y0..inside.y1 {
+                for x in inside.x0..inside.x1 {
+                    let at = dusk_core::TilePos::new(x, y, 0);
+                    let Some(grid) = w.store_grid(at) else {
+                        continue;
+                    };
+                    let mut cells = dusk_core::Cells::new(grid);
+                    for i in w.store(at) {
+                        let id = &data.defs.items[usize::from(i.def)].id;
+                        let cell = i
+                            .cell
+                            .unwrap_or_else(|| panic!("seed {seed}: {id} has no place at {at:?}"));
+                        let size = data.defs.size(i.def);
+                        assert!(
+                            cells.fits(cell, size),
+                            "seed {seed}: {id} overlaps another at {at:?}"
+                        );
+                        cells.take(cell, size);
+                        laid += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert!(laid > 100, "{laid} stacks in six patches' containers");
+}
+
+#[test]
 fn the_tavern_was_full_when_the_dusk_came() {
     let data = data();
     let region = data.region("hushlands").unwrap();

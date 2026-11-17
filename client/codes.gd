@@ -125,6 +125,7 @@ enum Event {
 	WALL_BROKE = 119,
 	QUAFFED = 120,
 	WANED = 121,
+	NO_ROOM = 122,
 }
 
 ## An item's kind, by definition (DuskWorld.item_kinds()).

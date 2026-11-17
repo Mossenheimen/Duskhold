@@ -236,20 +236,34 @@ impl World {
         };
         a.hands = wield.map(|def| Item::new(def, 1));
         let mut potions = Vec::new();
+        let mut carried = Vec::new();
         for &item in pack {
             if defs.potion(item.def).is_some() {
                 potions.push(item);
             } else {
-                defs.stow(&mut a.items, item);
+                carried.push(item);
             }
         }
         a.faith = faith;
-        // And the armour it comes in (`armour.rs`).
         let wear = a
             .class
             .and_then(|c| defs.classes.get(usize::from(c)))
             .map(|c| c.wear.clone())
             .unwrap_or_default();
+        // What it carries, laid out in its pockets (`pack.rs`).
+        for item in carried {
+            let left = self.stow_in(id, item);
+            if left > 0 {
+                self.fall_at_feet(
+                    id,
+                    Item {
+                        count: left,
+                        ..item
+                    },
+                );
+            }
+        }
+        // And the armour it comes in (`armour.rs`).
         for def in wear {
             self.don(id, Item::new(def, 1));
         }

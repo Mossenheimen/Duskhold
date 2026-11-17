@@ -543,6 +543,13 @@ pub enum Event {
         item: u16,
         count: u16,
     },
+    /// `count` of an item that came to `who` (made, bought, put away from its hand) had no room
+    /// in its pack: it fell at its feet (`pack.rs`).
+    NoRoom {
+        who: ActorId,
+        item: u16,
+        count: u16,
+    },
     /// `who` took a weapon in hand.
     Wielded {
         who: ActorId,

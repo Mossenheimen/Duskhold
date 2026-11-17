@@ -136,6 +136,7 @@ pub mod event {
         WALL_BROKE = 119,
         QUAFFED = 120,
         WANED = 121,
+        NO_ROOM = 122,
     }
 }
 

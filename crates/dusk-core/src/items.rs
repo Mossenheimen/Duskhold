@@ -18,6 +18,10 @@ use crate::world::{Event, Swing, World};
 /// A full condition: a new weapon.
 pub const NEW: u16 = 1000;
 
+/// A container's grid, cells across and down, where its fixture doesn't say (`pack.rs`): room
+/// enough for tests and tools.
+pub const CONTAINER_GRID: (u8, u8) = (16, 16);
+
 /// One item, or a stack of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "save", derive(serde::Serialize, serde::Deserialize))]
@@ -41,6 +45,10 @@ pub struct Item {
     /// a pack.
     #[cfg_attr(feature = "save", serde(default))]
     pub belt: u8,
+    /// Where it sits in its grid (`pack.rs`): its top-left cell, in a pack's pockets or bag, or in
+    /// a container. None on a floor, on the belt, in hand or worn, or where it has no place yet.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub cell: Option<crate::pack::Cell>,
 }
 
 impl Item {
@@ -56,6 +64,7 @@ impl Item {
             bagged: false,
             holds: 0,
             belt: 0,
+            cell: None,
         }
     }
 }
@@ -163,6 +172,9 @@ pub struct Defs {
     pub fixtures: Vec<String>,
     /// By fixture number: the loot table of a container (None for a fixture that isn't one).
     pub containers: Vec<Option<u16>>,
+    /// By fixture number: a container's grid, cells across and down (`pack.rs`; (0, 0) or left
+    /// out: `CONTAINER_GRID`).
+    pub grids: Vec<(u8, u8)>,
     /// By fixture number: whether it's a bed (sleep beside one rests you twice as fast).
     pub beds: Vec<bool>,
     /// By fixture number: whether it's water to drink from, as a pond is (a well).
@@ -189,8 +201,10 @@ pub struct Defs {
     pub kit: Vec<Item>,
     /// Grams a character carries before it's weighed down (no running).
     pub carry: u32,
-    /// Grams a character's pockets hold, with no bag (`bag.rs`).
-    pub pockets: u32,
+    /// A character's pockets, cells across and down: what fits there with no bag (`pack.rs`).
+    pub pockets: (u8, u8),
+    /// By item number: the cells each takes up, across and down (`pack.rs`; left out: one).
+    pub sizes: Vec<(u8, u8)>,
     /// How long item actions take, in ticks: taking (plus `take_per_kg` for each kilogram),
     /// dropping, taking something in hand, putting it away, lighting a light and holding it up,
     /// and putting it out.
@@ -248,6 +262,7 @@ impl Default for Defs {
             loot: Vec::new(),
             fixtures: Vec::new(),
             containers: Vec::new(),
+            grids: Vec::new(),
             beds: Vec::new(),
             wells: Vec::new(),
             shrines: Vec::new(),
@@ -261,8 +276,9 @@ impl Default for Defs {
             wield: None,
             kit: Vec::new(),
             carry: 0,
-            // No limit: tests that aren't about bags carry what they like.
-            pockets: u32::MAX,
+            // Room enough: tests that aren't about the pack carry what they like.
+            pockets: (16, 16),
+            sizes: Vec::new(),
             take: 0,
             take_per_kg: 0,
             drop: 0,
@@ -338,22 +354,47 @@ impl Defs {
             .map_or(0, |d| d.weight * u32::from(item.count))
     }
 
-    /// How a stack goes into a list: onto a stack of the same, in the same condition and the
-    /// same place (pockets, bag or a loop of the belt), that has room (a half-burnt candle doesn't
-    /// join new ones), else on its own.
+    /// The cells an item takes up in a grid, across and down (`pack.rs`): one for any the data
+    /// gives no size.
+    pub fn size(&self, def: u16) -> (u8, u8) {
+        self.sizes
+            .get(usize::from(def))
+            .copied()
+            .filter(|&(w, h)| w > 0 && h > 0)
+            .unwrap_or((1, 1))
+    }
+
+    /// A container fixture's grid, across and down: its own, else `CONTAINER_GRID`.
+    pub fn container_grid(&self, fixture: u16) -> (u8, u8) {
+        self.grids
+            .get(usize::from(fixture))
+            .copied()
+            .filter(|&(w, h)| w > 0 && h > 0)
+            .unwrap_or(CONTAINER_GRID)
+    }
+
+    /// Whether two stacks are alike enough to be one: the same thing, in the same condition,
+    /// a find or not, its magic and making the same, a full bag never (where they are aside).
+    pub fn alike(&self, a: &Item, b: &Item) -> bool {
+        a.def == b.def
+            && a.condition == b.condition
+            && a.found == b.found
+            && a.magic == b.magic
+            && a.quality == b.quality
+            && a.holds == 0
+            && b.holds == 0
+    }
+
+    /// How a stack goes into a list with no grid (a floor, a creature's pack): onto a stack alike,
+    /// in the same place (pockets, bag or a loop of the belt), that has room (a half-burnt candle
+    /// doesn't join new ones), else on its own. A grid's own goes through `pack::place`.
     pub fn stow(&self, list: &mut Vec<Item>, item: Item) {
         let stack = self.item(item.def).map_or(1, |d| d.stack.max(1));
         let mut left = item.count;
         if stack > 1 {
             for held in list.iter_mut() {
-                let same = held.def == item.def
-                    && held.condition == item.condition
-                    && held.found == item.found
-                    && held.magic == item.magic
-                    && held.quality == item.quality
-                    && held.bagged == item.bagged
-                    && held.belt == item.belt
-                    && held.holds == item.holds;
+                let same =
+                    self.alike(held, &item) && held.bagged == item.bagged && held.belt == item.belt;
                 if same && held.count < stack && left > 0 {
                     let room = (stack - held.count).min(left);
                     held.count += room;
@@ -416,24 +457,38 @@ fn place_key(at: TilePos) -> u64 {
 
 impl World {
     /// Puts a thing in an actor's pack as it is, at once and whatever it weighs (a trial run's
-    /// `--give`, for pictures and checks; tools). False for no such actor.
+    /// `--give`, for pictures and checks; tools): where it fits in the bag, then the pockets, and
+    /// what doesn't fit into the pockets with no place (`pack.rs`). False for no such actor.
     pub fn give(&mut self, id: ActorId, item: Item) -> bool {
-        let Some(a) = self.actors.get_mut(id) else {
+        if self.actors.get(id).is_none() {
             return false;
-        };
-        self.defs.stow(&mut a.items, item);
+        }
+        let left = self.stow_in(id, item);
+        if left > 0 {
+            let defs = self.defs.clone();
+            if let Some(a) = self.actors.get_mut(id) {
+                let rest = Item {
+                    count: left,
+                    bagged: false,
+                    belt: 0,
+                    cell: None,
+                    ..item
+                };
+                defs.stow(&mut a.items, rest);
+            }
+        }
         true
     }
 
     /// What a tile holds: its container's contents (worked out from the seed if nobody has
-    /// changed them), or what lies on its floor.
+    /// changed them, and laid out on its grid), or what lies on its floor.
     pub fn store(&self, at: TilePos) -> Vec<Item> {
         if let Some(held) = self.stores.get(&at) {
             return held.clone();
         }
         let fixture = self.grid.tile(at).fixture;
         match self.defs.container(fixture) {
-            Some(Some(table)) => self.fill(at, table),
+            Some(Some(table)) => self.laid_out(at, self.fill(at, table)),
             _ => Vec::new(),
         }
     }
@@ -547,11 +602,28 @@ impl World {
             .collect()
     }
 
-    /// Puts an item on a tile's floor (or into its container): for tests, tools and scripted
-    /// events.
+    /// Puts an item on a tile's floor, or into its container where its grid has room (what
+    /// doesn't fit goes in with no place): for tests, tools and scripted events.
     pub fn put(&mut self, at: TilePos, item: Item) {
         let mut held = self.store(at);
-        self.defs.stow(&mut held, item.loose());
+        match self.store_grid(at) {
+            Some(size) => {
+                let mut cells = crate::pack::cells_of(&self.defs, size, &held, |_| true, None);
+                let piece = Item {
+                    cell: None,
+                    ..item.loose()
+                };
+                let left =
+                    crate::pack::place(&self.defs, &mut held, &mut cells, piece, |_| true, None);
+                if left > 0 {
+                    held.push(Item {
+                        count: left,
+                        ..piece
+                    });
+                }
+            }
+            None => self.defs.stow(&mut held, item.loose()),
+        }
         self.stores.insert(at, held);
     }
 
@@ -650,8 +722,16 @@ impl World {
 
     /// Takes the stack at `slot` of what's on `at` (it must still be `def`, within reach, with
     /// room for some of it): as many as fit, a potion onto the belt (`potion.rs`), then into the
-    /// bag, then the pockets (`bag.rs`). A full bag is taken whole.
-    pub(crate) fn take(&mut self, id: ActorId, at: TilePos, slot: u16, def: u16) {
+    /// bag, then the pockets (`bag.rs`), each where its grid has room (`pack.rs`); or where `to`
+    /// asks (the bag's grid or the pockets', and a cell), first. A full bag is taken whole.
+    pub(crate) fn take(
+        &mut self,
+        id: ActorId,
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        to: Option<(bool, crate::pack::Cell)>,
+    ) {
         let Ok(n) = self.can_take(id, at, slot, def) else {
             return;
         };
@@ -673,7 +753,20 @@ impl World {
             self.don_bag(id, Item { count: 1, ..item });
             return;
         }
-        self.carry_in(id, Item { count: n, ..item });
+        let taken = Item { count: n, ..item };
+        let left = match to {
+            Some((bagged, cell)) => self.stow_grid(id, taken, bagged, Some(cell)),
+            None => n,
+        };
+        if left > 0 {
+            self.carry_in(
+                id,
+                Item {
+                    count: left,
+                    ..item
+                },
+            );
+        }
         self.events.push(Event::Took {
             who: id,
             item: def,
@@ -719,6 +812,8 @@ impl World {
             a.items.insert(slot, rest);
             item.count = 1;
         }
+        // In hand, it has no cell (`pack.rs`).
+        item.cell = None;
         // A shield goes on the off arm, and the light held there goes out, into the pack.
         let shield = matches!(defs.item(def).map(|d| &d.kind), Some(ItemKind::Shield(_)));
         let back = if shield {

@@ -130,6 +130,10 @@ pub struct Fixture {
     /// [foraging]; left out: it isn't one).
     #[serde(default)]
     pub forage: Option<forage::ForageFile>,
+    /// A container's grid, cells across and down (`pack.rs` in the core): what fits in it (left
+    /// out: room enough).
+    #[serde(default)]
+    pub grid: Option<(u8, u8)>,
 }
 
 /// A building, as a text grid. Its main door is on its `front` side.
@@ -479,6 +483,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
     // The spells before the classes: a class knows some of them.
     defs.spells = spells::load(dir, &defs)?;
     (defs.classes, defs.talents) = class::load(dir, &defs)?;
+    items::check_room(dir, &rules_file, &defs)?;
     if let Some(m) = &raw.magic {
         defs.magic = magic::to_rules(&rules_file, m)?;
     }
@@ -793,9 +798,10 @@ struct CharacterFile {
     path_budget: usize,
     health: f64,
     carry: f64,
-    /// Kilograms a character's pockets hold, with no bag (left out: no limit).
+    /// A character's pockets, a grid of cells across and down: what fits with no bag (left out:
+    /// room enough for anything).
     #[serde(default)]
-    pockets: Option<f64>,
+    pockets: Option<(u8, u8)>,
     #[serde(default)]
     wield: Option<String>,
     #[serde(default)]

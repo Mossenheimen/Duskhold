@@ -152,27 +152,98 @@ impl World {
     }
 
     /// Ticks to put the stack at `slot` of your pack into the container on `at`, if it can
-    /// start: the item is there, and the container within reach.
-    pub(crate) fn put_ticks(&self, id: ActorId, at: TilePos, slot: u16, def: u16) -> Option<u32> {
+    /// start: the item is there, the container within reach, and some of it fits in the
+    /// container's grid (onto `to`, if it's asked for: `pack.rs`).
+    pub(crate) fn put_ticks(
+        &self,
+        id: ActorId,
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        to: Option<crate::pack::Cell>,
+    ) -> Option<u32> {
         let a = self.actors.get(id)?;
         let item = a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
         if !self.is_container(at) || !within_reach(&self.grid, a.pos, at) {
+            return None;
+        }
+        if self.can_put(id, at, slot, def, to) == 0 {
             return None;
         }
         let kg = self.defs.weight(item) / 1000;
         Some(self.defs.take + self.defs.take_per_kg * kg)
     }
 
-    /// Puts the stack at `slot` of your pack into the container on `at` (the action's end). Into
-    /// your stash, a find is brought home: it pays its worth, once.
-    pub(crate) fn put_away(&mut self, id: ActorId, at: TilePos, slot: u16, def: u16) {
-        if self.put_ticks(id, at, slot, def).is_none() {
+    /// How many of the stack at `slot` of `id`'s pack (still `def`) the container on `at` has room
+    /// for: onto `to` if it's asked for (the stack alike there, or free cells), else anywhere in
+    /// its grid.
+    pub fn can_put(
+        &self,
+        id: ActorId,
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        to: Option<crate::pack::Cell>,
+    ) -> u16 {
+        let Some(item) = self
+            .actors
+            .get(id)
+            .and_then(|a| a.items.get(usize::from(slot)))
+            .filter(|i| i.def == def)
+        else {
+            return 0;
+        };
+        if !self.is_container(at) {
+            return 0;
+        }
+        let Some(cell) = to else {
+            return self.store_room(at, item, None);
+        };
+        let held = self.store(at);
+        let size = self.store_grid(at).unwrap_or(crate::items::CONTAINER_GRID);
+        let stack = self.defs.item(def).map_or(1, |d| d.stack.max(1));
+        match crate::pack::stack_at(&self.defs, &held, |_| true, cell) {
+            Some(k) if self.defs.alike(&held[k], item) => {
+                stack.saturating_sub(held[k].count).min(item.count)
+            }
+            Some(_) => 0,
+            None => {
+                let cells = crate::pack::cells_of(&self.defs, size, &held, |_| true, None);
+                if cells.fits(cell, self.defs.size(def)) {
+                    item.count.min(stack)
+                } else {
+                    0
+                }
+            }
+        }
+    }
+
+    /// Puts the stack at `slot` of your pack into the container on `at` (the action's end): as
+    /// many as its grid has room for, onto `to` first if it's asked for; the rest stays in your
+    /// pack. Into your stash, a find is brought home: it pays its worth, once.
+    pub(crate) fn put_away(
+        &mut self,
+        id: ActorId,
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        to: Option<crate::pack::Cell>,
+    ) {
+        if self.put_ticks(id, at, slot, def, to).is_none() {
             return;
         }
+        let n = self.can_put(id, at, slot, def, to);
         let Some(a) = self.actors.get_mut(id) else {
             return;
         };
-        let mut item = a.items.remove(usize::from(slot)).loose();
+        let s = usize::from(slot);
+        let whole = a.items[s];
+        if n >= whole.count {
+            a.items.remove(s);
+        } else {
+            a.items[s].count -= n;
+        }
+        let mut item = Item { count: n, ..whole }.loose();
         let home = a.stash == Some(at);
         self.events.push(Event::Put {
             who: id,
@@ -192,8 +263,20 @@ impl World {
             self.gain_deeds(id, xp);
         }
         let mut held = self.store(at);
-        self.defs.stow(&mut held, item);
+        let size = self.store_grid(at).unwrap_or(crate::items::CONTAINER_GRID);
+        let mut cells = crate::pack::cells_of(&self.defs, size, &held, |_| true, None);
+        let left = crate::pack::place(&self.defs, &mut held, &mut cells, item, |_| true, to);
         self.stores.insert(at, held);
+        // It was counted to fit; what didn't (it can't), back into the pack.
+        if left > 0 {
+            self.carry_in(
+                id,
+                Item {
+                    count: left,
+                    ..item
+                },
+            );
+        }
     }
 
     /// Adds deed XP; a level gained brings its health at once.

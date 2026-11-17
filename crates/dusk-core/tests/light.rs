@@ -126,7 +126,10 @@ fn a_roof_keeps_light_out_and_a_torch_brings_it_but_not_through_walls() {
     assert_eq!(a.light.map(|l| l.def), Some(TORCH));
     assert_eq!(
         a.items,
-        vec![Item::new(TORCH, 1)],
+        vec![Item {
+            cell: Some((0, 0)),
+            ..Item::new(TORCH, 1)
+        }],
         "one torch is left in the pack"
     );
 }
@@ -225,9 +228,13 @@ fn a_torch_burns_down_and_out() {
     assert_eq!(
         a.items,
         vec![
-            Item::new(TORCH, 1),
+            Item {
+                cell: Some((0, 0)),
+                ..Item::new(TORCH, 1)
+            },
             Item {
                 condition: 1000 - 10 * 17,
+                cell: Some((0, 1)),
                 ..Item::new(TORCH, 1)
             }
         ]

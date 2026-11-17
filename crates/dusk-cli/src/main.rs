@@ -518,6 +518,12 @@ fn describe(w: &World, e: Event) -> String {
         Event::Dropped { who, item, count } => {
             format!("{} dropped {count} of item {item}", name(who))
         }
+        Event::NoRoom { who, item, count } => {
+            format!(
+                "{} had no room for {count} of item {item}: it fell",
+                name(who)
+            )
+        }
         Event::Wielded { who, item } => format!("{} took item {item} in hand", name(who)),
         Event::WeaponBroke { who, item } => format!("{}'s item {item} broke", name(who)),
         Event::Bandaged { who, part } => {

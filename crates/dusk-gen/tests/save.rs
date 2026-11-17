@@ -208,6 +208,16 @@ fn the_golden_save_of_format_37_still_loads() {
             .any(|x| x.kind == WoundKind::Laceration && x.part == Part::LeftArm)
     );
     assert!(you.skills.xp[Skill::Athletics as usize] >= 12_345);
+    // Saved before the pack was a grid (`pack.rs`): laid out as it loads, each stack off the
+    // belt on cells of its own in your pockets.
+    let mut pockets = dusk_core::Cells::new(w.defs.pockets);
+    let carried: Vec<&Item> = you.items.iter().filter(|i| i.belt == 0).collect();
+    assert!(!carried.is_empty(), "the kit");
+    for i in carried {
+        let (cell, size) = (i.cell.expect("laid out as it loads"), w.defs.size(i.def));
+        assert!(!i.bagged && pockets.fits(cell, size), "{i:?}");
+        pockets.take(cell, size);
+    }
     // What was left on the ground, by id: two bandages, and a Keen sword, its roll as it fell.
     let d = &w.defs;
     let left = w.store(TilePos::new(60, 130, 0));

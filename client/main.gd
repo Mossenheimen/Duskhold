@@ -1328,6 +1328,9 @@ func _read_events() -> void:
 			Event.DROPPED:
 				if who == me:
 					hud.say("You dropped %s." % _items(extra))
+			Event.NO_ROOM:
+				if who == me:
+					hud.say("No room for %s: it's at your feet." % _items(extra))
 			Event.WIELDED:
 				if who == me:
 					var kinds: PackedInt32Array = dusk.item_kinds()

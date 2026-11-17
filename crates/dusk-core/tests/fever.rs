@@ -208,7 +208,13 @@ fn the_cure_works_at_any_stage_and_only_with_a_fever() {
         },
     );
     run(&mut w, 60);
-    assert_eq!(w.actor(me).unwrap().items, vec![Item::new(TINCTURE, 1)]);
+    assert_eq!(
+        w.actor(me).unwrap().items,
+        vec![Item {
+            cell: Some((0, 0)),
+            ..Item::new(TINCTURE, 1)
+        }]
+    );
 
     w.catch_fever(me);
     run(&mut w, 2 * DAY + MINUTE * 60);

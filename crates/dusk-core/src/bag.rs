@@ -1,36 +1,37 @@
-//! Bags (`CONCEPT.md`, the inventory: "lists with weights, not a grid; bags with capacities").
+//! Bags (`CONCEPT.md`, the inventory: pockets and bags with room, now as Path of Exile's grids).
 //!
-//! - **Pockets and a bag.** With no bag you carry what fits in your pockets (`Defs::pockets`).
-//!   A bag on your back (`Actor::bag`) holds its `capacity` more, and what's in it weighs less
-//!   on you by its `reduce`: a good pack carries a load well. Each stack of the pack is in one or
-//!   the other (`Item::bagged`).
+//! - **Pockets and a bag.** With no bag you carry what fits in your pockets' grid
+//!   (`Defs::pockets`). A bag on your back (`Actor::bag`) is a grid of its own (`Bag::grid`), and
+//!   what's in it weighs less on you by its `reduce`: a good pack carries a load well. Each stack
+//!   of the pack is in one or the other (`Item::bagged`), on its cells (`Item::cell`, `pack.rs`).
 //! - **What you take is bounded:** from a floor, a container or a counter, it goes into the bag
 //!   while there's room, then the pockets, as many of a stack as fit; with no room, none. What
-//!   comes to you otherwise (made, picked, cut up, coin for a sale, put away from your hand) is
-//!   never refused: into the bag while there's room, then the pockets, over full if need be. A
-//!   potion goes on the belt before either, while it has room (`potion.rs`): the belt is a place
-//!   of its own, weighing on you but taking none of the pockets' room.
+//!   comes to you otherwise (made, picked, cut up, coin for a sale, put away from your hand) goes
+//!   where there's room, and what doesn't fit falls at your feet (`Event::NoRoom`). A potion goes
+//!   on the belt before either, while it has room (`potion.rs`): the belt is a place of its own,
+//!   weighing on you but taking none of the grids' room.
 //! - **The bag is slower to reach into:** using a thing from it, taking it in hand, lighting it
 //!   or putting it on takes `Defs::from_bag` more. Moving a stack between the pockets and the
 //!   bag takes `Defs::shift`.
 //! - **A bag is put on from the pack** (`Defs::bag_on`). The one you wore comes off into the
-//!   pack, and what was in it moves into the new one. A bag you take with your back bare and no
-//!   room for it in your pockets goes straight on.
-//! - **Dropped, a bag falls with what's in it** (`World::held`), in a moment: the way to fight
-//!   unburdened. Taken up again, a full bag goes on your back with all of it; with one on
-//!   already, what's in it comes into yours as far as it fits. A body's bag falls full, and a
-//!   revenant carries yours.
+//!   pack, and what was in it moves into the new one, where it was if it fits there. A bag you
+//!   take with your back bare and no room for it in your pockets goes straight on.
+//! - **Dropped, a bag falls with what's in it** (`World::held`), each thing on its cell, in a
+//!   moment: the way to fight unburdened. Taken up again, a full bag goes on your back with all
+//!   of it, as it was; with one on already, what's in it comes into yours as far as it fits. A
+//!   body's bag falls full, and a revenant carries yours.
 
 use crate::actor::ActorId;
 use crate::geom::TilePos;
 use crate::items::{Defs, Item, ItemKind, within_reach};
+use crate::pack::{Cell, cells_of, in_grid, place};
 use crate::world::{Event, World};
 
-/// A bag's numbers, from its definition: the grams it holds, and per mille off the weight of
-/// what's in it, on your back.
+/// A bag's numbers, from its definition: its grid, cells across and down, and per mille off the
+/// weight of what's in it, on your back.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Bag {
-    pub capacity: u32,
+    pub grid: (u8, u8),
     pub reduce: u32,
 }
 
@@ -54,12 +55,13 @@ impl Defs {
 }
 
 impl Item {
-    /// Out of any bag, off any belt: what a stack is once it's off its carrier (on a floor, in a
-    /// container).
+    /// Out of any bag, off any belt, with no cell: what a stack is once it's off its carrier (on
+    /// a floor, in a container, before it's laid out there).
     pub fn loose(self) -> Item {
         Item {
             bagged: false,
             belt: 0,
+            cell: None,
             ..self
         }
     }
@@ -68,13 +70,6 @@ impl Item {
 /// `x` per mille of `n`.
 fn per(n: u32, x: u32) -> u32 {
     (u64::from(n) * u64::from(x) / 1000) as u32
-}
-
-/// How many of a stack of `most`, at `unit` grams each, fit in `room` grams: all of a stack that
-/// weighs nothing.
-fn fits(unit: u32, room: u32, most: u16) -> u16 {
-    room.checked_div(unit)
-        .map_or(most, |n| n.min(u32::from(most)) as u16)
 }
 
 impl World {
@@ -127,51 +122,84 @@ impl World {
         }
     }
 
-    /// How many of a stack `id` has room for: in its bag, and then in its pockets.
+    /// How many of a stack `id` has room for: in its bag's grid, and then in its pockets'
+    /// (`pack.rs`): onto stacks alike with room, then on free cells.
     pub fn room_for(&self, id: ActorId, item: &Item) -> (u16, u16) {
-        let (pockets, bagged) = self.filled(id);
-        let unit = self.weight_of(&Item { count: 1, ..*item });
-        let in_bag = self.worn_bag(id).map_or(0, |(_, b)| {
-            fits(unit, b.capacity.saturating_sub(bagged), item.count)
-        });
-        let left = item.count - in_bag;
-        (
-            in_bag,
-            fits(unit, self.defs.pockets.saturating_sub(pockets), left),
-        )
-    }
-
-    /// Puts a stack on `id`, never refusing it: a potion on the belt while it has room
-    /// (`potion.rs`), then into its bag as far as there's room, the rest into its pockets (over
-    /// full, if need be).
-    pub(crate) fn carry_in(&mut self, id: ActorId, item: Item) {
-        if let Some(rest) = self.belt_in(id, item) {
-            self.stow_in(id, rest);
+        let Some(a) = self.actors.get(id) else {
+            return (0, 0);
+        };
+        let mut list = a.items.clone();
+        let mut room = [0u16; 2];
+        let mut left = item.count;
+        for (k, bagged) in [true, false].into_iter().enumerate() {
+            let Some(size) = self.pack_grid(id, bagged).filter(|_| left > 0) else {
+                continue;
+            };
+            let mut cells = cells_of(&self.defs, size, &list, in_grid(bagged), None);
+            let piece = Item {
+                count: left,
+                bagged,
+                belt: 0,
+                cell: None,
+                ..*item
+            };
+            let rest = place(
+                &self.defs,
+                &mut list,
+                &mut cells,
+                piece,
+                in_grid(bagged),
+                None,
+            );
+            room[k] = left - rest;
+            left = rest;
         }
+        (room[0], room[1])
     }
 
-    /// As `carry_in`, but never onto the belt: into the bag as far as there's room, the rest into
-    /// the pockets.
-    pub(crate) fn stow_in(&mut self, id: ActorId, item: Item) {
-        let (in_bag, _) = self.room_for(id, &item);
-        let defs = self.defs.clone();
-        let Some(a) = self.actors.get_mut(id) else {
+    /// Puts a stack on `id`: a potion on the belt while it has room (`potion.rs`), then into its
+    /// bag as far as there's room, then its pockets; what doesn't fit falls at its feet, and it's
+    /// told (`Event::NoRoom`).
+    pub(crate) fn carry_in(&mut self, id: ActorId, item: Item) {
+        let Some(rest) = self.belt_in(id, item) else {
             return;
         };
-        if in_bag > 0 {
-            let bagged = Item {
-                count: in_bag,
-                bagged: true,
-                ..item
-            };
-            defs.stow(&mut a.items, bagged);
+        let left = self.stow_in(id, rest);
+        if left > 0 {
+            self.fall_at_feet(
+                id,
+                Item {
+                    count: left,
+                    ..rest
+                },
+            );
         }
-        if item.count > in_bag {
-            let loose = Item {
-                count: item.count - in_bag,
-                ..item.loose()
-            };
-            defs.stow(&mut a.items, loose);
+    }
+
+    /// Lets a stack that came to `id` with no room fall at its feet, and says so.
+    pub(crate) fn fall_at_feet(&mut self, id: ActorId, item: Item) {
+        let Some(pos) = self.actors.get(id).map(|a| a.pos) else {
+            return;
+        };
+        self.put(pos, item);
+        self.events.push(Event::NoRoom {
+            who: id,
+            item: item.def,
+            count: item.count,
+        });
+    }
+
+    /// As `carry_in`, but never onto the belt, and never at the feet: into the bag as far as
+    /// there's room, then the pockets. How many didn't fit.
+    pub(crate) fn stow_in(&mut self, id: ActorId, item: Item) -> u16 {
+        let left = if self.worn_bag(id).is_some() {
+            self.stow_grid(id, item, true, None)
+        } else {
+            item.count
+        };
+        match left {
+            0 => 0,
+            n => self.stow_grid(id, Item { count: n, ..item }, false, None),
         }
     }
 
@@ -216,6 +244,50 @@ impl World {
         }
     }
 
+    /// Whether `id` can take the stack at `slot` of what's on `at` (still `def`) onto `cell` of
+    /// one of its grids (`bagged`: the bag's): how many would go there, onto the stack alike that
+    /// covers it or onto free cells; 0 if none.
+    pub fn can_take_to(
+        &self,
+        id: ActorId,
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        bagged: bool,
+        cell: Cell,
+    ) -> u16 {
+        let Ok(n) = self.can_take(id, at, slot, def) else {
+            return 0;
+        };
+        let Some(item) = self.store(at).get(usize::from(slot)).copied() else {
+            return 0;
+        };
+        if item.holds != 0 {
+            return 0;
+        }
+        let (Some(a), Some(size)) = (self.actors.get(id), self.pack_grid(id, bagged)) else {
+            return 0;
+        };
+        let list = &a.items;
+        let cells = cells_of(&self.defs, size, list, in_grid(bagged), None);
+        let stack = self.defs.item(def).map_or(1, |d| d.stack.max(1));
+        let piece = Item {
+            bagged,
+            belt: 0,
+            cell: None,
+            ..item
+        };
+        // Only what lands on that cell counts: onto the stack there, or a new one there.
+        match crate::pack::stack_at(&self.defs, list, in_grid(bagged), cell) {
+            Some(k) if self.defs.alike(&list[k], &piece) => {
+                stack.saturating_sub(list[k].count).min(n)
+            }
+            Some(_) => 0,
+            None if cells.fits(cell, self.defs.size(def)) => n.min(stack),
+            None => 0,
+        }
+    }
+
     /// A full bag taken up from `at`: onto `id`'s back with all that's in it; or, with a bag on
     /// already, what's in it into yours as far as it fits, then the bag itself once it's empty, if
     /// there's room. What's left stays on `at`, in the bag.
@@ -225,14 +297,11 @@ impl World {
             holds: 0,
             ..bag.loose()
         };
-        let defs = self.defs.clone();
-        if let Some(a) = self.actors.get_mut(id)
-            && a.bag.is_none()
-        {
-            a.bag = Some(bag);
-            for c in contents {
-                defs.stow(&mut a.items, Item { bagged: true, ..c });
+        if self.actors.get(id).is_some_and(|a| a.bag.is_none()) {
+            if let Some(a) = self.actors.get_mut(id) {
+                a.bag = Some(bag);
             }
+            self.refill(id, contents);
             self.events.push(Event::Wore {
                 who: id,
                 item: bag.def,
@@ -241,10 +310,9 @@ impl World {
         }
         let mut left = Vec::new();
         for c in contents {
-            let (b, p) = self.room_for(id, &c);
-            let n = b + p;
+            let piece = Item { cell: None, ..c };
+            let n = c.count - self.stow_in(id, piece);
             if n > 0 {
-                self.stow_in(id, Item { count: n, ..c });
                 self.events.push(Event::Took {
                     who: id,
                     item: c.def,
@@ -271,7 +339,43 @@ impl World {
         self.put(at, full);
     }
 
-    /// A bag with `contents` in it, lying somewhere: `World::held` keeps them, by its `holds`.
+    /// What was in a bag, into the one on `id`'s back: each where it was if it fits there (it's
+    /// the same bag, or one as big), else wherever there's room in it, else the pockets, else at
+    /// `id`'s feet.
+    fn refill(&mut self, id: ActorId, contents: Vec<Item>) {
+        for c in contents {
+            let piece = Item {
+                bagged: true,
+                belt: 0,
+                ..c
+            };
+            let left = self.stow_grid(
+                id,
+                Item {
+                    cell: None,
+                    ..piece
+                },
+                true,
+                c.cell,
+            );
+            let left = match left {
+                0 => 0,
+                n => self.stow_grid(id, Item { count: n, ..piece }, false, None),
+            };
+            if left > 0 {
+                self.fall_at_feet(
+                    id,
+                    Item {
+                        count: left,
+                        ..c.loose()
+                    },
+                );
+            }
+        }
+    }
+
+    /// A bag with `contents` in it, lying somewhere: `World::held` keeps them, by its `holds`,
+    /// each on the cell it had in the bag.
     fn fill_bag(&mut self, bag: Item, contents: Vec<Item>) -> Item {
         if contents.is_empty() {
             return Item {
@@ -280,8 +384,15 @@ impl World {
             };
         }
         let n = self.held.last_key_value().map_or(1, |(&k, _)| k + 1);
-        self.held
-            .insert(n, contents.into_iter().map(Item::loose).collect());
+        let kept = contents
+            .into_iter()
+            .map(|i| Item {
+                bagged: false,
+                belt: 0,
+                ..i
+            })
+            .collect();
+        self.held.insert(n, kept);
         Item {
             holds: n,
             ..bag.loose()
@@ -316,7 +427,8 @@ impl World {
     }
 
     /// Puts a bag on `id`'s back. The one it wore comes off into its pack, and what was in it
-    /// moves into the new one (what doesn't fit, into the pockets).
+    /// moves into the new one (where it was if it fits there; what doesn't fit, into the pockets,
+    /// else at its feet).
     pub(crate) fn don_bag(&mut self, id: ActorId, bag: Item) {
         let Some(a) = self.actors.get_mut(id) else {
             return;
@@ -330,11 +442,12 @@ impl World {
             .partition(|i| i.bagged);
         a.items = rest;
         // From bag to bag, as they were: not onto the belt.
-        for c in contents {
-            self.stow_in(id, c);
-        }
+        self.refill(id, contents);
         if let Some(old) = old {
-            self.stow_in(id, old);
+            let left = self.stow_in(id, old);
+            if left > 0 {
+                self.fall_at_feet(id, old);
+            }
         }
         self.events.push(Event::Wore {
             who: id,
@@ -354,38 +467,60 @@ impl World {
     }
 
     /// How many of the stack at `slot` of `id`'s pack (still `def`) would move between its
-    /// pockets and its bag: as many as there's room for on the other side, none with no bag on,
-    /// nor for one on the belt (`World::can_belt` takes it off).
-    pub fn can_shift(&self, id: ActorId, slot: u16, def: u16) -> u16 {
-        let Some(item) = self
-            .actors
-            .get(id)
-            .and_then(|a| a.items.get(usize::from(slot)))
+    /// pockets and its bag: as many as there's room for on the other side (onto `to` there, if
+    /// it's asked for: the stack alike that covers it, or free cells), none with no bag on, nor
+    /// for one on the belt (`World::can_belt` takes it off).
+    pub fn can_shift(&self, id: ActorId, slot: u16, def: u16, to: Option<Cell>) -> u16 {
+        let Some(a) = self.actors.get(id) else {
+            return 0;
+        };
+        let Some(item) = a
+            .items
+            .get(usize::from(slot))
             .filter(|i| i.def == def && i.belt == 0)
         else {
             return 0;
         };
-        let Some((_, bag)) = self.worn_bag(id) else {
+        if self.worn_bag(id).is_none() {
+            return 0;
+        }
+        let other = !item.bagged;
+        let Some(size) = self.pack_grid(id, other) else {
             return 0;
         };
-        let (pockets, bagged) = self.filled(id);
-        let room = if item.bagged {
-            self.defs.pockets.saturating_sub(pockets)
-        } else {
-            bag.capacity.saturating_sub(bagged)
+        let mut list = a.items.clone();
+        let mut cells = cells_of(&self.defs, size, &list, in_grid(other), None);
+        let piece = Item {
+            bagged: other,
+            cell: None,
+            ..*item
         };
-        fits(
-            self.weight_of(&Item { count: 1, ..*item }),
-            room,
-            item.count,
-        )
+        if let Some(cell) = to {
+            let stack = self.defs.item(def).map_or(1, |d| d.stack.max(1));
+            return match crate::pack::stack_at(&self.defs, &list, in_grid(other), cell) {
+                Some(k) if self.defs.alike(&list[k], &piece) => {
+                    stack.saturating_sub(list[k].count).min(item.count)
+                }
+                Some(_) => 0,
+                None if cells.fits(cell, self.defs.size(def)) => item.count.min(stack),
+                None => 0,
+            };
+        }
+        item.count
+            - place(
+                &self.defs,
+                &mut list,
+                &mut cells,
+                piece,
+                in_grid(other),
+                None,
+            )
     }
 
     /// Moves the stack at `slot` of `id`'s pack (still `def`) between its pockets and its bag,
-    /// as many as fit.
-    pub(crate) fn shift(&mut self, id: ActorId, slot: u16, def: u16) {
-        let n = self.can_shift(id, slot, def);
-        let defs = self.defs.clone();
+    /// as many as fit, onto `to` if it's asked for.
+    pub(crate) fn shift(&mut self, id: ActorId, slot: u16, def: u16, to: Option<Cell>) {
+        let n = self.can_shift(id, slot, def, to);
         let Some(a) = self.actors.get_mut(id).filter(|_| n > 0) else {
             return;
         };
@@ -398,9 +533,26 @@ impl World {
         }
         let moved = Item {
             count: n,
-            bagged: !item.bagged,
+            cell: None,
             ..item
         };
-        defs.stow(&mut a.items, moved);
+        let left = self.stow_grid(id, moved, !item.bagged, to);
+        // It was counted to fit: anything left goes back where it came from, else at the feet.
+        if left > 0 {
+            let back = Item {
+                count: left,
+                ..moved
+            };
+            let left = self.stow_grid(id, back, item.bagged, None);
+            if left > 0 {
+                self.fall_at_feet(
+                    id,
+                    Item {
+                        count: left,
+                        ..item.loose()
+                    },
+                );
+            }
+        }
     }
 }

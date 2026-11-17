@@ -274,17 +274,14 @@ func _draw_pack(hands: PackedInt32Array, items: PackedInt32Array, carried: Packe
 	var bag: PackedInt32Array = _dusk.character_bag()
 	var pockets: PackedInt32Array = _dusk.character_pockets()
 	var bagged: PackedInt32Array = _dusk.character_bagged()
-	var wearing := bag.size() >= 5
-	if pockets.size() >= 2 and pockets[1] >= 0:
-		var full := pockets[0] > pockets[1]
-		var line := _line(_pack, "Pockets  ·  %.1f / %.1f kg%s" % [pockets[0] / 1000.0,
-			pockets[1] / 1000.0, "  ·  over full" if full else ""], Look.SMALL)
-		if full:
-			line.add_theme_color_override("font_color", Look.BAD)
+	var wearing := bag.size() >= 6
+	if pockets.size() >= 3:
+		_line(_pack, "Pockets  ·  %d × %d cells  ·  %.1f kg" % [pockets[1], pockets[2],
+			pockets[0] / 1000.0], Look.SMALL)
 	for place in ([0, 1] if wearing else [0]):
 		if place == 1:
-			var row := _row(_pack, "On your back: %s  ·  %.1f / %.1f kg in it, %d%% lighter" % [
-				_name(bag[0]), bag[2] / 1000.0, bag[3] / 1000.0, roundi(bag[4] / 10.0)])
+			var row := _row(_pack, "On your back: %s  ·  %d × %d cells  ·  %.1f kg in it, %d%% lighter" % [
+				_name(bag[0]), bag[3], bag[4], bag[2] / 1000.0, roundi(bag[5] / 10.0)])
 			_button(row, "Drop", func() -> void: _dusk.drop_bag())
 		for slot in range(items.size() / STACK):
 			var in_bag := slot < bagged.size() and bagged[slot] == 1
@@ -661,7 +658,7 @@ func _take(x: int, y: int, slot: int, def: int) -> int:
 
 ## Why nothing more fits: with no bag, it's the pockets.
 func _no_room() -> String:
-	if _dusk.character_bag().size() < 5:
+	if _dusk.character_bag().size() < 6:
 		return "No room for it: your pockets are full. A bag would hold more."
 	return "No room for it in your bag or your pockets."
 

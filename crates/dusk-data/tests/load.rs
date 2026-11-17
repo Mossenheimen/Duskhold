@@ -1974,10 +1974,10 @@ fn strength_and_fitness_load_and_nonsense_is_refused() {
 }
 
 #[test]
-fn bags_and_pockets_load_and_a_bag_that_holds_nothing_is_refused() {
+fn bags_and_pockets_load_as_grids_and_a_bag_with_no_grid_is_refused() {
     let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
     let defs = &data.defs;
-    assert_eq!(defs.pockets, 5000, "5 kg");
+    assert_eq!(defs.pockets, (4, 5), "four cells across, five down");
     assert_eq!(
         (defs.from_bag, defs.bag_on, defs.shift),
         (10, 15, 5),
@@ -1985,13 +1985,18 @@ fn bags_and_pockets_load_and_a_bag_that_holds_nothing_is_refused() {
     );
     let knapsack = defs.items.iter().position(|i| i.id == "knapsack").unwrap() as u16;
     let bag = defs.bag(knapsack).expect("a bag");
-    assert_eq!((bag.capacity, bag.reduce), (12_000, 400));
+    assert_eq!((bag.grid, bag.reduce), ((6, 4), 400));
+    assert_eq!(
+        defs.size(knapsack),
+        (2, 3),
+        "carried, it takes up six cells"
+    );
     let empty = r#"
 [[item]]
 id = "pouch"
 name = "pouch"
 weight = 0.1
-bag = { holds = 0.0, lighter = 0.1 }
+bag = { grid = [0, 2], lighter = 0.1 }
 "#;
     let mut files = test_files(PREFABS);
     files.push(("items/bags.toml", empty));
@@ -2000,6 +2005,62 @@ bag = { holds = 0.0, lighter = 0.1 }
         err.file.ends_with("bags.toml") && err.message.contains("\"pouch\""),
         "{err}"
     );
+}
+
+#[test]
+fn items_take_up_their_size_and_containers_their_grids() {
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let defs = &data.defs;
+    let item = |id: &str| defs.items.iter().position(|i| i.id == id).unwrap() as u16;
+    assert_eq!(defs.size(item("bandage")), (1, 1), "left out: one cell");
+    assert_eq!(defs.size(item("sword")), (1, 3));
+    assert_eq!(defs.size(item("hunting_bow")), (2, 4));
+    let fixture = |id: &str| defs.fixtures.iter().position(|f| f == id).unwrap() as u16;
+    assert_eq!(defs.container_grid(fixture("rack")), (8, 5));
+    assert_eq!(defs.container_grid(fixture("font")), (3, 3));
+    // Too big an item, a grid on what's no container, and a container too small for its loot.
+    let huge = r#"
+[[item]]
+id = "boulder"
+name = "boulder"
+weight = 50.0
+size = [5, 5]
+"#;
+    let mut files = test_files(PREFABS);
+    files.push(("items/boulder.toml", huge));
+    let err = load(&folder("boulder", &files)).unwrap_err();
+    assert!(err.message.contains("\"boulder\""), "{err}");
+    // A chest's grid holds what its loot gives at the most; one that can't, or a grid on what's
+    // no container, is refused.
+    let rags = "[[item]]\nid = \"rag\"\nname = \"rag\"\nweight = 0.1\nsize = [1, 2]\n";
+    let chest =
+        "[[loot]]\nid = \"chest\"\nrolls = [1, 2]\nitems = [{ item = \"rag\", weight = 1 }]\n";
+    let with = |name: &str, extra: &str| {
+        let fixtures = format!("{FIXTURES}{extra}");
+        let mut files = test_files(PREFABS);
+        files.retain(|(path, _)| *path != "fixtures.toml");
+        files.push(("fixtures.toml", &fixtures));
+        files.push(("items/rags.toml", rags));
+        files.push(("loot/chest.toml", chest));
+        load(&folder(name, &files))
+    };
+    let chest_with = |grid: &str| format!("[[fixture]]\nid = \"chest\"\nloot = \"chest\"\n{grid}");
+    let d = with("chest_grid", &chest_with("grid = [2, 2]\n"))
+        .unwrap_or_else(|e| panic!("{e}"))
+        .defs;
+    let at = d.fixtures.iter().position(|f| f == "chest").unwrap() as u16;
+    assert_eq!(d.container_grid(at), (2, 2));
+    for (name, extra) in [
+        ("chest_too_small", chest_with("grid = [1, 1]\n")),
+        ("chest_too_full", chest_with("grid = [1, 2]\n")),
+        (
+            "gridded_tree",
+            "[[fixture]]\nid = \"stump\"\ngrid = [2, 2]\n".to_string(),
+        ),
+    ] {
+        let err = with(name, &extra).unwrap_err();
+        assert!(err.file.ends_with("fixtures.toml"), "{name}: {err}");
+    }
 }
 
 #[test]

@@ -1,6 +1,7 @@
 # Herbs and what's made of them (crates/dusk-core/src/forage.rs): picked from wild plants
 # (fixtures.toml's forage, Y), and made into remedies (recipes.toml). Picked, they're yours, not
-# finds: they bring no XP home, though the abbey buys them.
+# finds: they bring no XP home, though the abbey buys them. Each takes up one cell of a grid
+# (pack.rs in the core).
 
 [[item]]
 id = "yarrow"

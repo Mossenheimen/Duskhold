@@ -226,7 +226,14 @@ fn a_bandage_stops_the_bleeding() {
     }));
     let a = w.actor(me).unwrap();
     assert!(!a.body.bleeding() && a.body.wounds[0].bandaged);
-    assert_eq!(a.items, vec![Item::new(BANDAGE, 1)], "one used");
+    assert_eq!(
+        a.items,
+        vec![Item {
+            cell: Some((0, 0)),
+            ..Item::new(BANDAGE, 1)
+        }],
+        "one used"
+    );
     let seen = act(
         &mut w,
         me,

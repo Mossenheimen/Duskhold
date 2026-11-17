@@ -123,7 +123,7 @@ impl World {
                 ActionKind::Shove => self.shove(id, action.dir),
                 ActionKind::Door => self.toggle_door(id, action.dir),
                 ActionKind::Struggle => self.struggle(id),
-                ActionKind::Take { at, slot, def } => self.take(id, at, slot, def),
+                ActionKind::Take { at, slot, def, to } => self.take(id, at, slot, def, to),
                 ActionKind::Drop { slot, def } => self.drop_item(id, slot, def),
                 ActionKind::Use { slot, def } => self.use_item(id, slot, def),
                 ActionKind::Wield { slot, def } => self.wield(id, slot, def),
@@ -138,7 +138,7 @@ impl World {
                 ActionKind::Unboard => self.pry_board(id, action.dir),
                 ActionKind::Repair => self.repair(id, action.dir),
                 ActionKind::Stash { at } => self.mark_stash(id, at),
-                ActionKind::Put { at, slot, def } => self.put_away(id, at, slot, def),
+                ActionKind::Put { at, slot, def, to } => self.put_away(id, at, slot, def, to),
                 ActionKind::Burn { body } => self.kindle(id, body),
                 ActionKind::Butcher { body } => self.butcher(id, body),
                 ActionKind::Tend { at, tend } => self.tend(id, at, tend),
@@ -160,7 +160,7 @@ impl World {
                 ActionKind::Pick { at } => self.pick(id, at),
                 ActionKind::Wear { slot, def } => self.put_on(id, slot, def),
                 ActionKind::TakeOff { piece, def } => self.take_off(id, piece, def),
-                ActionKind::Shift { slot, def } => self.shift(id, slot, def),
+                ActionKind::Shift { slot, def, to } => self.shift(id, slot, def, to),
                 ActionKind::DropBag => self.drop_bag(id),
                 ActionKind::Cast { spell, at } => self.cast(id, spell, at),
                 ActionKind::Belt { slot, def } => self.belt_item(id, slot, def),
@@ -200,7 +200,33 @@ impl World {
                 if !crate::items::within_reach(&self.grid, a.pos, at) {
                     return None;
                 }
-                (ActionKind::Take { at, slot, def }, a.facing, ticks, 0, 0)
+                let kind = ActionKind::Take {
+                    at,
+                    slot,
+                    def,
+                    to: None,
+                };
+                (kind, a.facing, ticks, 0, 0)
+            }
+            // Path of Exile's: put down onto a cell of one of the pack's grids (`pack.rs`).
+            Intent::TakeTo {
+                at,
+                slot,
+                def,
+                bagged,
+                cell,
+            } => {
+                if self.can_take_to(id, at, slot, def, bagged, cell) == 0 {
+                    return None;
+                }
+                let ticks = self.take_ticks(id, at, slot, def)?;
+                let kind = ActionKind::Take {
+                    at,
+                    slot,
+                    def,
+                    to: Some((bagged, cell)),
+                };
+                (kind, a.facing, ticks, 0, 0)
             }
             Intent::Drop { slot, def } => {
                 a.items.get(usize::from(slot)).filter(|i| i.def == def)?;
@@ -246,10 +272,25 @@ impl World {
             }
             // Bags (`bag.rs`): a stack between the pockets and the bag, and the bag dropped.
             Intent::Shift { slot, def } => {
-                if self.can_shift(id, slot, def) == 0 {
+                if self.can_shift(id, slot, def, None) == 0 {
                     return None;
                 }
-                let kind = ActionKind::Shift { slot, def };
+                let kind = ActionKind::Shift {
+                    slot,
+                    def,
+                    to: None,
+                };
+                (kind, a.facing, self.defs.shift.max(1), 0, 0)
+            }
+            Intent::ShiftTo { slot, def, cell } => {
+                if self.can_shift(id, slot, def, Some(cell)) == 0 {
+                    return None;
+                }
+                let kind = ActionKind::Shift {
+                    slot,
+                    def,
+                    to: Some(cell),
+                };
                 (kind, a.facing, self.defs.shift.max(1), 0, 0)
             }
             Intent::DropBag => {
@@ -300,8 +341,29 @@ impl World {
                 (ActionKind::Stash { at }, a.facing, ticks, 0, 0)
             }
             Intent::Put { at, slot, def } => {
-                let ticks = self.put_ticks(id, at, slot, def)?.max(1);
-                (ActionKind::Put { at, slot, def }, a.facing, ticks, 0, 0)
+                let ticks = self.put_ticks(id, at, slot, def, None)?.max(1);
+                let kind = ActionKind::Put {
+                    at,
+                    slot,
+                    def,
+                    to: None,
+                };
+                (kind, a.facing, ticks, 0, 0)
+            }
+            Intent::PutTo {
+                at,
+                slot,
+                def,
+                cell,
+            } => {
+                let ticks = self.put_ticks(id, at, slot, def, Some(cell))?.max(1);
+                let kind = ActionKind::Put {
+                    at,
+                    slot,
+                    def,
+                    to: Some(cell),
+                };
+                (kind, a.facing, ticks, 0, 0)
             }
             Intent::Buy { at, line } => {
                 self.can_buy(id, at, line).ok()?;

@@ -182,8 +182,12 @@ fn a_find_put_in_your_stash_pays_its_worth_once() {
     let seen = act(&mut w, me, Intent::Stash { at: at(1) });
     assert!(seen.contains(&Event::Stashed { who: me, at: at(1) }));
 
-    // The cupboard's ten coins are finds.
-    assert_eq!(w.store(at(1)), vec![Item::found(COINS, 10)]);
+    // The cupboard's ten coins are finds, laid out in its grid.
+    let in_cupboard = |item: Item| Item {
+        cell: Some((0, 0)),
+        ..item
+    };
+    assert_eq!(w.store(at(1)), vec![in_cupboard(Item::found(COINS, 10))]);
     act(
         &mut w,
         me,
@@ -212,7 +216,7 @@ fn a_find_put_in_your_stash_pays_its_worth_once() {
     assert_eq!(w.actor(me).unwrap().deeds, 10_000);
     assert_eq!(
         w.store(at(1)),
-        vec![Item::new(COINS, 10)],
+        vec![in_cupboard(Item::new(COINS, 10))],
         "brought home: not a find any more"
     );
 
@@ -267,7 +271,13 @@ fn a_find_in_any_other_container_isnt_home() {
         },
     );
     assert!(!seen.iter().any(|e| matches!(e, Event::BroughtHome { .. })));
-    assert_eq!(w.store(at(1)), vec![Item::found(COINS, 10)]);
+    assert_eq!(
+        w.store(at(1)),
+        vec![Item {
+            cell: Some((0, 0)),
+            ..Item::found(COINS, 10)
+        }]
+    );
 }
 
 #[test]

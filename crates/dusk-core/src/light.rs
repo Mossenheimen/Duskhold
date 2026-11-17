@@ -181,6 +181,8 @@ impl World {
             a.items.insert(slot, rest);
             item.count = 1;
         }
+        // Held up, it has no cell (`pack.rs`).
+        item.cell = None;
         // The off arm holds a light or a shield: the shield goes in the pack (`shield.rs`).
         let shield = a.shield.take();
         if shield.is_some() {

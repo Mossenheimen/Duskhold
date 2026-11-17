@@ -1,7 +1,10 @@
-//! Bags: the pockets hold so much, and what doesn't fit isn't taken; a bag holds more, and what's
-//! in it weighs less; reaching into it is slower; stacks move between the two; a dropped bag
-//! falls with what's in it and goes back on with all of it; a new bag takes over the old one's
-//! load; what comes to you otherwise is never refused; and a full bag lasts a save, and a death.
+//! Pockets and bags as Path of Exile's grids (`pack.rs`): what fits is what you take, and the rest
+//! stays where it was; a thing needs its own shape of cells free; arranging within a grid takes
+//! no time and never overlaps; a bag is a grid of its own, and what's in it weighs less; reaching
+//! into it is slower; stacks move between the two, onto a cell asked for; a dropped bag falls
+//! with what's in it and goes back on with all of it, each thing where it was; a new bag takes
+//! over the old one's load; what comes to you with no room falls at your feet, and you're told;
+//! and a full bag lasts a save, and a death.
 
 use std::sync::Arc;
 
@@ -24,9 +27,10 @@ const SHIFT: u32 = 5;
 const TAKE: u32 = 4;
 const PER_KG: u32 = 1;
 
-/// A club in hand; a satchel (0.5 kg, holds 6 kg, a quarter lighter) and a knapsack (1 kg,
-/// holds 12 kg, 40% lighter); apples (150 g, ten a stack) and stones (2 kg, five a stack); and
-/// pockets that hold 2 kg. A revenant (1 health) for a body to rise as, at midnight.
+/// A club in hand (1 kg, one cell across and three down); a satchel (0.5 kg, two by two, a grid
+/// two by three, a quarter lighter) and a knapsack (1 kg, two by two, a grid four by three, 40%
+/// lighter); apples (150 g, ten a stack, a cell) and stones (2 kg, one a stack, a cell); and
+/// pockets two by two. A revenant (1 health) for a body to rise as, at midnight.
 fn defs() -> Defs {
     let item = |id: &str, weight: u32, stack: u16, kind: ItemKind| ItemDef {
         id: id.into(),
@@ -48,7 +52,7 @@ fn defs() -> Defs {
         wear: 0,
         skill: None,
     };
-    let bag = |capacity, reduce| ItemKind::Bag(Bag { capacity, reduce });
+    let bag = |grid, reduce| ItemKind::Bag(Bag { grid, reduce });
     let apple = ItemKind::Food {
         nutrition: 5000,
         time: 10,
@@ -62,14 +66,15 @@ fn defs() -> Defs {
     let mut defs = Defs {
         items: vec![
             item("club", 1000, 1, club),
-            item("satchel", 500, 1, bag(6000, 250)),
-            item("knapsack", 1000, 1, bag(12_000, 400)),
+            item("satchel", 500, 1, bag((2, 3), 250)),
+            item("knapsack", 1000, 1, bag((4, 3), 400)),
             item("apple", 150, 10, apple),
-            item("stone", 2000, 5, ItemKind::Other),
+            item("stone", 2000, 1, ItemKind::Other),
         ],
+        sizes: vec![(1, 3), (2, 2), (2, 2), (1, 1), (1, 1)],
         wield: Some(CLUB),
-        carry: 15_000,
-        pockets: 2000,
+        carry: 50_000,
+        pockets: (2, 2),
         take: TAKE,
         take_per_kg: PER_KG,
         drop: 2,
@@ -127,13 +132,17 @@ fn ticks(w: &mut World, me: ActorId, intent: Intent) -> u32 {
     length
 }
 
-/// Takes the first stack of `def` at your feet.
-fn take(w: &mut World, me: ActorId, def: u16) -> Vec<Event> {
-    let slot = w
-        .store(HERE)
+/// Where the first stack of `def` at your feet is.
+fn ground_slot(w: &World, def: u16) -> u16 {
+    w.store(HERE)
         .iter()
         .position(|i| i.def == def)
-        .expect("it's there") as u16;
+        .expect("it's there") as u16
+}
+
+/// Takes the first stack of `def` at your feet.
+fn take(w: &mut World, me: ActorId, def: u16) -> Vec<Event> {
+    let slot = ground_slot(w, def);
     act(
         w,
         me,
@@ -143,6 +152,14 @@ fn take(w: &mut World, me: ActorId, def: u16) -> Vec<Event> {
             def,
         },
     )
+}
+
+/// Takes `n` stones, one at a time, from what's put at your feet.
+fn take_stones(w: &mut World, me: ActorId, n: u16) {
+    w.put(HERE, Item::new(STONE, n));
+    for _ in 0..n {
+        take(w, me, STONE);
+    }
 }
 
 /// The first stack of `def` in your pack, in the bag or not: its slot.
@@ -166,6 +183,17 @@ fn count(w: &World, me: ActorId, def: u16, bagged: bool) -> u16 {
         .sum()
 }
 
+/// The cells the stacks of `def` sit on, in the bag or not, in the pack's order.
+fn cells(w: &World, me: ActorId, def: u16, bagged: bool) -> Vec<(u8, u8)> {
+    w.actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .filter(|i| i.def == def && i.bagged == bagged)
+        .map(|i| i.cell.expect("every stack in a grid has a cell"))
+        .collect()
+}
+
 /// Takes up a bag from your feet and puts it on.
 fn put_on(w: &mut World, me: ActorId, def: u16) {
     w.put(HERE, Item::new(def, 1));
@@ -176,53 +204,25 @@ fn put_on(w: &mut World, me: ActorId, def: u16) {
 }
 
 #[test]
-fn a_bag_with_no_room_in_the_pockets_goes_straight_on_a_bare_back() {
+fn the_pockets_hold_what_fits_and_the_rest_stays_where_it_was() {
     let (mut w, me) = field();
-    w.put(HERE, Item::new(STONE, 1));
-    take(&mut w, me, STONE);
-    assert_eq!(w.filled(me).0, 2000, "the pockets are full");
-    w.put(HERE, Item::new(SATCHEL, 1));
-    let seen = take(&mut w, me, SATCHEL);
-    assert!(seen.contains(&Event::Wore {
-        who: me,
-        item: SATCHEL
-    }));
-    assert_eq!(w.actor(me).unwrap().bag.map(|b| b.def), Some(SATCHEL));
-    // With one on, another there's no room for stays where it is.
-    w.put(HERE, Item::new(KNAPSACK, 1));
-    w.put(HERE, Item::new(STONE, 3));
-    take(&mut w, me, STONE);
-    assert_eq!(w.filled(me), (2000, 6000));
-    assert_eq!(w.can_take(me, HERE, 0, KNAPSACK), Err(NoTake::NoRoom));
-}
-
-/// The satchel on, three stones in it, dropped at your feet: a full bag on the ground.
-fn full_satchel_on_the_ground(w: &mut World, me: ActorId) {
-    put_on(w, me, SATCHEL);
-    w.put(HERE, Item::new(STONE, 3));
-    take(w, me, STONE);
-    assert_eq!(count(w, me, STONE, true), 3);
-    act(w, me, Intent::DropBag);
-}
-
-#[test]
-fn the_pockets_hold_so_much_and_what_doesnt_fit_stays_where_it_was() {
-    let (mut w, me) = field();
-    w.put(HERE, Item::new(APPLE, 20));
-    assert_eq!(w.can_take(me, HERE, 0, APPLE), Ok(10), "1.5 of 2 kg");
+    // Three stones take three of the pockets' four cells, down the first column, then across.
+    take_stones(&mut w, me, 3);
+    assert_eq!(cells(&w, me, STONE, false), vec![(0, 0), (0, 1), (1, 0)]);
+    w.put(HERE, Item::new(APPLE, 7));
     take(&mut w, me, APPLE);
-    assert_eq!(
-        w.can_take(me, HERE, 0, APPLE),
-        Ok(3),
-        "0.5 kg left: 3 of 10"
-    );
+    assert_eq!(cells(&w, me, APPLE, false), vec![(1, 1)], "the last cell");
+    // Ten more: only three go onto the seven, a full stack a cell; the rest stay.
+    w.put(HERE, Item::new(APPLE, 10));
+    let apples = ground_slot(&w, APPLE);
+    assert_eq!(w.can_take(me, HERE, apples, APPLE), Ok(3));
     let seen = take(&mut w, me, APPLE);
     assert!(seen.contains(&Event::Took {
         who: me,
         item: APPLE,
         count: 3
     }));
-    assert_eq!(count(&w, me, APPLE, false), 13);
+    assert_eq!(count(&w, me, APPLE, false), 10);
     assert_eq!(w.store(HERE)[0].count, 7, "the rest stay");
     assert_eq!(w.can_take(me, HERE, 0, APPLE), Err(NoTake::NoRoom));
     // With no room, a take never begins.
@@ -240,24 +240,140 @@ fn the_pockets_hold_so_much_and_what_doesnt_fit_stays_where_it_was() {
 }
 
 #[test]
-fn a_bag_holds_more_and_what_is_in_it_weighs_less() {
+fn a_thing_needs_its_own_shape_of_cells_free() {
+    let (mut w, me) = field();
+    // The club is three cells tall: never in pockets two deep.
+    act(&mut w, me, Intent::Unwield);
+    assert_eq!(count(&w, me, CLUB, false), 0);
+    assert_eq!(w.store(HERE)[0].def, CLUB, "it fell at your feet");
+    put_on(&mut w, me, SATCHEL);
+    // Stones taken onto cells asked for, one in each column of the satchel's: no column of three
+    // is free, though four cells are.
+    w.put(HERE, Item::new(STONE, 2));
+    for cell in [(0, 1), (1, 0)] {
+        let slot = ground_slot(&w, STONE);
+        assert_eq!(w.can_take_to(me, HERE, slot, STONE, true, cell), 1);
+        act(
+            &mut w,
+            me,
+            Intent::TakeTo {
+                at: HERE,
+                slot,
+                def: STONE,
+                bagged: true,
+                cell,
+            },
+        );
+    }
+    assert_eq!(cells(&w, me, STONE, true), vec![(0, 1), (1, 0)]);
+    let club = ground_slot(&w, CLUB);
+    assert_eq!(w.can_take(me, HERE, club, CLUB), Err(NoTake::NoRoom));
+    // One stone moved over: a column comes free, and the club fits.
+    let stone = slot(&w, me, STONE, true);
+    assert!(w.arrange(me, stone, STONE, (1, 1)));
+    assert_eq!(w.can_take(me, HERE, club, CLUB), Ok(1));
+    take(&mut w, me, CLUB);
+    assert_eq!(cells(&w, me, CLUB, true), vec![(0, 0)]);
+}
+
+#[test]
+fn arranging_takes_no_time_and_never_overlaps() {
+    let (mut w, me) = field();
+    take_stones(&mut w, me, 1);
+    w.put(HERE, Item::new(APPLE, 7));
+    take(&mut w, me, APPLE);
+    w.put(HERE, Item::new(APPLE, 5));
+    let apples = ground_slot(&w, APPLE);
+    // Asked for the last free cell, five apples go there and not onto the seven.
+    act(
+        &mut w,
+        me,
+        Intent::TakeTo {
+            at: HERE,
+            slot: apples,
+            def: APPLE,
+            bagged: false,
+            cell: (1, 1),
+        },
+    );
+    assert_eq!(cells(&w, me, APPLE, false), vec![(0, 1), (1, 1)]);
+    // The stone moved to a free cell, at once: no act, no time.
+    let stone = slot(&w, me, STONE, false);
+    let hash = w.state_hash();
+    assert_eq!(w.can_arrange(me, stone, STONE, (1, 0)), 1);
+    assert!(w.arrange(me, stone, STONE, (1, 0)));
+    assert!(w.actor(me).unwrap().action.is_none());
+    assert_ne!(w.state_hash(), hash, "it's where it was put");
+    assert_eq!(cells(&w, me, STONE, false), vec![(1, 0)]);
+    // Never onto another thing, nor off the grid.
+    let stone = slot(&w, me, STONE, false);
+    assert_eq!(w.can_arrange(me, stone, STONE, (0, 1)), 0);
+    assert!(!w.arrange(me, stone, STONE, (0, 1)));
+    assert!(!w.arrange(me, stone, STONE, (2, 0)));
+    // Onto a stack alike: as many as it has room for, the rest staying put.
+    let five = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.def == APPLE && i.count == 5)
+        .unwrap() as u16;
+    assert_eq!(w.can_arrange(me, five, APPLE, (0, 1)), 3);
+    assert!(w.arrange(me, five, APPLE, (0, 1)));
+    let apples: Vec<(u16, Option<(u8, u8)>)> = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .filter(|i| i.def == APPLE)
+        .map(|i| (i.count, i.cell))
+        .collect();
+    assert_eq!(apples, vec![(10, Some((0, 1))), (2, Some((1, 1)))]);
+}
+
+#[test]
+fn a_bag_with_no_room_in_the_pockets_goes_straight_on_a_bare_back() {
+    let (mut w, me) = field();
+    take_stones(&mut w, me, 4);
+    w.put(HERE, Item::new(SATCHEL, 1));
+    let seen = take(&mut w, me, SATCHEL);
+    assert!(seen.contains(&Event::Wore {
+        who: me,
+        item: SATCHEL
+    }));
+    assert_eq!(w.actor(me).unwrap().bag.map(|b| b.def), Some(SATCHEL));
+    // With one on and full, another there's no room for stays where it is.
+    take_stones(&mut w, me, 6);
+    assert_eq!(count(&w, me, STONE, true), 6);
+    w.put(HERE, Item::new(KNAPSACK, 1));
+    let knapsack = ground_slot(&w, KNAPSACK);
+    assert_eq!(
+        w.can_take(me, HERE, knapsack, KNAPSACK),
+        Err(NoTake::NoRoom)
+    );
+}
+
+#[test]
+fn a_bag_is_a_grid_of_its_own_and_what_is_in_it_weighs_less() {
     let (mut w, me) = field();
     put_on(&mut w, me, SATCHEL);
     assert!(w.actor(me).unwrap().items.is_empty(), "it's on your back");
     assert_eq!(w.load(me), 1000 + 500, "the club and the satchel");
-    // Five stones: three fill the satchel, one the pockets; one stays.
-    w.put(HERE, Item::new(STONE, 5));
-    assert_eq!(w.can_take(me, HERE, 0, STONE), Ok(4));
-    take(&mut w, me, STONE);
+    // Twelve stones: six fill the satchel, four the pockets; two stay.
+    take_stones(&mut w, me, 10);
+    w.put(HERE, Item::new(STONE, 2));
+    assert_eq!(w.can_take(me, HERE, 0, STONE), Err(NoTake::NoRoom));
     assert_eq!(
         (count(&w, me, STONE, true), count(&w, me, STONE, false)),
-        (3, 1),
+        (6, 4),
         "the bag first, then the pockets"
     );
-    assert_eq!(w.store(HERE)[0].count, 1);
-    assert_eq!(w.filled(me), (2000, 6000));
-    // The bag's 6 kg weigh a quarter less: 4.5.
-    assert_eq!(w.load(me), 1000 + 2000 + 4500 + 500);
+    assert_eq!(w.store(HERE).len(), 2);
+    assert_eq!(w.pack_grid(me, true), Some((2, 3)));
+    assert_eq!(w.pack_cells(me, true, None).unwrap().used(), 6);
+    assert_eq!(w.filled(me), (8000, 12_000));
+    // The bag's 12 kg weigh a quarter less: 9.
+    assert_eq!(w.load(me), 1000 + 8000 + 9000 + 500);
 }
 
 #[test]
@@ -297,20 +413,33 @@ fn reaching_into_the_bag_is_slower_than_into_the_pockets() {
 fn a_stack_moves_between_pockets_and_bag_as_far_as_it_fits() {
     let (mut w, me) = field();
     // A stone in the pockets with no bag: nowhere to move it.
-    w.put(HERE, Item::new(STONE, 1));
-    take(&mut w, me, STONE);
-    assert_eq!(w.can_shift(me, slot(&w, me, STONE, false), STONE), 0);
-    // The satchel on (the pockets are full: straight on), filled: three stones in it, the one
-    // in the pockets.
-    w.put(HERE, Item::new(SATCHEL, 1));
-    take(&mut w, me, SATCHEL);
-    w.put(HERE, Item::new(STONE, 3));
-    take(&mut w, me, STONE);
-    assert_eq!(w.filled(me), (2000, 6000));
+    take_stones(&mut w, me, 1);
+    assert_eq!(w.can_shift(me, slot(&w, me, STONE, false), STONE, None), 0);
+    act(
+        &mut w,
+        me,
+        Intent::Drop {
+            slot: 0,
+            def: STONE,
+        },
+    );
+    // The satchel on, and full, and the pockets full too.
+    put_on(&mut w, me, SATCHEL);
+    take_stones(&mut w, me, 10);
     let bagged = slot(&w, me, STONE, true);
-    assert_eq!(w.can_shift(me, bagged, STONE), 0, "the pockets are full");
-    // Drop the pocket stone, and one of the bag's three fits there.
-    let loose = slot(&w, me, STONE, false);
+    assert_eq!(
+        w.can_shift(me, bagged, STONE, None),
+        0,
+        "the pockets are full"
+    );
+    // Drop the stone on the pockets' last cell, and one of the bag's moves there, asked for.
+    let loose = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| !i.bagged && i.cell == Some((1, 1)))
+        .unwrap() as u16;
     act(
         &mut w,
         me,
@@ -320,20 +449,40 @@ fn a_stack_moves_between_pockets_and_bag_as_far_as_it_fits() {
         },
     );
     let bagged = slot(&w, me, STONE, true);
-    assert_eq!(w.can_shift(me, bagged, STONE), 1);
+    assert_eq!(w.can_shift(me, bagged, STONE, Some((0, 0))), 0, "taken");
+    assert_eq!(w.can_shift(me, bagged, STONE, Some((1, 1))), 1);
     let took = ticks(
         &mut w,
         me,
-        Intent::Shift {
+        Intent::ShiftTo {
             slot: bagged,
             def: STONE,
+            cell: (1, 1),
         },
     );
-    assert_eq!(took, SHIFT);
+    assert_eq!(took, SHIFT, "between grids, an act");
     assert_eq!(
         (count(&w, me, STONE, true), count(&w, me, STONE, false)),
-        (2, 1)
+        (5, 4)
     );
+    assert!(cells(&w, me, STONE, false).contains(&(1, 1)));
+}
+
+/// The satchel on, three stones in it (the last of them moved to the far column), dropped at
+/// your feet: a full bag on the ground.
+fn full_satchel_on_the_ground(w: &mut World, me: ActorId) {
+    put_on(w, me, SATCHEL);
+    take_stones(w, me, 3);
+    assert_eq!(count(w, me, STONE, true), 3);
+    let last = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.cell == Some((0, 2)))
+        .unwrap() as u16;
+    assert!(w.arrange(me, last, STONE, (1, 2)));
+    act(w, me, Intent::DropBag);
 }
 
 #[test]
@@ -361,7 +510,11 @@ fn a_dropped_bag_falls_with_whats_in_it_and_goes_back_on_with_all_of_it() {
     assert_eq!(took, TAKE + 6 * PER_KG);
     let a = w.actor(me).unwrap();
     assert_eq!(a.bag.map(|b| b.def), Some(SATCHEL), "back on");
-    assert_eq!(count(&w, me, STONE, true), 3, "with all of it");
+    assert_eq!(
+        cells(&w, me, STONE, true),
+        vec![(0, 0), (0, 1), (1, 2)],
+        "with all of it, where it was"
+    );
     assert!(w.store(HERE).is_empty());
 }
 
@@ -374,7 +527,7 @@ fn a_full_bag_taken_with_one_on_empties_into_yours() {
     assert!(seen.contains(&Event::Took {
         who: me,
         item: STONE,
-        count: 3
+        count: 1
     }));
     assert_eq!(count(&w, me, STONE, true), 3, "into the knapsack");
     assert_eq!(count(&w, me, SATCHEL, true), 1, "and the satchel after");
@@ -386,16 +539,12 @@ fn a_full_bag_taken_with_one_on_gives_what_fits_and_keeps_the_rest() {
     let (mut w, me) = field();
     full_satchel_on_the_ground(&mut w, me);
     put_on(&mut w, me, KNAPSACK);
-    // Six stones fill the knapsack; the pockets have room for one more.
-    w.put(HERE, Item::new(STONE, 5));
-    w.put(HERE, Item::new(STONE, 1));
-    take(&mut w, me, STONE);
-    take(&mut w, me, STONE);
-    assert_eq!(w.filled(me), (0, 12_000));
-    let satchel = w.store(HERE).iter().position(|i| i.def == SATCHEL).unwrap() as u16;
-    assert_eq!(w.can_take(me, HERE, satchel, SATCHEL), Ok(1));
+    // Twelve stones fill the knapsack, three the pockets: room for one more.
+    take_stones(&mut w, me, 15);
+    assert_eq!(count(&w, me, STONE, true), 12);
+    assert_eq!(w.can_take(me, HERE, 0, SATCHEL), Ok(1));
     take(&mut w, me, SATCHEL);
-    assert_eq!(count(&w, me, STONE, false), 1, "one into the pockets");
+    assert_eq!(count(&w, me, STONE, false), 4, "one into the pockets");
     let ground = w.store(HERE);
     assert_eq!(ground.len(), 1, "the satchel stays");
     assert_eq!(w.weight_of(&ground[0]), 500 + 4000, "with two stones in it");
@@ -407,8 +556,7 @@ fn a_full_bag_taken_with_one_on_gives_what_fits_and_keeps_the_rest() {
 fn a_new_bag_takes_over_what_was_in_the_old_one() {
     let (mut w, me) = field();
     put_on(&mut w, me, SATCHEL);
-    w.put(HERE, Item::new(STONE, 3));
-    take(&mut w, me, STONE);
+    take_stones(&mut w, me, 3);
     w.put(HERE, Item::new(KNAPSACK, 1));
     take(&mut w, me, KNAPSACK);
     let at = slot(&w, me, KNAPSACK, false);
@@ -422,24 +570,36 @@ fn a_new_bag_takes_over_what_was_in_the_old_one() {
     );
     assert_eq!(took, BAG_ON, "from the pockets: no reaching into the bag");
     assert_eq!(w.actor(me).unwrap().bag.map(|b| b.def), Some(KNAPSACK));
-    assert_eq!(count(&w, me, STONE, true), 3, "the stones moved across");
-    assert_eq!(count(&w, me, SATCHEL, true), 1, "the satchel went in too");
+    assert_eq!(
+        cells(&w, me, STONE, true),
+        vec![(0, 0), (0, 1), (0, 2)],
+        "the stones moved across, where they were"
+    );
+    assert_eq!(
+        cells(&w, me, SATCHEL, true),
+        vec![(1, 0)],
+        "the satchel went in too"
+    );
     // 6.5 kg in the knapsack, 40% lighter: 3.9, and the knapsack itself.
     assert_eq!(w.load(me), 1000 + 3900 + 1000);
 }
 
 #[test]
-fn what_comes_to_you_otherwise_is_never_refused() {
+fn what_comes_to_you_with_no_room_falls_at_your_feet() {
     let (mut w, me) = field();
-    w.put(HERE, Item::new(STONE, 1));
-    take(&mut w, me, STONE);
-    assert_eq!(w.filled(me).0, 2000, "the pockets are full");
-    // Putting the club away: it goes in all the same, over full.
-    act(&mut w, me, Intent::Unwield);
-    assert_eq!(w.filled(me).0, 3000);
-    assert_eq!(count(&w, me, CLUB, false), 1);
+    take_stones(&mut w, me, 4);
+    // Putting the club away with the pockets full: it falls, and you're told.
+    let seen = act(&mut w, me, Intent::Unwield);
+    assert!(seen.contains(&Event::NoRoom {
+        who: me,
+        item: CLUB,
+        count: 1
+    }));
+    assert!(w.actor(me).unwrap().hands.is_none());
+    assert_eq!(count(&w, me, CLUB, false), 0);
+    assert_eq!(w.store(HERE)[0].def, CLUB);
     w.put(HERE, Item::new(APPLE, 1));
-    let apple = w.store(HERE).len() as u16 - 1;
+    let apple = ground_slot(&w, APPLE);
     assert_eq!(w.can_take(me, HERE, apple, APPLE), Err(NoTake::NoRoom));
 }
 
@@ -453,9 +613,9 @@ fn a_full_bag_lasts_a_save() {
     assert_eq!(a.state_hash(), b.state_hash(), "the same world");
     take(&mut b, me, SATCHEL);
     assert_eq!(
-        count(&b, me, STONE, true),
-        3,
-        "and the stones are still in it"
+        cells(&b, me, STONE, true),
+        vec![(0, 0), (0, 1), (1, 2)],
+        "and the stones are still in it, where they were"
     );
 }
 

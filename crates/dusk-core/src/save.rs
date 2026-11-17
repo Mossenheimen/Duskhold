@@ -328,6 +328,8 @@ impl World {
         self.regrowing = state.regrowing;
         self.decoys = state.decoys;
         self.set_actors(state.actors, state.characters, state.sounds);
+        // An older save's pack and containers, with no cells, laid out on their grids (`pack.rs`).
+        self.settle();
         Ok(state.memory)
     }
 }
@@ -585,6 +587,7 @@ impl Remap {
             bagged: _,
             holds: _,
             belt: _,
+            cell: _,
         } = item;
         *def = self.items.get(*def)?;
         let Magic {

@@ -1,4 +1,5 @@
-# Supplies. weight in kg for one; stack: how many make one stack. A bandage goes on the worst
+# Supplies. weight in kg for one; stack: how many make one stack; size: the cells a stack takes
+# up in a grid, across and down (pack.rs in the core; left out: one). A bandage goes on the worst
 # wound that's bleeding and stops it (time: seconds to put on). Food takes hunger away and drink
 # thirst (out of 100: rules.toml's [hunger] and [thirst]). A light is held up lit in your other
 # hand: it lights the tiles round it, and burns down until it goes out (rules.toml, [day]).
@@ -33,6 +34,7 @@ cure = { time = 3.0 }
 id = "lamp_oil"
 name = "flask of lamp oil"
 weight = 0.5
+size = [1, 2]
 worth = 2             # better poured on the dead than banked
 stack = 4
 oil = true            # poured on a body and set alight, it burns it, and it won't get up (rules.toml, [burning])
@@ -41,6 +43,7 @@ oil = true            # poured on a body and set alight, it burns it, and it won
 id = "holy_water"
 name = "flask of holy water"
 weight = 0.5
+size = [1, 2]
 worth = 3
 stack = 4
 holy = true           # poured on a body, it consecrates it: it won't get up, and nothing burns (rules.toml, [faith])
@@ -73,6 +76,7 @@ food = { nutrition = 20, time = 2.5 }
 id = "water"
 name = "bottle of water"
 weight = 0.6
+size = [1, 2]
 worth = 2
 stack = 4
 drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
@@ -81,6 +85,7 @@ drink = { water = 40, time = 2.0 }    # thirst it takes away, seconds to drink
 id = "torch"
 name = "torch"
 weight = 0.6
+size = [1, 2]
 worth = 2
 stack = 5
 light = { radius = 7, burn = 1.0 }   # tiles it lights (you see about 6 by it), game hours it burns
@@ -114,6 +119,7 @@ decoy = { wind = 2.0, delay = 10.0, every = 2.0, lasts = 90.0, noise = 14 }   # 
 id = "plank"
 name = "plank"
 weight = 2.0
+size = [1, 4]
 worth = 1
 stack = 5
 fuel = 1.0            # burns, at a pinch: better nailed across a window
@@ -124,6 +130,7 @@ name = "door"
 # Planks nailed to a frame (build.rs): hung with a hammer in a gap in a wall you face, one framed at
 # both ends (where a door gave way). Then it's a door like any.
 weight = 12.0
+size = [3, 4]
 worth = 8
 piece = "door"
 
@@ -133,6 +140,7 @@ name = "wall of planks"
 # Planks nailed edge to edge (build.rs): put up with a hammer on any open side you face. It stops
 # the dead as a wall does, but they beat on it as on a door, and it gives way past its strength.
 weight = 10.0
+size = [3, 4]
 worth = 6
 piece = "wall"
 
@@ -140,6 +148,7 @@ piece = "wall"
 id = "firewood"
 name = "split log"
 weight = 1.5
+size = [1, 2]
 worth = 0             # firewood is no find
 stack = 6
 fuel = 2.0            # game hours it burns: four see a fire through the night
@@ -157,6 +166,7 @@ stack = 100
 id = "ale"
 name = "jug of ale"
 weight = 0.8
+size = [1, 2]
 worth = 3
 stack = 4
 drink = { water = 35, time = 3.0 }
@@ -218,6 +228,7 @@ food = { nutrition = 40, time = 5.0, comfort = 20, keeps = 3 }
 id = "cooking_pot"
 name = "cooking pot"
 weight = 1.5
+size = [2, 2]
 worth = 2
 stack = 1
 
@@ -243,6 +254,7 @@ food = { nutrition = 40, time = 4.0, comfort = 12, keeps = 4 }
 id = "wolf_pelt"
 name = "wolf pelt"
 weight = 1.5
+size = [2, 2]
 worth = 6             # a trophy: brought home, it's worth the risk
 stack = 2
 
@@ -252,6 +264,7 @@ stack = 2
 id = "arrow"
 name = "arrow"
 weight = 0.05
+size = [1, 3]
 worth = 0.2
 stack = 30
 

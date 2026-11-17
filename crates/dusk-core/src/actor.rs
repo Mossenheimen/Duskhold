@@ -147,6 +147,30 @@ pub enum Intent {
     /// Put the potions at `slot` of your pack on your belt, as many as fit, or take them off it
     /// into your bag and pockets (`potion.rs`).
     Belt { slot: u16, def: u16 },
+    /// Take the stack at `slot` of what's on `at` (still `def`) onto `cell` of one of your grids
+    /// (`bagged`: the bag's), as Path of Exile's: where it's put down (`pack.rs`). What doesn't
+    /// go there goes where there's room.
+    TakeTo {
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        bagged: bool,
+        cell: crate::pack::Cell,
+    },
+    /// Put the stack at `slot` of your pack (still `def`) onto `cell` of the container on `at`.
+    PutTo {
+        at: TilePos,
+        slot: u16,
+        def: u16,
+        cell: crate::pack::Cell,
+    },
+    /// Move the stack at `slot` of your pack (still `def`) between your pockets and your bag,
+    /// onto `cell` of the other.
+    ShiftTo {
+        slot: u16,
+        def: u16,
+        cell: crate::pack::Cell,
+    },
 }
 
 impl Intent {
@@ -169,10 +193,13 @@ pub enum ActionKind {
     Shove,
     Door,
     Struggle,
+    /// Taking a stack, onto a cell of one of the pack's grids if one was asked for (`pack.rs`).
     Take {
         at: TilePos,
         slot: u16,
         def: u16,
+        #[cfg_attr(feature = "save", serde(default))]
+        to: Option<(bool, crate::pack::Cell)>,
     },
     Drop {
         slot: u16,
@@ -201,10 +228,13 @@ pub enum ActionKind {
     Stash {
         at: TilePos,
     },
+    /// Putting a stack into a container, onto a cell of its grid if one was asked for.
     Put {
         at: TilePos,
         slot: u16,
         def: u16,
+        #[cfg_attr(feature = "save", serde(default))]
+        to: Option<crate::pack::Cell>,
     },
     /// Setting a body alight.
     Burn {
@@ -287,10 +317,13 @@ pub enum ActionKind {
         piece: u16,
         def: u16,
     },
-    /// Moving a stack between the pockets and the bag, and dropping the bag (`bag.rs`).
+    /// Moving a stack between the pockets and the bag (onto a cell of the other, if one was
+    /// asked for), and dropping the bag (`bag.rs`).
     Shift {
         slot: u16,
         def: u16,
+        #[cfg_attr(feature = "save", serde(default))]
+        to: Option<crate::pack::Cell>,
     },
     DropBag,
     /// Saying a spell's words, cast on `at` (`spell.rs`).

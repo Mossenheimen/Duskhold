@@ -79,7 +79,18 @@ struct ItemFile {
     /// XP one brings home the first time (`rules.toml`, [deeds]); 0 if left out.
     #[serde(default)]
     worth: f64,
+    /// The cells it takes up in a grid, across and down (`pack.rs` in the core): a sword
+    /// [1, 3], a jerkin [2, 3]. Left out: one cell.
+    #[serde(default = "one_cell")]
+    size: (u8, u8),
 }
+
+fn one_cell() -> (u8, u8) {
+    (1, 1)
+}
+
+/// The most cells an item takes up, across or down: a bow is two across and four down.
+pub(crate) const MOST_CELLS: u8 = 4;
 
 /// A weapon's swing (as rules.toml's [attack]), the condition, out of 100, a blow costs it, and
 /// the skill it trains and uses.
@@ -219,26 +230,34 @@ struct DrinkFile {
     comfort: f64,
 }
 
-/// A bag: the kilograms it holds, and the share of their weight it takes off on your back.
+/// A bag: its grid, cells across and down, and the share of what's in it's weight it takes off
+/// on your back.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BagFile {
-    holds: f64,
+    grid: (u8, u8),
     lighter: f64,
 }
 
+/// The most cells a grid has, across or down: Path of Exile's inventory is twelve by five.
+pub(crate) const MOST_GRID: u8 = 16;
+
 fn bag(file: &Path, id: &str, b: &BagFile) -> Result<ItemKind, DataError> {
-    if !(b.holds > 0.0 && b.holds <= 100.0) || !(0.0..=0.9).contains(&b.lighter) {
+    let (w, h) = b.grid;
+    if !(1..=MOST_GRID).contains(&w) || !(1..=MOST_GRID).contains(&h) {
         return Err(fail(
             file,
-            format!(
-                "item {id:?}: a bag holds above 0 and at most 100 kg, and is lighter by a share \
-                 from 0 to 0.9"
-            ),
+            format!("item {id:?}: a bag's grid is 1 to {MOST_GRID} cells across and down"),
+        ));
+    }
+    if !(0.0..=0.9).contains(&b.lighter) {
+        return Err(fail(
+            file,
+            format!("item {id:?}: a bag is lighter by a share from 0 to 0.9"),
         ));
     }
     Ok(ItemKind::Bag(dusk_core::Bag {
-        capacity: (b.holds * 1000.0).round() as u32,
+        grid: b.grid,
         reduce: (b.lighter * 1000.0).round() as u32,
     }))
 }
@@ -455,8 +474,8 @@ pub(crate) fn to_belt(file: &Path, b: &BeltFile) -> Result<dusk_core::Belt, Data
 /// What a character starts with and can carry: rules.toml's [character].
 pub(crate) struct Kit<'a> {
     pub carry: f64,
-    /// Kilograms its pockets hold (left out: no limit).
-    pub pockets: Option<f64>,
+    /// Its pockets' grid, cells across and down (left out: room enough for anything).
+    pub pockets: Option<(u8, u8)>,
     pub wield: Option<&'a str>,
     pub kit: &'a [String],
 }
@@ -543,8 +562,20 @@ pub(crate) fn load_defs(
     let mut bows: Vec<(usize, String, std::path::PathBuf)> = Vec::new();
     // What burns, by item number, and its game minutes.
     let mut fuel: Vec<(u16, u32)> = Vec::new();
+    // The cells each takes up, by item number (`pack.rs` in the core).
+    let mut sizes: Vec<(u8, u8)> = Vec::new();
     for file in files_maybe(&dir.join("items"))? {
         for i in read::<ItemsFile>(&file)?.item {
+            let (w, h) = i.size;
+            if !(1..=MOST_CELLS).contains(&w) || !(1..=MOST_CELLS).contains(&h) {
+                return Err(fail(
+                    &file,
+                    format!(
+                        "item {:?}: size is 1 to {MOST_CELLS} cells across and down",
+                        i.id
+                    ),
+                ));
+            }
             let kinds = [
                 i.weapon.is_some(),
                 i.bandage.is_some(),
@@ -695,6 +726,7 @@ pub(crate) fn load_defs(
                 worth: (i.worth * 1000.0).round() as u32,
                 kind,
             });
+            sizes.push(i.size);
         }
     }
     check_unique(&dir.join("items"), "item", items.iter().map(|i| &i.id))?;
@@ -761,7 +793,27 @@ pub(crate) fn load_defs(
 
     let fixtures_file = dir.join("fixtures.toml");
     let mut containers = vec![None];
+    let mut grids = vec![(0, 0)];
     for f in fixtures {
+        if f.grid.is_some() && f.loot.is_none() {
+            return Err(fail(
+                &fixtures_file,
+                format!("fixture {:?}: only a container (loot) has a grid", f.id),
+            ));
+        }
+        let grid = f.grid.unwrap_or((0, 0));
+        if f.grid.is_some()
+            && (!(1..=MOST_GRID).contains(&grid.0) || !(1..=MOST_GRID).contains(&grid.1))
+        {
+            return Err(fail(
+                &fixtures_file,
+                format!(
+                    "fixture {:?}: a grid is 1 to {MOST_GRID} cells across and down",
+                    f.id
+                ),
+            ));
+        }
+        grids.push(grid);
         containers.push(match &f.loot {
             None => None,
             Some(name) => Some(
@@ -800,6 +852,7 @@ pub(crate) fn load_defs(
             .chain(fixtures.iter().map(|f| f.id.clone()))
             .collect(),
         containers,
+        grids,
         beds: std::iter::once(false)
             .chain(fixtures.iter().map(|f| f.bed))
             .collect(),
@@ -824,15 +877,19 @@ pub(crate) fn load_defs(
         kit: Vec::new(),
         carry: (kit.carry * 1000.0).round().max(0.0) as u32,
         pockets: match kit.pockets {
-            None => u32::MAX,
-            Some(kg) if (0.0..=100.0).contains(&kg) => (kg * 1000.0).round() as u32,
+            None => (MOST_GRID, MOST_GRID),
+            Some((w, h)) if (1..=MOST_GRID).contains(&w) && (1..=MOST_GRID).contains(&h) => (w, h),
             Some(_) => {
                 return Err(fail(
                     rules_file,
-                    "character.pockets: 0 to 100 kg (left out: no limit)".to_string(),
+                    format!(
+                        "character.pockets: a grid 1 to {MOST_GRID} cells across and down (left \
+                         out: room enough)"
+                    ),
                 ));
             }
         },
+        sizes,
         take: ticks(rules_file, "items.take", times.take)? as u32,
         take_per_kg: ticks(rules_file, "items.per_kg", times.per_kg)? as u32,
         drop: ticks(rules_file, "items.drop", times.drop)? as u32,
@@ -882,4 +939,103 @@ pub(crate) fn load_defs(
         defs.kit = kit;
     }
     Ok(defs)
+}
+
+/// What every character starts with fits in its pockets (`pack.rs` in the core: its potions go
+/// on its belt, and what's worn or in hand takes no room), and nothing a container's loot gives is
+/// too big for its grid, nor more than its grid holds at the most it gives.
+pub(crate) fn check_room(dir: &Path, rules_file: &Path, defs: &Defs) -> Result<(), DataError> {
+    let classes_file = dir.join("classes.toml");
+    let kits = std::iter::once(("the kit".to_string(), rules_file, defs.kit.as_slice())).chain(
+        defs.classes.iter().filter_map(|c| {
+            c.kit.as_ref().map(|k| {
+                (
+                    format!("class {:?}'s kit", c.id),
+                    classes_file.as_path(),
+                    k.pack.as_slice(),
+                )
+            })
+        }),
+    );
+    for (what, file, pack) in kits {
+        let carried: Vec<(u16, u32)> = pack
+            .iter()
+            .filter(|i| defs.potion(i.def).is_none())
+            .map(|i| (i.def, u32::from(i.count)))
+            .collect();
+        if !lays_out(defs, defs.pockets, &carried) {
+            let (w, h) = defs.pockets;
+            return Err(fail(
+                file,
+                format!(
+                    "{what} doesn't fit in the pockets, {w} by {h} cells (rules.toml's [character] \
+                     pockets; an item's size)"
+                ),
+            ));
+        }
+    }
+    let fixtures_file = dir.join("fixtures.toml");
+    for (fixture, table) in defs.containers.iter().enumerate() {
+        let Some(t) = table.and_then(|t| defs.loot.get(usize::from(t))) else {
+            continue;
+        };
+        let grid = defs.container_grid(fixture as u16);
+        let name = &defs.fixtures[fixture];
+        if let Some(e) = t.entries.iter().find(|e| {
+            let (w, h) = defs.size(e.item);
+            w > grid.0 || h > grid.1
+        }) {
+            let item = &defs.items[usize::from(e.item)].id;
+            return Err(fail(
+                &fixtures_file,
+                format!(
+                    "fixture {name:?}: its grid, {} by {} cells, is too small for {item:?} (loot \
+                     {:?})",
+                    grid.0, grid.1, t.id
+                ),
+            ));
+        }
+        // The most it gives: its last roll, each the biggest of its entries, as many as it gives.
+        let most = t
+            .entries
+            .iter()
+            .max_by_key(|e| {
+                let (w, h) = defs.size(e.item);
+                let stack = defs.item(e.item).map_or(1, |d| u32::from(d.stack.max(1)));
+                u32::from(w) * u32::from(h) * u32::from(e.count.1).div_ceil(stack)
+            })
+            .map(|e| (e.item, u32::from(e.count.1)));
+        let rolled: Vec<(u16, u32)> = most
+            .into_iter()
+            .flat_map(|m| std::iter::repeat_n(m, t.rolls.1 as usize))
+            .collect();
+        if !lays_out(defs, grid, &rolled) {
+            return Err(fail(
+                &fixtures_file,
+                format!(
+                    "fixture {name:?}: its grid, {} by {} cells, can't hold the most its loot \
+                     ({:?}) gives",
+                    grid.0, grid.1, t.id
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Whether so many of each item (by number) lay out in a grid, a stack at a time, each where it
+/// first fits (`pack.rs` in the core).
+fn lays_out(defs: &Defs, grid: (u8, u8), what: &[(u16, u32)]) -> bool {
+    let mut cells = dusk_core::Cells::new(grid);
+    what.iter().all(|&(def, n)| {
+        let size = defs.size(def);
+        let stack = defs.item(def).map_or(1, |d| u32::from(d.stack.max(1)));
+        (0..n.div_ceil(stack)).all(|_| match cells.first(size) {
+            Some(at) => {
+                cells.take(at, size);
+                true
+            }
+            None => false,
+        })
+    })
 }

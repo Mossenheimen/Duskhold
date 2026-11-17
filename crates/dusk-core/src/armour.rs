@@ -253,6 +253,8 @@ impl World {
         } else {
             a.items.remove(slot);
         }
+        // Worn, it has no cell (`pack.rs`).
+        item.cell = None;
         if self.defs.bag(def).is_some() {
             self.don_bag(id, item);
             return;

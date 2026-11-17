@@ -66,6 +66,16 @@ fn stack_row(i: Item) -> [i32; 4] {
     ]
 }
 
+/// A stack's cell in its grid as the client gets it (`pack.rs`): x and y, or -1, -1 for none.
+fn cell_pair(cell: Option<(u8, u8)>) -> [i32; 2] {
+    cell.map_or([-1, -1], |(x, y)| [i32::from(x), i32::from(y)])
+}
+
+/// The cell the client names, if it's one a grid can have.
+fn to_cell(x: i32, y: i32) -> Option<(u8, u8)> {
+    Some((u8::try_from(x).ok()?, u8::try_from(y).ok()?))
+}
+
 /// A thing's numbers as the client gets them (`card_row`): its magic (0 mundane, 1 Uncommon, 2
 /// Rare, 3 Unique, and 10 more while it's unknown), its quality (`quality.rs`: 0 crude to 3
 /// masterwork), its condition (out of 1000), what it's worth in XP (rounded), and 1 if it's a
@@ -252,6 +262,14 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         ),
         Event::Dropped { who, item, count } => (
             DROPPED,
+            Some(who),
+            None,
+            at(who),
+            i32::from(item) * 1000 + i32::from(count),
+        ),
+        // What came to you with no room, fallen at your feet (`pack.rs`).
+        Event::NoRoom { who, item, count } => (
+            NO_ROOM,
             Some(who),
             None,
             at(who),
@@ -3183,8 +3201,8 @@ impl DuskWorld {
         });
     }
 
-    /// The bag on your back (`bag.rs`): [definition, condition, grams in it, grams it holds,
-    /// per mille lighter what's in it is], or nothing.
+    /// The bag on your back (`bag.rs`): [definition, condition, grams in it, cells across, cells
+    /// down, per mille lighter what's in it is], or nothing.
     #[func]
     fn character_bag(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -3200,12 +3218,13 @@ impl DuskWorld {
             i32::from(bag.def),
             i32::from(bag.condition),
             world.filled(me).1 as i32,
-            b.capacity as i32,
+            i32::from(b.grid.0),
+            i32::from(b.grid.1),
             b.reduce as i32,
         ])
     }
 
-    /// Your pockets: [grams in them, grams they hold (-1: no limit)].
+    /// Your pockets: [grams in them, cells across, cells down].
     #[func]
     fn character_pockets(&self) -> PackedInt32Array {
         let Some(world) = &self.world else {
@@ -3214,8 +3233,223 @@ impl DuskWorld {
         let Some(me) = world.character() else {
             return PackedInt32Array::new();
         };
-        let holds = i32::try_from(world.defs.pockets).unwrap_or(-1);
-        PackedInt32Array::from(&[world.filled(me).0 as i32, holds])
+        let (w, h) = world.defs.pockets;
+        PackedInt32Array::from(&[world.filled(me).0 as i32, i32::from(w), i32::from(h)])
+    }
+
+    /// Each item's size in a grid (`pack.rs`), by definition number: cells across and down, two
+    /// numbers each.
+    #[func]
+    fn item_sizes(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        (0..world.defs.items.len() as u16)
+            .flat_map(|d| {
+                let (w, h) = world.defs.size(d);
+                [i32::from(w), i32::from(h)]
+            })
+            .collect()
+    }
+
+    /// For each stack of your pack, in order: the cell its top-left sits on in its grid (the
+    /// bag's or the pockets', `character_bagged`), x and y; -1, -1 for none (on the belt).
+    #[func]
+    fn character_cells(&self) -> PackedInt32Array {
+        let Some(a) = self
+            .world
+            .as_ref()
+            .and_then(|w| w.character().and_then(|id| w.actor(id)))
+        else {
+            return PackedInt32Array::new();
+        };
+        a.items.iter().flat_map(|i| cell_pair(i.cell)).collect()
+    }
+
+    /// The grid of the container on (x, y), cells across and down; nothing for a floor.
+    #[func]
+    fn store_grid(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        match world.store_grid(TilePos::new(x, y, 0)) {
+            Some((w, h)) => PackedInt32Array::from(&[i32::from(w), i32::from(h)]),
+            None => PackedInt32Array::new(),
+        }
+    }
+
+    /// For each stack on (x, y), in order: the cell it sits on in the container's grid, x and
+    /// y; -1, -1 on a floor, or for one with no place in the grid.
+    #[func]
+    fn store_cells(&self, x: i32, y: i32) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        world
+            .store(TilePos::new(x, y, 0))
+            .iter()
+            .flat_map(|i| cell_pair(i.cell))
+            .collect()
+    }
+
+    /// How many of the stack at `slot` on (x, y) (still `def`) you'd take onto the cell
+    /// (cx, cy) of your bag's grid (`bagged`) or your pockets': 0 if none fit there.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn take_to_check(
+        &self,
+        x: i32,
+        y: i32,
+        slot: i32,
+        def: i32,
+        bagged: bool,
+        cx: i32,
+        cy: i32,
+    ) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return 0;
+        };
+        i32::from(world.can_take_to(
+            me,
+            TilePos::new(x, y, 0),
+            slot as u16,
+            def as u16,
+            bagged,
+            cell,
+        ))
+    }
+
+    /// Takes the stack at `slot` on (x, y) onto the cell (cx, cy) of your bag's grid (`bagged`)
+    /// or your pockets': what doesn't fit there goes where there's room, as a take does.
+    #[func]
+    #[allow(clippy::too_many_arguments)]
+    fn take_to(&mut self, x: i32, y: i32, slot: i32, def: i32, bagged: bool, cx: i32, cy: i32) {
+        let Some(cell) = to_cell(cx, cy) else {
+            return;
+        };
+        self.act(Intent::TakeTo {
+            at: TilePos::new(x, y, 0),
+            slot: slot as u16,
+            def: def as u16,
+            bagged,
+            cell,
+        });
+    }
+
+    /// How many of the stack at `slot` of your pack (still `def`) the container on (x, y) has
+    /// room for: onto the cell (cx, cy), or anywhere with cx below 0.
+    #[func]
+    fn put_check(&self, x: i32, y: i32, slot: i32, def: i32, cx: i32, cy: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        world.character().map_or(0, |me| {
+            i32::from(world.can_put(
+                me,
+                TilePos::new(x, y, 0),
+                slot as u16,
+                def as u16,
+                to_cell(cx, cy),
+            ))
+        })
+    }
+
+    /// Puts the stack at `slot` of your pack into the container on (x, y), onto the cell
+    /// (cx, cy) of its grid.
+    #[func]
+    fn put_to(&mut self, x: i32, y: i32, slot: i32, def: i32, cx: i32, cy: i32) {
+        let Some(cell) = to_cell(cx, cy) else {
+            return;
+        };
+        self.act(Intent::PutTo {
+            at: TilePos::new(x, y, 0),
+            slot: slot as u16,
+            def: def as u16,
+            cell,
+        });
+    }
+
+    /// How many of the stack at `slot` of your pack (still `def`) would move between your
+    /// pockets and your bag onto the cell (cx, cy) of the other's grid: 0 if none fit there.
+    #[func]
+    fn shift_to_check(&self, slot: i32, def: i32, cx: i32, cy: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return 0;
+        };
+        i32::from(world.can_shift(me, slot as u16, def as u16, Some(cell)))
+    }
+
+    /// Moves the stack at `slot` of your pack between your pockets and your bag, onto the cell
+    /// (cx, cy) of the other's grid.
+    #[func]
+    fn shift_to(&mut self, slot: i32, def: i32, cx: i32, cy: i32) {
+        let Some(cell) = to_cell(cx, cy) else {
+            return;
+        };
+        self.act(Intent::ShiftTo {
+            slot: slot as u16,
+            def: def as u16,
+            cell,
+        });
+    }
+
+    /// How many of the stack at `slot` of your pack (still `def`) would move onto the cell
+    /// (cx, cy) of its own grid: all of it to free cells, or as many as the stack alike there
+    /// has room for; 0 if it can't.
+    #[func]
+    fn arrange_check(&self, slot: i32, def: i32, cx: i32, cy: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return 0;
+        };
+        i32::from(world.can_arrange(me, slot as u16, def as u16, cell))
+    }
+
+    /// Moves the stack at `slot` of your pack onto the cell (cx, cy) of its own grid: a choice,
+    /// not a timed action. Whether it moved.
+    #[func]
+    fn arrange(&mut self, slot: i32, def: i32, cx: i32, cy: i32) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return false;
+        };
+        world.arrange(me, slot as u16, def as u16, cell)
+    }
+
+    /// How many of the stack at `slot` of the container on (x, y), within your reach (still
+    /// `def`), would move onto the cell (cx, cy) of its grid; 0 if it can't.
+    #[func]
+    fn arrange_store_check(&self, x: i32, y: i32, slot: i32, def: i32, cx: i32, cy: i32) -> i32 {
+        let Some(world) = &self.world else {
+            return 0;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return 0;
+        };
+        i32::from(world.can_arrange_store(me, TilePos::new(x, y, 0), slot as u16, def as u16, cell))
+    }
+
+    /// Moves the stack at `slot` of the container on (x, y) onto the cell (cx, cy) of its grid:
+    /// at once. Whether it moved.
+    #[func]
+    fn arrange_store(&mut self, x: i32, y: i32, slot: i32, def: i32, cx: i32, cy: i32) -> bool {
+        let Some(world) = self.world.as_mut() else {
+            return false;
+        };
+        let (Some(me), Some(cell)) = (world.character(), to_cell(cx, cy)) else {
+            return false;
+        };
+        world.arrange_store(me, TilePos::new(x, y, 0), slot as u16, def as u16, cell)
     }
 
     /// For each stack of your pack, in order: 1 if it's in the bag, 0 in your pockets.
@@ -3276,7 +3510,7 @@ impl DuskWorld {
             return 0;
         };
         world.character().map_or(0, |me| {
-            i32::from(world.can_shift(me, slot as u16, def as u16))
+            i32::from(world.can_shift(me, slot as u16, def as u16, None))
         })
     }
 

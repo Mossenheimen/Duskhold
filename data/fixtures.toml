@@ -1,6 +1,7 @@
 # What can stand on a tile. solid: nobody walks through it. opaque: nobody sees through it.
 # A tile's fixture number is its place in this list, from 1. The client draws each by its id.
-# loot: it's a container, filled from that loot table (loot/*.toml). bed: you sleep best beside one.
+# loot: it's a container, filled from that loot table (loot/*.toml); grid: what fits in it, so many
+# cells across and down (pack.rs in the core). bed: you sleep best beside one.
 # fire: it takes a fire (a hearth, a stove, a forge: rules.toml's [fire]), which lights this many
 # tiles round it. Each keeps a few logs by it. planks: it breaks down into so many (with a hammer or
 # an axe: rules.toml's [crafting]); a container never does. shrine: you pray at it (rules.toml's
@@ -22,11 +23,13 @@ id = "wardrobe"
 solid = true
 opaque = true
 loot = "bedroom"
+grid = [8, 6]
 
 [[fixture]]
 id = "cupboard"
 solid = true
 loot = "kitchen"
+grid = [6, 4]
 
 [[fixture]]
 id = "table"
@@ -43,22 +46,26 @@ id = "stove"
 solid = true
 fire = 5              # an iron range: less light than an open hearth
 loot = "logs"
+grid = [4, 4]
 
 [[fixture]]
 id = "crate"
 solid = true
 loot = "shed"
+grid = [8, 6]
 
 [[fixture]]
 id = "barrel"
 solid = true
 loot = "stores"
+grid = [5, 5]
 
 [[fixture]]
 id = "shelf"
 solid = true
 opaque = true
 loot = "shelf"
+grid = [8, 4]
 
 [[fixture]]
 id = "pew"
@@ -86,43 +93,51 @@ id = "forge"          # the smith's forge, gone cold
 solid = true
 fire = 6
 loot = "logs"
+grid = [4, 4]
 
 [[fixture]]
 id = "anvil"
 solid = true
 loot = "anvil"        # the smith's last work, left on it: armour
+grid = [4, 4]
 
 [[fixture]]
 id = "rack"           # a weapon rack: the smith's work
 solid = true
 loot = "smithy"
+grid = [8, 5]
 
 [[fixture]]
 id = "till"           # a shop's counter, with the till in it
 solid = true
 loot = "till"
+grid = [4, 3]
 
 [[fixture]]
 id = "shop_shelf"     # a general store's shelves of goods
 solid = true
 opaque = true
 loot = "store"
+grid = [12, 5]
 
 [[fixture]]
 id = "bar"            # the tavern's bar
 solid = true
 loot = "bar"
+grid = [8, 4]
 
 [[fixture]]
 id = "cask"
 solid = true
 loot = "cellar"
+grid = [5, 5]
 
 [[fixture]]
 id = "hearth"         # a stone hearth, cold till someone lights it
 solid = true
 fire = 6
 loot = "logs"
+grid = [4, 4]
 
 # The farms' (prefabs/farm.toml). water: you can drink from it, as from a pond.
 
@@ -139,6 +154,7 @@ water = true
 id = "sack"           # sacks of the harvest
 solid = true
 loot = "harvest"
+grid = [4, 5]
 
 [[fixture]]
 id = "hay"            # bales
@@ -148,6 +164,7 @@ solid = true
 id = "tools"          # a rack of farm tools
 solid = true
 loot = "farm"
+grid = [8, 5]
 
 # The graveyard's (prefabs/graveyard.toml).
 
@@ -159,6 +176,7 @@ solid = true
 id = "tomb"           # an old stone tomb, its grave goods within
 solid = true
 loot = "tomb"
+grid = [8, 6]
 
 # The chapel's (prefabs/hamlet.toml).
 
@@ -166,6 +184,7 @@ loot = "tomb"
 id = "font"           # a stone font by the chapel door, its holy water stoppered in flasks
 solid = true
 loot = "font"
+grid = [3, 3]
 
 # Wild plants (crates/dusk-core/src/forage.rs; regions/*.toml's [plants], and a prefab's grows):
 # walked through and seen past. forage: the item picked from it (E), how many (the fewest and the

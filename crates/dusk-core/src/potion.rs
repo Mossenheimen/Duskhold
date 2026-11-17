@@ -353,6 +353,7 @@ impl World {
                     count: n,
                     bagged: false,
                     belt: k,
+                    cell: None,
                     ..item
                 }),
             }
@@ -373,7 +374,8 @@ impl World {
     }
 
     /// How many of the stack at `slot` of `id`'s pack (still `def`) would move: a potion off the
-    /// belt onto it, as many as there's room for; one on it off it, all of it.
+    /// belt onto it, as many as there's room for; one on it off it, as many as the bag and the
+    /// pockets have room for (`pack.rs`).
     pub fn can_belt(&self, id: ActorId, slot: u16, def: u16) -> u16 {
         let Some(i) = self
             .actors
@@ -385,14 +387,15 @@ impl World {
             return 0;
         };
         if i.belt > 0 {
-            i.count
+            let (bag, pockets) = self.room_for(id, &Item { belt: 0, ..*i });
+            bag + pockets
         } else {
             self.belt_room(id, i)
         }
     }
 
     /// Moves the stack at `slot` of `id`'s pack (still `def`) onto the belt, as many as fit, or
-    /// off it, into the bag and then the pockets.
+    /// off it, into the bag and then the pockets, as many as fit.
     pub(crate) fn belt_item(&mut self, id: ActorId, slot: u16, def: u16) {
         let n = self.can_belt(id, slot, def);
         let Some(a) = self.actors.get_mut(id).filter(|_| n > 0) else {
@@ -409,6 +412,7 @@ impl World {
             count: n,
             bagged: false,
             belt: 0,
+            cell: None,
             ..item
         };
         let rest = if item.belt > 0 {
@@ -417,7 +421,16 @@ impl World {
             self.belt_in(id, moved)
         };
         if let Some(rest) = rest {
-            self.stow_in(id, rest);
+            let left = self.stow_in(id, rest);
+            if left > 0 {
+                self.fall_at_feet(
+                    id,
+                    Item {
+                        count: left,
+                        ..rest
+                    },
+                );
+            }
         }
     }
 }
