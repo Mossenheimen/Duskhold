@@ -5,8 +5,8 @@ rem   check.cmd rust    the Rust only (formatting, lints, tests, the data)
 rem The Rust: formatting, lints (none allowed), every test (client\codes.gd matching codes.rs
 rem among them) and the data. Then the game, with no window, through scripted runs that walk
 rem most of its paths (the prompts and E's list, the classes' powers, the panels, the settings, a
-rem fight); any script error, or any error from Godot, fails it. The game's log is kept in
-rem %TEMP%\duskhold-check.log.
+rem fight, the inventory); any script error, or any error from Godot, fails it. The game's log is
+rem kept in %TEMP%\duskhold-check.log.
 setlocal
 cd /d "%~dp0"
 if not defined CARGO_TARGET_DIR set "CARGO_TARGET_DIR=%LOCALAPPDATA%\cargo-target"
@@ -45,13 +45,17 @@ rem on it now, and the kit's potion of mana drunk from the second loop.
 call :run 3500 "--seed=7 --class=wizard --give=haste_potion --do=1:bar,1.5:belt1,3:tobelt,3.5:belt1,5:swap,5.5:bar,6:power1,6.5:belt2,7.5:esc,8:esc,8.5:esc,8.8:run"
 rem Every setting on, through the near farm and its fight.
 call :run 6000 "--seed=7 --hour=12 --speed=4 --walk=118,84 --look=colour_blind,high_contrast,reduce_motion,show_numbers --do=20:here,21:esc"
+rem The inventory as Path of Exile 2's (inventory.gd): in the near farm's kitchen, a bag put on, the
+rem inventory opened, the first thing in the stove or the cupboard beside you taken onto a cell of
+rem the pockets, a stack moved within them at once, a card shown, and Esc letting it all go.
+call :run 4000 "--seed=7 --hour=12 --speed=4 --walk=118,84 --give=travellers_pack --do=11:wear,12.5:inventory,13:takein,14:arrange,14.5:card,15:esc,15.5:esc"
 rem Every effect made once and left to play out: what the runs above can't reach (a block, a
 rem felling, a skeleton's bone). It must leave nothing behind (client\tests\check_effects.gd).
 echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: 35 health back over 4 s" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Silence ready" "Menu opened" "Walking." "EFFECTS OK") do (
+for %%m in ("You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: 35 health back over 4 s" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Silence ready" "Menu opened" "Walking." "You put on the traveller's pack" "Inventory opened." "Taking the" "Arranged the" "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

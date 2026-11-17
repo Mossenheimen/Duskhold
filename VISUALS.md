@@ -220,6 +220,11 @@ A potion's flask takes its bar's colour where it has one: life `bar.health`, man
 | `ui.veil` | `#050814`, 60% | sleep |
 | `ui.dim` | black, 50% | the world behind a choice, death, or a menu |
 | `ui.hurt` | `#B30000`, up to 35% | the flash when you're hurt |
+| `ui.cell_ground` | white, 6% | an empty cell of the inventory's grids, and a slot of its figure (§11, Grid) |
+| `ui.cell_edge` | black, 60% | the lines between a grid's cells |
+| `ui.tile_ground` | `#262B36`, 90% | a thing's tile over its cells; a magic one's takes its rarity's colour at 22%, and its edge in it |
+
+The inventory's panels (§10, zone H) are on `ui.panel` at high contrast's 95% always, as Path of Exile's are: the news and moodles never show through them.
 
 ### Colour rules
 
@@ -251,7 +256,7 @@ A potion's flask takes its bar's colour where it has one: life `bar.health`, man
 - **Built in code from primitives**, which is the toy-diorama look:
   - people and the dead are capsules that lean into a swing (the tell), lie down when knocked down, and darken when dead. Climbing a sill or a fence, one is lifted over and set down on the far side, at most 0.55 m up (`main.gd`, `CLIMB_LIFT`);
   - beasts get four legs and a head at their own height (`actor_view.gd`, `_build_beast`);
-  - furniture, trees and plants are made of the kit's parts (below), from `data/looks.toml`;
+  - furniture, trees and plants are made of the kit's parts (below), from `data/looks.toml`, and so is every thing you carry (its icon is drawn from its look: §11, Icons);
   - walls, doors and windows are boxes on a tile's edge: a shut window is a pane between the sill and the lintel, an open one the empty frame, and a broken one keeps a 0.1 m rim of glass top and bottom, the shards that cut (`chunk_view.gd`, `SHARDS`).
 - **Size bands**, so a scene reads at a glance:
   - knee height (to 0.6 m): plants, crates, sacks;
@@ -268,12 +273,13 @@ Everything made in code is made of the same few parts, in the same few materials
 - **Flat shading, always:** every face its own normal, so a cylinder is eight facets and a crown is a cut gem. That's what makes it all one style.
 - **Parts:** at least 4 cm thick, so they read at zoom 14 (a centimetre is about a pixel there). A look's origin is the middle of its base, +y up, its front toward −z, in metres. `mirror` and `repeat` make the four legs of a table one line.
 - **Materials, not colours:** a part names a material (§4, "Materials"), never a hex of its own. A new colour is a new material, in this guide and `looks.toml`.
-- **Budgets:** a fixture's look under 500 triangles (checked as it loads); an actor's under 1,500.
+- **Budgets:** a fixture's look under 500 triangles (checked as it loads); an item's under 300, and 2.5 m any way; an actor's under 1,500.
 - **Turned to fit** (`chunk_view.gd`): a fixture stands as its look's `placed` says. `wall`: its back to a wall, window or fence of its tile, the far walls first (north, west, east, then south: `DuskWorld.chunk_walls()`), else as `fixed`. `fixed`: its front south, to the camera's side. `loose`: a quarter turn by its place, and up to 10° more. `faces` and `backs` come first: a chair turns its front to the table beside it, a pew to the altar, a counter its back to the sister behind it; one in a row of its own kind faces across its row.
 - **A little different from tile to tile**, the same every time: a variant picked by the tile, a size within `grow`, and a tint lighter or darker by up to `vary` (4.5% unless it says).
 - **Cut away** round the character like the walls, part by part: a trunk is never cut, a crown is (`cut = false`).
 - **The wild:** a tree is one of four by its tile (a broadleaf, a taller one, a pine, a birch), its crown in lobes; each plant you can pick has a shape of its own with its flowers bright on top (yarrow's flat white heads on stems, chamomile's low mound of daisies, feverfew's upright bush, a bramble's dark tangle of canes and berries), so it reads from across a field; wheat stands close and tall, as solid as it is to sight.
 - **What's strewn** (`[[scatter]]`): tufts of long grass, stones, pebbles on bare earth, reeds in the shallows, on tiles with no fixture, by a chance and a count for each ground. Only a look: nothing strewn stops you or can be taken. **Must:** it stays quiet, a shade off the ground it's on, knee-high or less, never in flower (what flowers is something you can pick), under 60 triangles, casting no shadow and never cut away.
+- **What you carry** (`[[item]]`, since 2026-11-17): every item has a look (`dusk-data` checks each does), at its own size, standing as it lies in its cells (`pack.rs`): its long side up them, its front toward −z. A weapon stands point or head up, a shield and a pelt face you, and what's flat (a poultice) stands up to be seen. Each potion is a flask of its own shape as well as its colour (a round flask for life, a tall vial for mana, a cone for haste, a square bottle for iron skin, a long neck for vigour, a teardrop for courage), so they're told apart without it. Its materials are livelier than the world's, as a thing in your hand should be, but a potion's liquid is its bar's colour and nothing borrows a signal's. An icon is seen close, so a part may be thinner than 4 cm here. **Must:** a look longer one way than the other runs the way its cells do (checked), so its icon fills them.
 - **Seen whole:** `.\play.cmd gallery.tscn -- ...` lays out every look on plain ground under the game's camera and light (§14, Picture routes).
 - **When models come from outside** (Blender, or a person's own), each one:
   - is glTF 2.0 (`.glb`), in `client/models/<what>/<id>.glb` with a snake_case id;
@@ -412,9 +418,9 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 │                          F   [E] Pick chamomile                              │
 │                              Picking it  ▓▓▓▓▓░░                             │
 │                                                                              │
-│ G  Within reach                                       H  Your pack (Tab)     │
-│    Stove · alight, 3h 50m                                In hand: cudgel     │
-│    Crate              [Take all]                         bandage ×2    [Use] │
+│ G  Within reach                                       H  The inventory (I)   │
+│    Stove · alight, 3h 50m                                (open: Path of      │
+│    Crate              [Take all]                          Exile 2's grids)   │
 │                           I  [F1] every key                                  │
 │                    K  [1][2][3][4]  [5][6][7][8]: the bar                    │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -428,20 +434,20 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
 | **F** Here and now | what you can do beside you: E's prompt, and what holding E offers besides; while E is held, all of it, numbered; and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
-| **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach | as here |
-| **H** Your pack | in hand, on your arm, held up, worn, then your pockets and the bag on your back, each with what it holds and its stacks under it; weight and coin in its title | bottom right; 420 wide, at most 45% high | Tab | as here |
+| **G** Within reach | the world's things beside you: containers, water, a fire, a counter, plants | bottom left; 420 wide, at most 45% of the height, scrolling | when anything is in reach, and the inventory is shut | as here. While the inventory is open, its left side shows the same as grids, and this hides |
+| **H** The inventory | Path of Exile 2's: what you hold and wear round a figure (in hand on the left, the off arm on the right, the head over the body, the bag on your back beside the head, arms and legs at the body's foot), the belt's four loops under it; then your pockets' grid and the bag's side by side, twelve cells across, each thing its icon over its cells; weight and coin in its title. On the left while it's open, under zones A and B: a tab for each container and the ground within reach, each a grid, and a holdout's counter as a vendor (its wares a grid, its services and bounties over them) | top right, 24 px in; 50 px cells, about 650 wide; zones D and E move to its left, under zone A, while it's open | I or Tab; Esc, I or Tab shuts it | since 2026-11-17 (the user, 2026-11-16: "an inventory system that looks like PoE 2"; `client/inventory.gd`). It was a list (Zomboid's), open from the start |
 | **I** Keys | every key in its groups ("The keys", below), with the legend of the drawn senses. For a world's first game hour, a line at the bottom centre, above the bar, instead: "[F1] every key" | over the middle of the screen, three columns of groups, while it's open; zone F hides under it | on F1 | as here |
 | **J** Book panels | Strength, Fitness, skills and talents (K), making (B), spells (P); later the character and the map | left middle; 460 wide; **one at a time** | on their key | as here |
 | **K** The bar | your powers on the number keys, then the belt's loops and their potions (§11, Bar slot): each slot's glyph, key, and a spell's mana or a loop's count; a click uses it, hovering opens its card; a power dragged onto another swaps them, the order kept for your class | bottom centre, 24 px up; 60 px slots 8 apart, the belt 16 further on | always, alive (not while a class is being chosen) | since 2026-11-16 (the user: "a hot bar for spells, as well as a potion belt"), as here |
 
 **Rules:**
 
-- **Yours on the right, the world's on the left:** the pack is H, what's within reach is G. Moving a thing between them always moves it across the screen.
+- **Yours on the right, the world's on the left:** the inventory is H, what's within reach is G (or the inventory's left side, while it's open). Moving a thing between them always moves it across the screen.
 - **The middle is the world's.** Only world-anchored marks, zone F and banner C may sit near you.
 - **Panels don't stack.** Opening a book panel (J) closes the other one, and the keys (I), which would lie over it; opening the keys closes the book panel. A modal screen dims the world (`ui.dim`) and pauses the game.
 - **Esc** closes the top panel first, and only then opens the menu.
 
-  **Today** (2026-11-12): Esc closes E's list, lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). The pack isn't closed by Esc: it's open from the start, as part of the HUD, and Tab closes it.
+  **Today** (2026-11-12): Esc closes E's list, lets a readied spell go, then closes the keys, then the book panel. With none of those open, it saves and quits, as before; the menu comes with the screens (§16, slice 9). Since 2026-11-17 it first puts back what the inventory holds, then shuts the inventory.
 
 ### The keys
 
@@ -452,7 +458,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 | **Move and fight** | WASD walk (and climb); Shift run; C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing; Q shove; click walk or swing; right-click shoot a bow, or with a shield on your arm, held, brace; the wheel zooms | the left hand, round WASD; the mouse |
 | **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); R a light (dead, the next survivor); Z sleep | the left hand |
 | **Your powers and belt** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order until you drag them into another on the bar (zone K); 5 to 8: the belt's potions | the left hand, over WASD |
-| **Panels** | Tab or I your pack; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
+| **Panels** | I or Tab the inventory; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |
 | **The game** | Space pause; F2, F3, F4 the speeds; F5 save; V low walls; - and = zoom (as the wheel does); Ctrl+- and Ctrl+= the GUI's size; Ctrl+N a new world (asked twice); Esc closes what's open, else saves and quits | the F keys; two hands for what can't be undone |
 
 **Rules:**
@@ -540,7 +546,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 
   **Today** (2026-11-12): the moodles' detail is the first. It's our own panel rather than Godot's tooltip, so it takes `ui.panel` and opens beside its row, to the left. Godot's own delay (`gui/timers/tooltip_delay_sec`) is 0.4 s too, for any built-in tooltip later.
 
-  **A thing's card** (2026-11-13; as Path of Exile's and Diablo's since 2026-11-14, the user: "more numerical, except for special effects"): the core writes it (`card.rs`), `bag.gd` asks for it, the HUD's panel draws it, line by line. A weapon's, a bow's, a shield's, armour's or a light's, and any magic thing's, in the pack, worn, in hand or within reach. It opens to the pack's left, and to the right of what's within reach, so it never covers the panel it came from. Its ground is solid (`ui.panel` at high contrast's 95%): a card is dense numbers over the world. It's 400 px wide; its notes wrap.
+  **A thing's card** (2026-11-13; as Path of Exile's and Diablo's since 2026-11-14, the user: "more numerical, except for special effects"): the core writes it (`card.rs`), the inventory asks for it (`inventory.gd`; `bag.gd` for what's within reach while the inventory is shut), the HUD's panel draws it, line by line, over every panel. A weapon's, a bow's, a shield's, armour's or a light's, and any magic thing's, in the pack, worn, in hand or within reach. It opens to the pack's left, and to the right of what's within reach, so it never covers the panel it came from. Its ground is solid (`ui.panel` at high contrast's 95%): a card is dense numbers over the world. It's 400 px wide; its notes wrap. Since 2026-11-17 a thing the core writes no card for (food, a bandage, coins, a bag) has a plain one: its weight, its cells, how fresh or how far burnt, what's in a bag, a find's worth; and every card ends with what a right-click does ("Right-click: Eat") and, at a counter, what it sells for.
   - **Its title,** in `type.heading` and its rarity's colour: the name as far as you know it. A known Rare's made-up name or a unique's own has its kind under it ("Sorrow Fang", "Masterwork arming sword"). Then what it is and its rarity in words, in `ui.text_dim`: "Blade weapon · Rare".
   - **Its numbers,** a line each, the name dim at the left and the value at the right, as it was made and as far as you know its magic, before your skill and Strength. A value its quality or magic changed is in `magic.changed`, the rest white; fire damage in fire's colour, holy damage in `signal.holy`. A weapon's: damage per second first (Diablo's), then damage, fire and holy damage, attacks per second, wind-up (the tell), chance to hit, breath a blow, noise, wear a blow, condition. A bow's: damage per second, damage, fire damage, shots per second, draw, chance to hit, range, breath, noise, arrows broken. A shield's: block, breath, bash, wear. (Since 2026-11-15 both marked where their making or magic changed them.) Armour's: where it covers, the chance it turns each kind of wound, warmth, weight worn, its cost in breath, footsteps and sight, time to put on, wear (since 2026-11-15 marked where its making or magic changed them, as a weapon's are). A light's: how far it lights, how long it burns.
   - **Its class's edge** (since 2026-11-16; Path of Exile's implicit): a weapon's, as a property is, in numbers with its class at the right, between its numbers and how it was made: "+50% damage to one that's down   Blade", "12% chance a blow knocks down   Blunt", "A blow bleeds 4 damage over 8 s   Axe", "30% chance a blow drives it back a tile   Spear".
@@ -550,10 +556,17 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - Parts are set apart by a 1 px rule in `ui.edge`.
 - **Icons:**
   - SVG on a 64 × 64 canvas: a solid white silhouette, no text inside, legible at 32 px.
-  - Moodles get a glyph each, and items get a glyph by kind until they have models; then each item's icon is drawn from its own model (§16).
+  - Moodles and the bar's powers get a glyph each; each item's icon is drawn from its own look (§5).
   - Icons scale with the text, up to 200%.
 
   **Today** (2026-11-12): the moodles' 19 glyphs are in `client/icons/moodles/`, drawn here, with nothing downloaded; since 2026-11-16, 25, with a potion's six, and the bar's (`icons/powers/`: Light, Silence, Fog, Fireball, turning the dead, Mending, the Second Wind; `icons/potion.svg`, a flask), inked as they're drawn. Every texture is imported at twice its canvas with mipmaps (`project.godot`'s `[importer_defaults]`), so a glyph stays sharp from 75% to 200%. Their `.import` files are committed, and `play.cmd` imports any icon not yet imported.
+
+  **Items' icons** (since 2026-11-17, `client/icons.gd`): each item's look on a small stage of its own, nothing of the game's in it: orthographic, from the front, 24° above and 28° round to its right, a key light from the upper left and a fill from the right, in the kit's own shader. It's fitted to the item's cells with 8% to spare and drawn once into a texture, 96 px a cell (sharp to 200%), one a frame as they're first asked for, and kept. With no window (`--headless`) none is drawn, and a tile shows the item's name. `.\play.cmd gallery.tscn -- --icons` shows them all (§14).
+- **Grid** (the inventory's, since 2026-11-17; Path of Exile 2's):
+  - Cells 50 px square on `ui.cell_ground`, a 1 px `ui.cell_edge` between them; the figure's slots the same, 2 cells by as many as their thing takes up, named faintly while empty.
+  - A thing's tile covers its cells on `ui.tile_ground`; a magic thing's in its rarity's colour at 22%, its 1 px edge in it, so rarity shows before the name. Its icon fills the tile 3 px in, its shape kept. How many, at the top left in `type.small`, outlined, when there's more than one; a find's `signal.gold` dot at the top right; a ware's price at the bottom right in `signal.gold`.
+  - Held, a thing is drawn under the mouse, centred on it, and faint (35%) where it was. Where it would go is marked over the cells: `signal.good` at 35% where the core's own check says it fits, `signal.danger` at 40% where it won't; a slot takes a 2 px edge in the same. A click where it can't go says why in words ("No room for it there."), so the colour isn't alone.
+  - What's worn over more than one place shows in its first and faintly in the rest (a jerkin in Body, and faint in Arms).
 - **Body diagram:**
   - A front silhouette, 120 px high, its parts tinted by their worst wound: scratch, laceration or bite, plus bleeding and dressed.
   - Hovering a part lists its wounds.
@@ -638,7 +651,7 @@ These come from the Game Accessibility Guidelines' basic set and Microsoft's Xbo
   - `tile_style()`, a moodle's tile in its tint.
 
   Each script that draws preloads it (`const Look = preload("res://look.gd")`), as the client's scripts are. **Must:** code uses a token, never a new inline colour. A new colour is a new token in this guide and in `look.gd`.
-- **Looks of things:** `data/looks.toml` holds the world's materials (§4) and every fixture's look, as parts of the kit (§5): furniture, trees and plants, each turned to fit its tile, with variants; and what's strewn on the ground. A person can tune them without code, and a mod can add its own. *(Since slice 8, 2026-11-15; the bodies of people and the dead are still `actor_view.gd`'s `LOOKS`, for slice 11.)* A table, for one:
+- **Looks of things:** `data/looks.toml` holds the world's materials (§4) and every fixture's look, as parts of the kit (§5): furniture, trees and plants, each turned to fit its tile, with variants; what's strewn on the ground; and since 2026-11-17 every item's, which its icon is drawn from. A person can tune them without code, and a mod can add its own. *(Since slice 8, 2026-11-15; the bodies of people and the dead are still `actor_view.gd`'s `LOOKS`, for slice 11.)* A table, for one:
 
 ```toml
 [[fixture]]
@@ -701,6 +714,8 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A bow's card: a masterwork Rare hunting bow, its made-up name, its harm, range and arrows changed and marked, its fire in fire's colour, its properties as numbers | `--seed=7 --hour=12 --give=hunting_bow:masterwork:flaming+farflung+hunters+frugal --do=1:card --shot=PNG --shot-after=2.5` |
 | A piece of armour's card: a masterwork Rare iron helm, its made-up name, its turning changed and marked, its properties as numbers, set against the cap you wear | `--seed=7 --hour=12 --give=iron_helm:masterwork:warded+fleeced+powerful+fleet --do=1:card --shot=PNG --shot-after=2.5` |
 | A unique's card: The Last Vigil in the pack, its name in copper, its effect and its story | `--seed=7 --hour=12 --give=last_vigil,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
+| The inventory (Path of Exile 2's) in the near farm's kitchen: the figure and what's on it (a jerkin in Body, faint in Arms), the belt, the pockets and a traveller's pack side by side, what was taken from the stove on its cell, the stove and the cupboard as tabs on the left, and a masterwork Rare sword's card | `--seed=7 --hour=12 --speed=4 --walk=118,84 --give=travellers_pack,sword:masterwork:keen+swift+sorcerous --do=11:wear,12.5:inventory,13:takein,13.5:card --shot=PNG --shot-after=14.5` |
+| The abbey's counter as a vendor: what it sells today as a grid of icons with their prices, what it's short of, the bounties posted | `--seed=7 --hour=12 --walk=80,120 --give=sword:masterwork:keen+swift+sorcerous,bread,wolf_pelt --do=4:inventory --shot=PNG --shot-after=5.5` |
 | A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power4 --shot=PNG --shot-after=2` |
 | The lasting spells at night, alive: a Light inside a Fog, a Silence round them | `--seed=7 --hour=22 --class=wizard --aim=0,4 --do=1:cast_light,3.5:cast_silence,6.5:cast_fog --shot=PNG --shot-after=10` |
 
@@ -720,6 +735,7 @@ Then run `--seed=7 --hour=12 --data=COPY --do=1:sneak,5:moodle --shot=PNG --shot
 | The abbey's and the shops' | `--zoom=9.5 --cols=4 --only=pew,altar,counter,sister,forge,anvil,rack,till,shop_shelf,bar,cask,hearth --shot=PNG --shot-after=2` |
 | The farm, the graveyard and the wild | `--zoom=10 --cols=4 --only=wheat,well,sack,hay,tools,grave,tomb,font,tree,yarrow,chamomile,feverfew,bramble,picked_plant --shot=PNG --shot-after=2` |
 | The wild close, and what's strewn: the four trees, the plants, wheat, tufts, stones, pebbles and reeds | `--zoom=9 --cols=5 --only=tree,yarrow,chamomile,feverfew,bramble,picked_plant,wheat,tuft,stone,pebbles,reeds --shot=PNG --shot-after=2` |
+| Every item's icon, as the inventory draws it (§11, Icons), at its cells, the shortest first | `--icons --shot=PNG --shot-after=4` (with `--only=` item ids, some) |
 | Any of them at midnight, by a torch | add `--daylight=0 --torch` |
 
 A copy of `data/` with no dead (its region's `[dead]` `per_chunk` and `per_house`, its `[beasts]` `per_chunk` and its `[rares]` `count` all 0, and each prefab's `dead = [0, 0]`) lets the game walk anywhere for a picture of the looks where they stand: `--seed=7 --hour=12 --speed=4 --zoom=12 --data=COPY --walk=118,84 --shot=PNG --shot-after=16` is the near farm's farmhouse and yard. A walk much over 40 tiles finds no way (the path's budget), so it starts near the abbey.
@@ -765,7 +781,7 @@ These are the visual slices, in order. Each one ends with a picture or two and t
 7. *(Done 2026-11-12.)* **Settings:** colour-blind mode, reduce flashes, high contrast, show numbers, and key remapping. *(The keys' layout came first, 2026-11-12: §10, "The keys".)*
 8. *(Done 2026-11-15.)* **Looks as data:** `data/looks.toml`, the world's materials and every fixture's look made of the kit's parts (§5); the looks gallery (§14). Then the terrain in it, the same day: four trees, each plant its own shape, wheat you can't see through, what's strewn on the ground, and borders between grounds that wander (§6). *(The bodies' looks wait for slice 11.)*
 9. **Screens:** title, the class choice as a screen, and death as a story.
-10. **Icons:** glyphs by kind, then each item's icon drawn from its own model.
+10. *(Done 2026-11-17.)* **Icons:** each item's icon drawn from its own look (§5, What you carry; §11, Icons), with no glyphs by kind on the way; and the inventory they're drawn in, as Path of Exile 2's (§10, zone H; §11, Grid). *(Items in hand and lying on the floor wait for slice 11 and loot on the ground, `BACKLOG.md` #6.)*
 11. **Shapes:** heads, shoulders and the thing in hand for people and the dead, still primitives, each kind passing the silhouette test.
 12. **Regions:** a palette shift with each new region.
 

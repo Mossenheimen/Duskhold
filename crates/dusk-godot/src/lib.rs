@@ -21,7 +21,7 @@ use dusk_core::geom::CHUNK_SIZE;
 use dusk_core::hunting::NoButcher;
 use dusk_core::world::TICKS_PER_SECOND;
 use dusk_core::{
-    ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Dir8, Edge, Event, Ground, HANDS,
+    ActionKind, ActorId, ActorKind, Alert, Area, ChunkPos, Defs, Dir8, Edge, Event, Ground, HANDS,
     Intent, Item, ItemKind, NoBoard, NoBreak, NoBurn, NoCast, NoCraft, NoDeal, NoDoor, NoFaith,
     NoFire, NoPutUp, NoSleep, NoStash, NoTake, Part, Piece, Power, Remains, Repair, Rise, Skill,
     SpellKind, Tend, TilePos, View, World, Wound, WoundKind, demo,
@@ -746,6 +746,15 @@ impl DuskWorld {
         Ok(())
     }
 
+    /// The items' definitions: the world's, else the data's as it loaded (`looks()` loads it), for
+    /// a tool with no world (the gallery's icons).
+    fn item_defs(&self) -> Option<&Defs> {
+        match &self.world {
+            Some(world) => Some(&world.defs),
+            None => self.data.as_ref().map(|d| &*d.defs),
+        }
+    }
+
     /// `--hour`, on the data's clock: set before a patch is made or loaded, so what's stamped
     /// on the clock from the first tick (when you were born) reads from the same start.
     fn apply_start_hour(&mut self) {
@@ -1006,8 +1015,9 @@ impl DuskWorld {
     /// "materials": each material's colour by name ("ground.grass": sRGB). "fixture": each
     /// fixture's look by id, as `look_dict` gives it. "scatter": what's strewn on the ground, in
     /// order, each a look as `look_dict` gives it with its "id", the grounds it lies "on" (their
-    /// codes), its "chance" a tile has it, and its "count" there (fewest, most). Loads the data if
-    /// it isn't yet; empty if it won't load, or there's no `looks.toml`.
+    /// codes), its "chance" a tile has it, and its "count" there (fewest, most). "item": each
+    /// item's look by its id (`item_ids`), as `look_dict` gives it. Loads the data if it isn't
+    /// yet; empty if it won't load, or there's no `looks.toml`.
     #[func]
     fn looks(&mut self) -> VarDictionary {
         let mut out = VarDictionary::new();
@@ -1040,6 +1050,11 @@ impl DuskWorld {
             scatter.push(&d.to_variant());
         }
         out.set("scatter", &scatter);
+        let mut items = VarDictionary::new();
+        for (id, look) in &data.looks.items {
+            items.set(id.as_str(), &look_dict(look));
+        }
+        out.set("item", &items);
         out
     }
 
@@ -1285,15 +1300,19 @@ impl DuskWorld {
     /// The items' names, by definition number (what the item arrays and events count by).
     #[func]
     fn item_names(&self) -> PackedStringArray {
-        let Some(world) = &self.world else {
+        let Some(defs) = self.item_defs() else {
             return PackedStringArray::new();
         };
-        world
-            .defs
-            .items
-            .iter()
-            .map(|i| GString::from(&i.name))
-            .collect()
+        defs.items.iter().map(|i| GString::from(&i.name)).collect()
+    }
+
+    /// The items' ids, by definition number: what `looks()`' "item" names their looks by.
+    #[func]
+    fn item_ids(&self) -> PackedStringArray {
+        let Some(defs) = self.item_defs() else {
+            return PackedStringArray::new();
+        };
+        defs.items.iter().map(|i| GString::from(&i.id)).collect()
     }
 
     /// Each item's kind, by definition number (`codes::item`): other, a weapon, a bandage,
@@ -3241,12 +3260,12 @@ impl DuskWorld {
     /// numbers each.
     #[func]
     fn item_sizes(&self) -> PackedInt32Array {
-        let Some(world) = &self.world else {
+        let Some(defs) = self.item_defs() else {
             return PackedInt32Array::new();
         };
-        (0..world.defs.items.len() as u16)
+        (0..defs.items.len() as u16)
             .flat_map(|d| {
-                let (w, h) = world.defs.size(d);
+                let (w, h) = defs.size(d);
                 [i32::from(w), i32::from(h)]
             })
             .collect()

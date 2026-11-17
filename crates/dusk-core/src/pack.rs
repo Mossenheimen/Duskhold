@@ -425,6 +425,7 @@ impl World {
 
     /// Lays out what has no place yet (an older save's, as it loads): each character's pack, a
     /// stack into its own grid, else the other, else at its feet; and each container's.
+    #[cfg(feature = "save")]
     pub(crate) fn settle(&mut self) {
         for i in 0..self.characters.len() {
             let id = self.characters[i];

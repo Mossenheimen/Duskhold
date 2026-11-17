@@ -67,6 +67,20 @@ static func scatter_mesh(k: int, n: int) -> ArrayMesh:
 	return _meshes[key]
 
 
+## An item's look, by its id (items/'s: DuskWorld.item_ids()), or {} for one with none.
+static func item(id: String) -> Dictionary:
+	return _looks.get("item", {}).get(id, {})
+
+
+## Item `id`'s look as a mesh, baked the first time it's asked for; null for one with none.
+static func item_mesh(id: String) -> ArrayMesh:
+	var key := "item:" + id
+	if not _meshes.has(key):
+		var look := item(id)
+		_meshes[key] = bake(look.variants[0]) if look.has("variants") else null
+	return _meshes[key]
+
+
 ## Parts (PART numbers each) as one mesh: every face flat, wound as Godot draws a front, its part's
 ## colour (linear) in the vertices' colour, and in UV2 its surface and whether it may be cut away.
 static func bake(parts: PackedFloat32Array) -> ArrayMesh:

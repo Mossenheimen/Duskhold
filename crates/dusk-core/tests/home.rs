@@ -281,6 +281,65 @@ fn a_find_in_any_other_container_isnt_home() {
 }
 
 #[test]
+fn a_find_joins_what_was_brought_home_in_a_full_stash() {
+    let (mut w, me) = house();
+    // A cupboard of one cell.
+    w.defs = Arc::new(Defs {
+        grids: vec![(0, 0), (1, 1)],
+        ..defs()
+    });
+    sleep_through(&mut w, me);
+    act(&mut w, me, Intent::Stash { at: at(1) });
+    // Its ten coins out and home again: finds no longer, on its one cell.
+    act(
+        &mut w,
+        me,
+        Intent::Take {
+            at: at(1),
+            slot: 0,
+            def: COINS,
+        },
+    );
+    let coins = slot_of(&w, me, COINS);
+    act(
+        &mut w,
+        me,
+        Intent::Put {
+            at: at(1),
+            slot: coins,
+            def: COINS,
+        },
+    );
+    let home = |count| Item {
+        cell: Some((0, 0)),
+        ..Item::new(COINS, count)
+    };
+    assert_eq!(w.store(at(1)), vec![home(10)]);
+    // Five more, found: the cupboard is full, but they're brought home onto that stack, as what
+    // they'll be there, not as the finds they are in the pack.
+    w.give(me, Item::found(COINS, 5));
+    let coins = slot_of(&w, me, COINS);
+    assert_eq!(w.can_put(me, at(1), coins, COINS, None), 5);
+    assert_eq!(w.can_put(me, at(1), coins, COINS, Some((0, 0))), 5);
+    let seen = act(
+        &mut w,
+        me,
+        Intent::PutTo {
+            at: at(1),
+            slot: coins,
+            def: COINS,
+            cell: (0, 0),
+        },
+    );
+    assert!(
+        seen.iter()
+            .any(|e| matches!(e, Event::BroughtHome { count: 5, .. }))
+    );
+    assert_eq!(w.store(at(1)), vec![home(15)]);
+    assert!(w.actor(me).unwrap().items.iter().all(|i| i.def != COINS));
+}
+
+#[test]
 fn finds_and_what_was_brought_home_dont_stack_together() {
     let defs = defs();
     let mut list = vec![Item::new(COINS, 4)];

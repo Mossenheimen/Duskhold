@@ -71,7 +71,7 @@ const REMAP := [
 	["shove", "Shove"], ["use", "Use what's here"], ["light", "Light; dead, the next"],
 	["sleep", "Sleep"], ["power_1", "Power 1"], ["power_2", "Power 2"], ["power_3", "Power 3"],
 	["power_4", "Power 4"], ["belt_1", "Belt 1"], ["belt_2", "Belt 2"], ["belt_3", "Belt 3"],
-	["belt_4", "Belt 4"], ["pack", "Your pack"], ["craft", "Making"], ["skills", "Skills"],
+	["belt_4", "Belt 4"], ["pack", "The inventory"], ["craft", "Making"], ["skills", "Skills"],
 	["spells", "Spells"], ["keys", "The keys"], ["settings", "Settings"],
 	["speed_1", "Speed 1×"], ["speed_2", "Speed 2×"], ["speed_3", "Speed 5×"], ["save", "Save"],
 	["low_walls", "Low walls"], ["zoom_in", "Zoom in"], ["zoom_out", "Zoom out"],

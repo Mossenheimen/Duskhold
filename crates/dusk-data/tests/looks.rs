@@ -5,8 +5,8 @@ use std::path::Path;
 
 use dusk_core::Ground;
 use dusk_data::{
-    FIXTURE_TRIANGLES, Part, SCATTER_TRIANGLES, Shape, Surface, default_dir, load, parse_looks,
-    unit_points,
+    FIXTURE_TRIANGLES, ITEM_SIZE, ITEM_TRIANGLES, Part, SCATTER_TRIANGLES, Shape, Surface,
+    default_dir, load, parse_looks, unit_points,
 };
 
 fn part(shape: Shape, sides: u8) -> Part {
@@ -97,6 +97,7 @@ parts = [
 ]
 "##,
         &data.fixtures,
+        &data.defs.items,
     )
     .expect("it reads");
     let parts = &looks.fixtures["table"].variants[0];
@@ -139,8 +140,13 @@ fn the_ground_is_strewn_lightly() {
         assert!(s.look.variants.iter().flatten().all(|p| !p.cut), "{}", s.id);
     }
     let says = |text: &str| {
-        let e = parse_looks(Path::new("looks.toml"), text, &data.fixtures)
-            .expect_err("it shouldn't read");
+        let e = parse_looks(
+            Path::new("looks.toml"),
+            text,
+            &data.fixtures,
+            &data.defs.items,
+        )
+        .expect_err("it shouldn't read");
         e.to_string()
     };
     let tuft = |extra: &str| {
@@ -159,8 +165,13 @@ fn the_ground_is_strewn_lightly() {
 fn a_mistake_in_a_look_says_what_and_where() {
     let data = load(&default_dir()).expect("the game's data loads");
     let says = |text: &str| {
-        let e = parse_looks(Path::new("looks.toml"), text, &data.fixtures)
-            .expect_err("it shouldn't read");
+        let e = parse_looks(
+            Path::new("looks.toml"),
+            text,
+            &data.fixtures,
+            &data.defs.items,
+        )
+        .expect_err("it shouldn't read");
         e.to_string()
     };
     let wood = "[material.wood]\noak = { colour = \"#735233\" }\n";
@@ -201,4 +212,42 @@ fn a_mistake_in_a_look_says_what_and_where() {
          sides = 16, material = \"wood.oak\", repeat = {{ count = 5, step = [0, 0.1, 0] }} }} ]\n"
     );
     assert!(says(&many).contains("triangles"));
+    // An item's look is for an item there is.
+    let wand = format!(
+        "{wood}[[item]]\nid = \"wand\"\nparts = [ {{ shape = \"box\", size = [0.1, 0.1, 0.1], \
+         material = \"wood.oak\" }} ]\n"
+    );
+    assert!(says(&wand).contains("no such item"));
+    // Nor bigger than a door stood up.
+    let pole = format!(
+        "{wood}[[item]]\nid = \"cudgel\"\nparts = [ {{ shape = \"box\", size = [0.1, 3, 0.1], \
+         material = \"wood.oak\" }} ]\n"
+    );
+    assert!(says(&pole).contains("an item may measure"));
+}
+
+#[test]
+fn every_item_has_a_look_that_runs_the_way_its_cells_do() {
+    let data = load(&default_dir()).expect("the game's data loads");
+    for (d, item) in data.defs.items.iter().enumerate() {
+        let look = data.looks.items.get(&item.id).expect("a look");
+        assert!(look.triangles() <= ITEM_TRIANGLES, "{}", item.id);
+        assert!(look.height() <= ITEM_SIZE, "{}", item.id);
+        // Seen from the front, as its icon is: a thing longer up its cells than across them is
+        // taller than it's wide, and the other way about.
+        let points: Vec<[f32; 3]> = look.variants[0].iter().flat_map(Part::points).collect();
+        let extent = |axis: usize| {
+            let (lo, hi) = points.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+                (lo.min(p[axis]), hi.max(p[axis]))
+            });
+            hi - lo
+        };
+        let (across, up) = (extent(0), extent(1));
+        let (w, h) = data.defs.size(d as u16);
+        if h > w {
+            assert!(up >= across, "{}: {across} across, {up} up", item.id);
+        } else if w > h {
+            assert!(across >= up, "{}: {across} across, {up} up", item.id);
+        }
+    }
 }

@@ -196,14 +196,21 @@ impl World {
         if !self.is_container(at) {
             return 0;
         }
+        // As it will land: a find put into your stash is brought home, a find no longer
+        // (`put_away`), so it joins the stacks there that aren't finds.
+        let home = self.actors.get(id).is_some_and(|a| a.stash == Some(at));
+        let item = Item {
+            found: item.found && !home,
+            ..*item
+        };
         let Some(cell) = to else {
-            return self.store_room(at, item, None);
+            return self.store_room(at, &item, None);
         };
         let held = self.store(at);
         let size = self.store_grid(at).unwrap_or(crate::items::CONTAINER_GRID);
         let stack = self.defs.item(def).map_or(1, |d| d.stack.max(1));
         match crate::pack::stack_at(&self.defs, &held, |_| true, cell) {
-            Some(k) if self.defs.alike(&held[k], item) => {
+            Some(k) if self.defs.alike(&held[k], &item) => {
                 stack.saturating_sub(held[k].count).min(item.count)
             }
             Some(_) => 0,

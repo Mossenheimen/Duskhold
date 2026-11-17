@@ -21,7 +21,9 @@ extends Node3D
 ## keys (F1), moodle (the worst one's detail, as if hovered),
 ## esc (closes what Esc would, never quits), settings (the screen, F10), zoom_in and zoom_out (three
 ## notches of the wheel), body (the worst-wounded part's detail), bandage (the
-## first in the pack)
+## first in the pack), inventory (I: opens or shuts it), card (the inventory opened, a weapon's card
+## in it shown), arrange (the first stack in your pockets moved within them, at once), takein (the
+## first thing within reach taken onto a cell of your pockets)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
@@ -45,6 +47,8 @@ const Effects = preload("res://effects.gd")
 const Aim = preload("res://aim.gd")
 const Threats = preload("res://threats.gd")
 const Bag = preload("res://bag.gd")
+const Inventory = preload("res://inventory.gd")
+const Icons = preload("res://icons.gd")
 const Litter = preload("res://litter.gd")
 const Skills = preload("res://skills.gd")
 const Craft = preload("res://craft.gd")
@@ -170,6 +174,8 @@ var effects: Effects  # a power or a spell as it happens: bursts, waves, a fireb
 var aim: Aim  # a readied spell's reach, round you and at the mouse
 var threats: Threats
 var bag: Bag
+var inventory: Inventory  # I or Tab: your pack as Path of Exile 2's, and what's within reach
+var icons: Icons  # each item's icon, drawn from its look
 var litter: Litter
 var skills: Skills
 var item_names := PackedStringArray()
@@ -325,6 +331,15 @@ func _ready() -> void:
 	bag.hallow = _consecrate
 	bag.card = hud.hover_card
 	bag.uncard = hud.unhover_card
+	icons = Icons.new()
+	add_child(icons)
+	inventory = Inventory.new()
+	add_child(inventory)
+	inventory.say = hud.say
+	inventory.card = hud.hover_card
+	inventory.uncard = hud.unhover_card
+	inventory.bag = bag
+	inventory.icons = icons
 	litter = Litter.new()
 	add_child(litter)
 	skills = Skills.new()
@@ -386,6 +401,8 @@ func _start(carry_on := false) -> void:
 	wound_names = dusk.wound_names()
 	item_names = dusk.item_names()
 	bag.start(dusk)
+	icons.start(dusk)
+	inventory.start(dusk)
 	skill_names = dusk.skill_names()
 	skills.start(dusk)
 	craft.start(dusk)
@@ -496,7 +513,9 @@ func _process(delta: float) -> void:
 	_mind_the_ground()
 	_mind_the_plants()
 	var doing := _my_action()
-	bag.refresh(doing.x != 0, dead)
+	bag.refresh(doing.x != 0, dead, inventory.is_open())
+	inventory.refresh(dead)
+	hud.make_room(inventory.room_on_right())
 	skills.refresh(dead)
 	craft.refresh(dead)
 	spells.refresh(dead, readied)
@@ -650,7 +669,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("speed_3"):
 		_set_speed(2)
 	elif event.is_action_pressed("pack"):
-		bag.toggle()
+		inventory.toggle()
 	elif event.is_action_pressed("skills"):
 		_book(skills)
 	elif event.is_action_pressed("craft") and not dead:
@@ -1011,6 +1030,7 @@ func _take_up_class(c: int) -> void:
 		hud.show_choice("", "")
 		dusk.paused = false
 	bag.start(dusk)
+	inventory.start(dusk)
 	skills.start(dusk)
 	_save("")
 
@@ -1850,6 +1870,7 @@ func _next_survivor() -> void:
 	sleeping = false
 	hud.hide_death()
 	bag.start(dusk)
+	inventory.start(dusk)
 	skills.start(dusk)
 	craft.start(dusk)
 	spells.start(dusk)
@@ -2150,9 +2171,9 @@ func _book(panel: Node) -> void:
 
 
 ## Esc backs out of what's open before it opens the menu (VISUALS.md §10): the settings close, the
-## menu closes (the game goes on), E's list closes, a readied spell is let go, then the keys close,
-## then the book panel. True if it closed something. The pack stays: it's open from the start, as
-## part of the HUD, and Tab closes it.
+## menu closes (the game goes on), what you hold in the inventory goes back, the inventory shuts,
+## E's list closes, a readied spell is let go, then the keys close, then the book panel. True if it
+## closed something.
 func _close_top() -> bool:
 	if settings != null and settings.is_open():
 		settings.close()
@@ -2162,6 +2183,8 @@ func _close_top() -> bool:
 		return true
 	if dusk == null:
 		return false
+	if inventory.back():
+		return true
 	if listing:
 		_close_here()
 		return true
@@ -2274,10 +2297,22 @@ func _run_script() -> void:
 				_toggle_keys()
 			"moodle":  # the worst moodle's detail, as if the mouse rested on it
 				hud.hover_first_moodle()
-			"card":  # a weapon's card in the pack (else the one in hand), as if hovered
-				var shown: String = bag.card_first()
+			"card":  # the inventory opened, and a weapon's card in it (else the one in hand), as if hovered
+				var shown: String = inventory.card_first()
 				if print_news and shown != "":
 					print("Card: ", shown)
+			"inventory":  # I: the inventory opened, or shut
+				inventory.toggle()
+				if print_news:
+					print("Inventory opened." if inventory.is_open() else "Inventory shut.")
+			"arrange":  # the first stack in your pockets moved within them, at once, as a click would
+				var moved: String = inventory.arrange_first()
+				if print_news and moved != "":
+					print(moved)
+			"takein":  # the first thing within reach taken onto a cell of your pockets, as a click would
+				var taking: String = inventory.take_in_first()
+				if print_news and taking != "":
+					print(taking)
 			"esc":  # what Esc closes first, else the menu (a script never quits by it)
 				if not _close_top():
 					_open_menu()
@@ -2305,7 +2340,7 @@ func _run_script() -> void:
 				for k in range(0, items.size() - 3, 4):
 					if items[k] < kinds.size() and kinds[items[k]] == want:
 						if want == Item.PIECE:
-							bag._put_up(k / 4, items[k])  # as its button does: says why not
+							bag.put_up(k / 4, items[k])  # as its button does: says why not
 						else:
 							dusk.use_item(k / 4, items[k])
 						break

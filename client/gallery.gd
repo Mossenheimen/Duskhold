@@ -6,17 +6,22 @@ extends Node3D
 ##
 ##   .\play.cmd gallery.tscn -- [--daylight=0..100] [--zoom=Z] [--only=id,id] [--torch]
 ##                              [--cols=N] [--data=DIR] --shot=PNG --shot-after=S
+##   .\play.cmd gallery.tscn -- --icons --shot=PNG --shot-after=4
 ##
 ## Each look stands as a fixture placed "fixed" does, its front toward the camera's side; each of
-## its variants has its own place ("grave 2").
+## its variants has its own place ("grave 2"). With --icons, every item's icon instead, as the pack
+## draws it (icons.gd), at its cells, the shortest first.
 
 const Look = preload("res://look.gd")
 const Looks = preload("res://looks.gd")
+const Icons = preload("res://icons.gd")
 const Main = preload("res://main.gd")
 const ActorView = preload("res://actor_view.gd")
 
 ## Metres between one look and the next.
 const GAP := 2.2
+## Pixels a cell of an icon takes up in --icons' sheet.
+const SHEET_CELL := 36
 ## Fixtures that stand out of doors: on grass, not a plank floor.
 const OUTDOORS := ["tree", "yarrow", "chamomile", "feverfew", "bramble", "picked_plant", "wheat",
 	"well", "hay", "grave", "tomb", "sack"]
@@ -30,6 +35,7 @@ var _data_dir := ""
 var _shot := ""
 var _shot_after := 2.0
 var _played := 0.0
+var _icons := false
 
 
 func _ready() -> void:
@@ -43,6 +49,9 @@ func _ready() -> void:
 	dusk.data_dir = _data_dir
 	add_child(dusk)
 	Looks.read(dusk)
+	if _icons:
+		_sheet(dusk)
+		return
 	var shown: Array = []  # [name, mesh, out of doors]
 	var ids: Array = Looks.fixtures()
 	ids.sort()
@@ -95,6 +104,59 @@ func _read_args() -> void:
 			_shot = value
 		elif arg.begins_with("--shot-after="):
 			_shot_after = value.to_float()
+		elif arg == "--icons":
+			_icons = true
+
+
+## --icons: every item's icon as the pack draws it (icons.gd), at its cells on the panel's ground,
+## its name under it; the shortest first, so a row's things are alike in height.
+func _sheet(dusk: Node) -> void:
+	var icons := Icons.new()
+	add_child(icons)
+	icons.start(dusk)
+	var names: PackedStringArray = dusk.item_names()
+	var ids: PackedStringArray = dusk.item_ids()
+	var order := range(names.size())
+	order.sort_custom(func(a: int, b: int) -> bool:
+		var ca: Vector2i = icons.cells(a)
+		var cb: Vector2i = icons.cells(b)
+		return ca.y < cb.y or (ca.y == cb.y and (ca.x < cb.x or (ca.x == cb.x and a < b))))
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var ground := ColorRect.new()
+	ground.color = Look.PANEL_SOLID
+	ground.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(ground)
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 8)
+	flow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_KEEP_SIZE, 16)
+	layer.add_child(flow)
+	var shown := {}
+	for def: int in order:
+		if not _only.is_empty() and not _only.has(ids[def]):
+			continue
+		var cells: Vector2i = icons.cells(def)
+		var entry := VBoxContainer.new()
+		entry.custom_minimum_size = Vector2(maxi(cells.x * SHEET_CELL, 96), 0)
+		var picture := TextureRect.new()
+		picture.custom_minimum_size = Vector2(cells * SHEET_CELL)
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		entry.add_child(picture)
+		var label := Label.new()
+		label.text = names[def]
+		label.add_theme_font_size_override("font_size", 13)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.custom_minimum_size = Vector2(entry.custom_minimum_size.x, 0)
+		entry.add_child(label)
+		flow.add_child(entry)
+		shown[def] = picture
+	icons.drawn.connect(func(def: int) -> void:
+		if shown.has(def):
+			(shown[def] as TextureRect).texture = icons.icon(def))
+	icons.ask_all()
 
 
 ## The looks in rows of `_cols`, west to east, each row a step south; the ground under them; the

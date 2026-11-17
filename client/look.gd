@@ -151,6 +151,11 @@ const OUTLINE := Color("#000000D9")  # round text drawn straight on the world: 8
 const TRACK := Color("#00000080")  # a bar's empty part, 50%
 const VEIL := Color("#05081499")  # sleep, 60%
 const HURT := Color("#B30000")  # the flash when you're hurt (up to 35%)
+## The inventory's grids (§11, Grid; inventory.gd): an empty cell's ground, the lines between
+## cells, and a thing's tile over its cells (a magic one's takes its rarity's colour too).
+const CELL_GROUND := Color("#FFFFFF0F")  # white, 6%
+const CELL_EDGE := Color("#00000099")  # black, 60%
+const TILE_GROUND := Color("#262B36E6")  # slate, 90%
 
 # Type, in pixels at the base screen of 1920 x 1080 (§8). The smallest is the 18 px Microsoft's
 # guidelines ask of a PC game at 1080p.

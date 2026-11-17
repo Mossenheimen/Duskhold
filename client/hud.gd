@@ -48,7 +48,7 @@ const KEYS := [
 		["{belt_1} {belt_2} {belt_3} {belt_4}", "drink the potion in that loop of your belt: a potion you take goes on it first"],
 	]],
 	["Panels", [
-		["{pack|all}", "your pack"],
+		["{pack|all}", "the inventory: your pack, and what's within reach, as grids"],
 		["{craft}", "making"],
 		["{skills}", "Strength, Fitness, skills and talents"],
 		["{spells}", "spells"],
@@ -167,6 +167,8 @@ var _prompts: Array[Label] = []  # zone F's prompts, under the act's bar: more a
 var _prompts_shown := []  # as last given (show_prompts)
 var _listing := false  # E is held: each prompt is a choice, and takes a click
 var _moodles: VBoxContainer
+var _right_column: VBoxContainer  # zones D and E: the news over the moodles
+var _room := 0.0  # how far zones D and E stand off the right edge (`make_room`)
 var _shown_moodles := PackedInt32Array()
 var _glyphs: Array[Texture2D] = []  # each moodle's glyph, by code
 var _detail: PanelContainer  # a hovered moodle's or body part's detail, or a thing's card
@@ -678,7 +680,12 @@ func _build_detail() -> void:
 	_card_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lines.add_child(_card_rows)
 	_detail.visible = false
-	add_child(_detail)
+	# Over every panel, the inventory's too (inventory.gd, layer 2): a card shows beside what it
+	# describes, whatever that's in. Under the menu (9) and the settings (10).
+	var top := CanvasLayer.new()
+	top.layer = 3
+	add_child(top)
+	top.add_child(_detail)
 
 
 ## A card's lines (DuskWorld.card_lines()), built afresh; its title, in a heading's size, is the
@@ -848,6 +855,7 @@ func _build_left_column() -> void:
 ## under it stay put (Zomboid's column), the text left-aligned in its box.
 func _build_right_column() -> void:
 	var column := VBoxContainer.new()
+	_right_column = column
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 12)
 	add_child(column)
@@ -864,6 +872,21 @@ func _build_right_column() -> void:
 	_moodles.custom_minimum_size = Vector2(MOODLE_WIDTH, 0)
 	_moodles.size_flags_horizontal = Control.SIZE_SHRINK_END
 	column.add_child(_moodles)
+
+
+## Zones D and E kept clear of a panel `width` pixels wide down the right (the inventory's): to
+## its left while it's open, and under the status line (zone A), which reaches that far; back at
+## the screen's edge when it shuts (0).
+func make_room(width: float) -> void:
+	if width == _room:
+		return
+	_room = width
+	_right_column.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT,
+		Control.PRESET_MODE_MINSIZE, Look.MARGIN)
+	_right_column.offset_left -= width
+	_right_column.offset_right -= width
+	if width > 0.0:
+		_right_column.offset_top += LINE_HEIGHT * 2
 
 
 func _bar(parent: Control, name: String, colour: Color) -> ProgressBar:

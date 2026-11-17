@@ -1,6 +1,7 @@
 //! How things look (`data/looks.toml`; `VISUALS.md` §5, the kit, and §14): the world's materials,
-//! and every fixture as parts in four shapes, so they all look made by one hand. Nothing in the
-//! core reads it: the client draws from it, through the bridge, and the tools picture it.
+//! and every fixture and every item as parts in four shapes, so they all look made by one hand.
+//! Nothing in the core reads it: the client draws from it, through the bridge (an item's icon is
+//! drawn from its look), and the tools picture it.
 //!
 //! A part is a unit shape (−½ to ½ each way) stretched to its `size`, turned as Godot turns a
 //! node (y, then x, then z: `Basis::from_euler`), and set with its centre `at` a point of the
@@ -11,7 +12,7 @@ use std::collections::BTreeMap;
 use std::f32::consts::PI;
 use std::path::Path;
 
-use dusk_core::Ground;
+use dusk_core::{Ground, ItemDef};
 use serde::Deserialize;
 
 use crate::{DataError, Fixture, check_unique, fail, ground_named};
@@ -314,6 +315,9 @@ pub struct Looks {
     pub fixtures: BTreeMap<String, Look>,
     /// What's strewn on the ground, in the file's order.
     pub scatter: Vec<Scatter>,
+    /// By item id: each thing you carry at its own size, upright as it lies in its cells (its
+    /// long side up them), its front toward −z. Its icon is drawn from it (`client/icons.gd`).
+    pub items: BTreeMap<String, Look>,
 }
 
 /// Small things the client strews on the ground (a tuft of grass, a stone, reeds in the
@@ -354,6 +358,10 @@ pub const NAMED: &[&str] = &[
 pub const FIXTURE_TRIANGLES: usize = 500;
 /// The most a scatter's may: there are thousands of them.
 pub const SCATTER_TRIANGLES: usize = 60;
+/// The most an item's may: an icon is drawn from it once, but a find may lie on the ground.
+pub const ITEM_TRIANGLES: usize = 300;
+/// The most an item's look may measure any way, in metres: a door, stood up.
+pub const ITEM_SIZE: f32 = 2.5;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -364,6 +372,15 @@ struct LooksFile {
     fixture: Vec<LookFile>,
     #[serde(default)]
     scatter: Vec<ScatterFile>,
+    #[serde(default)]
+    item: Vec<ItemLookFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ItemLookFile {
+    id: String,
+    parts: Vec<PartFile>,
 }
 
 #[derive(Deserialize)]
@@ -460,15 +477,20 @@ struct RepeatFile {
     step: [f32; 3],
 }
 
-/// `looks.toml` (left out: no looks, and the client draws a plain box for each fixture). When
-/// it's there, every fixture has a look, and the materials the client names are in it.
-pub(crate) fn load(dir: &Path, fixtures: &[Fixture]) -> Result<Looks, DataError> {
+/// `looks.toml` (left out: no looks, and the client draws a plain box for each fixture, and an
+/// item's name for its icon). When it's there, every fixture and every item has a look, and the
+/// materials the client names are in it.
+pub(crate) fn load(
+    dir: &Path,
+    fixtures: &[Fixture],
+    items: &[ItemDef],
+) -> Result<Looks, DataError> {
     let file = dir.join("looks.toml");
     if !file.exists() {
         return Ok(Looks::default());
     }
     let text = std::fs::read_to_string(&file).map_err(|e| fail(&file, e.to_string()))?;
-    let looks = parse(&file, &text, fixtures)?;
+    let looks = parse(&file, &text, fixtures, items)?;
     if let Some(name) = NAMED.iter().find(|n| !looks.materials.contains_key(**n)) {
         return Err(fail(
             &file,
@@ -484,12 +506,26 @@ pub(crate) fn load(dir: &Path, fixtures: &[Fixture]) -> Result<Looks, DataError>
             format!("fixture {:?} has no look: every fixture needs one", f.id),
         ));
     }
+    if let Some(i) = items.iter().find(|i| !looks.items.contains_key(&i.id)) {
+        return Err(fail(
+            &file,
+            format!(
+                "item {:?} has no look: every item needs one (its icon is drawn from it)",
+                i.id
+            ),
+        ));
+    }
     Ok(looks)
 }
 
-/// Reads looks from `text` (as if it were `file`), checking each against `fixtures`, but not
-/// that every fixture has one.
-pub fn parse(file: &Path, text: &str, fixtures: &[Fixture]) -> Result<Looks, DataError> {
+/// Reads looks from `text` (as if it were `file`), checking each against `fixtures` and `items`,
+/// but not that every fixture and item has one.
+pub fn parse(
+    file: &Path,
+    text: &str,
+    fixtures: &[Fixture],
+    items: &[ItemDef],
+) -> Result<Looks, DataError> {
     let raw: LooksFile = toml::from_str(text).map_err(|e| fail(file, e.to_string()))?;
     let mut materials = BTreeMap::new();
     for (group, names) in &raw.material {
@@ -546,11 +582,57 @@ pub fn parse(file: &Path, text: &str, fixtures: &[Fixture]) -> Result<Looks, Dat
         let look = to_scatter(s, &materials);
         scatter.push(look.map_err(|m| fail(file, format!("scatter {:?}: {m}", s.id)))?);
     }
+    check_unique(file, "item look", raw.item.iter().map(|l| &l.id))?;
+    let mut item_looks = BTreeMap::new();
+    for l in &raw.item {
+        let bad = |m: String| fail(file, format!("item {:?}: {m}", l.id));
+        if !items.iter().any(|i| i.id == l.id) {
+            return Err(bad("no such item in items/".into()));
+        }
+        item_looks.insert(l.id.clone(), to_item_look(l, &materials).map_err(bad)?);
+    }
     Ok(Looks {
         materials,
         fixtures: looks,
         scatter,
+        items: item_looks,
     })
+}
+
+/// An item's look: its parts, at most `ITEM_TRIANGLES` and `ITEM_SIZE` any way, standing on the
+/// look's origin (its base there).
+fn to_item_look(l: &ItemLookFile, materials: &BTreeMap<String, Material>) -> Result<Look, String> {
+    let variants = to_variants(&l.parts, &[], materials)?;
+    let look = Look {
+        variants,
+        placed: Placed::Fixed,
+        faces: None,
+        backs: None,
+        reach: 1,
+        grow: [1.0, 1.0],
+        vary: 0.0,
+        fire: None,
+    };
+    if look.triangles() > ITEM_TRIANGLES {
+        return Err(format!(
+            "{} triangles, past the {ITEM_TRIANGLES} an item may have",
+            look.triangles()
+        ));
+    }
+    let points: Vec<[f32; 3]> = look.variants[0].iter().flat_map(Part::points).collect();
+    for axis in 0..3 {
+        let (lo, hi) = points.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+            (lo.min(p[axis]), hi.max(p[axis]))
+        });
+        if hi - lo > ITEM_SIZE {
+            return Err(format!(
+                "{:.2} m {}, past the {ITEM_SIZE} m an item may measure",
+                hi - lo,
+                ["across", "up", "deep"][axis]
+            ));
+        }
+    }
+    Ok(look)
 }
 
 fn to_look(

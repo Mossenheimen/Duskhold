@@ -1,6 +1,7 @@
 # How things look (VISUALS.md §5, "The kit", and §14): the world's materials, and every fixture made
-# of a few shapes in them, so the whole world looks made by one hand. The core never reads this:
-# the client draws from it (DuskWorld.looks()), and dusk-data checks it.
+# of a few shapes in them, so the whole world looks made by one hand; and every item you carry, the
+# same way (its icon is drawn from it: [[item]], at the end). The core never reads this: the client
+# draws from it (DuskWorld.looks()), and dusk-data checks it.
 #
 # [material]: a colour ("#RRGGBB", sRGB, as picked) and a surface the shaders draw on it
 # (VISUALS.md §6): plain, plaster, wood, stone, foliage, straw, cloth, iron or bark. A material is
@@ -100,6 +101,7 @@ iron = { colour = "#38383D", surface = "iron" }
 black = { colour = "#2B2B30", surface = "iron" }
 steel = { colour = "#8C9196", surface = "iron" }  # an edge
 bronze = { colour = "#8C7046", surface = "iron" }  # bell bronze: the Hushlands' accent (§15)
+copper = { colour = "#A0673F", surface = "iron" }  # coins
 
 [material.cloth]
 linen = { colour = "#B8AE9A", surface = "cloth" }
@@ -117,9 +119,61 @@ red = { colour = "#8A5A44" }
 
 [material.glass]
 green = { colour = "#4F6352" }
+clear = { colour = "#AFBDBA" }  # a flask's neck: what you see through, drawn pale
+brown = { colour = "#5A3D2A" }  # a tincture's bottle
 
 [material.wax]
 candle = { colour = "#D9CFB4" }
+
+# What the things you carry are made of (the items' looks, at the end), besides the world's.
+# Livelier than the world's, as a thing in your hand should be, but never a signal's colour:
+# a potion's liquid is its bar's colour, or its own (VISUALS.md §4, Potions).
+
+[material.leather]
+brown = { colour = "#6E4B30", surface = "cloth" }
+dark = { colour = "#45301F", surface = "cloth" }
+tan = { colour = "#8F6B47", surface = "cloth" }
+
+[material.fur]
+grey = { colour = "#706B63", surface = "cloth" }  # a wolf's back
+pale = { colour = "#A39D90", surface = "cloth" }  # its belly
+
+[material.feather]
+white = { colour = "#E0DACB" }
+grey = { colour = "#8F8B82" }
+
+[material.mineral]
+sulphur = { colour = "#D1BC3D", surface = "stone" }
+
+[material.food]
+crust = { colour = "#A8723A" }  # a loaf's
+crumb = { colour = "#D8C29A" }  # where it's scored
+apple = { colour = "#9A2E26" }
+cheese = { colour = "#D6AE4C" }
+rind = { colour = "#A8802F" }
+meat = { colour = "#A2464A" }  # raw
+venison = { colour = "#7E3132" }  # raw, darker
+fat = { colour = "#DCC7AE" }
+bone = { colour = "#DDD5C0" }
+roast = { colour = "#7A4526" }
+turnip = { colour = "#E0D6CC" }
+turnip_top = { colour = "#84497A" }
+roast_turnip = { colour = "#B07D3A" }
+jerky = { colour = "#5E3324" }
+stew = { colour = "#6E4A2C" }
+
+[material.liquid]
+water = { colour = "#5D86A0" }
+ale = { colour = "#9A6424" }
+oil = { colour = "#BF9E3E" }
+holy = { colour = "#C7D3EB" }
+tea = { colour = "#B89A50" }
+life = { colour = "#A82520" }  # the potions': their bars' colours, a shade deeper in the glass
+mana = { colour = "#8F80E6" }
+haste = { colour = "#5CC292" }
+iron = { colour = "#8E98A8" }
+vigour = { colour = "#C99A2E" }
+courage = { colour = "#E08A62" }
 
 # --- The wild ---
 # A tree is one of four, by its tile: a broadleaf, a taller one, a pine, a birch. The crowns are
@@ -680,4 +734,696 @@ parts = [
   { shape = "cylinder", size = [0.04, 0.5, 0.04], sides = 3, turn = [8, 0, -10], at = [0.0, 0.25, -0.06], material = "plant.reed", cut = false },
   { shape = "cylinder", size = [0.04, 0.44, 0.04], sides = 3, turn = [-10, 0, 12], at = [0.08, 0.22, 0.05], material = "plant.reed", cut = false },
   { shape = "cylinder", size = [0.06, 0.14, 0.06], sides = 4, turn = [4, 0, 6], at = [0.08, 0.72, 0.02], material = "plant.reed_head", cut = false },
+]
+
+# --- The things you carry ---
+# [[item]]: every item's look, by its id in items/ (dusk-data checks each has one), at its own size,
+# standing as it lies in its cells (pack.rs in the core): its long side up them, its front toward
+# -z. Its icon is drawn from it (client/icons.gd): seen from the front, a little above and to the
+# right, fitted to its cells. An icon is seen close, so a part may be thinner than the kit's 4 cm;
+# at most 300 triangles, and 2.5 m any way. What's flat (a pelt, a poultice) stands facing you, and
+# a stack shows one of it.
+
+# Weapons (items/weapons.toml): each point or head up.
+
+[[item]]
+id = "cudgel"  # oak, swelling to a knob, its grip bound in leather
+parts = [
+  { shape = "cylinder", size = [0.045, 0.2, 0.045], sides = 6, at = [0, 0.1, 0], material = "leather.dark" },
+  { shape = "cylinder", size = [0.05, 0.45, 0.05], taper = 1.7, sides = 6, at = [0, 0.42, 0], material = "wood.oak" },
+  { shape = "ball", size = [0.1, 0.12, 0.1], sides = 6, at = [0, 0.64, 0], material = "wood.oak" },
+]
+
+[[item]]
+id = "kitchen_knife"
+parts = [
+  { shape = "box", size = [0.03, 0.11, 0.022], at = [0, 0.055, 0], material = "wood.dark" },
+  { shape = "box", size = [0.036, 0.012, 0.026], at = [0, 0.116, 0], material = "metal.iron" },
+  { shape = "box", size = [0.035, 0.15, 0.006], at = [0.003, 0.197, 0], material = "metal.steel" },
+  { shape = "prism", size = [0.035, 0.05, 0.006], at = [0.003, 0.297, 0], material = "metal.steel" },
+]
+
+[[item]]
+id = "hammer"
+parts = [
+  { shape = "cylinder", size = [0.03, 0.3, 0.03], sides = 6, at = [0, 0.15, 0], material = "wood.pale" },
+  { shape = "box", size = [0.12, 0.045, 0.045], at = [0.01, 0.31, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.05, 0.03, 0.05], sides = 6, turn = [0, 0, 90], at = [0.078, 0.31, 0], material = "metal.iron" },
+]
+
+[[item]]
+id = "hand_axe"  # a bearded head on a short haft
+parts = [
+  { shape = "cylinder", size = [0.035, 0.45, 0.035], sides = 6, at = [0, 0.225, 0], material = "wood.oak" },
+  { shape = "box", size = [0.06, 0.06, 0.042], at = [0, 0.41, 0], material = "metal.iron" },
+  { shape = "box", size = [0.11, 0.05, 0.014], at = [0.075, 0.41, 0], material = "metal.iron" },
+  { shape = "box", size = [0.022, 0.12, 0.01], at = [0.13, 0.4, 0], material = "metal.steel" },
+]
+
+[[item]]
+id = "wood_axe"
+parts = [
+  { shape = "cylinder", size = [0.04, 0.9, 0.04], sides = 6, at = [0, 0.45, 0], material = "wood.pale" },
+  { shape = "box", size = [0.07, 0.08, 0.05], at = [0, 0.82, 0], material = "metal.iron" },
+  { shape = "box", size = [0.12, 0.07, 0.016], at = [0.09, 0.82, 0], material = "metal.iron" },
+  { shape = "box", size = [0.025, 0.16, 0.012], at = [0.155, 0.82, 0], material = "metal.steel" },
+  { shape = "box", size = [0.05, 0.05, 0.045], at = [-0.055, 0.82, 0], material = "metal.iron" },
+]
+
+[[item]]
+id = "shovel"  # its blade down, its grip up
+parts = [
+  { shape = "box", size = [0.22, 0.28, 0.012], at = [0, 0.14, 0], material = "metal.iron" },
+  { shape = "box", size = [0.05, 0.08, 0.03], at = [0, 0.31, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.035, 0.8, 0.035], sides = 6, at = [0, 0.73, 0], material = "wood.weathered" },
+  { shape = "box", size = [0.13, 0.03, 0.03], at = [0, 1.14, 0], material = "wood.weathered" },
+]
+
+[[item]]
+id = "pitchfork"
+parts = [
+  { shape = "cylinder", size = [0.035, 1.15, 0.035], sides = 6, at = [0, 0.575, 0], material = "wood.weathered" },
+  { shape = "box", size = [0.2, 0.03, 0.025], at = [0, 1.16, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.016, 0.28, 0.016], taper = 0.4, sides = 4, at = [-0.09, 1.31, 0], material = "metal.iron", repeat = { count = 3, step = [0.09, 0, 0] } },
+]
+
+[[item]]
+id = "sword"  # an arming sword: pommel, grip, cross and a long straight blade
+parts = [
+  { shape = "ball", size = [0.05, 0.05, 0.05], sides = 6, at = [0, 0.025, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.03, 0.13, 0.03], sides = 6, at = [0, 0.11, 0], material = "leather.dark" },
+  { shape = "box", size = [0.2, 0.025, 0.03], at = [0, 0.185, 0], material = "metal.iron" },
+  { shape = "box", size = [0.05, 0.62, 0.008], at = [0, 0.51, 0], material = "metal.steel" },
+  { shape = "prism", size = [0.05, 0.09, 0.008], at = [0, 0.865, 0], material = "metal.steel" },
+]
+
+[[item]]
+id = "spear"
+parts = [
+  { shape = "cylinder", size = [0.035, 1.6, 0.035], sides = 6, at = [0, 0.8, 0], material = "wood.pale" },
+  { shape = "cylinder", size = [0.042, 0.08, 0.042], taper = 0.8, sides = 6, at = [0, 1.63, 0], material = "metal.iron" },
+  { shape = "box", size = [0.065, 0.14, 0.01], at = [0, 1.74, 0], material = "metal.steel" },
+  { shape = "prism", size = [0.065, 0.1, 0.01], at = [0, 1.86, 0], material = "metal.steel" },
+]
+
+[[item]]
+id = "mace"  # a flanged iron head
+parts = [
+  { shape = "cylinder", size = [0.035, 0.45, 0.035], sides = 6, at = [0, 0.225, 0], material = "wood.dark" },
+  { shape = "cylinder", size = [0.042, 0.12, 0.042], sides = 6, at = [0, 0.06, 0], material = "leather.dark" },
+  { shape = "ball", size = [0.1, 0.12, 0.1], sides = 8, at = [0, 0.5, 0], material = "metal.iron" },
+  { shape = "box", size = [0.16, 0.12, 0.014], at = [0, 0.5, 0], material = "metal.iron" },
+  { shape = "box", size = [0.014, 0.12, 0.16], at = [0, 0.5, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.03, 0.05, 0.03], taper = 0, sides = 6, at = [0, 0.585, 0], material = "metal.iron" },
+]
+
+[[item]]
+id = "scythe"  # the snath up the cells, the blade across the top
+parts = [
+  { shape = "cylinder", size = [0.035, 1.4, 0.035], sides = 6, turn = [0, 0, 4], at = [0.02, 0.7, 0], material = "wood.weathered" },
+  { shape = "cylinder", size = [0.025, 0.12, 0.025], sides = 5, turn = [0, 0, 90], at = [0.07, 0.55, 0], material = "wood.weathered" },
+  { shape = "cylinder", size = [0.025, 0.12, 0.025], sides = 5, turn = [0, 0, 90], at = [0.04, 1.0, 0], material = "wood.weathered" },
+  { shape = "box", size = [0.06, 0.06, 0.04], at = [0, 1.39, 0], material = "metal.iron" },
+  { shape = "box", size = [0.55, 0.05, 0.008], turn = [0, 0, 8], at = [-0.27, 1.36, 0], material = "metal.steel" },
+  { shape = "prism", size = [0.05, 0.1, 0.008], turn = [0, 0, 90], at = [-0.59, 1.32, 0], material = "metal.steel" },
+]
+
+[[item]]
+id = "stake"  # a plank whittled to a point, a rag for a grip
+parts = [
+  { shape = "box", size = [0.06, 0.75, 0.035], at = [0, 0.375, 0], material = "wood.pale" },
+  { shape = "prism", size = [0.06, 0.18, 0.035], at = [0, 0.84, 0], material = "wood.pale" },
+  { shape = "box", size = [0.066, 0.12, 0.041], at = [0, 0.1, 0], material = "cloth.sacking" },
+]
+
+[[item]]
+id = "spiked_club"  # a cudgel with nails through its head
+parts = [
+  { shape = "cylinder", size = [0.045, 0.2, 0.045], sides = 6, at = [0, 0.1, 0], material = "leather.dark" },
+  { shape = "cylinder", size = [0.05, 0.45, 0.05], taper = 1.7, sides = 6, at = [0, 0.42, 0], material = "wood.oak" },
+  { shape = "ball", size = [0.1, 0.12, 0.1], sides = 6, at = [0, 0.64, 0], material = "wood.oak" },
+  { shape = "cylinder", size = [0.016, 0.06, 0.016], taper = 0, sides = 4, turn = [0, 0, 90], at = [-0.07, 0.6, 0], material = "metal.black", mirror = "x" },
+  { shape = "cylinder", size = [0.016, 0.05, 0.016], taper = 0, sides = 4, turn = [0, 0, 90], at = [-0.06, 0.5, 0], material = "metal.black", mirror = "x" },
+  { shape = "cylinder", size = [0.016, 0.06, 0.016], taper = 0, sides = 4, turn = [-90, 0, 0], at = [0, 0.56, -0.065], material = "metal.black", mirror = "z" },
+]
+
+[[item]]
+id = "buckler"  # a round of oak, an iron rim and boss, its face to you
+parts = [
+  { shape = "cylinder", size = [0.42, 0.02, 0.42], sides = 12, turn = [90, 0, 0], at = [0, 0.21, 0.012], material = "metal.iron" },
+  { shape = "cylinder", size = [0.4, 0.03, 0.4], sides = 12, turn = [90, 0, 0], at = [0, 0.21, 0], material = "wood.oak" },
+  { shape = "ball", size = [0.1, 0.1, 0.07], sides = 8, at = [0, 0.21, -0.02], material = "metal.iron" },
+]
+
+[[item]]
+id = "heater_shield"  # iron-rimmed oak, its point down
+parts = [
+  { shape = "box", size = [0.5, 0.38, 0.03], at = [0, 0.49, 0], material = "wood.oak" },
+  { shape = "prism", size = [0.5, 0.3, 0.03], turn = [0, 0, 180], at = [0, 0.15, 0], material = "wood.oak" },
+  { shape = "box", size = [0.54, 0.4, 0.02], at = [0, 0.49, 0.015], material = "metal.iron" },
+  { shape = "prism", size = [0.54, 0.33, 0.02], turn = [0, 0, 180], at = [0, 0.135, 0.015], material = "metal.iron" },
+  { shape = "box", size = [0.08, 0.6, 0.012], at = [0, 0.38, -0.02], material = "metal.iron" },
+]
+
+[[item]]
+id = "hunting_bow"  # its limbs bent back from the grip, strung
+parts = [
+  { shape = "box", size = [0.035, 0.5, 0.025], turn = [0, 0, 14], at = [0.06, 0.913, 0], material = "wood.dark" },
+  { shape = "box", size = [0.035, 0.5, 0.025], turn = [0, 0, -14], at = [0.06, 0.287, 0], material = "wood.dark" },
+  { shape = "box", size = [0.045, 0.15, 0.035], at = [0.115, 0.6, 0], material = "leather.brown" },
+  { shape = "cylinder", size = [0.006, 1.11, 0.006], sides = 3, at = [0, 0.6, 0], material = "cloth.linen" },
+]
+
+[[item]]
+id = "quarterstaff"  # shod in iron at each end, bound in the middle
+parts = [
+  { shape = "cylinder", size = [0.04, 1.8, 0.04], sides = 6, at = [0, 0.9, 0], material = "wood.oak" },
+  { shape = "cylinder", size = [0.046, 0.06, 0.046], sides = 6, at = [0, 0.03, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.046, 0.06, 0.046], sides = 6, at = [0, 1.77, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.045, 0.2, 0.045], sides = 6, at = [0, 0.9, 0], material = "leather.brown" },
+]
+
+# Armour (items/armour.toml): as it hangs.
+
+[[item]]
+id = "leather_cap"
+parts = [
+  { shape = "cylinder", size = [0.22, 0.08, 0.24], taper = 0.92, sides = 10, at = [0, 0.04, 0], material = "leather.brown" },
+  { shape = "cylinder", size = [0.2, 0.06, 0.22], taper = 0.7, sides = 10, at = [0, 0.11, 0], material = "leather.brown" },
+  { shape = "cylinder", size = [0.14, 0.04, 0.154], taper = 0.4, sides = 10, at = [0, 0.16, 0], material = "leather.brown" },
+  { shape = "cylinder", size = [0.226, 0.02, 0.246], sides = 10, at = [0, 0.012, 0], material = "leather.dark" },
+]
+
+[[item]]
+id = "iron_helm"  # a nasal helm, banded
+parts = [
+  { shape = "cylinder", size = [0.23, 0.1, 0.25], taper = 0.95, sides = 10, at = [0, 0.05, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.22, 0.07, 0.24], taper = 0.68, sides = 10, at = [0, 0.135, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.15, 0.05, 0.163], taper = 0.3, sides = 10, at = [0, 0.195, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.24, 0.02, 0.26], sides = 10, at = [0, 0.09, 0], material = "metal.black" },
+  { shape = "box", size = [0.032, 0.11, 0.016], at = [0, 0.025, -0.124], material = "metal.iron" },
+]
+
+[[item]]
+id = "padded_jerkin"  # quilted linen, sleeveless
+parts = [
+  { shape = "box", size = [0.38, 0.6, 0.14], at = [0, 0.3, 0], material = "cloth.linen" },
+  { shape = "box", size = [0.1, 0.06, 0.13], at = [-0.14, 0.63, 0], material = "cloth.linen", mirror = "x" },
+  { shape = "box", size = [0.385, 0.014, 0.145], at = [0, 0.08, 0], material = "cloth.wool", repeat = { count = 5, step = [0, 0.11, 0] } },
+  { shape = "box", size = [0.014, 0.6, 0.145], at = [0, 0.3, 0], material = "cloth.wool" },
+]
+
+[[item]]
+id = "leather_jerkin"  # laced up the front, belted
+parts = [
+  { shape = "box", size = [0.38, 0.6, 0.13], at = [0, 0.3, 0], material = "leather.brown" },
+  { shape = "box", size = [0.1, 0.06, 0.12], at = [-0.14, 0.63, 0], material = "leather.brown", mirror = "x" },
+  { shape = "box", size = [0.39, 0.05, 0.14], at = [0, 0.12, 0], material = "leather.dark" },
+  { shape = "box", size = [0.05, 0.05, 0.02], at = [0, 0.12, -0.07], material = "metal.bronze" },
+  { shape = "box", size = [0.014, 0.4, 0.135], at = [0, 0.38, 0], material = "leather.dark" },
+]
+
+[[item]]
+id = "leather_bracers"  # a pair, strapped
+parts = [
+  { shape = "cylinder", size = [0.09, 0.22, 0.09], taper = 0.8, sides = 8, at = [-0.06, 0.11, 0], material = "leather.brown", mirror = "x" },
+  { shape = "cylinder", size = [0.096, 0.02, 0.096], sides = 8, at = [-0.06, 0.05, 0], material = "leather.dark", mirror = "x" },
+  { shape = "cylinder", size = [0.086, 0.02, 0.086], sides = 8, at = [-0.06, 0.15, 0], material = "leather.dark", mirror = "x" },
+]
+
+[[item]]
+id = "boots"  # riding boots, a pair, their toes to you
+parts = [
+  { shape = "cylinder", size = [0.11, 0.3, 0.12], taper = 1.1, sides = 8, at = [-0.07, 0.23, 0.03], material = "leather.dark", mirror = "x" },
+  { shape = "box", size = [0.1, 0.09, 0.24], at = [-0.07, 0.055, -0.03], material = "leather.dark", mirror = "x" },
+  { shape = "box", size = [0.106, 0.02, 0.25], at = [-0.07, 0.01, -0.03], material = "wood.dark", mirror = "x" },
+  { shape = "cylinder", size = [0.13, 0.04, 0.14], sides = 8, at = [-0.07, 0.37, 0.03], material = "leather.brown", mirror = "x" },
+]
+
+[[item]]
+id = "mail_shirt"  # to the hips, short sleeves
+parts = [
+  { shape = "box", size = [0.38, 0.68, 0.14], at = [0, 0.34, 0], material = "metal.iron" },
+  { shape = "box", size = [0.1, 0.22, 0.12], turn = [0, 0, -8], at = [-0.24, 0.55, 0], material = "metal.iron", mirror = "x" },
+  { shape = "box", size = [0.16, 0.035, 0.15], at = [0, 0.67, 0], material = "leather.dark" },
+  { shape = "box", size = [0.385, 0.02, 0.145], at = [0, 0.02, 0], material = "metal.black" },
+]
+
+[[item]]
+id = "barrow_mail"  # old mail from the tombs: longer, darker, bronze at its edges
+parts = [
+  { shape = "box", size = [0.38, 0.72, 0.14], at = [0, 0.36, 0], material = "metal.black" },
+  { shape = "box", size = [0.1, 0.22, 0.12], turn = [0, 0, -8], at = [-0.24, 0.59, 0], material = "metal.black", mirror = "x" },
+  { shape = "box", size = [0.385, 0.03, 0.145], at = [0, 0.025, 0], material = "metal.bronze" },
+  { shape = "box", size = [0.17, 0.04, 0.15], at = [0, 0.71, 0], material = "metal.bronze" },
+  { shape = "box", size = [0.105, 0.025, 0.125], turn = [0, 0, -8], at = [-0.255, 0.49, 0], material = "metal.bronze", mirror = "x" },
+]
+
+[[item]]
+id = "wool_cloak"  # falling wide from the shoulders, pinned with bronze
+parts = [
+  { shape = "cylinder", size = [0.72, 0.78, 0.17], taper = 0.42, sides = 4, at = [0, 0.39, 0], material = "cloth.wool" },
+  { shape = "cylinder", size = [0.32, 0.08, 0.2], taper = 0.8, sides = 4, at = [0, 0.8, 0], material = "cloth.wool" },
+  { shape = "ball", size = [0.05, 0.05, 0.03], sides = 6, at = [0, 0.76, -0.07], material = "metal.bronze" },
+]
+
+# Bags (items/bags.toml).
+
+[[item]]
+id = "satchel"  # a flap and a clasp, its strap up
+parts = [
+  { shape = "box", size = [0.3, 0.22, 0.1], at = [0, 0.11, 0], material = "leather.brown" },
+  { shape = "box", size = [0.31, 0.12, 0.02], at = [0, 0.17, -0.055], material = "leather.dark" },
+  { shape = "box", size = [0.04, 0.03, 0.012], at = [0, 0.11, -0.066], material = "metal.bronze" },
+  { shape = "box", size = [0.03, 0.14, 0.02], turn = [0, 0, -20], at = [-0.13, 0.28, 0], material = "leather.dark", mirror = "x" },
+  { shape = "box", size = [0.2, 0.03, 0.02], at = [0, 0.345, 0], material = "leather.dark" },
+]
+
+[[item]]
+id = "knapsack"  # canvas, a leather flap, a blanket rolled on top
+parts = [
+  { shape = "box", size = [0.32, 0.42, 0.16], at = [0, 0.21, 0], material = "cloth.sacking" },
+  { shape = "box", size = [0.33, 0.16, 0.17], at = [0, 0.38, -0.005], material = "leather.brown" },
+  { shape = "box", size = [0.2, 0.14, 0.04], at = [0, 0.14, -0.09], material = "cloth.sacking" },
+  { shape = "box", size = [0.025, 0.42, 0.02], at = [-0.09, 0.22, 0.085], material = "leather.dark", mirror = "x" },
+  { shape = "cylinder", size = [0.1, 0.36, 0.1], sides = 8, turn = [0, 0, 90], at = [0, 0.51, 0], material = "cloth.wool" },
+]
+
+[[item]]
+id = "grain_sack"  # tied at the neck
+parts = [
+  { shape = "cylinder", size = [0.36, 0.42, 0.28], taper = 0.8, sides = 8, at = [0, 0.21, 0], material = "cloth.sacking" },
+  { shape = "ball", size = [0.29, 0.14, 0.23], sides = 8, at = [0, 0.42, 0], material = "cloth.sacking" },
+  { shape = "cylinder", size = [0.08, 0.05, 0.08], sides = 6, at = [0, 0.5, 0], material = "straw.twine" },
+  { shape = "cylinder", size = [0.1, 0.08, 0.1], taper = 1.6, sides = 6, at = [0, 0.56, 0], material = "cloth.sacking" },
+]
+
+[[item]]
+id = "travellers_pack"  # on a frame, pockets each side, a bedroll on top
+parts = [
+  { shape = "box", size = [0.36, 0.5, 0.2], at = [0, 0.27, 0], material = "leather.tan" },
+  { shape = "box", size = [0.37, 0.18, 0.21], at = [0, 0.45, -0.005], material = "leather.brown" },
+  { shape = "box", size = [0.12, 0.18, 0.06], at = [-0.1, 0.17, -0.12], material = "leather.brown", mirror = "x" },
+  { shape = "cylinder", size = [0.03, 0.66, 0.03], sides = 5, at = [-0.2, 0.33, 0.08], material = "wood.dark", mirror = "x" },
+  { shape = "cylinder", size = [0.13, 0.44, 0.13], sides = 8, turn = [0, 0, 90], at = [0, 0.6, 0], material = "cloth.wool" },
+]
+
+# Herbs (items/herbs.toml): as they're picked and made.
+
+[[item]]
+id = "yarrow"  # a sprig: feathery leaves, flat white flower heads
+parts = [
+  { shape = "cylinder", size = [0.012, 0.24, 0.012], sides = 4, at = [0, 0.12, 0], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.012, 0.1, 0.012], sides = 4, turn = [0, 0, 35], at = [-0.03, 0.12, 0], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.012, 0.09, 0.012], sides = 4, turn = [0, 0, -35], at = [0.025, 0.17, 0], material = "plant.yarrow" },
+  { shape = "ball", size = [0.07, 0.03, 0.06], sides = 6, at = [-0.05, 0.08, 0], material = "plant.yarrow" },
+  { shape = "ball", size = [0.06, 0.03, 0.05], sides = 6, at = [0.045, 0.14, 0], material = "plant.yarrow" },
+  { shape = "cylinder", size = [0.11, 0.025, 0.1], sides = 8, at = [0, 0.255, 0], material = "flower.white" },
+  { shape = "cylinder", size = [0.07, 0.02, 0.06], sides = 8, at = [0.055, 0.21, 0], material = "flower.white" },
+]
+
+[[item]]
+id = "chamomile"  # a few daisies on their stems
+parts = [
+  { shape = "cylinder", size = [0.01, 0.16, 0.01], sides = 4, turn = [0, 0, 10], at = [-0.02, 0.08, 0], material = "plant.chamomile" },
+  { shape = "cylinder", size = [0.01, 0.18, 0.01], sides = 4, turn = [0, 0, -8], at = [0.02, 0.09, 0], material = "plant.chamomile" },
+  { shape = "cylinder", size = [0.01, 0.14, 0.01], sides = 4, turn = [8, 0, 0], at = [0, 0.07, 0.01], material = "plant.chamomile" },
+  { shape = "cylinder", size = [0.06, 0.012, 0.06], sides = 8, at = [-0.034, 0.16, 0], material = "flower.white" },
+  { shape = "cylinder", size = [0.06, 0.012, 0.06], sides = 8, at = [0.033, 0.18, 0], material = "flower.white" },
+  { shape = "cylinder", size = [0.055, 0.012, 0.055], sides = 8, at = [0, 0.14, 0.02], material = "flower.white" },
+  { shape = "ball", size = [0.022, 0.018, 0.022], sides = 6, at = [-0.034, 0.169, 0], material = "flower.yellow" },
+  { shape = "ball", size = [0.022, 0.018, 0.022], sides = 6, at = [0.033, 0.189, 0], material = "flower.yellow" },
+  { shape = "ball", size = [0.02, 0.016, 0.02], sides = 6, at = [0, 0.148, 0.02], material = "flower.yellow" },
+]
+
+[[item]]
+id = "feverfew"  # a leafy stem, buttoned with yellow flowers
+parts = [
+  { shape = "cylinder", size = [0.014, 0.12, 0.014], sides = 4, at = [0, 0.06, 0], material = "plant.feverfew" },
+  { shape = "ball", size = [0.12, 0.08, 0.1], sides = 6, at = [0, 0.11, 0], material = "plant.feverfew" },
+  { shape = "ball", size = [0.04, 0.026, 0.04], sides = 6, at = [-0.035, 0.155, 0], material = "flower.yellow" },
+  { shape = "ball", size = [0.04, 0.026, 0.04], sides = 6, at = [0.03, 0.16, -0.01], material = "flower.yellow" },
+  { shape = "ball", size = [0.04, 0.026, 0.04], sides = 6, at = [0, 0.152, 0.03], material = "flower.yellow" },
+]
+
+[[item]]
+id = "blackberries"  # a handful on a leaf
+parts = [
+  { shape = "ball", size = [0.14, 0.03, 0.11], sides = 6, at = [0, 0.015, 0], material = "plant.bramble" },
+  { shape = "ball", size = [0.035, 0.035, 0.035], sides = 6, at = [-0.03, 0.04, 0], material = "plant.berry" },
+  { shape = "ball", size = [0.035, 0.035, 0.035], sides = 6, at = [0.02, 0.04, -0.015], material = "plant.berry" },
+  { shape = "ball", size = [0.035, 0.035, 0.035], sides = 6, at = [0.01, 0.04, 0.025], material = "plant.berry" },
+  { shape = "ball", size = [0.035, 0.035, 0.035], sides = 6, at = [-0.005, 0.07, 0.005], material = "plant.berry" },
+  { shape = "ball", size = [0.035, 0.035, 0.035], sides = 6, at = [0.045, 0.045, 0.015], material = "plant.berry" },
+]
+
+[[item]]
+id = "yarrow_poultice"  # a pad of linen, the green herb on it, tied
+parts = [
+  { shape = "box", size = [0.12, 0.12, 0.025], at = [0, 0.06, 0], material = "cloth.linen" },
+  { shape = "box", size = [0.08, 0.08, 0.012], at = [0, 0.06, -0.016], material = "plant.yarrow" },
+  { shape = "box", size = [0.124, 0.012, 0.03], at = [0, 0.06, 0], material = "straw.twine" },
+  { shape = "box", size = [0.012, 0.124, 0.03], at = [0, 0.06, 0], material = "straw.twine" },
+]
+
+[[item]]
+id = "chamomile_tea"  # a small bottle, corked
+parts = [
+  { shape = "cylinder", size = [0.07, 0.09, 0.07], sides = 8, at = [0, 0.045, 0], material = "liquid.tea" },
+  { shape = "cylinder", size = [0.07, 0.03, 0.07], taper = 0.4, sides = 8, at = [0, 0.105, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.026, 0.035, 0.026], sides = 8, at = [0, 0.137, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.024, 0.02, 0.024], taper = 1.2, sides = 8, at = [0, 0.164, 0], material = "wood.pale" },
+]
+
+# Potions (items/potions.toml): each its own shape of flask, as well as its colour, so they're told
+# apart without it.
+
+[[item]]
+id = "life_potion"  # a round flask
+parts = [
+  { shape = "ball", size = [0.085, 0.09, 0.085], sides = 8, at = [0, 0.045, 0], material = "liquid.life" },
+  { shape = "cylinder", size = [0.03, 0.06, 0.03], sides = 8, at = [0, 0.11, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.04, 0.012, 0.04], sides = 8, at = [0, 0.137, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.026, 0.03, 0.026], taper = 1.2, sides = 8, at = [0, 0.155, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "mana_potion"  # a tall vial
+parts = [
+  { shape = "cylinder", size = [0.055, 0.12, 0.055], sides = 8, at = [0, 0.06, 0], material = "liquid.mana" },
+  { shape = "cylinder", size = [0.055, 0.02, 0.055], taper = 0.5, sides = 8, at = [0, 0.13, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.024, 0.025, 0.024], sides = 8, at = [0, 0.152, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.022, 0.025, 0.022], taper = 1.2, sides = 8, at = [0, 0.175, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "haste_potion"  # a cone of a flask
+parts = [
+  { shape = "cylinder", size = [0.09, 0.09, 0.09], taper = 0.35, sides = 8, at = [0, 0.045, 0], material = "liquid.haste" },
+  { shape = "cylinder", size = [0.032, 0.05, 0.032], sides = 8, at = [0, 0.115, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.026, 0.03, 0.026], taper = 1.2, sides = 8, at = [0, 0.155, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "iron_skin_potion"  # a square bottle, capped in iron
+parts = [
+  { shape = "box", size = [0.075, 0.09, 0.05], at = [0, 0.045, 0], material = "liquid.iron" },
+  { shape = "box", size = [0.05, 0.02, 0.035], at = [0, 0.1, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.026, 0.035, 0.026], sides = 8, at = [0, 0.127, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.03, 0.025, 0.03], sides = 8, at = [0, 0.157, 0], material = "metal.iron" },
+]
+
+[[item]]
+id = "vigour_potion"  # a round flask, its neck long
+parts = [
+  { shape = "ball", size = [0.08, 0.075, 0.08], sides = 8, at = [0, 0.038, 0], material = "liquid.vigour" },
+  { shape = "cylinder", size = [0.022, 0.085, 0.022], sides = 8, at = [0, 0.11, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.022, 0.025, 0.022], taper = 1.2, sides = 8, at = [0, 0.165, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "courage_potion"  # a teardrop
+parts = [
+  { shape = "ball", size = [0.08, 0.08, 0.08], sides = 8, at = [0, 0.04, 0], material = "liquid.courage" },
+  { shape = "cylinder", size = [0.07, 0.06, 0.07], taper = 0.35, sides = 8, at = [0, 0.095, 0], material = "liquid.courage" },
+  { shape = "cylinder", size = [0.024, 0.03, 0.024], sides = 8, at = [0, 0.14, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.024, 0.022, 0.024], taper = 1.2, sides = 8, at = [0, 0.165, 0], material = "wood.pale" },
+]
+
+# Supplies (items/supplies.toml).
+
+[[item]]
+id = "bandage"  # a roll of linen, its end to you
+parts = [
+  { shape = "cylinder", size = [0.08, 0.06, 0.08], sides = 10, turn = [90, 0, 0], at = [0, 0.04, 0], material = "cloth.linen" },
+  { shape = "cylinder", size = [0.03, 0.062, 0.03], sides = 8, turn = [90, 0, 0], at = [0, 0.04, 0], material = "cloth.wool" },
+]
+
+[[item]]
+id = "rag"  # crumpled sacking
+parts = [
+  { shape = "ball", size = [0.12, 0.05, 0.1], sides = 6, at = [0, 0.025, 0], material = "cloth.sacking" },
+  { shape = "ball", size = [0.08, 0.045, 0.07], sides = 6, at = [0.02, 0.05, -0.01], material = "cloth.sacking" },
+  { shape = "box", size = [0.06, 0.02, 0.05], turn = [0, 30, 20], at = [-0.035, 0.045, 0.01], material = "cloth.sacking" },
+]
+
+[[item]]
+id = "tincture"  # a small brown bottle, labelled, capped
+parts = [
+  { shape = "cylinder", size = [0.045, 0.07, 0.045], sides = 8, at = [0, 0.035, 0], material = "glass.brown" },
+  { shape = "cylinder", size = [0.047, 0.03, 0.047], sides = 8, at = [0, 0.035, 0], material = "cloth.linen" },
+  { shape = "cylinder", size = [0.045, 0.015, 0.045], taper = 0.5, sides = 8, at = [0, 0.0775, 0], material = "glass.brown" },
+  { shape = "cylinder", size = [0.02, 0.03, 0.02], sides = 8, at = [0, 0.1, 0], material = "metal.black" },
+]
+
+[[item]]
+id = "lamp_oil"  # a flat flask, its neck tied
+parts = [
+  { shape = "cylinder", size = [0.09, 0.13, 0.055], sides = 8, at = [0, 0.065, 0], material = "liquid.oil" },
+  { shape = "cylinder", size = [0.09, 0.025, 0.055], taper = 0.4, sides = 8, at = [0, 0.1425, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.03, 0.035, 0.03], sides = 8, at = [0, 0.172, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.034, 0.012, 0.034], sides = 8, at = [0, 0.165, 0], material = "straw.twine" },
+  { shape = "cylinder", size = [0.027, 0.025, 0.027], taper = 1.2, sides = 8, at = [0, 0.2, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "holy_water"  # a flat flask, sealed in wax, a bronze cross on it
+parts = [
+  { shape = "cylinder", size = [0.085, 0.13, 0.05], sides = 8, at = [0, 0.065, 0], material = "liquid.holy" },
+  { shape = "cylinder", size = [0.085, 0.025, 0.05], taper = 0.4, sides = 8, at = [0, 0.1425, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.03, 0.035, 0.03], sides = 8, at = [0, 0.172, 0], material = "glass.clear" },
+  { shape = "cylinder", size = [0.027, 0.025, 0.027], taper = 1.2, sides = 8, at = [0, 0.2, 0], material = "wax.candle" },
+  { shape = "box", size = [0.012, 0.06, 0.006], at = [0, 0.07, -0.026], material = "metal.bronze" },
+  { shape = "box", size = [0.04, 0.012, 0.006], at = [0, 0.08, -0.026], material = "metal.bronze" },
+]
+
+[[item]]
+id = "bread"  # a loaf, scored
+parts = [
+  { shape = "ball", size = [0.2, 0.1, 0.12], sides = 8, at = [0, 0.05, 0], material = "food.crust" },
+  { shape = "box", size = [0.012, 0.012, 0.09], turn = [0, 25, 0], at = [0, 0.1, 0], material = "food.crumb" },
+  { shape = "box", size = [0.012, 0.012, 0.08], turn = [0, 25, 0], at = [-0.05, 0.093, 0], material = "food.crumb", mirror = "x" },
+]
+
+[[item]]
+id = "apple"
+parts = [
+  { shape = "ball", size = [0.08, 0.075, 0.08], sides = 8, at = [0, 0.0375, 0], material = "food.apple" },
+  { shape = "cylinder", size = [0.006, 0.025, 0.006], sides = 4, turn = [0, 0, -10], at = [0, 0.08, 0], material = "wood.dark" },
+  { shape = "ball", size = [0.03, 0.006, 0.015], sides = 4, turn = [0, 0, 20], at = [0.016, 0.088, 0], material = "plant.yarrow" },
+]
+
+[[item]]
+id = "jerky"  # strips of dried meat, tied in a bundle
+parts = [
+  { shape = "box", size = [0.03, 0.12, 0.008], turn = [0, 0, 12], at = [-0.025, 0.06, 0], material = "food.jerky" },
+  { shape = "box", size = [0.028, 0.11, 0.008], turn = [0, 10, -6], at = [0.01, 0.055, 0.01], material = "food.jerky" },
+  { shape = "box", size = [0.032, 0.1, 0.008], turn = [0, -15, -18], at = [0.04, 0.05, -0.01], material = "food.jerky" },
+  { shape = "box", size = [0.11, 0.012, 0.04], at = [0.005, 0.04, 0], material = "straw.twine" },
+]
+
+[[item]]
+id = "water"  # a green glass bottle, corked
+parts = [
+  { shape = "cylinder", size = [0.075, 0.14, 0.075], sides = 8, at = [0, 0.07, 0], material = "liquid.water" },
+  { shape = "cylinder", size = [0.075, 0.035, 0.075], taper = 0.4, sides = 8, at = [0, 0.1575, 0], material = "glass.green" },
+  { shape = "cylinder", size = [0.03, 0.04, 0.03], sides = 8, at = [0, 0.195, 0], material = "glass.green" },
+  { shape = "cylinder", size = [0.027, 0.02, 0.027], taper = 1.2, sides = 8, at = [0, 0.225, 0], material = "wood.pale" },
+]
+
+[[item]]
+id = "torch"  # rags bound round a stick's head, black with pitch
+parts = [
+  { shape = "cylinder", size = [0.035, 0.4, 0.035], taper = 1.3, sides = 6, at = [0, 0.2, 0], material = "wood.pale" },
+  { shape = "cylinder", size = [0.07, 0.12, 0.07], taper = 1.15, sides = 7, at = [0, 0.42, 0], material = "cloth.sacking" },
+  { shape = "cylinder", size = [0.075, 0.02, 0.075], sides = 7, at = [0, 0.39, 0], material = "straw.twine" },
+  { shape = "cylinder", size = [0.082, 0.02, 0.082], sides = 7, at = [0, 0.45, 0], material = "straw.twine" },
+  { shape = "cylinder", size = [0.07, 0.02, 0.07], sides = 7, at = [0, 0.484, 0], material = "world.soot" },
+]
+
+[[item]]
+id = "candle"  # on an iron dish
+parts = [
+  { shape = "cylinder", size = [0.1, 0.015, 0.1], sides = 10, at = [0, 0.0075, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.035, 0.11, 0.035], sides = 8, at = [0, 0.07, 0], material = "wax.candle" },
+  { shape = "cylinder", size = [0.006, 0.015, 0.006], sides = 4, at = [0, 0.132, 0], material = "world.soot" },
+]
+
+[[item]]
+id = "nails"  # three, on their points
+parts = [
+  { shape = "cylinder", size = [0.008, 0.08, 0.008], taper = 0.25, sides = 4, turn = [0, 0, 180], at = [-0.022, 0.04, 0], material = "metal.iron", repeat = { count = 3, step = [0.022, 0, 0] } },
+  { shape = "cylinder", size = [0.02, 0.005, 0.02], sides = 6, at = [-0.022, 0.0825, 0], material = "metal.iron", repeat = { count = 3, step = [0.022, 0, 0] } },
+]
+
+[[item]]
+id = "clatterbox"  # a box of nails on a clockwork spring, its key at the side
+parts = [
+  { shape = "box", size = [0.12, 0.08, 0.09], at = [0, 0.04, 0], material = "wood.pale" },
+  { shape = "box", size = [0.124, 0.012, 0.094], at = [0, 0.074, 0], material = "metal.iron" },
+  { shape = "cylinder", size = [0.012, 0.03, 0.012], sides = 6, turn = [0, 0, 90], at = [0.075, 0.045, 0], material = "metal.bronze" },
+  { shape = "box", size = [0.006, 0.04, 0.03], at = [0.093, 0.045, 0], material = "metal.bronze" },
+  { shape = "cylinder", size = [0.008, 0.024, 0.008], sides = 4, at = [-0.03, 0.09, 0.01], material = "metal.iron" },
+  { shape = "cylinder", size = [0.008, 0.026, 0.008], sides = 4, turn = [0, 0, 15], at = [0, 0.092, -0.01], material = "metal.iron" },
+]
+
+[[item]]
+id = "plank"
+parts = [
+  { shape = "box", size = [0.18, 1.2, 0.03], at = [0, 0.6, 0], material = "wood.pale" },
+  { shape = "cylinder", size = [0.03, 0.004, 0.02], turn = [90, 0, 0], at = [0.035, 0.82, -0.016], material = "wood.dark" },
+]
+
+[[item]]
+id = "door"  # planks on two braces, a ring to pull it by
+parts = [
+  { shape = "box", size = [0.9, 1.9, 0.05], at = [0, 0.95, 0], material = "build.door" },
+  { shape = "box", size = [0.012, 1.9, 0.052], at = [-0.225, 0.95, 0], material = "wood.dark", repeat = { count = 3, step = [0.225, 0, 0] } },
+  { shape = "box", size = [0.86, 0.1, 0.03], at = [0, 0.4, -0.035], material = "wood.oak", repeat = { count = 2, step = [0, 1.1, 0] } },
+  { shape = "cylinder", size = [0.08, 0.012, 0.08], sides = 8, turn = [90, 0, 0], at = [0.32, 0.95, -0.032], material = "metal.iron" },
+]
+
+[[item]]
+id = "plank_wall"  # planks edge to edge, nailed to two rails
+parts = [
+  { shape = "box", size = [0.24, 1.6, 0.03], at = [-0.375, 0.8, 0], material = "wood.pale", repeat = { count = 4, step = [0.25, 0, 0] } },
+  { shape = "box", size = [1.0, 0.12, 0.03], at = [0, 0.35, -0.03], material = "wood.weathered", repeat = { count = 2, step = [0, 0.9, 0] } },
+]
+
+[[item]]
+id = "firewood"  # a split log, its pale face to you
+parts = [
+  { shape = "prism", size = [0.13, 0.1, 0.32], turn = [90, 0, 0], at = [0, 0.16, 0], material = "tree.trunk" },
+  { shape = "box", size = [0.128, 0.318, 0.004], at = [0, 0.16, -0.05], material = "wood.pale" },
+]
+
+[[item]]
+id = "coins"  # copper, a stack and a few beside it
+parts = [
+  { shape = "cylinder", size = [0.04, 0.006, 0.04], sides = 8, at = [0, 0.003, 0], material = "metal.copper", repeat = { count = 5, step = [0.001, 0.0065, 0] } },
+  { shape = "cylinder", size = [0.04, 0.006, 0.04], sides = 8, at = [0.045, 0.003, -0.01], material = "metal.copper", repeat = { count = 3, step = [-0.001, 0.0065, 0] } },
+  { shape = "cylinder", size = [0.04, 0.006, 0.04], sides = 8, turn = [70, 0, 0], at = [-0.03, 0.019, -0.02], material = "metal.copper" },
+]
+
+[[item]]
+id = "ale"  # a clay jug
+parts = [
+  { shape = "cylinder", size = [0.12, 0.16, 0.12], taper = 0.75, sides = 8, at = [0, 0.08, 0], material = "clay.red" },
+  { shape = "cylinder", size = [0.09, 0.05, 0.09], taper = 0.7, sides = 8, at = [0, 0.185, 0], material = "clay.red" },
+  { shape = "cylinder", size = [0.065, 0.03, 0.065], taper = 1.15, sides = 8, at = [0, 0.225, 0], material = "clay.red" },
+  { shape = "cylinder", size = [0.06, 0.004, 0.06], sides = 8, at = [0, 0.239, 0], material = "liquid.ale" },
+  { shape = "box", size = [0.02, 0.12, 0.025], at = [0.078, 0.14, 0], material = "clay.red" },
+  { shape = "box", size = [0.04, 0.02, 0.022], at = [0.062, 0.195, 0], material = "clay.red" },
+  { shape = "box", size = [0.035, 0.02, 0.022], at = [0.062, 0.088, 0], material = "clay.red" },
+]
+
+[[item]]
+id = "cheese"  # a wedge, its rind to you
+parts = [
+  { shape = "prism", size = [0.13, 0.14, 0.07], turn = [90, 0, 0], at = [0, 0.035, 0], material = "food.cheese" },
+  { shape = "box", size = [0.132, 0.072, 0.008], at = [0, 0.035, -0.072], material = "food.rind" },
+]
+
+[[item]]
+id = "turnip"  # its purple crown, leaves up
+parts = [
+  { shape = "ball", size = [0.09, 0.08, 0.09], sides = 8, at = [0, 0.045, 0], material = "food.turnip" },
+  { shape = "ball", size = [0.092, 0.04, 0.092], sides = 8, at = [0, 0.065, 0], material = "food.turnip_top" },
+  { shape = "cylinder", size = [0.02, 0.03, 0.02], taper = 0, sides = 4, turn = [0, 0, 180], at = [0, 0.0, 0], material = "food.turnip" },
+  { shape = "box", size = [0.025, 0.08, 0.006], turn = [0, 0, 20], at = [-0.018, 0.12, 0], material = "plant.tuft", mirror = "x" },
+  { shape = "box", size = [0.025, 0.09, 0.006], at = [0, 0.125, 0.008], material = "plant.tuft" },
+]
+
+[[item]]
+id = "raw_mutton"  # a chop: lean under its fat, the bone out to the side
+parts = [
+  { shape = "ball", size = [0.13, 0.08, 0.1], sides = 8, at = [0, 0.04, 0], material = "food.meat" },
+  { shape = "ball", size = [0.12, 0.035, 0.09], sides = 8, at = [-0.005, 0.07, 0], material = "food.fat" },
+  { shape = "cylinder", size = [0.02, 0.07, 0.02], sides = 6, turn = [0, 0, -70], at = [0.085, 0.05, 0], material = "food.bone" },
+  { shape = "ball", size = [0.03, 0.03, 0.03], sides = 6, at = [0.12, 0.062, 0], material = "food.bone" },
+]
+
+[[item]]
+id = "roast_mutton"  # the chop browned
+parts = [
+  { shape = "ball", size = [0.13, 0.08, 0.1], sides = 8, at = [0, 0.04, 0], material = "food.roast" },
+  { shape = "ball", size = [0.12, 0.035, 0.09], sides = 8, at = [-0.005, 0.07, 0], material = "food.crust" },
+  { shape = "cylinder", size = [0.02, 0.07, 0.02], sides = 6, turn = [0, 0, -70], at = [0.085, 0.05, 0], material = "food.bone" },
+  { shape = "ball", size = [0.03, 0.03, 0.03], sides = 6, at = [0.12, 0.062, 0], material = "food.bone" },
+]
+
+[[item]]
+id = "roast_turnip"  # golden, charred in patches
+parts = [
+  { shape = "ball", size = [0.09, 0.075, 0.09], sides = 8, at = [0, 0.0375, 0], material = "food.roast_turnip" },
+  { shape = "ball", size = [0.03, 0.02, 0.03], sides = 6, at = [-0.02, 0.068, -0.015], material = "food.roast" },
+  { shape = "ball", size = [0.025, 0.018, 0.025], sides = 6, at = [0.025, 0.06, 0.02], material = "food.roast" },
+]
+
+[[item]]
+id = "stew"  # a wooden bowl, a spoon in it
+parts = [
+  { shape = "cylinder", size = [0.1, 0.06, 0.1], taper = 1.45, sides = 10, at = [0, 0.03, 0], material = "wood.oak" },
+  { shape = "cylinder", size = [0.135, 0.008, 0.135], sides = 10, at = [0, 0.055, 0], material = "food.stew" },
+  { shape = "ball", size = [0.025, 0.015, 0.025], sides = 6, at = [-0.02, 0.061, 0.01], material = "food.roast" },
+  { shape = "ball", size = [0.02, 0.012, 0.02], sides = 6, at = [0.025, 0.06, -0.015], material = "food.turnip" },
+  { shape = "box", size = [0.012, 0.012, 0.11], turn = [-30, 20, 0], at = [0.03, 0.085, 0.03], material = "wood.pale" },
+]
+
+[[item]]
+id = "cooking_pot"  # black iron, a bail to hang it by
+parts = [
+  { shape = "cylinder", size = [0.26, 0.18, 0.26], taper = 1.08, sides = 10, at = [0, 0.11, 0], material = "metal.black" },
+  { shape = "cylinder", size = [0.29, 0.02, 0.29], sides = 10, at = [0, 0.205, 0], material = "metal.black" },
+  { shape = "cylinder", size = [0.18, 0.02, 0.18], sides = 10, at = [0, 0.01, 0], material = "metal.black" },
+  { shape = "box", size = [0.02, 0.12, 0.02], turn = [0, 0, -15], at = [-0.15, 0.27, 0], material = "metal.iron", mirror = "x" },
+  { shape = "box", size = [0.27, 0.02, 0.02], at = [0, 0.33, 0], material = "metal.iron" },
+]
+
+[[item]]
+id = "raw_venison"  # a haunch, its bone up
+parts = [
+  { shape = "ball", size = [0.12, 0.1, 0.1], sides = 8, at = [0, 0.05, 0], material = "food.venison" },
+  { shape = "cylinder", size = [0.08, 0.07, 0.07], taper = 0.4, sides = 8, at = [0, 0.12, 0], material = "food.venison" },
+  { shape = "cylinder", size = [0.022, 0.05, 0.022], sides = 6, at = [0, 0.17, 0], material = "food.bone" },
+  { shape = "ball", size = [0.035, 0.03, 0.035], sides = 6, at = [0, 0.2, 0], material = "food.bone" },
+]
+
+[[item]]
+id = "roast_venison"  # the haunch browned
+parts = [
+  { shape = "ball", size = [0.12, 0.1, 0.1], sides = 8, at = [0, 0.05, 0], material = "food.roast" },
+  { shape = "cylinder", size = [0.08, 0.07, 0.07], taper = 0.4, sides = 8, at = [0, 0.12, 0], material = "food.roast" },
+  { shape = "ball", size = [0.07, 0.03, 0.06], sides = 6, at = [-0.02, 0.085, -0.03], material = "food.crust" },
+  { shape = "cylinder", size = [0.022, 0.05, 0.022], sides = 6, at = [0, 0.17, 0], material = "food.bone" },
+  { shape = "ball", size = [0.035, 0.03, 0.035], sides = 6, at = [0, 0.2, 0], material = "food.bone" },
+]
+
+[[item]]
+id = "wolf_pelt"  # hung up flat: grey back, pale belly, legs out
+parts = [
+  { shape = "box", size = [0.26, 0.36, 0.02], at = [0, 0.24, 0], material = "fur.grey" },
+  { shape = "box", size = [0.17, 0.27, 0.022], at = [0, 0.24, -0.002], material = "fur.pale" },
+  { shape = "box", size = [0.05, 0.14, 0.018], turn = [0, 0, 40], at = [-0.16, 0.39, 0], material = "fur.grey", mirror = "x" },
+  { shape = "box", size = [0.05, 0.14, 0.018], turn = [0, 0, -40], at = [-0.16, 0.09, 0], material = "fur.grey", mirror = "x" },
+  { shape = "prism", size = [0.12, 0.1, 0.02], at = [0, 0.47, 0], material = "fur.grey" },
+  { shape = "box", size = [0.04, 0.12, 0.018], at = [0, 0.02, 0], material = "fur.grey" },
+]
+
+[[item]]
+id = "arrow"  # one of the stack: iron head, fletched
+parts = [
+  { shape = "cylinder", size = [0.011, 0.62, 0.011], sides = 4, at = [0, 0.33, 0], material = "wood.pale" },
+  { shape = "cylinder", size = [0.03, 0.075, 0.03], taper = 0, sides = 4, at = [0, 0.6775, 0], material = "metal.iron" },
+  { shape = "box", size = [0.05, 0.1, 0.002], at = [0, 0.075, 0], material = "feather.white" },
+  { shape = "box", size = [0.002, 0.1, 0.05], at = [0, 0.075, 0], material = "feather.grey" },
+  { shape = "cylinder", size = [0.014, 0.014, 0.014], sides = 4, at = [0, 0.012, 0], material = "wood.dark" },
+]
+
+[[item]]
+id = "sulphur"  # yellow lumps
+parts = [
+  { shape = "ball", size = [0.08, 0.06, 0.07], sides = 5, at = [0, 0.03, 0], material = "mineral.sulphur" },
+  { shape = "ball", size = [0.05, 0.045, 0.05], sides = 5, at = [0.045, 0.025, 0.01], material = "mineral.sulphur" },
+  { shape = "ball", size = [0.045, 0.04, 0.04], sides = 5, at = [-0.04, 0.02, -0.01], material = "mineral.sulphur" },
 ]

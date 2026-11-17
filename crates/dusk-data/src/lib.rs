@@ -40,8 +40,8 @@ mod weather;
 
 pub use farm::FarmsFile;
 pub use looks::{
-    FIXTURE_TRIANGLES, Look, Looks, Material, PART_FLOATS, Part, Placed, SCATTER_TRIANGLES,
-    Scatter, Shape, Surface, parse as parse_looks, unit_points,
+    FIXTURE_TRIANGLES, ITEM_SIZE, ITEM_TRIANGLES, Look, Looks, Material, PART_FLOATS, Part, Placed,
+    SCATTER_TRIANGLES, Scatter, Shape, Surface, parse as parse_looks, unit_points,
 };
 pub use rare::RaresFile;
 pub use remains::PressureFile;
@@ -543,7 +543,7 @@ pub fn load(dir: &Path) -> Result<Data, DataError> {
         "region",
         regions.iter().map(|r| &r.id),
     )?;
-    let looks = looks::load(dir, &fixtures)?;
+    let looks = looks::load(dir, &fixtures, &defs.items)?;
 
     Ok(Data {
         rules,
