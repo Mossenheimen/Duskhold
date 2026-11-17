@@ -34,7 +34,7 @@ const KEYS := [
 		["{swing}", "swing; at a shut window, smash it; held, struggle"],
 		["{run}+{swing}", "a heavy swing (or {run}-click): slower, and it may knock down"],
 		["{shove}", "shove"],
-		["right-click", "shoot a bow; with a shield on your arm, hold to brace"],
+		["hold right-click", "on guard: face the cursor, slower; a click swings that way, or shoots a bow; a shield braces"],
 		["wheel, {zoom_in} {zoom_out}", "zoom in and out"],
 	]],
 	["Here", [
@@ -125,6 +125,7 @@ const MOODLES := [
 	[["Iron skin"], ["a potion of iron skin: blows do less harm  ·  their wounds bleed less"], -1, "iron_skin"],
 	[["Vigorous"], ["a potion of vigour: running, swings and struggles cost less breath"], -1, "vigorous"],
 	[["Fearless"], ["a potion of courage: no dread rises, whatever's in the dark"], -1, "fearless"],
+	[["On guard"], ["you face the cursor, slower, no running  ·  a click swings where you face, or shoots  ·  let go of the right mouse button"], -1, "guarding"],
 ]
 ## The moodle column's width: the tiles stay in one line down the screen, however long the names.
 const MOODLE_WIDTH := 250.0

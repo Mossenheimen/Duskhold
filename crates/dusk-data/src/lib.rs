@@ -622,6 +622,9 @@ struct RulesFile {
     /// Optional: with no [shield], bracing uses the core's default pace.
     #[serde(default)]
     shield: Option<ShieldRulesFile>,
+    /// Optional: with no [guard], the combat stance uses the core's default pace.
+    #[serde(default)]
+    guard: Option<ShieldRulesFile>,
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,
@@ -650,7 +653,7 @@ struct RulesFile {
     fitness: Option<fitness::FitnessFile>,
 }
 
-/// rules.toml's [shield]: what's left of your pace bracing behind one.
+/// rules.toml's [shield]: what's left of your pace bracing behind one; and [guard], on guard.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ShieldRulesFile {
@@ -1364,6 +1367,12 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
             return Err(fail(file, "shield.pace is a share above 0 and at most 1"));
         }
         rules.shield_pace = (s.pace * 1000.0).round() as u32;
+    }
+    if let Some(g) = &r.guard {
+        if !(g.pace > 0.0 && g.pace <= 1.0) {
+            return Err(fail(file, "guard.pace is a share above 0 and at most 1"));
+        }
+        rules.guard_pace = (g.pace * 1000.0).round() as u32;
     }
     if let Some(s) = &r.sneak {
         rules.sneak = stealth::to_sneak(file, s)?;

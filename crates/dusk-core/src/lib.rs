@@ -35,6 +35,7 @@ pub mod forage;
 pub mod geom;
 mod grab;
 pub mod grid;
+pub mod guard;
 pub mod hash;
 pub mod holdout;
 pub mod home;

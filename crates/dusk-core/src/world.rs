@@ -97,6 +97,8 @@ pub struct Rules {
     pub edges: crate::edge::Edges,
     /// Doors and walls of your own (`build.rs`).
     pub building: crate::build::Building,
+    /// Per mille: what's left of your pace on guard, the combat stance (`guard.rs`).
+    pub guard_pace: u32,
     /// The belt of potions (`potion.rs`).
     pub belt: crate::potion::Belt,
     /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
@@ -337,6 +339,7 @@ impl Default for Rules {
             heavy: crate::combat::Heavy::default(),
             edges: crate::edge::Edges::default(),
             building: crate::build::Building::default(),
+            guard_pace: 700,
             belt: crate::potion::Belt::default(),
             strength: crate::fitness::StrengthRules::default(),
             fitness: crate::fitness::FitnessRules::default(),
@@ -1697,8 +1700,9 @@ impl World {
                 }
             },
         };
-        // Out of breath or weighed down, sneaking or braced, nobody runs.
-        let run = run && !a.body.exhausted && !legs.heavy && !a.sneaking && !a.bracing;
+        // Out of breath or weighed down, sneaking, braced or on guard, nobody runs.
+        let run =
+            run && !a.body.exhausted && !legs.heavy && !a.sneaking && !a.bracing && !a.guarding;
         let wading = self.grid.tile(a.pos).ground == crate::grid::Ground::Shallows;
         let mut speed = if run {
             rules.skills.run_speed(legs.speeds.run, legs.athletics)
@@ -1722,7 +1726,8 @@ impl World {
         } else {
             (tx * reach / length, ty * reach / length)
         };
-        if let Some(dir) = Dir8::nearest(tx as i32, ty as i32) {
+        // On guard, it faces where it's turned, not where it walks (`guard.rs`).
+        if let Some(dir) = Dir8::nearest(tx as i32, ty as i32).filter(|_| !a.guarding) {
             a.facing = dir;
         }
         let (from, start) = (a.pos, a.offset);

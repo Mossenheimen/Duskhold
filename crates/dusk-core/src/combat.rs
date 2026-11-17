@@ -568,6 +568,10 @@ impl World {
         if let Some(dir) = asked {
             return dir;
         }
+        // On guard, a swing goes where it faces (`guard.rs`).
+        if a.guarding {
+            return a.facing;
+        }
         std::iter::once(a.facing)
             .chain(Dir8::ALL)
             .find(|&d| self.target_at(id, a.pos.step(d)).is_some())

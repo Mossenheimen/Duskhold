@@ -60,6 +60,8 @@ const Prompts = preload("res://prompts.gd")
 const Settings = preload("res://settings.gd")
 const Hotbar = preload("res://hotbar.gd")
 const Menu = preload("res://menu.gd")
+const Numbers = preload("res://numbers.gd")
+const Bars = preload("res://bars.gd")
 ## The numbers DuskWorld hands over, by name (codes.gd, made from the bridge's codes.rs).
 const Codes = preload("res://codes.gd")
 const Event = Codes.Event
@@ -274,6 +276,11 @@ var here: Array = []  # what you can do here (Prompts.here), as last worked out
 var listing := false  # E held: all of `here` listed, for a number or a click to pick one
 var use_down := -1  # when E went down (Time.get_ticks_msec()), -1 while it's up
 var bracing := false  # the right mouse button, held behind a shield
+## On guard (guard.rs): the right mouse button held. You face the cursor, a click swings that way
+## (or shoots the bow in your hand), and a shield on your arm braces.
+var guarding := false
+var numbers: Numbers  # damage numbers, where blows land
+var bars: Bars  # health bars over the dead you fight
 
 
 func _ready() -> void:
@@ -290,6 +297,11 @@ func _ready() -> void:
 	add_child(menu)
 	menu.chose.connect(_on_menu)
 	_settle_window()
+	# The health bars over the dead under everything else on the screen.
+	var bar_layer := CanvasLayer.new()
+	add_child(bar_layer)
+	bars = Bars.new()
+	bar_layer.add_child(bars)
 	# The bar before the HUD: the HUD's details and cards draw over it.
 	hotbar = Hotbar.new()
 	add_child(hotbar)
@@ -320,6 +332,8 @@ func _ready() -> void:
 	add_child(tells)
 	effects = Effects.new()
 	add_child(effects)
+	numbers = Numbers.new()
+	add_child(numbers)
 	aim = Aim.new()
 	add_child(aim)
 	threats = Threats.new()
@@ -461,6 +475,7 @@ func _process(delta: float) -> void:
 	_steer()
 	_mind_held_buttons()
 	_draw_actors(delta)
+	_mind_the_guard()
 	# The sound rings and what the dead see, only with their settings on (the playtest's).
 	for noise in dusk.take_noises():
 		if Look.show_rings:
@@ -577,6 +592,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				if readied >= 0:
 					_cast_on(tile)
 					return
+				# On guard, a click swings where you face (the cursor's way), or shoots the bow in
+				# your hand at the spot: Zomboid's, never a walk.
+				if guarding:
+					_guarded_click(tile)
+					return
 				var aim := _foe_beside(tile)
 				if aim != Vector2i.ZERO:
 					if held > 0:
@@ -591,16 +611,13 @@ func _unhandled_input(event: InputEvent) -> void:
 					run_tapped = false
 					dusk.walk_to(tile.x, tile.y, running)
 			MOUSE_BUTTON_RIGHT:
-				# A readied spell let go; with a shield on your arm, a brace behind it while the
-				# button's held (_mind_held_buttons); else a bow's shot at the spot.
+				# A readied spell let go; else on guard while the button's held (_mind_held_buttons):
+				# facing the cursor, and with a shield on your arm, braced behind it.
 				if not dead:
 					if readied >= 0:
 						_let_go()
-					elif dusk.character_shield().size() >= 2:
-						bracing = true
-						_brace(true)
 					else:
-						_shoot(_tile_under(mouse.position))
+						_guard(true)
 			# The wheel zooms, a step a notch (a trackpad's finer scroll, a part of one).
 			MOUSE_BUTTON_WHEEL_UP:
 				_zoom(-(mouse.factor if mouse.factor > 0.0 else 1.0))
@@ -885,9 +902,8 @@ func _mind_held_buttons() -> void:
 			_open_here()
 		else:
 			_use_here()
-	if bracing and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		bracing = false
-		_brace(false)
+	if guarding and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		_guard(false)
 
 
 ## E at a door or window: open or shut it. The core says whether it can be; this says why not.
@@ -1257,15 +1273,21 @@ func _read_events() -> void:
 				if who == me:
 					hud.say("There's no way there.")
 			Event.STRUCK:
-				if target == me and extra > 0:
-					var wound := wound_names[floori(extra / 100.0) - 1]
-					var part := part_names[extra % 100]
+				# Its harm times 1000, and its wound (the bridge's take_events): the harm rises where
+				# it landed, on you or one you see, red on you.
+				var harm := floori(extra / 1000.0)
+				if target == me or who == me or _seen(target):
+					numbers.add(_drawn(target, events[i + 3], events[i + 4]), harm,
+						Look.DANGER_TEXT if target == me else Look.TEXT)
+				var hurt := extra % 1000
+				if target == me and hurt > 0:
+					var wound := wound_names[floori(hurt / 100.0) - 1]
+					var part := part_names[hurt % 100]
 					last_hurt = "%s gave you a %s on the %s." % [_a(who), wound, part]
 					last_hurt_at = dusk.tick()
 					hud.say(last_hurt)
 					hud.flash()
-				elif who == me:
-					hud.say("You hit it.")
+				# Your own blows are numbers now, not news.
 			Event.MISSED:
 				if who == me:
 					hud.say("You missed.")
@@ -1737,7 +1759,7 @@ func _streak(from: Vector2i, to: Vector2i) -> void:
 func _shoot(tile: Vector2i) -> void:
 	match dusk.shoot_check(tile.x, tile.y):
 		-1:
-			hud.say("Right-click shoots a bow, and there's none in your hand.")
+			hud.say("There's no bow in your hand.")
 		-2:
 			hud.say("You have no arrows.")
 		-3:
@@ -1746,6 +1768,58 @@ func _shoot(tile: Vector2i) -> void:
 			hud.say("Too far for the bow.")
 		_:
 			dusk.shoot(tile.x, tile.y)
+
+
+## The right mouse button held, or let go: on guard (guard.rs), and braced behind a shield if one's
+## on your arm.
+func _guard(on: bool) -> void:
+	guarding = on
+	dusk.set_guard(on)
+	var shield: bool = dusk.character_shield().size() >= 2
+	if shield or bracing:
+		bracing = on and shield
+		dusk.set_bracing(bracing)
+
+
+## Each frame on guard: you face the cursor on the ground (or --aim's spot, for pictures). And the
+## health bars over the dead you see.
+func _mind_the_guard() -> void:
+	if guarding and not dead and me >= 0:
+		var p := _ground_under(get_viewport().get_mouse_position())
+		if aim_offset != Vector2i.ZERO:
+			p = Vector2(_my_tile() + aim_offset) + Vector2(0.5, 0.5)
+		dusk.face_toward(p.x, p.y)
+	var at := []
+	for view in actors:
+		at.append(view.position)
+	bars.show_bars(camera, at, kinds, seen, rares, dusk.actor_health())
+
+
+## A click on guard: the bow in your hand shot at the spot, else a swing where you face (Shift: a
+## heavy one); held, a struggle.
+func _guarded_click(tile: Vector2i) -> void:
+	run_tapped = false
+	var hands: PackedInt32Array = dusk.character_hands()
+	var item_kinds: PackedInt32Array = dusk.item_kinds()
+	if hands.size() >= 2 and hands[0] < item_kinds.size() and item_kinds[hands[0]] == Item.BOW:
+		_shoot(tile)
+	elif held > 0:
+		dusk.struggle()
+	elif Input.is_action_pressed("run"):
+		dusk.heavy_attack(0, 0)
+	else:
+		dusk.attack(0, 0)
+
+
+## The nearest of the dead you see, by its index in the actor arrays; -1 for none.
+func _nearest_dead() -> int:
+	var where: PackedVector2Array = dusk.actor_positions()
+	var best := -1
+	for k in where.size():
+		if k != me and _seen(k) and k < kinds.size() and kinds[k] != 0 \
+				and (best < 0 or where[k].distance_to(where[me]) < where[best].distance_to(where[me])):
+			best = k
+	return best
 
 
 ## The right mouse button, held: brace behind your shield (none on your arm, and the news says so).
@@ -1901,11 +1975,17 @@ func _move_cursor() -> void:
 
 ## The tile under a point on the screen, where the mouse ray meets the ground.
 func _tile_under(screen: Vector2) -> Vector2i:
+	var p := _ground_under(screen)
+	return Vector2i(floori(p.x), floori(p.y)) if p.x > -1e8 else Vector2i(-1, -1)
+
+
+## The point on the ground under `screen`, in tiles (x, y); far off (-1e9) if there's none.
+func _ground_under(screen: Vector2) -> Vector2:
 	var from := camera.project_ray_origin(screen)
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(from, camera.project_ray_normal(screen))
 	if hit == null:
-		return Vector2i(-1, -1)
-	return Vector2i(floori(hit.x), floori(hit.z))
+		return Vector2(-1e9, -1e9)
+	return Vector2(hit.x, hit.z)
 
 
 ## The camera, the sun, the sky's light and the tile cursor.
@@ -2319,6 +2399,16 @@ func _run_script() -> void:
 					_open_menu()
 					if print_news:
 						print("Menu opened.")
+			"guard":  # on guard, facing the nearest of the dead you see (else as you are)
+				_guard(true)
+				if print_news:
+					print("On guard." if dusk.is_guarding() else "Not on guard.")
+				var who := _nearest_dead()
+				if who >= 0:
+					var p: Vector3 = actors[who].position
+					dusk.face_toward(p.x, p.z)
+			"unguard":
+				_guard(false)
 			"run":  # Shift tapped: walking or running
 				_toggle_run()
 				if print_news:
@@ -2570,7 +2660,7 @@ func _fight_effect(kind: int, who: int, target: int, x: int, y: int, extra: int)
 	match kind:
 		Event.STRUCK:
 			if target == me or who == me or _seen(target):
-				effects.hit(_drawn(target, x, y), _bloodless(target), extra > 0)
+				effects.hit(_drawn(target, x, y), _bloodless(target), extra % 1000 > 0)
 		Event.BLOCKED:
 			if who == me:
 				effects.block(_drawn(me, x, y), _drawn(target, x, y))

@@ -196,10 +196,16 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         Event::Saw { who, target } => (SAW, Some(who), Some(target), at(target), 0),
         Event::Reached { who, target } => (REACHED, Some(who), Some(target), at(target), 0),
         Event::NoWay { who, to } => (NO_WAY, Some(who), None, (to.x, to.y), 0),
+        // The harm (tenths of a point) times 1000, and the wound, if one: (its kind + 1) * 100 +
+        // the part (under 1000: the client's damage numbers and its news read both).
         Event::Struck {
-            who, target, wound, ..
+            who,
+            target,
+            wound,
+            damage,
         } => {
-            let extra = wound.map_or(0, |(kind, part)| (kind as i32 + 1) * 100 + part as i32);
+            let wound = wound.map_or(0, |(kind, part)| (kind as i32 + 1) * 100 + part as i32);
+            let extra = damage.clamp(0, 1_000_000) * 1000 + wound;
             (STRUCK, Some(who), Some(target), at(target), extra)
         }
         Event::Missed { who, at: p } => (MISSED, Some(who), None, (p.x, p.y), 0),
@@ -3113,6 +3119,59 @@ impl DuskWorld {
             .iter()
             .map(|t| GString::from(t.as_str()))
             .collect()
+    }
+
+    /// Takes up the stance, on guard, or leaves it (`guard.rs`: the right mouse button held).
+    #[func]
+    fn set_guard(&mut self, on: bool) {
+        if let Some(world) = self.world.as_mut()
+            && let Some(me) = world.character()
+        {
+            world.on_guard(me, on);
+        }
+    }
+
+    /// Whether you're on guard.
+    #[func]
+    fn is_guarding(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world.character().is_some_and(|me| world.is_guarding(me))
+    }
+
+    /// On guard, turns you to face (x, y), a point in tiles (the cursor on the ground): the nearest
+    /// of the eight ways there, from where you're drawn. Nothing off guard, or right on it.
+    #[func]
+    fn face_toward(&mut self, x: f32, y: f32) {
+        let Some(world) = self.world.as_mut() else {
+            return;
+        };
+        let Some(me) = world.character() else {
+            return;
+        };
+        let Some((px, py)) = world.actor(me).map(|a| a.position()) else {
+            return;
+        };
+        let (dx, dy) = (((x - px) * 1000.0) as i32, ((y - py) * 1000.0) as i32);
+        if let Some(dir) = Dir8::nearest(dx, dy) {
+            world.face(me, dir);
+        }
+    }
+
+    /// Each actor's health and the most it can have, two numbers each, in tenths of a point (a
+    /// body's none: the bars over the dead you fight).
+    #[func]
+    fn actor_health(&self) -> PackedInt32Array {
+        let Some(world) = &self.world else {
+            return PackedInt32Array::new();
+        };
+        let mut out = Vec::new();
+        for (id, a) in world.actors() {
+            let most = if a.dead { 0 } else { world.max_health(id) };
+            out.extend([a.body.health.max(0), most]);
+        }
+        PackedInt32Array::from(&out[..])
     }
 
     /// Braces behind your shield, or stops (`shield.rs`).

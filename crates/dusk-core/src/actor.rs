@@ -510,6 +510,9 @@ pub struct Actor {
     /// The shield on the off arm, and bracing behind it: a stance (`shield.rs`).
     pub shield: Option<Item>,
     pub bracing: bool,
+    /// On guard, Zomboid's combat stance (`guard.rs`): facing where it's turned, slower.
+    #[cfg_attr(feature = "save", serde(default))]
+    pub guarding: bool,
     /// A Cleric's faith (`faith.rs`), in thousandths of a point: spent on its acts, and back by
     /// prayer at a shrine. 0 for a class without it.
     pub faith: i32,
@@ -579,6 +582,7 @@ impl Actor {
             sneaking: false,
             shield: None,
             bracing: false,
+            guarding: false,
             faith: 0,
             worn: Vec::new(),
             bag: None,

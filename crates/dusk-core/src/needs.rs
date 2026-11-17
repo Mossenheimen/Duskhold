@@ -109,6 +109,8 @@ pub enum Moodle {
     IronSkin,
     Vigorous,
     Fearless,
+    /// On guard, the combat stance (`guard.rs`): a stance, as sneaking is.
+    Guarding,
 }
 
 /// Why someone woke.
@@ -186,6 +188,7 @@ impl World {
             (Moodle::Asleep, u8::from(b.asleep)),
             (Moodle::Sneaking, u8::from(a.sneaking)),
             (Moodle::Bracing, u8::from(a.bracing)),
+            (Moodle::Guarding, u8::from(a.guarding)),
         ]
         .into_iter()
         // And a potion working, each kind once (`potion.rs`).

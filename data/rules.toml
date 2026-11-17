@@ -365,10 +365,16 @@ harm = 3.0            # a sneak attack's harm, times a blow's
 near = 8              # tiles: a sneaked tile teaches Stealth with the dead this near
 
 [shield]
-# A shield (items/weapons.toml) is carried on the off arm, where a light would be. Holding Alt you
-# brace behind it: slower, no running, and a blow from ahead may be blocked (no wound, no hold), for
+# A shield (items/weapons.toml) is carried on the off arm, where a light would be. On guard (the
+# right mouse button held) you brace behind it: slower, no running, and a blow from ahead may be blocked (no wound, no hold), for
 # breath and wear. A shove with a shield on your arm is a bash: it knocks down more often.
 pace = 0.6            # what's left of your pace, bracing
+
+[guard]
+# On guard, Zomboid's combat stance (guard.rs): the right mouse button held. You face the cursor, not
+# where you walk, so you can step back with your eyes on the dead; a swing goes where you face; no
+# running. With a shield on your arm, you brace as well.
+pace = 0.7            # what's left of your pace on guard
 
 [armour]
 # Armour (items/armour.toml) is worn, a piece to a place on the body. A blow on a covered place may

@@ -230,6 +230,7 @@ enum Moodle {
 	IRON_SKIN = 22,
 	VIGOROUS = 23,
 	FEARLESS = 24,
+	GUARDING = 25,
 }
 
 ## An actor's state (DuskWorld.actor_states()).

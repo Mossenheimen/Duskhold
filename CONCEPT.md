@@ -39,7 +39,7 @@
 
 - **The first playtest** (2026-11-16; the user played, and wrote notes: `BACKLOG.md`'s queue, first to eighth, quotes them). What they decide:
   - **Diablo's and Path of Exile's loot and inventory, not Zomboid's:** what drops is drawn on the ground, its names shown on a key; the inventory a grid of icons round a figure. This replaces "lists with weights, not a grid" (Loot, below): the grid as the rule is built (2026-11-16, below), and its screen (2026-11-17).
-  - **Zomboid's combat stance:** the right mouse button held puts you on guard, facing the cursor; a left click swings. Damage numbers and health bars in the fight.
+  - **Zomboid's combat stance:** the right mouse button held puts you on guard, facing the cursor; a left click swings. Damage numbers and health bars in the fight. *(Built 2026-11-17: `guard.rs`; with a bow a click shoots, with a shield you brace.)*
   - **Spells for the fight:** harm, areas, missiles first; keeping the dead from getting up matters less.
   - **Less drawn:** no sound rings, no sight of the dead's on the ground (a setting each brings them back); walls that stay as you walk behind them; a fog of war soft at its edges.
   - **The keys:** Space shoves, Esc pauses and opens the menu, T holds a torch up, Shift switches between walking and running (running from the start, and quicker), M the map, Tab the mini-map, I the pack.

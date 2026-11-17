@@ -249,6 +249,7 @@ pub mod moodle {
         IRON_SKIN = Moodle::IronSkin as i32,
         VIGOROUS = Moodle::Vigorous as i32,
         FEARLESS = Moodle::Fearless as i32,
+        GUARDING = Moodle::Guarding as i32,
     }
 }
 
