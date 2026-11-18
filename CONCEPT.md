@@ -44,6 +44,13 @@
   - **Less drawn:** no sound rings, no sight of the dead's on the ground (a setting each brings them back); walls that stay as you walk behind them; a fog of war soft at its edges.
   - **The keys:** Space shoves, Esc pauses and opens the menu, T holds a torch up, Shift switches between walking and running (running from the start, and quicker), M the map, Tab the mini-map, I the pack.
 
+- **The second playtest** (2026-11-17; the user's `Notes.md`: `BACKLOG.md`'s queue, third to ninth, quotes it). What it decides:
+  - **No grabs:** a blow slows you a moment; nothing holds you or drags you down. *(Built 2026-11-17: "Combat and magic", "Crowds are the danger"; the dead tuned with it.)*
+  - **A click on one of the dead goes at it, as Diablo's:** you walk (or run) after it wherever it goes and swing once it's in reach; held, you swing again until you let go. *(Built 2026-11-17: `Intent::Pursue`.)*
+  - **Gear at once out of a fight,** a bounty claimed at once, chairs walked through, and a potion of life closing wounds and curing ghoul fever. *(Built 2026-11-17.)*
+  - **Spells that hit hard,** none at a low level needing a reagent; a blow on you sets a spell back rather than breaking it.
+  - **Walls that stay** (at corners and doors too, with the low walls on by themselves indoors); **loot named on the ground,** the grid only for containers; **who comes to the abbey as a screen** (a class, a name, an ancestry).
+
 - **The kit, one style for every model** (2026-11-13; the user: "start working on sprites/assets for models/items/terrain/objects... Ensure that there is a homogenous theme/style throughout", choosing a kit made in data over model files and over 2D sprites). Everything drawn is made of four shapes, flat-shaded, in a small palette of materials, written in `data/looks.toml`: furniture and the terrain first, then items and the bodies. A model from outside keeps to the same palette. CC0 kits are no longer the first source: kits from different hands don't make one style. The rules are `VISUALS.md` §5, "The kit".
 
 **Default** marks a choice Claude made. All of them were accepted (2026-11-05, 2026-11-06) and stand unless revisited. The review's choices are Defaults too, and not yet confirmed by the user.

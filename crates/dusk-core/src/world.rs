@@ -1464,7 +1464,11 @@ impl World {
         // How it climbs, if it can (`climb.rs`): worked out only as a step may start for one
         // going somewhere, and what a climb is worth to its search for a way, at its pace.
         let going = self.actors.get(id).and_then(|a| match a.intent {
-            Intent::Move { run, .. } | Intent::WalkTo { run, .. } if a.step.is_none() => Some(run),
+            Intent::Move { run, .. } | Intent::WalkTo { run, .. } | Intent::Pursue { run, .. }
+                if a.step.is_none() =>
+            {
+                Some(run)
+            }
             Intent::Cast { .. } if a.step.is_none() => Some(false),
             _ => None,
         });
@@ -1546,7 +1550,10 @@ impl World {
                 self.grab(e, id);
                 return None;
             }
-            if matches!(a.intent, Intent::WalkTo { .. } | Intent::Cast { .. }) {
+            if matches!(
+                a.intent,
+                Intent::WalkTo { .. } | Intent::Cast { .. } | Intent::Pursue { .. }
+            ) {
                 a.path.pop();
             }
             let length = if dir.is_diagonal() {
@@ -1675,7 +1682,10 @@ impl World {
     fn glide(&mut self, id: ActorId, legs: Legs, on_me: &[(ActorId, TilePos)]) -> Option<bool> {
         let rules = self.rules;
         let a = self.actors.get_mut(id)?;
-        let walking = matches!(a.intent, Intent::WalkTo { .. } | Intent::Cast { .. });
+        let walking = matches!(
+            a.intent,
+            Intent::WalkTo { .. } | Intent::Cast { .. } | Intent::Pursue { .. }
+        );
         // Where it heads, as thousandths of a tile from where it stands, and whether it runs.
         let ((tx, ty), run) = match a.intent {
             // A walk at its goal's tile settles to the middle before it's done.
@@ -2339,6 +2349,10 @@ fn next_heading(
         // A spell cast on a spot too far or out of sight: walked toward until it can be cast
         // (`combat.rs`'s `act` keeps the intent while it can't).
         Intent::Cast { at, .. } => walk_toward(a, grid, at, false, repath_after, budget, climb),
+        // Going after one of the dead: toward the tile it's on, until it's in reach (`act`).
+        Intent::Pursue { at, run, .. } => {
+            walk_toward(a, grid, at, run, repath_after, budget, climb)
+        }
         // Idle, or an action waiting for the step under way to end: the legs stand.
         _ => Heading::Stand,
     }

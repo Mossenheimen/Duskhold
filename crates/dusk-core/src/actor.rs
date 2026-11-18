@@ -45,6 +45,16 @@ pub enum Intent {
     HeavyAttack { dir: Option<Dir8> },
     /// Shove that way (None as for `Attack`): it knocks back, and sometimes down.
     Shove { dir: Option<Dir8> },
+    /// Go after `target` (Diablo's click on a monster; the second playtest): walk, or run, after
+    /// it wherever it goes, `at` the tile it's on (brought up to date each tick), and once it's in
+    /// reach, swing at it (a heavy swing, `heavy`). One swing: the intent goes back to idle once
+    /// it starts, and it's let go if the target's dead or gone. A character's only.
+    Pursue {
+        target: ActorId,
+        at: TilePos,
+        heavy: bool,
+        run: bool,
+    },
     /// Open or shut the door beside you: the one you face, else the first of north, east,
     /// south and west.
     Door,

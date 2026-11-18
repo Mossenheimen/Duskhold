@@ -14,7 +14,7 @@ use crate::geom::{Dir8, TilePos};
 use crate::grid::{Edge, edge_owner};
 use crate::hash::{Purpose, below, roll};
 use crate::skills::Skill;
-use crate::world::{Event, Sound, World};
+use crate::world::{Event, Sound, World, reaches};
 
 /// Ticks to catch your second wind.
 const SECOND_WIND_TICKS: u32 = 15;
@@ -83,15 +83,56 @@ impl World {
             if a.step.is_some() || !a.intent.is_action() {
                 return false;
             }
+            let (intent, character, me) = (a.intent, a.kind.is_character(), a.pos);
             // A spell cast on a spot too far or out of sight: kept, and walked toward until it can
             // be cast (`world.rs`'s `walk_toward`), as Diablo's. A character's only.
-            if let (Intent::Cast { spell, at }, true) = (a.intent, a.kind.is_character())
+            if let (Intent::Cast { spell, at }, true) = (intent, character)
                 && matches!(
                     self.can_cast(id, spell, at),
                     Err(crate::spell::NoCast::TooFar | crate::spell::NoCast::NoSight)
                 )
             {
                 return false;
+            }
+            // Going after one of the dead (`Intent::Pursue`, Diablo's): walked after (`world.rs`'s
+            // `walk_toward`, to the tile it's on now) until it's in reach, then a swing at it; let
+            // go once it's dead or gone. A character's only.
+            if let (
+                Intent::Pursue {
+                    target, heavy, run, ..
+                },
+                true,
+            ) = (intent, character)
+            {
+                let there = self.actors.get(target).filter(|t| !t.dead).map(|t| t.pos);
+                let Some(a) = self.actors.get_mut(id) else {
+                    return true;
+                };
+                match there {
+                    None => {
+                        a.intent = Intent::Idle;
+                        a.path.clear();
+                        a.path_goal = None;
+                        return false;
+                    }
+                    Some(at) if !reaches(&self.grid, me, at) => {
+                        a.intent = Intent::Pursue {
+                            target,
+                            at,
+                            heavy,
+                            run,
+                        };
+                        return false;
+                    }
+                    Some(at) => {
+                        let dir = Dir8::toward(at.x - me.x, at.y - me.y);
+                        a.intent = if heavy {
+                            Intent::HeavyAttack { dir }
+                        } else {
+                            Intent::Attack { dir }
+                        };
+                    }
+                }
             }
             let Some(a) = self.actors.get_mut(id) else {
                 return true;

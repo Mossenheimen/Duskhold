@@ -1245,6 +1245,49 @@ impl DuskWorld {
         });
     }
 
+    /// Goes after the actor at `index` (Diablo's click on a monster): walks, or runs, after it
+    /// wherever it goes and swings at it once it's in reach (`heavy`: a heavy swing). The client
+    /// asks again while the button's held, so the swings go on (`main.gd`).
+    #[func]
+    fn pursue(&mut self, index: i32, heavy: bool, run: bool) {
+        let Some(world) = self.world.as_ref() else {
+            return;
+        };
+        let Some((target, at)) = usize::try_from(index)
+            .ok()
+            .and_then(|i| world.actors().nth(i))
+            .filter(|(_, a)| !a.dead)
+            .map(|(id, a)| (id, a.pos))
+        else {
+            return;
+        };
+        self.act(Intent::Pursue {
+            target,
+            at,
+            heavy,
+            run,
+        });
+    }
+
+    /// The index of the actor your character is going after now, or -1.
+    #[func]
+    fn pursuing(&self) -> i32 {
+        let Some(world) = self.world.as_ref() else {
+            return -1;
+        };
+        let Some(Intent::Pursue { target, .. }) = world
+            .character()
+            .and_then(|me| world.actor(me))
+            .map(|a| a.intent)
+        else {
+            return -1;
+        };
+        world
+            .actors()
+            .position(|(id, _)| id == target)
+            .map_or(-1, |i| i as i32)
+    }
+
     /// A heavy swing at what's beside you, aimed as for `attack` (`combat::Heavy`).
     #[func]
     fn heavy_attack(&mut self, dx: i32, dy: i32) {

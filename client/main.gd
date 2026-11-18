@@ -279,6 +279,8 @@ var bracing := false  # the right mouse button, held behind a shield
 ## On guard (guard.rs): the right mouse button held. You face the cursor, a click swings that way
 ## (or shoots the bow in your hand), and a shield on your arm braces.
 var guarding := false
+var pursuing := -1  # the one of the dead clicked and held on: swung at again while the button's down
+var pursuit_heavy := false  # and whether with Shift: heavy swings
 var numbers: Numbers  # damage numbers, where blows land
 var bars: Bars  # health bars over the dead you fight
 
@@ -598,16 +600,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				if guarding:
 					_guarded_click(tile)
 					return
-				var aim := _foe_beside(tile)
-				if aim != Vector2i.ZERO:
+				# One of the dead clicked (Diablo's; the second playtest): go after it wherever it
+				# walks and swing once it's in reach; held, swing again till the button's let go
+				# (_mind_held_buttons). Shift-click: heavy swings, your weight behind them.
+				var foe := _foe_under(mouse.position)
+				if foe >= 0:
 					if held > 0:
 						dusk.struggle()
-					elif Input.is_action_pressed("run"):
-						# Shift-click: a heavy swing, your weight behind it.
-						run_tapped = false
-						dusk.heavy_attack(aim.x, aim.y)
 					else:
-						dusk.attack(aim.x, aim.y)
+						pursuit_heavy = Input.is_action_pressed("run")
+						if pursuit_heavy:
+							run_tapped = false
+						pursuing = foe
+						dusk.pursue(foe, pursuit_heavy, running)
 				else:
 					run_tapped = false
 					dusk.walk_to(tile.x, tile.y, running)
@@ -735,22 +740,31 @@ func _notification(what: int) -> void:
 		_save("")
 
 
-## Which way to swing for a click on `tile`: toward it if one of the living dead stands there
-## beside you, else (0, 0), meaning "not a swing". Whether the blow can land is the core's call.
-func _foe_beside(tile: Vector2i) -> Vector2i:
+## The one of the dead (or a beast) you see under the mouse at `screen`, alive: its index, or -1.
+## Picked on the screen, by its figure from its feet to its head, since a click on its shoulders
+## falls on the ground behind it; the nearest, if two stand close. Whether it can be reached is the
+## core's call (Intent::Pursue).
+func _foe_under(screen: Vector2) -> int:
 	if me < 0:
-		return Vector2i.ZERO
-	var where: PackedVector2Array = dusk.actor_positions()
-	var kinds: PackedInt32Array = dusk.actor_kinds()
+		return -1
 	var states: PackedInt32Array = dusk.actor_states()
-	var mine := Vector2i(roundi(where[me].x), roundi(where[me].y))
-	var aim := tile - mine
-	if aim == Vector2i.ZERO or absi(aim.x) > 1 or absi(aim.y) > 1:
-		return Vector2i.ZERO
-	for i in kinds.size():
-		if kinds[i] >= 1 and states[i] != State.DEAD and Vector2i(roundi(where[i].x), roundi(where[i].y)) == tile:
-			return aim
-	return Vector2i.ZERO
+	var best := -1
+	var nearest := INF
+	for i in mini(actors.size(), states.size()):
+		if i == me or i >= kinds.size() or kinds[i] == 0 or states[i] == State.DEAD or not _seen(i):
+			continue
+		var feet: Vector3 = actors[i].position
+		if camera.is_position_behind(feet):
+			continue
+		var low := camera.unproject_position(feet)
+		var high := camera.unproject_position(feet + Vector3(0, 1.7, 0))
+		# Within a third of its height of the line up its middle (at least 18 px, however far out).
+		var reach := maxf(18.0, low.distance_to(high) / 3.0)
+		var off := screen.distance_to(Geometry2D.get_closest_point_to_segment(screen, low, high))
+		if off <= reach and off < nearest:
+			nearest = off
+			best = i
+	return best
 
 
 ## WASD, as a heading on screen. The core turns it into a heading on the map.
@@ -905,6 +919,16 @@ func _mind_held_buttons() -> void:
 			_use_here()
 	if guarding and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		_guard(false)
+	# Held on one of the dead: each time you're free again, after it once more, until the button's
+	# let go or it's down (the second playtest: "if I click and hold, it should continue to attack
+	# till I release").
+	if pursuing >= 0:
+		var states: PackedInt32Array = dusk.actor_states()
+		if dead or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) \
+				or pursuing >= states.size() or states[pursuing] == State.DEAD:
+			pursuing = -1
+		elif dusk.pursuing() < 0 and _my_action().x == 0:
+			dusk.pursue(pursuing, pursuit_heavy, running)
 
 
 ## E at a door or window: open or shut it. The core says whether it can be; this says why not.
@@ -1273,6 +1297,8 @@ func _read_events() -> void:
 			Event.NO_WAY:
 				if who == me:
 					hud.say("There's no way there.")
+					# Held on one that can't be reached: don't ask again each frame.
+					pursuing = -1
 			Event.STRUCK:
 				# Its harm times 1000, and its wound (the bridge's take_events): the harm rises where
 				# it landed, on you or one you see, red on you.
@@ -2419,6 +2445,18 @@ func _run_script() -> void:
 					dusk.face_toward(p.x, p.z)
 			"unguard":
 				_guard(false)
+			"pursue":  # after the nearest of the dead still standing, as a click on it does (seen or not: a script can't turn to look)
+				var states: PackedInt32Array = dusk.actor_states()
+				var where: PackedVector2Array = dusk.actor_positions()
+				var who := -1
+				for k in mini(where.size(), states.size()):
+					if k != me and k < kinds.size() and kinds[k] != 0 and states[k] != State.DEAD \
+							and (who < 0 or where[k].distance_to(where[me]) < where[who].distance_to(where[me])):
+						who = k
+				if who >= 0:
+					dusk.pursue(who, false, running)
+				if print_news:
+					print("Going after it." if dusk.pursuing() >= 0 else "Nothing to go after.")
 			"run":  # Shift tapped: walking or running
 				_toggle_run()
 				if print_news:
