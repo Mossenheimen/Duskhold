@@ -33,7 +33,7 @@ const SPELL_GLYPHS := {Spell.LIGHT: "light", Spell.SILENCE: "silence", Spell.FOG
 ## What a power that isn't a spell is called, and what it does.
 const POWER_TEXTS := {
 	Power.TURN: ["Turn the dead", "Hold up the holy symbol: the dead near you flee, till a blow ends it. It costs faith."],
-	Power.SECOND_WIND: ["Second Wind", "Your breath back, and a little health: once between sleeps."],
+	Power.SECOND_WIND: ["Second Wind", "Your stamina back, and a little health: once between sleeps."],
 	Power.MEND: ["Mending", "Faith closes your worst bleeding wound, and gives a little health back."],
 }
 ## What each slot shows (`_shown`), by place: its glyph, the glyph's colour, its count, the
@@ -185,14 +185,14 @@ func _show_globes() -> void:
 	var faith: PackedInt32Array = _dusk.faith()
 	var breath := body[1] / 10.0 if body.size() > 1 else 0.0
 	_breath.value = breath / 100.0
-	_breath.tooltip_text = "Breath  ·  %d / 100" % roundi(breath)
+	_breath.tooltip_text = "Stamina  ·  %d / 100" % roundi(breath)
 	_breath.visible = true
 	if mana.size() > 1 and mana[1] > 0:
 		_globe(1, mana[0], mana[1], Look.ARCANE, "Mana")
 	elif faith.size() > 1 and faith[1] > 0:
 		_globe(1, faith[0], faith[1], Look.FAITH, "Faith")
 	else:
-		_globe(1, breath, 100.0, Look.ENDURANCE, "Breath")
+		_globe(1, breath, 100.0, Look.ENDURANCE, "Stamina")
 		_breath.visible = false
 	# How far into this level (DuskWorld.character_deeds(): its XP, where the level began, the next).
 	if deeds.size() > 3:

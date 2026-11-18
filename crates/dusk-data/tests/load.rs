@@ -2632,7 +2632,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
         ("Damage", "8\u{2013}12"),
         ("Attacks per second", "1.00"),
         ("Chance to hit", "85%"),
-        ("Breath a blow", "9"),
+        ("Stamina a blow", "9"),
     ] {
         assert_eq!(
             line(&cudgel, name),
@@ -2662,7 +2662,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
             ("+80(64\u{2013}96)% damage", "Cruel III"),
             ("+67(47\u{2013}92)% attack speed", "Darting III"),
             ("+25(20\u{2013}30)% chance to hit", "Unerring III"),
-            ("-35(28\u{2013}42)% breath a blow", "Poised II"),
+            ("-35(28\u{2013}42)% stamina a blow", "Poised II"),
         ])
     );
     // The kinds Diablo has: a body made stronger or fitter, levels in skills (the staff's own,
@@ -2723,7 +2723,7 @@ fn the_games_cards_are_numbers_as_diablos_and_path_of_exiles_are() {
         ("Covers", "torso, arms"),
         ("Turns lacerations", "55%"),
         ("Weight worn", "4.5 kg"),
-        ("Breath", "+15% on every cost"),
+        ("Stamina", "+15% on every cost"),
         ("Footsteps", "+2 tiles"),
     ] {
         assert_eq!(line(&mail, name), (CardStyle::Stat, value.into()), "{name}");
@@ -3041,7 +3041,7 @@ fn the_games_bows_and_shields_have_their_own_magic_and_cards_in_numbers() {
         (CardStyle::Changed, "+25% to knock down".into())
     );
     assert_eq!(
-        line(&card, "Breath a block"),
+        line(&card, "Stamina a block"),
         (CardStyle::Changed, "3.9".into())
     );
     assert_eq!(
@@ -3052,7 +3052,7 @@ fn the_games_bows_and_shields_have_their_own_magic_and_cards_in_numbers() {
             ("+10(8\u{2013}12)% chance to block", "Steadfast II"),
             ("+10(8\u{2013}12)% chance a bash knocks down", "Spiked II",),
             ("+2 to Shield", "Sentinel's II"),
-            ("-35(28\u{2013}42)% breath a block", "Featherweight II"),
+            ("-35(28\u{2013}42)% stamina a block", "Featherweight II"),
         ])
     );
     assert!(

@@ -11,13 +11,13 @@ health = 15
 [[talent]]
 id = "tireless"
 name = "Tireless"
-line = "running and swings cost a quarter less breath"
+line = "running and swings cost a quarter less stamina"
 endurance = 0.75
 
 [[talent]]
 id = "second_wind"
 name = "Second Wind"
-line = "once between sleeps, catch your breath: endurance full, and 10 health back (a power, on the number keys)"
+line = "once between sleeps, catch your breath: stamina full, and 10 health back (a power, on the number keys)"
 second_wind = true
 
 [[talent]]

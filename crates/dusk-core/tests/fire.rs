@@ -351,3 +351,43 @@ fn a_lantern_eater_puts_out_a_fire_it_passes() {
     let left = w.hearth(STOVE_AT);
     assert!(!left.lit && left.fuel > 0, "out, with its fuel still in it");
 }
+
+#[test]
+fn a_stove_with_logs_in_it_is_laid_from_them_before_your_pack() {
+    // The stove a container too, as the game's is (it holds what a kitchen keeps): your two split
+    // logs put in it, and a plank kept back (the fourth notes: "there are logs in a stove already
+    // yet I cannot light it, unless I take them into my invetory first").
+    let (mut w, me) = cottage(12, vec![Item::new(FIREWOOD, 2), Item::new(PLANK, 1)]);
+    let mut defs = (*w.defs).clone();
+    defs.containers = vec![None, Some(0)];
+    w.defs = Arc::new(defs);
+    let slot = w
+        .actor(me)
+        .unwrap()
+        .items
+        .iter()
+        .position(|i| i.def == FIREWOOD)
+        .unwrap() as u16;
+    act(
+        &mut w,
+        me,
+        Intent::Put {
+            at: STOVE_AT,
+            slot,
+            def: FIREWOOD,
+        },
+    );
+    assert_eq!(count(&w, me, FIREWOOD), 0, "in the stove now");
+    // Laying takes the stove's own, the longest-burning first: your plank stays in your pack.
+    assert_eq!(w.can_tend(me), Ok((STOVE_AT, Tend::Lay { item: FIREWOOD })));
+    act(&mut w, me, Intent::Tend);
+    assert_eq!(w.hearth(STOVE_AT).fuel, 120);
+    let left: u16 = w
+        .store(STOVE_AT)
+        .iter()
+        .filter(|i| i.def == FIREWOOD)
+        .map(|i| i.count)
+        .sum();
+    assert_eq!(left, 1, "one log gone from the stove");
+    assert_eq!(count(&w, me, PLANK), 1, "the plank still yours");
+}

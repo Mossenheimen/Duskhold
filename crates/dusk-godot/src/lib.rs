@@ -1246,6 +1246,21 @@ impl DuskWorld {
         });
     }
 
+    /// Whether your character is busy: a timed action under way, or one asked for that hasn't
+    /// begun yet (it begins on the next tick). The client's queues (`bag.gd`'s Take all) wait on it:
+    /// asking on the frame between, they asked over a take not yet begun, and things were left
+    /// behind (the fourth notes: "Take all doesnt seem to take everything from a container").
+    #[func]
+    fn character_busy(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world
+            .character()
+            .and_then(|me| world.actor(me))
+            .is_some_and(|a| a.action.is_some() || a.intent.is_action())
+    }
+
     /// Goes after the actor at `index` (Diablo's click on a monster): walks, or runs, after it
     /// wherever it goes and swings at it once it's in reach (`heavy`: a heavy swing). The client
     /// asks again while the button's held, so the swings go on (`main.gd`).

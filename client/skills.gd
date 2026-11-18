@@ -105,6 +105,10 @@ func _draw(skills: PackedInt32Array, left: int, build: PackedInt32Array,
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
+		# How far along, on hover (the fourth notes: "Skills page should have a value for progress
+		# when you hover over one").
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.tooltip_text = _progress(level, progress, state)
 		var called := Look.line(_names[skill] if skill < _names.size() else "?", Look.BODY)
 		called.custom_minimum_size = Vector2(90, 0)
 		row.add_child(called)
@@ -141,6 +145,8 @@ func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array, mana: Packed
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.tooltip_text = _progress(floori(value / 1000.0), value % 1000, TOP if value >= 10000 else RISING)
 		var called := Look.line(["Strength", "Fitness"][k], Look.BODY)
 		called.custom_minimum_size = Vector2(90, 0)
 		row.add_child(called)
@@ -160,6 +166,16 @@ func _draw_build(build: PackedInt32Array, boosts: PackedInt32Array, mana: Packed
 		row.add_child(called)
 		row.add_child(Look.line("%d  ·  %s back a second" % [most, String.num(mana[1] / 1000.0, 2)], Look.BODY))
 	_list.add_child(Look.line(" ", 8))
+
+
+## A row's progress in words, for its tooltip: "Level 2  ·  64% of the way to 3".
+func _progress(level: int, progress: int, state: int) -> String:
+	match state:
+		AT_CAP:
+			return "Level %d  ·  at the cap: master it to learn on" % level
+		TOP:
+			return "Level %d  ·  as high as it goes" % level
+	return "Level %d  ·  %d%% of the way to %d" % [level, roundi(progress / 10.0), level + 1]
 
 
 func _bar(value: float, colour: Color) -> ProgressBar:

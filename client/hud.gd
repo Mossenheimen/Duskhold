@@ -76,10 +76,10 @@ const LEGEND := "Over the dead: ? heard something  ·  ! sees you  ·  red lines
 ## level already is (0 mild, 1 bad, 2 dire; -1 a restful one); and its glyph, in icons/moodles/.
 const MOODLES := [
 	[["Peckish", "Hungry", "Starving"],
-		["eat something soon: {pack}", "your breath comes back slower  ·  eat something: {pack}",
+		["eat something soon: {pack}", "your stamina comes back slower  ·  eat something: {pack}",
 			"losing health  ·  eat something: {pack}"], 0, "hungry"],
 	[["Thirsty", "Parched", "Dying of thirst"],
-		["drink something soon: {use} at water, or {pack}", "your breath comes back slower  ·  {use} at water, or {pack}",
+		["drink something soon: {use} at water, or {pack}", "your stamina comes back slower  ·  {use} at water, or {pack}",
 			"losing health  ·  {use} at water, or {pack}"], 0, "thirsty"],
 	[["Drowsy", "Tired", "Falling asleep"],
 		["{sleep} to sleep", "slower swings  ·  {sleep} to sleep", "much slower swings  ·  {sleep} to sleep"], 0, "tired"],
@@ -88,16 +88,16 @@ const MOODLES := [
 	[["Bleeding", "Bleeding badly", "Bleeding heavily"],
 		["bandage it: {pack}  ·  ghouls smell it", "bandage them: {pack}  ·  ghouls smell them",
 			"bandage them: {pack}  ·  ghouls smell them"], 1, "bleeding"],
-	[["Out of breath"], ["no running, weak swings  ·  it comes back fastest standing still"], 1, "breath"],
+	[["Out of stamina"], ["no running, weak swings  ·  it comes back fastest standing still"], 1, "breath"],
 	[["Heavy load"], ["no running  ·  drop something, or carry it in a bag on your back"], 0, "load"],
 	[["Held", "Held by two", "Held by three"], ["{swing} struggle  ·  {shove} shove", "{swing} struggle  ·  {shove} shove", "{swing} struggle  ·  {shove} shove"], 2, "held"],
 	[["Asleep"], ["{sleep} to get up"], -1, "asleep"],
 	[["Ghoul fever", "Weak with fever", "Dying of fever"],
-		["thirstier, and nothing heals  ·  find a cure", "your breath comes back slowly  ·  find a cure",
+		["thirstier, and nothing heals  ·  find a cure", "your stamina comes back slowly  ·  find a cure",
 			"the cure, today, or death"], 1, "fever"],
 	[["Sore", "In pain", "Agony"],
-		["a bandage on the wound eases it: {pack}", "everything costs more breath  ·  dress your wounds: {pack}",
-			"everything costs far more breath, and no sleep  ·  dress your wounds: {pack}"], 0, "pain"],
+		["a bandage on the wound eases it: {pack}", "everything costs more stamina  ·  dress your wounds: {pack}",
+			"everything costs far more stamina, and no sleep  ·  dress your wounds: {pack}"], 0, "pain"],
 	[["Uneasy", "Afraid", "Frightened"],
 		["your aim shakes  ·  light, food and rest ease it", "your aim shakes more  ·  get into the light",
 			"you can't step nearer the dead  ·  back away, get to the light"], 0, "dread"],
@@ -111,10 +111,10 @@ const MOODLES := [
 		["your aim, and how far you see, a little worse  ·  dress it: {pack}",
 			"your aim and how far you see, worse  ·  dress it: {pack}"], 0, "head"],
 	[["Sneaking"], ["slower, quieter, seen only from nearer  ·  from behind, a sneak attack  ·  {sneak} to stand"], -1, "sneaking"],
-	[["Bracing"], ["blows from ahead may be blocked, for breath  ·  slower, no running  ·  let go of the right mouse button"], -1, "bracing"],
+	[["Bracing"], ["blows from ahead may be blocked, for stamina  ·  slower, no running  ·  let go of the right mouse button"], -1, "bracing"],
 	[["Chilly", "Cold", "Freezing"],
 		["get under a roof, or by a fire, before it's worse",
-			"shivering: your aim is worse, and everything costs more breath  ·  a roof, a fire",
+			"shivering: your aim is worse, and everything costs more stamina  ·  a roof, a fire",
 			"nothing heals, health drains, no sleep  ·  get to a fire"], 0, "cold"],
 	[["Damp", "Wet", "Soaked"],
 		["wet makes you colder  ·  dry off under a roof",
@@ -125,7 +125,7 @@ const MOODLES := [
 	[["Mana rising"], ["a potion of mana: your mana coming back, a little each moment"], -1, "mana_rising"],
 	[["Quickened"], ["a potion of haste: faster on your feet, walking and running"], -1, "quickened"],
 	[["Iron skin"], ["a potion of iron skin: blows do less harm  ·  their wounds bleed less"], -1, "iron_skin"],
-	[["Vigorous"], ["a potion of vigour: running and swings cost less breath"], -1, "vigorous"],
+	[["Vigorous"], ["a potion of vigour: running and swings cost less stamina"], -1, "vigorous"],
 	[["Fearless"], ["a potion of courage: no dread rises, whatever's in the dark"], -1, "fearless"],
 	[["On guard"], ["you face the cursor, slower, no running  ·  a click swings where you face, or shoots  ·  let go of the right mouse button"], -1, "guarding"],
 ]
@@ -439,7 +439,7 @@ func show_body(body: PackedInt32Array, wounds: PackedStringArray, can_shove := t
 		return
 	_health.value = body[0] / 10.0
 	_endurance.value = body[1] / 10.0
-	_breath.text = "Out of breath" if body[2] == 1 else ""
+	_breath.text = "Out of stamina" if body[2] == 1 else ""
 	_wounds.text = "\n".join(wounds)
 	var holding := body[5] if body.size() > 5 and body[3] == 0 else 0
 	var shove := "Q shove it off" if holding == 1 else "Q shove one off"

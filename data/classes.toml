@@ -7,7 +7,7 @@
 [[class]]
 id = "fighter"
 name = "Fighter"
-line = "holds doorways: more breath than anyone, and a blow slows you less"
+line = "holds doorways: more stamina than anyone, and a blow slows you less"
 # Holds doorways; engagement and the press of the dead are its part of the system.
 skills = ["blade", "blunt", "axe", "athletics"]
 learn = 1.5           # learns those half as fast again

@@ -83,7 +83,7 @@ const TOGGLES := [
 	["colour_blind", "Colour-blind mode", "the dead's calm, alert and danger in sky blue, yellow and vermillion"],
 	["high_contrast", "High contrast", "panels nearly solid, and every text outlined"],
 	["reduce_motion", "Fewer flashes, less motion", "no flash at the screen's edge, no breathing dread, nothing pops"],
-	["show_numbers", "Numbers on the bars", "health, endurance, faith and spells, always (else on hover)"],
+	["show_numbers", "Numbers on the bars", "health, stamina, faith and mana, always (else on hover)"],
 	["show_rings", "Sound rings", "how far each sound carries, drawn on the ground"],
 	["show_sight", "What the dead see", "the tiles they can see, tinted by what they know of you"],
 ]

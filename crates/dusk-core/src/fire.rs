@@ -1,8 +1,10 @@
 //! A fire for your base (`CONCEPT.md`, base-building: a bed, storage, a fire). A hearth, a stove
 //! or a forge (a fixture with a `fire` reach in the data) takes one.
 //!
-//! - **Laying it:** fuel from your pack goes on a piece at a time, the longest-burning first
-//!   (split logs before planks), up to what a fire holds (`Fire::most`).
+//! - **Laying it:** fuel goes on a piece at a time, the longest-burning first (split logs before
+//!   planks), up to what a fire holds (`Fire::most`): what the stove or hearth holds itself first
+//!   (one found with logs in it; the fourth notes: "there are logs in a stove already yet I cannot
+//!   light it, unless I take them into my invetory first"), then what's in your pack.
 //! - **Lighting it** takes fuel in it and a flame: the light you hold up, as for burning a body.
 //! - **It burns down** a game minute at a time, and goes out when its fuel's gone. Put out, what's
 //!   left stays in it for the next time.
@@ -67,7 +69,7 @@ pub enum NoFire {
     Nothing,
     /// It holds all the fuel it can.
     Full,
-    /// Nothing in your pack that burns.
+    /// Nothing that burns, in it or in your pack.
     NoFuel,
     /// It's laid, but there's no light held up to light it with.
     NoFlame,
@@ -101,14 +103,25 @@ impl World {
             .find(|&at| self.hearth_reach(at) > 0 && (!lit || self.hearth(at).lit))
     }
 
-    /// The fuel `id` would put on next: the longest-burning in its pack, and how long it burns.
-    fn fuel_in_pack(&self, id: ActorId) -> Option<(u16, u32)> {
+    /// The fuel `id` would put on the fire on `at` next, and how long it burns: the longest-burning
+    /// the hearth holds itself, else the longest-burning in `id`'s pack. True if it's the hearth's.
+    fn fuel_for(&self, id: ActorId, at: TilePos) -> Option<(u16, u32, bool)> {
         let a = self.actors.get(id)?;
-        self.defs
-            .fuel
-            .iter()
-            .copied()
-            .find(|&(item, _)| a.items.iter().any(|i| i.def == item))
+        let held = if self.is_container(at) {
+            self.store(at)
+        } else {
+            Vec::new()
+        };
+        let first = |items: &[crate::items::Item]| {
+            self.defs
+                .fuel
+                .iter()
+                .copied()
+                .find(|&(item, _)| items.iter().any(|i| i.def == item))
+        };
+        first(&held)
+            .map(|(item, burns)| (item, burns, true))
+            .or_else(|| first(&a.items).map(|(item, burns)| (item, burns, false)))
     }
 
     /// What tending the fire beside `id` would do now, and where: light it if it's laid and you
@@ -121,8 +134,8 @@ impl World {
         if laid && flame {
             return Ok((at, Tend::Light));
         }
-        match self.fuel_in_pack(id) {
-            Some((item, burns)) if fire.fuel + burns <= self.rules.fire.most => {
+        match self.fuel_for(id, at) {
+            Some((item, burns, _)) if fire.fuel + burns <= self.rules.fire.most => {
                 Ok((at, Tend::Lay { item }))
             }
             // Laid, and nothing more will go on: what it wants is a flame.
@@ -159,7 +172,8 @@ impl World {
     }
 
     /// The tending's end: the fuel put on, or the fire lit, if that's still what tending it
-    /// would do (the fuel still in the pack, the flame still held up).
+    /// would do (the fuel still in the hearth or the pack, the flame still held up). The fuel comes
+    /// from where it's found now: the hearth's own first.
     pub(crate) fn tend(&mut self, id: ActorId, at: TilePos, tend: Tend) {
         if self.can_tend(id) != Ok((at, tend)) {
             return;
@@ -172,7 +186,11 @@ impl World {
                     .iter()
                     .find(|f| f.0 == item)
                     .map_or(0, |f| f.1);
-                if let Some(a) = self.actors.get_mut(id) {
+                if self.fuel_for(id, at).is_some_and(|f| f.2) {
+                    let mut held = self.store(at);
+                    spend(&mut held, item, 1);
+                    self.stores.insert(at, held);
+                } else if let Some(a) = self.actors.get_mut(id) {
                     spend(&mut a.items, item, 1);
                 }
                 self.hearths.entry(at).or_default().fuel += burns;

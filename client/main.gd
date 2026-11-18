@@ -117,7 +117,7 @@ const DOING := {
 	Action.CLAIM: "Claiming the bounty",
 	Action.IDENTIFY: "Having it read",
 	Action.UNCURSE: "Having the curse lifted",
-	Action.SECOND_WIND: "Catching your breath",
+	Action.SECOND_WIND: "Getting your second wind",
 	Action.LAY_FIRE: "Laying the fire",
 	Action.LIGHT_FIRE: "Lighting the fire",
 	Action.SMOTHER: "Putting the fire out",
@@ -140,7 +140,7 @@ const DOING := {
 ## What the news says as a potion's lasting effect wears off (potion.rs), by DuskWorld's potion code.
 const WANED_TOLD := {Potion.HASTE: "The haste wears off: your legs are your own again.",
 	Potion.IRON_SKIN: "The iron skin wears off: blows bite as they did.",
-	Potion.VIGOUR: "The vigour ebbs: your breath costs what it did.",
+	Potion.VIGOUR: "The vigour ebbs: running and swings cost what they did.",
 	Potion.COURAGE: "The courage ebbs. The dark is the dark again."}
 ## What the news says of a wild plant (fixtures.toml's id) the first time you're beside one.
 const PLANT_TOLD := {"yarrow": "Yarrow grows here: made into a poultice, it staunches a wound",
@@ -533,7 +533,9 @@ func _process(delta: float) -> void:
 	_mind_the_ground()
 	_mind_the_plants()
 	var doing := _my_action()
-	bag.refresh(doing.x != 0, dead, inventory.is_open())
+	# Busy: an action under way, or one asked for that's yet to begin (else Take all asked over
+	# its own takes: the fourth notes).
+	bag.refresh(dusk.character_busy(), dead, inventory.is_open())
 	inventory.refresh(dead)
 	hud.make_room(inventory.room_on_right())
 	skills.refresh(dead)
@@ -1336,7 +1338,7 @@ func _read_events() -> void:
 					hud.say(("You opened the %s." if extra & 1 else "You shut the %s.") % what)
 			Event.EXHAUSTED:
 				if who == me:
-					hud.say("You're out of breath.")
+					hud.say("You're out of stamina.")
 			Event.GRABBED:
 				if target == me:
 					hud.say(Prompts.keyed("It has hold of you! {swing} to struggle, {shove} to shove it off."))
@@ -1535,7 +1537,7 @@ func _read_events() -> void:
 					if extra >= 3:
 						hud.say("You're dying of the fever. A day left to find the cure.")
 					else:
-						hud.say("The fever has you weak: your breath comes back slowly.")
+						hud.say("The fever has you weak: your stamina comes back slowly.")
 					hud.flash()
 			Event.FEVER_TOOK:
 				if who == me:
@@ -1877,7 +1879,7 @@ func _tell_cold(level: int) -> void:
 			1:
 				hud.say("You're getting chilly.")
 			2:
-				hud.say("You're cold, and shivering: your aim is worse, and everything costs more breath.")
+				hud.say("You're cold, and shivering: your aim is worse, and everything costs more stamina.")
 			3:
 				hud.say("You're freezing! Nothing heals, and the cold is taking your health. Get to a fire.")
 				hud.flash()
@@ -1942,7 +1944,7 @@ func _die() -> void:
 	elif dragged_by >= 3:
 		how = "%d of them got hold of you, and dragged you down." % dragged_by
 	elif dragged_by > 0:
-		how = "It had hold of you, and you had no breath left to throw it off."
+		how = "It had hold of you, and you had no stamina left to throw it off."
 	elif dusk.tick() - last_hurt_at <= 1:
 		pass  # the blow itself
 	elif dusk.character_body()[4] > 0:

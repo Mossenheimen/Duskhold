@@ -1063,7 +1063,6 @@ fn a_weapons_card_gives_its_numbers_marked_where_its_making_or_magic_changed_the
         ("Wind-up", "0.4 s"),
         ("Chance to hit", "100%"),
         ("Noise", "10 tiles"),
-        ("Wear", "1% a blow"),
         ("Condition", "100%"),
     ] {
         assert_eq!(number(&plain, name), (value, false), "{name}");
@@ -1078,7 +1077,8 @@ fn a_weapons_card_gives_its_numbers_marked_where_its_making_or_magic_changed_the
     let card = w.card(&keen, None);
     assert_eq!(number(&card, "Damage"), ("18.7", true));
     assert_eq!(number(&card, "Damage per second"), ("23.4", true));
-    assert_eq!(number(&card, "Wear"), ("0.6% a blow", true));
+    // Its condition, not its wear a blow (the fourth notes).
+    assert!(card.iter().all(|l| l.text != "Wear"));
     assert_eq!(number(&card, "Noise"), ("10 tiles", false));
     assert_eq!(
         styled(&card, CardStyle::Mod),
@@ -1329,7 +1329,10 @@ fn a_piece_of_armour_is_made_well_or_badly_its_magic_turns_more_and_its_known_on
     // magic doesn't.
     let card = w.card(&cap, None);
     assert_eq!(number(&card, "Turns scratches"), ("45%", true));
-    assert_eq!(number(&card, "Wear"), ("2.5% a blow turned", true));
+    assert!(
+        card.iter().all(|l| l.text != "Wear"),
+        "its condition, not its wear"
+    );
     assert_eq!(
         styled(&card, CardStyle::Mod),
         [("+5% chance to turn blows", "Fine"), ("-15% wear", "Fine")]
@@ -1557,7 +1560,10 @@ fn a_shield_is_made_well_or_badly_its_magic_blocks_more_and_its_known_once_taken
     // doesn't.
     let card = w.card(&made, None);
     assert_eq!(number(&card, "Chance to block"), ("55% braced", true));
-    assert_eq!(number(&card, "Wear"), ("3.4% a block", true));
+    assert!(
+        card.iter().all(|l| l.text != "Wear"),
+        "its condition, not its wear"
+    );
     assert_eq!(
         styled(&card, CardStyle::Mod),
         [("+5% chance to block", "Fine"), ("-15% wear", "Fine")]
@@ -1583,8 +1589,7 @@ fn a_shield_is_made_well_or_badly_its_magic_blocks_more_and_its_known_once_taken
     for (name, value) in [
         ("Chance to block", "65% braced"),
         ("Bash", "+25% to knock down"),
-        ("Breath a block", "4.8"),
-        ("Wear", "10.2% a block"),
+        ("Stamina a block", "4.8"),
     ] {
         assert_eq!(number(&card, name), (value, true), "{name}");
     }
@@ -1596,7 +1601,7 @@ fn a_shield_is_made_well_or_badly_its_magic_blocks_more_and_its_known_once_taken
             ("+10% chance to block", "Steadfast"),
             ("+10% chance a bash knocks down", "Spiked"),
             ("+1 to Shield", "Warden's"),
-            ("-20% breath a block", "Deft")
+            ("-20% stamina a block", "Deft")
         ]
     );
     assert_eq!(

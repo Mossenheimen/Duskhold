@@ -67,7 +67,7 @@ const REFUSED := {
 	"fire": {
 		-1: ["", "There's no hearth, stove or forge beside you."],
 		-2: ["", "It won't take more just now: let it burn down a while."],
-		-3: ["you have nothing that burns", "You have nothing that burns: split logs (a hearth or stove keeps a few by it) or planks."],
+		-3: ["nothing in it or with you burns", "Nothing in it or with you burns: split logs (a stove or a hearth may hold a few: they go on first) or planks."],
 		-4: ["hold up a lit torch or candle {light}", "The fire's laid. Hold up a lit torch or candle {light} to light it."],
 	},
 }

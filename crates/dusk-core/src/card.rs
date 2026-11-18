@@ -188,7 +188,7 @@ impl Defs {
                 per_cent(d.amount)
             ),
             Effect::Vigour => format!(
-                "your breath back, and {} less spent, for {t}",
+                "your stamina back, and {} less spent, for {t}",
                 per_cent(d.amount)
             ),
             Effect::Courage => format!("dread gone, and none rises, for {t}"),
@@ -347,13 +347,6 @@ fn per_second(s: &Swing, fire: (i32, i32), holy: (i32, i32)) -> f64 {
     (mid(s.damage) + mid(fire) + mid(holy)) * rate(s)
 }
 
-/// The wear a blow takes off it as a share of new: `wear` out of `items::NEW` a blow, at `made`
-/// per mille of that ("1.3%", "0.05%": two places under one).
-fn wear_share(wear: u16, made: u32) -> String {
-    let pct = (u64::from(wear) * u64::from(made)) as f64 / 10_000.0;
-    format!("{}%", number(pct, if pct < 1.0 { 2 } else { 1 }))
-}
-
 /// "Against your cudgel: +5.2 damage per second, ..." or, all the same, "much the same".
 fn against_your(name: &str, said: &[String]) -> String {
     if said.is_empty() {
@@ -468,7 +461,7 @@ impl Defs {
             out.push(format!("+{} to {skill}", p.levels));
         }
         if p.endurance != 1000 {
-            out.push(format!("{} breath a {a}", pct(p.endurance)));
+            out.push(format!("{} stamina a {a}", pct(p.endurance)));
         }
         if p.noise != 1000 {
             out.push(format!("{} noise", pct(p.noise)));
@@ -579,7 +572,7 @@ impl World {
         self.card_name(&mut c, item);
         c.rule();
         match def.kind {
-            ItemKind::Weapon { swing, wear, .. } => self.weapon_numbers(&mut c, item, swing, wear),
+            ItemKind::Weapon { swing, .. } => self.weapon_numbers(&mut c, item, swing),
             ItemKind::Bow(r) => self.bow_numbers(&mut c, item, &r),
             ItemKind::Shield(g) => self.shield_numbers(&mut c, item, &g),
             ItemKind::Armour(a) => self.armour_numbers(&mut c, item, &a, def.weight),
@@ -645,7 +638,7 @@ impl World {
             Effect::Mana => c.stat("Mana back", mana_points(d.amount), false),
             Effect::Haste => c.stat("Faster on your feet", per_cent(d.amount), false),
             Effect::IronSkin => c.stat("Less harm from blows", per_cent(d.amount), false),
-            Effect::Vigour => c.stat("Less breath spent", per_cent(d.amount), false),
+            Effect::Vigour => c.stat("Less stamina spent", per_cent(d.amount), false),
             Effect::Courage => {}
         }
         let lasts = if d.effect.wears_off() {
@@ -660,7 +653,7 @@ impl World {
         let words = match d.effect {
             Effect::Mana => "Only one with mana to fill can drink it",
             Effect::IronSkin => "A wound it lets through bleeds as much less",
-            Effect::Vigour => "Your breath back at once",
+            Effect::Vigour => "Your stamina back at once",
             Effect::Courage => "Dread gone at once, and none rises while it lasts",
             Effect::Life => "Every wound closed and ghoul fever cured, at once",
             Effect::Haste => "",
@@ -673,7 +666,7 @@ impl World {
 
     /// A weapon's numbers, as made and as far as you know its magic, each marked where that
     /// changed it from its kind's: damage per second first, as Diablo's.
-    fn weapon_numbers(&self, c: &mut Lines, item: &Item, base: Swing, wear: u16) {
+    fn weapon_numbers(&self, c: &mut Lines, item: &Item, base: Swing) {
         let d = &self.defs;
         let s = d.made_swing(item, base, true);
         let (fire, holy) = d.known_harm(item);
@@ -694,14 +687,13 @@ impl World {
         c.stat("Wind-up", seconds(s.wind_up), s.wind_up != base.wind_up);
         c.stat("Chance to hit", share(s.hit), s.hit != base.hit);
         c.stat(
-            "Breath a blow",
+            "Stamina a blow",
             points(s.endurance),
             s.endurance != base.endurance,
         );
         c.stat("Noise", tiles(s.noise), s.noise != base.noise);
-        let made = d.made_wear(item, true);
-        let worn = format!("{} a blow", wear_share(wear, made));
-        c.stat("Wear", worn, made != 1000);
+        // Its condition, not its wear a blow (the fourth notes: "I dont need to see wear rate per
+        // blow, just current condition"); a property that slows the wear says so in words.
         c.stat("Condition", condition(item), false);
     }
 
@@ -731,7 +723,7 @@ impl World {
         c.stat("Chance to hit", far, s.hit != b.hit);
         c.stat("Range", tiles(r.range), r.range != base.range);
         c.stat(
-            "Breath a shot",
+            "Stamina a shot",
             points(s.endurance),
             s.endurance != b.endurance,
         );
@@ -749,11 +741,9 @@ impl World {
         let block = format!("{} braced", share(g.block));
         c.stat("Chance to block", block, g.block != base.block);
         let breath = points(g.endurance);
-        c.stat("Breath a block", breath, g.endurance != base.endurance);
+        c.stat("Stamina a block", breath, g.endurance != base.endurance);
         let bash = format!("+{} to knock down", share(g.bash));
         c.stat("Bash", bash, g.bash != base.bash);
-        let worn = format!("{} a block", wear_share(g.wear, 1000));
-        c.stat("Wear", worn, g.wear != base.wear);
         c.stat("Condition", condition(item), false);
     }
 
@@ -776,7 +766,7 @@ impl World {
         c.stat("Weight worn", kg(worn), false);
         if a.endurance > 0 {
             let more = change(i64::from(a.endurance));
-            c.stat("Breath", format!("{more} on every cost"), false);
+            c.stat("Stamina", format!("{more} on every cost"), false);
         }
         if a.noise > 0 {
             let louder = format!("+{}", tiles(a.noise));
@@ -786,8 +776,6 @@ impl World {
             c.stat("Sight", format!("{} of yours", mille(a.sight)), false);
         }
         c.stat("Puts on in", seconds(a.time), false);
-        let worn = format!("{} a blow turned", wear_share(a.wear, 1000));
-        c.stat("Wear", worn, a.wear != base.wear);
         c.stat("Condition", condition(item), false);
     }
 
@@ -1046,7 +1034,7 @@ impl World {
                 }
                 let breath = g.endurance - h.endurance;
                 if breath != 0 {
-                    said.push(format!("{} breath a block", signed_points(breath)));
+                    said.push(format!("{} stamina a block", signed_points(breath)));
                 }
                 Some(against_your(&d.label(&arm), &said))
             }
@@ -1074,7 +1062,7 @@ impl World {
                 }
                 let breath = i64::from(arm.endurance) - i64::from(worn.endurance);
                 if breath != 0 {
-                    said.push(format!("{} breath", change(breath)));
+                    said.push(format!("{} stamina", change(breath)));
                 }
                 Some(against_your(&d.label(piece), &said))
             }
