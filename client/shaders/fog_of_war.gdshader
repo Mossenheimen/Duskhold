@@ -19,8 +19,15 @@ void fragment() {
 	float depth = texture(depth_texture, SCREEN_UV).r;
 	vec4 world = INV_VIEW_MATRIX * INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth, 1.0);
 	vec2 tile = world.xz / world.w;
-	// 0 never seen, 1 remembered, 2 seen: bytes, which the texture reads as n / 255.
-	float seen = texture(view, tile / map_size).r * 255.0;
+	// 0 never seen, 1 remembered, 2 seen: bytes, which the texture reads as n / 255. Five samples
+	// half a tile about, so its edge is soft rather than a tile's (the first playtest: "Can the fog
+	// of war be less blocky on the edges?"), eased so what's seen stays clear to its edge.
+	vec2 s = 0.5 / map_size;
+	vec2 at = tile / map_size;
+	float seen = (texture(view, at).r * 2.0 + texture(view, at + vec2(s.x, s.y)).r
+		+ texture(view, at + vec2(-s.x, s.y)).r + texture(view, at + vec2(s.x, -s.y)).r
+		+ texture(view, at + vec2(-s.x, -s.y)).r) / 6.0 * 255.0;
+	seen = seen < 1.0 ? seen : 1.0 + smoothstep(0.0, 1.0, seen - 1.0);
 	vec3 colour = texture(screen_texture, SCREEN_UV).rgb;
 	vec3 remembered = mix(colour, vec3(dot(colour, vec3(0.3, 0.59, 0.11))), 0.75) * 0.3;
 	ALBEDO = seen < 1.0 ? remembered * seen : mix(remembered, colour, seen - 1.0);

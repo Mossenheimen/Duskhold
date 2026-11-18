@@ -34,7 +34,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (cuts && cuttable > 0.5 && cut_away(VERTEX, FRAGCOORD.xy, VIEW_MATRIX)) {
+	if (cuts && cuttable > 0.5 && cut_away(VERTEX, FRAGCOORD.xy, VIEW_MATRIX, INV_VIEW_MATRIX)) {
 		discard;
 	}
 	vec3 w = local ? own : (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;

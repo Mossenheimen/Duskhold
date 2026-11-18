@@ -1270,6 +1270,7 @@ func _draw_actors(delta: float) -> void:
 	threats.show_threats(dusk.character_threats(), drawn, me)
 	if me >= 0:
 		map_view.set_focus(actors[me].position + Vector3(0.0, 0.9, 0.0))
+		map_view.set_indoors(dusk.character_indoors() and not dead)
 
 
 func _read_events() -> void:

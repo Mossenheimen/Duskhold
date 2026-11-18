@@ -57,12 +57,14 @@ Duskhold looks at its world the way Project Zomboid does, but with a fantasy dus
   - **Today** (2026-11-13), as Zomboid's: the wheel zooms a step of 12% a notch (a trackpad's finer scroll a part of one, and its pinch too), and so do `-` and `=`; the camera eases to it, centred on you. The player's own game keeps the zoom it was left at (`user://settings.cfg`). Zoomed out, what you've never seen stays near-black (the fog of war), so early on the far view is mostly dark.
   - At the default on a 1080p screen, a tile is a diamond about 109 × 55 px (2:1, classic isometric), and a person stands about 100 px tall.
   - **Must:** everything reads at 14 and 20. Fine detail may show only at 6 to 10.
-- **Cut-away:** walls near you and near the cursor are cut away with a dithered edge, so you see inside, and a shadow-only copy keeps the shadows right. V lowers every wall to 0.35 m.
+- **See-through, not cut away** (since 2026-11-17, the playtests: "Objects shouldn't disappear, like walls, when you walk behind them"; "it doesnt work when your at corners, or half-way in doors. It also should show a larger area"): what stands between the camera and you, within 2.6 m of you on screen, keeps a lattice of itself, a third of its pixels, filling in to whole over its last 0.9 m; so a wall in front of you is still there, and you see yourself through it. "Between" is along the ground toward the camera, with a little behind you counted too, so a wall's foot counts as its top does (at a corner) and so does the wall you stand in (half-way through a door). Below knee height (0.6 m) nothing is latticed: a wall's foot stays whole. A shadow-only copy keeps the shadows right (`shaders/cut_away.gdshaderinc`). It was a hole 1.7 m across, cut by depth, until the third notes.
+- **Low walls indoors** (since 2026-11-17, the second playtest: "The low walls mechanic is nice. Perhaps use that automatically when you walk into a building?"): under a roof, the walls within 12 m of you sink to 0.35 m over 0.45 s (at once with less motion), a building's whole inside open to you, and rise again as you step out (`map_view.gd`'s `set_indoors`, the shaders' `wall_top`: a piece wholly above the low top, a lintel or a pane, isn't drawn). V lowers every wall, everywhere, as before.
 - **The sun** comes from the south-west, so shadows fall up and to the right, away from the faces turned to the camera.
 - **Fog of war, three states** (`shaders/fog_of_war.gdshader`):
   - **Seen now:** full colour.
   - **Remembered:** 75% grey, at 30% brightness. Things that don't move (walls, furniture, plants) stay drawn in memory. Actors are drawn only while you see them, which is Darkwood's lesson: the unseen space is the horror.
   - **Never seen:** near-black.
+  - **Its edge** is soft, not a tile's (since 2026-11-17, the first playtest: "Can the fog of war be less blocky on the edges?"): five samples of what's seen, half a tile about, eased so what's seen stays clear to its edge.
 
 ---
 

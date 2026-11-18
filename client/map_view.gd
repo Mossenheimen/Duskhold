@@ -7,6 +7,10 @@ extends Node3D
 const ChunkView = preload("res://chunk_view.gd")
 const Look = preload("res://look.gd")
 
+## Indoors, walls within this many metres of you are lowered (cut_away.gdshaderinc's wall_top),
+## the change eased over LOWER_TIME seconds: a building's whole inside, the town's larger ones too.
+const LOW_REACH := 12.0
+const LOWER_TIME := 0.45
 ## Chunks within this many of the one the camera looks at are drawn; past UNLOAD_RADIUS they go.
 const LOAD_RADIUS := 3
 const UNLOAD_RADIUS := 4
@@ -30,6 +34,9 @@ var _view_image: Image
 var _view_tiles := PackedByteArray()  # as last shown: 0 never seen, 1 remembered, 2 seen now
 var _view_texture: ImageTexture
 var _fog: MeshInstance3D
+var _indoors := false
+var _low_reach := 0.0
+var _lowering: Tween
 
 
 func _init() -> void:
@@ -132,9 +139,30 @@ func refresh_tile(tile: Vector2i) -> void:
 ## Where the character is: walls, furniture and trees between it and the camera are cut away
 ## round it.
 func set_focus(at: Vector3) -> void:
-	_materials["cut_away"].set_shader_parameter("focus", at)
-	_materials["glass"].set_shader_parameter("focus", at)
-	_materials["kit"].set_shader_parameter("focus", at)
+	for which in ["cut_away", "solid", "glass", "kit"]:
+		_materials[which].set_shader_parameter("focus", at)
+
+
+## Indoors or out (DuskWorld.character_indoors()): indoors, the walls round you sink low, as V
+## lowers them all; out, they rise again. Eased, or at once with less motion (Look.reduce_motion).
+func set_indoors(indoors: bool) -> void:
+	if indoors == _indoors:
+		return
+	_indoors = indoors
+	if _lowering != null:
+		_lowering.kill()
+	var to := LOW_REACH if indoors else 0.0
+	if Look.reduce_motion:
+		_set_low_reach(to)
+		return
+	_lowering = create_tween()
+	_lowering.tween_method(_set_low_reach, _low_reach, to, LOWER_TIME)
+
+
+func _set_low_reach(reach: float) -> void:
+	_low_reach = reach
+	for which in ["cut_away", "solid", "glass"]:
+		_materials[which].set_shader_parameter("low_reach", reach)
 
 
 ## Where a fire laid in the fixture on `tile` burns, in the world (its look's fire, as it stands

@@ -1422,6 +1422,20 @@ impl DuskWorld {
         world.defs.items.iter().map(|i| i.weight as i32).collect()
     }
 
+    /// Whether your character stands under a roof: indoors, where the walls round you are lowered
+    /// to see by (the client's `map_view.set_indoors`; the second playtest: "use that automatically
+    /// when you walk into a building").
+    #[func]
+    fn character_indoors(&self) -> bool {
+        let Some(world) = &self.world else {
+            return false;
+        };
+        world
+            .character()
+            .and_then(|me| world.actor(me))
+            .is_some_and(|a| world.grid.tile(a.pos).roof)
+    }
+
     /// What's in your hand: [definition, condition out of 1000], or nothing.
     #[func]
     fn character_hands(&self) -> PackedInt32Array {
