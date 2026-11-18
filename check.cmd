@@ -51,13 +51,16 @@ rem The inventory as Path of Exile 2's (inventory.gd): in the near farm's kitche
 rem inventory opened, the first thing in the stove or the cupboard beside you taken onto a cell of
 rem the pockets, a stack moved within them at once, a card shown, and Esc letting it all go.
 call :run 4000 "--seed=7 --hour=12 --speed=4 --walk=118,84 --give=travellers_pack --do=11:wear,12.5:inventory,13:takein,14:arrange,14.5:card,15:esc,15.5:esc"
+rem A sword dropped at your feet in the abbey, and put straight back in hand from the ground through the
+rem inventory (the third notes: "Allow equipping directly from looting").
+call :run 1500 "--seed=7 --give=sword --do=1:dropweapon,2:inventory,3:equipin,5:esc"
 rem Every effect made once and left to play out: what the runs above can't reach (a block, a
 rem felling, a skeleton's bone). It must leave nothing behind (client\tests\check_effects.gd).
 echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("You cast Firebolt" "You cast Fire Nova" "Going after it." "You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: every wound closed" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Firebolt ready" "Menu opened" "Walking." "You put on the traveller's pack" "Inventory opened." "Taking the" "Arranged the" "On guard." "EFFECTS OK") do (
+for %%m in ("You took the arming sword in hand" "You cast Firebolt" "You cast Fire Nova" "Going after it." "You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: every wound closed" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Firebolt ready" "Menu opened" "Walking." "You put on the traveller's pack" "Inventory opened." "Taking the" "Arranged the" "On guard." "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

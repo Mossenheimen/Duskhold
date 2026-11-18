@@ -23,7 +23,8 @@ extends Node3D
 ## notches of the wheel), body (the worst-wounded part's detail), bandage (the
 ## first in the pack), inventory (I: opens or shuts it), card (the inventory opened, a weapon's card
 ## in it shown), arrange (the first stack in your pockets moved within them, at once), takein (the
-## first thing within reach taken onto a cell of your pockets)
+## first thing within reach taken onto a cell of your pockets), equipin (a thing within reach put on
+## the figure, a weapon first), dropweapon (the last weapon or bow in the pack dropped)
 ## S real seconds in;
 ## --class=NAME take up that class at the start (a trial run asks for none: the first, else);
 ## --choose ask who comes, as the player's own game does (for a picture of the choice);
@@ -598,7 +599,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				# On guard, a click swings where you face (the cursor's way), or shoots the bow in
 				# your hand at the spot: Zomboid's, never a walk.
 				if guarding:
-					_guarded_click(tile)
+					_guarded_click(tile, mouse.position)
 					return
 				# One of the dead clicked (Diablo's; the second playtest): go after it wherever it
 				# walks and swing once it's in reach; held, swing again till the button's let go
@@ -1823,13 +1824,25 @@ func _mind_the_guard() -> void:
 
 ## A click on guard: the bow in your hand shot at the spot, else a swing where you face (Shift: a
 ## heavy one); held, a struggle.
-func _guarded_click(tile: Vector2i) -> void:
+func _guarded_click(tile: Vector2i, screen: Vector2) -> void:
 	run_tapped = false
 	var hands: PackedInt32Array = dusk.character_hands()
 	var item_kinds: PackedInt32Array = dusk.item_kinds()
 	if hands.size() >= 2 and hands[0] < item_kinds.size() and item_kinds[hands[0]] == Item.BOW:
 		_shoot(tile)
-	elif held > 0:
+		return
+	# Turned to what was clicked, now, not as of the last frame: the one of the dead under the
+	# cursor (by its figure, _foe_under), else the point itself (the third notes: a click on the
+	# tile beside the one you face swung at the faced one).
+	var foe := _foe_under(screen)
+	if foe >= 0:
+		var p: Vector3 = actors[foe].position
+		dusk.face_toward(p.x, p.z)
+	else:
+		var g := _ground_under(screen)
+		if g.x > -1e8:
+			dusk.face_toward(g.x, g.y)
+	if held > 0:
 		dusk.struggle()
 	elif Input.is_action_pressed("run"):
 		dusk.heavy_attack(0, 0)
@@ -2399,6 +2412,14 @@ func _run_script() -> void:
 				var items: PackedInt32Array = dusk.character_items()
 				if items.size() >= 3:
 					dusk.drop_item(0, items[0])
+			"dropweapon":  # the last weapon or bow in the pack (the last given), dropped at your feet
+				var items: PackedInt32Array = dusk.character_items()
+				var item_kinds: PackedInt32Array = dusk.item_kinds()
+				for slot in range(items.size() / 4 - 1, -1, -1):
+					var def := items[slot * 4]
+					if def < item_kinds.size() and item_kinds[def] in [Item.WEAPON, Item.BOW]:
+						dusk.drop_item(slot, def)
+						break
 			"sleep":
 				_sleep_or_wake()
 			"drink":
@@ -2429,6 +2450,10 @@ func _run_script() -> void:
 				var taking: String = inventory.take_in_first()
 				if print_news and taking != "":
 					print(taking)
+			"equipin":  # the first thing within reach that can be put on, picked up and put on the figure
+				var putting: String = inventory.equip_in_first()
+				if print_news and putting != "":
+					print(putting)
 			"esc":  # what Esc closes first, else the menu (a script never quits by it)
 				if not _close_top():
 					_open_menu()

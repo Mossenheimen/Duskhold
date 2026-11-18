@@ -3194,11 +3194,10 @@ impl DuskWorld {
         let Some(me) = world.character() else {
             return;
         };
-        let Some((px, py)) = world.actor(me).map(|a| a.position()) else {
+        let Some(at) = world.actor(me).map(|a| a.position()) else {
             return;
         };
-        let (dx, dy) = (((x - px) * 1000.0) as i32, ((y - py) * 1000.0) as i32);
-        if let Some(dir) = Dir8::nearest(dx, dy) {
+        if let Some(dir) = way_to(at, (x, y)) {
             world.face(me, dir);
         }
     }
@@ -4250,5 +4249,37 @@ impl DuskWorld {
     #[func]
     fn tick(&self) -> i64 {
         self.world.as_ref().map_or(0, |w| w.tick as i64)
+    }
+}
+
+/// The nearest of the eight ways from an actor at `at` (`Actor::position`: a tile's number, its
+/// north-west corner on the ground, plus where in the tile it stands) to `point` on the ground
+/// (the cursor's). The actor's middle is half a tile on from its number: measured from the corner,
+/// every angle was skewed, so north of you read as north-east and a click on the tile beside the
+/// one you faced swung at the faced one (the third notes, 2026-11-17).
+fn way_to(at: (f32, f32), point: (f32, f32)) -> Option<Dir8> {
+    let (px, py) = (at.0 + 0.5, at.1 + 0.5);
+    let (dx, dy) = (
+        ((point.0 - px) * 1000.0) as i32,
+        ((point.1 - py) * 1000.0) as i32,
+    );
+    Dir8::nearest(dx, dy)
+}
+
+#[cfg(test)]
+mod facing {
+    use super::{Dir8, way_to};
+
+    #[test]
+    fn the_way_to_the_cursor_is_measured_from_your_middle() {
+        // You on tile (5, 5); the cursor on the ground over the middle of each tile round you.
+        let me = (5.0, 5.0);
+        for dir in Dir8::ALL {
+            let (dx, dy) = dir.delta();
+            let point = (5.5 + dx as f32, 5.5 + dy as f32);
+            assert_eq!(way_to(me, point), Some(dir), "{dir:?}");
+        }
+        // Just west of the tile north of you is still north, not north-west.
+        assert_eq!(way_to(me, (5.2, 4.5)), Some(Dir8::N));
     }
 }

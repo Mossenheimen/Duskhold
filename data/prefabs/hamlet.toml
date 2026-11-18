@@ -14,6 +14,7 @@
 "," = { ground = "grass" }
 ":" = { ground = "dirt" }
 "b" = { ground = "floor", fixture = "bed" }
+"B" = { ground = "floor", fixture = "bed_foot" }   # its foot, a tile on from its head (the third notes: "Beds should be two squares")
 "a" = { ground = "floor", fixture = "wardrobe" }
 "c" = { ground = "floor", fixture = "cupboard" }
 "t" = { ground = "floor", fixture = "table" }
@@ -35,11 +36,11 @@ grid = """
 +-+-+-+-+-+-+-+
 |b a|s c c . r|
 +   +         +
-|. .d. . . . .|
+|B .d. . . . .|
 +-+-+         +
 |b .d. t t h .W
 +   +         +
-|. .|. h . . .|
+|B .|. h . . .|
 +-+-+-+W+-+d+-+
 """
 
@@ -52,9 +53,9 @@ grid = """
 +-+-+-+-+-+-+-+-+-+
 |b b . . s . . k r|
 +                 +
-W. . . . . . . . .W
+WB B . . . . . . .W
 +                 +
-|b . . . . t t t .|
+|b B . . . t t t .|
 +                 +
 |a . . . . h h h e|
 +-+-+-+-+d+-+-+-+-+

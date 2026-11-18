@@ -11,6 +11,7 @@
 "," = { ground = "grass" }
 ":" = { ground = "dirt" }
 "b" = { ground = "floor", fixture = "bed" }
+"B" = { ground = "floor", fixture = "bed_foot" }   # its foot, a tile on from its head (the third notes: "Beds should be two squares")
 "p" = { ground = "floor", fixture = "pew" }
 "l" = { ground = "floor", fixture = "altar" }
 "t" = { ground = "floor", fixture = "table" }
@@ -27,9 +28,9 @@ grid = """
 +-+-+-+-+-+-+-+-+-+-+-+-+-+
 |. . l . .|,|b . b . b . b|
 +         + +             +
-|. . . . .W,|. . . . . . .|
+|. . . . .W,|B . B . B . B|
 +         + +             +
-|p p . p p|,|b . b . b . b|
+|p p . p p|,|. . . . . . .|
 +         + +-+-+-+d+-+-+-+
 |. . . . .|, , , , , , , ,|
 +-+-+d+-+-+               +

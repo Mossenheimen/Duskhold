@@ -7,6 +7,7 @@
 [legend]
 "." = { ground = "floor" }
 "b" = { ground = "floor", fixture = "bed" }
+"B" = { ground = "floor", fixture = "bed_foot" }   # its foot, a tile on from its head (the third notes: "Beds should be two squares")
 "a" = { ground = "floor", fixture = "wardrobe" }
 "c" = { ground = "floor", fixture = "cupboard" }
 "t" = { ground = "floor", fixture = "table" }
@@ -32,9 +33,9 @@ tags = ["smithy"]
 front = "south"
 grid = """
 +-+-+-+-+-+-+-+-+-+
-|k . f f . k|b . a|
+|k . f f . k|a . b|
 +           +     +
-|. . . . . .d. . .|
+|. . . . . .d. . B|
 +           +-+-+-+
 |x . . n . . . . r|
 +                 +
@@ -80,7 +81,7 @@ grid = """
 +-+-+-+-+-+-+-+-+d+-+-+
 |b . a|a . b|v v . r k|
 +     +     +         +
-|. . .|. . .|v . . . r|
+|B . .|. . B|v . . . r|
 +-+d+-+-+d+-+-+-+d+-+-+
 |. . . . . . . . . s c|
 +                     +

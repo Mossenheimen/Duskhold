@@ -295,14 +295,27 @@ parts = [
 # --- Houses ---
 
 [[fixture]]
-id = "bed"  # its head to the wall
+id = "bed"  # its head to the wall: the headboard, the pillow, the blanket turned down; the mattress runs on into its foot
+parts = [
+  { shape = "box", size = [0.08, 0.1, 0.08], at = [0.4, 0.05, 0.38], material = "wood.dark", mirror = "x" },
+  { shape = "box", size = [0.9, 0.16, 1.0], at = [0, 0.18, -0.02], material = "wood.dark" },
+  { shape = "box", size = [0.82, 0.12, 1.0], at = [0, 0.32, -0.04], material = "cloth.linen" },
+  { shape = "box", size = [0.86, 0.07, 0.62], at = [0, 0.4, -0.2], material = "cloth.wool" },
+  { shape = "box", size = [0.88, 0.05, 0.1], at = [0, 0.43, 0.06], material = "cloth.linen" },
+  { shape = "box", size = [0.5, 0.09, 0.2], at = [0, 0.42, 0.27], material = "cloth.linen" },
+  { shape = "box", size = [0.92, 0.66, 0.08], at = [0, 0.33, 0.44], material = "wood.dark" },
+]
+
+[[fixture]]
+id = "bed_foot"  # a bed's foot: its back to its head (backs), the blanket on to a low footboard
+backs = "bed"
 parts = [
   { shape = "box", size = [0.08, 0.1, 0.08], at = [0.4, 0.05, -0.39], material = "wood.dark", mirror = "x" },
-  { shape = "box", size = [0.9, 0.16, 0.86], at = [0, 0.18, -0.02], material = "wood.dark" },
-  { shape = "box", size = [0.82, 0.12, 0.8], at = [0, 0.32, -0.02], material = "cloth.linen" },
-  { shape = "box", size = [0.86, 0.07, 0.56], at = [0, 0.4, -0.15], material = "cloth.wool" },
-  { shape = "box", size = [0.5, 0.09, 0.18], at = [0, 0.42, 0.27], material = "cloth.linen" },
-  { shape = "box", size = [0.92, 0.66, 0.08], at = [0, 0.33, 0.44], material = "wood.dark" },
+  { shape = "box", size = [0.9, 0.16, 0.96], at = [0, 0.18, 0.02], material = "wood.dark" },
+  { shape = "box", size = [0.82, 0.12, 0.94], at = [0, 0.32, 0.03], material = "cloth.linen" },
+  { shape = "box", size = [0.86, 0.07, 0.9], at = [0, 0.4, 0.05], material = "cloth.wool" },
+  { shape = "box", size = [0.86, 0.14, 0.04], at = [0, 0.33, -0.4], material = "cloth.wool" },
+  { shape = "box", size = [0.92, 0.4, 0.08], at = [0, 0.24, -0.46], material = "wood.dark" },
 ]
 
 [[fixture]]

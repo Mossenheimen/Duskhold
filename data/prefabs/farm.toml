@@ -17,6 +17,7 @@
 "g" = { ground = "floor", fixture = "sack" }
 "x" = { ground = "floor", fixture = "tools" }
 "b" = { ground = "floor", fixture = "bed" }
+"B" = { ground = "floor", fixture = "bed_foot" }   # its foot, a tile on from its head (the third notes: "Beds should be two squares")
 "a" = { ground = "floor", fixture = "wardrobe" }
 "c" = { ground = "floor", fixture = "cupboard" }
 "t" = { ground = "floor", fixture = "table" }
@@ -49,9 +50,9 @@ grid = """
 +                                       +
  : : : : : : : : : : : : : : : : : : : : 
 +-+-+-+-+-+-+       +-+-+-+-+-+-+-+d+-+-+
-|k . . . y y|: : : :|b b a .|s c c . . r|
+|k . . . y y|: : : :|a . b b|s c c . . r|
 +           +       +       +           +
-|x . . . . y|: o : :W. . . .|. . . . . .|
+|x . . . . y|: o : :W. . B B|. . . . . .|
 +           +       +-+d+-+-+-+d+-+-+-+-+
 |. . . . . .d: : : :|. . . . . . .|k k r|
 +           +       +             +     +

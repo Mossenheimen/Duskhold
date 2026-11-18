@@ -588,6 +588,8 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
   - A thing's tile covers its cells on `ui.tile_ground`; a magic thing's in its rarity's colour at 22%, its 1 px edge in it, so rarity shows before the name. Its icon fills the tile 3 px in, its shape kept. How many, at the top left in `type.small`, outlined, when there's more than one; a find's `signal.gold` dot at the top right; a ware's price at the bottom right in `signal.gold`.
   - Held, a thing is drawn under the mouse, centred on it, and faint (35%) where it was. Where it would go is marked over the cells: `signal.good` at 35% where the core's own check says it fits, `signal.danger` at 40% where it won't; a slot takes a 2 px edge in the same. A click where it can't go says why in words ("No room for it there."), so the colour isn't alone.
   - What's worn over more than one place shows in its first and faintly in the rest (a jerkin in Body, and faint in Arms).
+  - The line over each grid (its name and weight; the bag's Drop button) is 34 px high for both, so the pockets' grid and the bag's start level (the third notes: the button had made the bag's line taller, and its grid "slightly offset").
+  - A thing from within reach held over the figure is green where it would go, as one of yours is: put down there, it's taken, then put on as it lands.
 - **Body diagram:**
   - A front silhouette, 120 px high, its parts tinted by their worst wound: scratch, laceration or bite, plus bleeding and dressed.
   - Hovering a part lists its wounds.

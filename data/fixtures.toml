@@ -13,10 +13,16 @@ solid = true
 opaque = true
 
 [[fixture]]
-id = "bed"
+id = "bed"            # its head, to the wall; its foot (bed_foot) the tile on from it in the prefabs
 solid = true
 bed = true
 planks = 2
+
+[[fixture]]
+id = "bed_foot"       # a bed's foot: two tiles long since the third notes ("Beds should be two squares")
+solid = true
+bed = true            # you sleep beside either end
+planks = 1
 
 [[fixture]]
 id = "wardrobe"

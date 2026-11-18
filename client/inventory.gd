@@ -37,6 +37,10 @@ const REACH_TOP := 250
 ## The pockets' and the bag's grids side by side are twelve cells and a gap across, as Path of
 ## Exile 2's are; the ground and a counter are laid out as wide.
 const GAP := 20
+## The height of the line over each grid (its name and weight; the bag's Drop button): the same
+## for both, so the pockets' grid and the bag's start level (the third notes: "Bag grid is
+## slightly offset from pocket grid": the button made the bag's line the taller).
+const HEAD := 34
 const ACROSS := 12
 ## The figure (Path of Exile 2's paper doll): what's in hand to the left, the off arm to the right,
 ## the head over the body, the bag on your back beside the head, arms and legs either side of the
@@ -83,6 +87,7 @@ var _reach_box: VBoxContainer
 var _floating: TextureRect  # what you hold, under the mouse
 var _floating_word: Label  # its name, till its icon's drawn
 var _held := {}  # what's picked up (`_pick`), or nothing
+var _equip_after := {}  # a thing taken from within reach to be put on as it lands (_mind_equip_after)
 var _shown_pack := []  # what each side last showed: it's drawn again only when that changes
 var _shown_reach := []
 var _tab := ""  # the place open on the left: a store's "x,y", or "counter"
@@ -198,6 +203,7 @@ func refresh(dead: bool) -> void:
 	if pack != _shown_pack:
 		_shown_pack = pack
 		_draw_pack()
+		_mind_equip_after()
 	var reach := _reach_state()
 	if reach != _shown_reach:
 		_shown_reach = reach
@@ -308,9 +314,11 @@ func _draw_pack() -> void:
 		grids.add_child(column)
 		var size := Vector2i(pockets[1], pockets[2]) if pockets.size() >= 3 else Vector2i(4, 5)
 		var head := HBoxContainer.new()
+		head.custom_minimum_size = Vector2(0, HEAD)
 		column.add_child(head)
 		var said := Look.text(Label.new(), Look.SMALL, Look.TEXT_DIM)
 		said.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		said.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		head.add_child(said)
 		if not into_bag:
 			said.text = "Pockets  ·  %.1f kg" % (pockets[0] / 1000.0 if pockets.size() >= 3 else 0.0)
@@ -318,7 +326,9 @@ func _draw_pack() -> void:
 			size = Vector2i(bag_on[3], bag_on[4])
 			said.text = "%s  ·  %.1f kg in it, %d%% lighter" % [_name(bag_on[0]).capitalize(),
 				bag_on[2] / 1000.0, roundi(bag_on[5] / 10.0)]
-			head.add_child(Look.button("Drop", func() -> void: _dusk.drop_bag()))
+			var drop := Look.button("Drop", func() -> void: _dusk.drop_bag())
+			drop.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			head.add_child(drop)
 		else:
 			said.text = "No bag on your back: one holds more"
 			continue
@@ -984,14 +994,60 @@ func _say_why_not(grid: Grid) -> void:
 ## bag on your back, or a potion on the belt.
 func _put_on(id: String) -> void:
 	var h := _held
-	if h.from != "pack":
-		if say.is_valid():
-			say.call("Take it first: it's not yours yet.")
-		return
 	if not _fits(id, h.def):
 		if say.is_valid():
 			say.call("The %s doesn't go there." % _name(h.def))
 		return
+	# From a chest, a crate or the ground (the third notes: "Allow equipping directly from
+	# looting"): taken as any take is (the core's checks and time), then put on as it lands in your
+	# pack (_mind_equip_after). A potion taken goes on the belt by itself.
+	if h.from == "store":
+		var had := _stacks_of(h.def)
+		if bag.take(h.at.x, h.at.y, h.slot, h.def) > 0 and _kind(h.def) != Item.POTION:
+			_equip_after = {"def": h.def, "id": id, "had": had, "until": Time.get_ticks_msec() + 4000}
+		_let_go()
+		return
+	if h.from != "pack":
+		if say.is_valid():
+			say.call("Take it first: it's not yours yet.")
+		return
+	_equip(id, h.slot, h.def, h.get("loop", 0))
+	_let_go()
+
+
+## How many stacks of `def` your pack holds now.
+func _stacks_of(def: int) -> int:
+	var items: PackedInt32Array = _dusk.character_items()
+	var n := 0
+	for slot in range(items.size() / STACK):
+		n += int(items[slot * STACK] == def)
+	return n
+
+
+## A thing taken to be put on (_put_on, from a container or the ground): once a stack more of it is
+## in your pack, the newest (a take adds it last) goes where it was put; given up after a few
+## seconds (the take refused, or broken off).
+func _mind_equip_after() -> void:
+	if _equip_after.is_empty():
+		return
+	if Time.get_ticks_msec() > int(_equip_after.until):
+		_equip_after = {}
+		return
+	var def: int = _equip_after.def
+	if _stacks_of(def) <= int(_equip_after.had):
+		return
+	var items: PackedInt32Array = _dusk.character_items()
+	for slot in range(items.size() / STACK - 1, -1, -1):
+		if items[slot * STACK] == def:
+			_equip(_equip_after.id, slot, def, 0)
+			break
+	_equip_after = {}
+
+
+## What's in your pack at `slot` (of `def`) put on the figure's `id`: in hand, on the off arm,
+## worn, the bag on your back, or on the belt.
+func _equip(id: String, slot: int, def: int, loop: int) -> void:
+	var h := {"slot": slot, "def": def, "loop": loop}
 	match id:
 		"hand":
 			bag.wield(h.slot, h.def)
@@ -1007,7 +1063,6 @@ func _put_on(id: String) -> void:
 				_dusk.belt_item(h.slot, h.def)
 			elif say.is_valid():
 				say.call("No room on your belt.")
-	_let_go()
 
 
 ## Whether a thing of `def`'s kind goes in the figure's slot `id`.
@@ -1191,7 +1246,8 @@ func _on_slot_hover(slot: Panel, entered: bool) -> void:
 		return
 	var state := 0
 	if entered and not _held.is_empty():
-		state = 1 if _held.from == "pack" and _fits(slot.get_meta("slot"), _held.def) else -1
+		var takes: bool = _held.from == "pack" or _held.from == "store"
+		state = 1 if takes and _fits(slot.get_meta("slot"), _held.def) else -1
 	slot.add_theme_stylebox_override("panel", _slot_style(state))
 
 
@@ -1368,6 +1424,24 @@ func take_in_first() -> String:
 			if _dusk.take_to_check(x, y, 0, def, false, cx, cy) > 0:
 				_dusk.take_to(x, y, 0, def, false, cx, cy)
 				return "Taking the %s to (%d, %d)." % [_name(def), cx, cy]
+	return ""
+
+
+## --do=S:equipin: a thing within reach that can be put on, picked up and put on the figure, as a
+## click would (taken, then put on as it lands): the first for your hand (a weapon or a bow), else
+## for the off arm, your back, then what's worn. What, in words, or "".
+func equip_in_first() -> String:
+	var reach: PackedInt32Array = _dusk.stores_in_reach()
+	for id: String in ["hand", "off", "back", "head", "torso", "arms", "legs"]:
+		var i := 0
+		while i + HEADER <= reach.size():
+			for k in reach[i + 3]:
+				var def := reach[i + HEADER + k * STACK]
+				if _fits(id, def):
+					_held = {"from": "store", "at": Vector2i(reach[i], reach[i + 1]), "slot": k, "def": def}
+					_put_on(id)
+					return "Putting on the %s from within reach." % _name(def)
+			i += HEADER + reach[i + 3] * STACK
 	return ""
 
 
