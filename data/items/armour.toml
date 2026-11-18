@@ -8,7 +8,7 @@
 #   would, as far as the weapon's kind lets it ([armour] pierce: points go through mail).
 # wear: the condition (out of 100) a glancing blow takes off it; at 0 it falls apart.
 # noise: tiles added to every footstep (mail clinks; the dead hear 3 tiles of a walk).
-# endurance: the share more that running, swings and struggles cost while it's worn.
+# endurance: the share more that running and swings cost while it's worn.
 # sight: the share of your sight a closed helm leaves you.
 # time: seconds to put it on; taking it off is [armour] off of that.
 #

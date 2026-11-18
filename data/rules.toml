@@ -135,7 +135,7 @@ wear = 2              # blows' wear on the weapon
 blade = { down = 0.5 }     # finishes: a knife or a sword in one that's down (a shove, then the blade)
 blunt = { fell = 0.12 }    # knocks down: one blow in eight puts it on the ground (and shatters bone)
 axe = { bleed = 8.0 }      # bleeds: 4 points over 8 seconds a blow, so hit, step back and let it
-spear = { push = 0.3 }     # holds off: three blows in ten drive it back, out of reach of a grab
+spear = { push = 0.3 }     # holds off: three blows in ten drive it back, out of its reach
 
 [door]
 time = 0.5            # seconds to open or shut one
@@ -151,14 +151,25 @@ laceration = { damage = 15, bleed = 20.0 }
 bite = { damage = 30, bleed = 40.0 }
 bleeding = 0.5        # health a second for each wound that's bleeding
 
+[stagger]
+# A blow of the dead's that lands on you, a wound or one your armour turns, slows you a moment;
+# another starts it again, they don't add up. A class's and a talent's `staggered` shorten it
+# (classes.toml, talents.toml). Instead of grabs, since the second playtest (2026-11-17): "Being
+# stuck, or 'grabbed', by monsters is not fun and unfair. You should only be slowed briefly when
+# hit by monsters, no grapple/freeze".
+time = 0.5            # seconds
+pace = 0.5            # what's left of your pace meanwhile
+
 [grab]
-# A shambler's hit can take hold of you, the likelier the more of them are on you. Held, you
-# can't walk or swing, its blows always land, and you get no breath back: struggle (F) or shove
-# (Q) it off. Three holding you at once, or a hold on you with no breath left, drag you down.
-chance = 0.15         # a hit's chance to take hold
-per_extra = 0.15      # more for each other one on you
-tired = 0.2           # more when you're out of breath
-parting = 0.25        # the chance one on you grabs you as you step out of its reach
+# Off: no kind takes hold of you (the second playtest, above). The rule is kept for a kind that
+# might hold later (the core's grab.rs). On, a hit could take hold, the likelier the more of them
+# were on you; held, you couldn't walk or swing, its blows always landed, and you got no breath
+# back: struggle (F) or shove (Q) it off. Three holding you at once, or a hold on you with no
+# breath left, dragged you down. It was: chance 0.15, per_extra 0.15, tired 0.2, parting 0.25.
+chance = 0.0          # a hit's chance to take hold
+per_extra = 0.0       # more for each other one on you
+tired = 0.0           # more when you're out of breath
+parting = 0.0         # the chance one on you grabs you as you step out of its reach
 bite = 0.35           # while it holds you, the share of its hits that are bites
 drag_down = 3         # this many holding you at once drag you down
 struggle = { wind_up = 0.5, recovery = 0.2, endurance = 12, hit = 0.7, noise = 3 }
@@ -191,7 +202,7 @@ slow = [1.25, 1.5]    # tired, falling asleep: wind-ups take this much longer
 lie_down = 1.0        # seconds to lie down
 needs = 0.5           # asleep, hunger and thirst rise at this pace
 clear = 10            # no sleep with one of the dead after you within this many tiles
-# Asleep, a blow, a grab or any noise that reaches you wakes you; so does being rested.
+# Asleep, a blow or any noise that reaches you wakes you; so does being rested.
 
 [healing]
 health = 1.0          # health back a game hour, fed, watered and not bleeding

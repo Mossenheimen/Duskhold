@@ -1,7 +1,16 @@
-//! Grabs: the crowd's danger, with a way out (`CONCEPT.md`, combat).
+//! Engagement, the stagger, and grabs (`CONCEPT.md`, combat).
 //!
 //! - **Engaged:** a creature is on you when it stands beside you, sees you, and could reach
 //!   you. The client draws a line from each.
+//! - **The stagger** (the second playtest, 2026-11-17: "Being stuck, or 'grabbed', by monsters
+//!   is not fun and unfair. You should only be slowed briefly when hit by monsters, no
+//!   grapple/freeze"): a blow of the dead's that lands on a character, a wound or one its armour
+//!   turns, slows it a moment (`Rules::combat.stagger`, to `stagger_pace`), shorter by its
+//!   class's and talents' `staggered`. Another blow starts it again; they don't add up.
+//!
+//! **Grabs are off in the game** (rules.toml's `[grab]` chances are all 0, since the same
+//! playtest). What follows is kept, and tested, for a kind that might hold later:
+//!
 //! - **Taking hold:** a creature's hit can take hold of you. Each other one on you makes that
 //!   likelier, and so does being out of breath. Step out of reach of one on you, and it may
 //!   grab you as you go.
@@ -59,8 +68,31 @@ impl World {
         let others = self.engaged(target).len().saturating_sub(1) as u32;
         let tired = self.actors.get(target).is_some_and(|t| t.body.exhausted);
         let chance = c.grab + c.grab_per_extra * others + if tired { c.grab_tired } else { 0 };
-        // A Fighter shrugs off grabs (`class.rs`).
-        self.grabbed_chance(target, chance).min(10_000)
+        chance.min(10_000)
+    }
+
+    /// A blow of the dead's landed on `id`: a character is slowed a moment (the stagger), for
+    /// the ticks its class and talents leave of the rules'. It starts again; it doesn't add up.
+    pub(crate) fn stagger(&mut self, id: ActorId) {
+        let ticks = self.stagger_ticks(id);
+        let until = self.tick + u64::from(ticks);
+        if let Some(a) = self.actors.get_mut(id).filter(|a| a.kind.is_character()) {
+            a.staggered = a.staggered.max(until);
+        }
+    }
+
+    /// Whether a blow is slowing `id` now.
+    pub fn is_staggered(&self, id: ActorId) -> bool {
+        self.actors.get(id).is_some_and(|a| a.staggered > self.tick)
+    }
+
+    /// What's left of `id`'s pace, per mille: the stagger's while a blow slows it.
+    pub(crate) fn stagger_pace(&self, id: ActorId) -> u32 {
+        if self.is_staggered(id) {
+            self.rules.combat.stagger_pace
+        } else {
+            1000
+        }
     }
 
     /// `who` takes hold of `target`, which stops where it stands: a step under way is lost, and

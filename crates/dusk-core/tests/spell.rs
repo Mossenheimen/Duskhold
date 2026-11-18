@@ -61,7 +61,7 @@ fn defs() -> Defs {
         name: "Wizard".into(),
         learn: 1000,
         endurance: 1000,
-        grabbed: 1000,
+        staggered: 1000,
         talents: vec![0, 1, 2],
         kit: Some(Kit {
             wield: None,
@@ -77,7 +77,7 @@ fn defs() -> Defs {
         name: "Fighter".into(),
         learn: 1000,
         endurance: 1000,
-        grabbed: 1000,
+        staggered: 1000,
         ..Class::default()
     };
     let talent = |id: &str| Talent {

@@ -568,6 +568,9 @@ struct RulesFile {
     door: DoorFile,
     wounds: WoundsFile,
     grab: GrabFile,
+    /// Optional: with no [stagger], a blow doesn't slow you.
+    #[serde(default)]
+    stagger: Option<StaggerFile>,
     clock: needs::ClockFile,
     hunger: needs::NeedFile,
     thirst: needs::NeedFile,
@@ -725,6 +728,15 @@ struct GrabFile {
     drag_down: u32,
     struggle: SwingFile,
     struggle_per_extra: f64,
+}
+
+/// The stagger (the core's `grab.rs`): how long a blow of the dead's slows you, and to what
+/// share of your pace.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StaggerFile {
+    time: f64,
+    pace: f64,
 }
 
 #[derive(Deserialize)]
@@ -1306,8 +1318,23 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
              negative",
         ));
     }
+    let (stagger, stagger_pace) = match &r.stagger {
+        Some(s) => {
+            if !(0.0..=5.0).contains(&s.time) || !(s.pace > 0.0 && s.pace <= 1.0) {
+                return Err(fail(
+                    file,
+                    "stagger.time is 0 to 5 seconds, and stagger.pace a share above 0 and at most 1",
+                ));
+            }
+            let time = ticks(file, "stagger.time", s.time)? as u32;
+            (time, (s.pace * 1000.0).round() as u32)
+        }
+        None => (0, 1000),
+    };
     // Bleeding is paid once a second.
     rules.combat = Combat {
+        stagger,
+        stagger_pace,
         grab: chance(file, "grab.chance", g.chance)?,
         grab_per_extra: chance(file, "grab.per_extra", g.per_extra)?,
         grab_tired: chance(file, "grab.tired", g.tired)?,

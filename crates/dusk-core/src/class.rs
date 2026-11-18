@@ -2,15 +2,15 @@
 //!
 //! - **A class is data** (`data/classes.toml`): the skills it learns faster, its endurance (a
 //!   Fighter's costs less: "more of it than anyone"), its signature (a Fighter shrugs off
-//!   grabs: the dead get hold of it less often; a Cleric turns the dead, with faith:
+//!   blows: one slows it less, `grab.rs`'s stagger; a Cleric turns the dead, with faith:
 //!   `faith.rs`), its starting kit, and the talents it picks from.
 //! - **Choosing one:** a character comes into the world as the first class in the data, and
 //!   takes up another before it's under way (`World::choose_class`): in its first game minute,
 //!   with nothing learnt or done. The new class's kit replaces the old.
 //! - **Talents are data too** (`data/talents.toml`): each reads in one line, and most change
 //!   numbers the rules already use: health, endurance, harm with a kind of weapon, a shove's
-//!   knock-down, struggling free, how many it takes to drag you down, faith, how long and how far
-//!   the dead are turned. Some add something: Cleave (a blow that puts one down carries on into
+//!   knock-down, how long a blow slows you, faith, how long and how far the dead are
+//!   turned. Some add something: Cleave (a blow that puts one down carries on into
 //!   another beside you), Second Wind (a verb: once between sleeps, catch your breath), Mending
 //!   and Warding (verbs of faith). One works only in a doorway (the Doorwarden).
 //! - **Each level from 2 offers three** of the class's talents not yet taken, chosen by the
@@ -45,8 +45,8 @@ pub struct Class {
     pub learn: u32,
     /// Per mille: what its running, swings and struggles cost in endurance.
     pub endurance: u32,
-    /// Per mille: the chance a creature's hit takes hold of it.
-    pub grabbed: u32,
+    /// Per mille: how long a blow of the dead's slows it (`grab.rs`, the stagger).
+    pub staggered: u32,
     /// Its talents, by their numbers in `Defs::talents`.
     pub talents: Vec<u8>,
     /// The faith it holds, in thousandths of a point (0: none: `faith.rs`).
@@ -96,11 +96,11 @@ pub struct Talent {
     pub hit: i32,
     pub knock_down: i32,
     pub struggle: i32,
-    /// Per mille: the chance a creature's hit takes hold of you.
-    pub grabbed: u32,
+    /// Per mille: how long a blow of the dead's slows you (`grab.rs`, the stagger).
+    pub staggered: u32,
     /// How many more must hold you to drag you down.
     pub hold: u32,
-    /// Its hit and grabbed numbers count only beside a door (on a side of your tile).
+    /// Its hit and staggered numbers count only beside a door (on a side of your tile).
     pub doorway: bool,
     /// A blow that puts one down carries on into another beside you.
     pub cleave: bool,
@@ -144,7 +144,7 @@ impl Default for Talent {
             hit: 0,
             knock_down: 0,
             struggle: 0,
-            grabbed: 1000,
+            staggered: 1000,
             hold: 0,
             doorway: false,
             cleave: false,
@@ -336,12 +336,14 @@ impl World {
         per(rate, (1000 - vigour) as u32) as i32
     }
 
-    /// The chance, out of 10,000, that a creature's hit takes hold of `id`, by its class and
-    /// talents, from the rules' chance.
-    pub(crate) fn grabbed_chance(&self, id: ActorId, chance: u32) -> u32 {
-        let class = self.class_of(id).map_or(1000, |c| c.grabbed);
-        let rate = self.talents_here(id).fold(class, |r, t| per(r, t.grabbed));
-        per(chance, rate)
+    /// The ticks a blow of the dead's slows `id` (`grab.rs`, the stagger): the rules', by its
+    /// class and the talents that count where it stands.
+    pub fn stagger_ticks(&self, id: ActorId) -> u32 {
+        let class = self.class_of(id).map_or(1000, |c| c.staggered);
+        let rate = self
+            .talents_here(id)
+            .fold(class, |r, t| per(r, t.staggered));
+        per(self.rules.combat.stagger, rate)
     }
 
     /// What `id`'s talents add to struggling free, and how many more must hold it to drag it

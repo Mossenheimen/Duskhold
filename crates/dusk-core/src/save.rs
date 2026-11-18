@@ -530,6 +530,7 @@ impl Remap {
             sneaking: _,
             bracing: _,
             guarding: _,
+            staggered: _,
             faith: _,
             mana: _,
             strength: _,

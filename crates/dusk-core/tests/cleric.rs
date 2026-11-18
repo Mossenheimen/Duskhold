@@ -105,7 +105,7 @@ fn defs() -> Defs {
                 name: "Fighter".into(),
                 learn: 1000,
                 endurance: 1000,
-                grabbed: 1000,
+                staggered: 1000,
                 ..Class::default()
             },
             Class {
@@ -115,7 +115,7 @@ fn defs() -> Defs {
                 skills: vec![Skill::Devotion],
                 learn: 1500,
                 endurance: 1000,
-                grabbed: 1000,
+                staggered: 1000,
                 talents: (0..8).collect(),
                 faith: 100_000,
                 turns: true,

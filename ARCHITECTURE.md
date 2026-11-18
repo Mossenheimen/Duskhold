@@ -175,7 +175,7 @@ The list below is the plan for the whole game. What the core runs today (`World:
 1. **Intents** from controllers (the player's input, bots, NPC and creature AI) start, continue or replace actions.
 2. **Actions** progress, pay out, finish or get interrupted (see below).
 3. **Movement:** the dead step tile to tile with progress, drawn smoothly; the tile ahead is reserved, so two actors never share a tile, and doorways are real chokepoints. A character glides instead (since 2026-11-16, the user: "more resolute and granular": `World::glide`): anywhere in its tile (`Actor::offset`, thousandths of a tile from its middle), a little each tick while it's asked to go, stopping where it's let go; its tile, which every rule goes by, changes as it passes the middle of the edge between, only where a step could go, and it slides along what it can't pass, a quarter of a tile short of it. A footstep a tile it goes; a window or a fence still climbed a tile at a time.
-4. **Combat:** strikes land on their strike tick. Reach, facing, the body part hit, armour, wounds, knockback, grabs and being dragged down all resolve here.
+4. **Combat:** strikes land on their strike tick. Reach, facing, the body part hit, armour, wounds, knockback and the stagger (a blow's brief slow) all resolve here; so would grabs and the drag-down, off in the game's data since the second playtest.
 5. **Emissions:** each actor and fixture gives off noise, light, movement, scent, heat and dread for this tick.
 6. **Fields** update on their schedules: light, sounds, scent, heat, web vibrations.
 7. **Perception:** each creature senses with its family's senses and updates what it remembers.

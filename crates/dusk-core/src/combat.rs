@@ -826,6 +826,10 @@ impl World {
             None => self.bleed(target, edge.bleed),
         }
         self.interrupt(target);
+        // One of the dead's blows slows a character a moment (`grab.rs`, the stagger).
+        if matches!(kind, ActorKind::Creature(_)) {
+            self.stagger(target);
+        }
         self.startle_by(target, id);
         // A blow ends a turning: it rounds on whoever struck (`faith.rs`).
         self.unturn(target, id);

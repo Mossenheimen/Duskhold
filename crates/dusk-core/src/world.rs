@@ -160,9 +160,14 @@ pub struct Combat {
     /// Each bleeding wound costs `bleed_damage` health every `bleed_every` ticks.
     pub bleed_every: u32,
     pub bleed_damage: i32,
+    /// The stagger (`grab.rs`): a blow of the dead's that lands slows a character for this many
+    /// ticks, to this share of its pace (per mille).
+    pub stagger: u32,
+    pub stagger_pace: u32,
     /// Grabs (`grab.rs`), out of 10,000: a hit's chance to take hold, more for each other one
     /// on the victim and when it's out of breath; the chance one on you grabs as you step out
-    /// of its reach; and how often a hit by one that holds you is a bite.
+    /// of its reach; and how often a hit by one that holds you is a bite. The game's are all 0
+    /// (rules.toml's `[grab]`: the second playtest); these defaults keep the tests' grabs.
     pub grab: u32,
     pub grab_per_extra: u32,
     pub grab_tired: u32,
@@ -244,6 +249,8 @@ impl Default for Rules {
                 ],
                 bleed_every: 20,
                 bleed_damage: 10,
+                stagger: 5,
+                stagger_pace: 500,
                 grab: 1500,
                 grab_per_extra: 1500,
                 grab_tired: 2000,

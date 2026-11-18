@@ -382,7 +382,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 - **Text over the world** (no panel behind it) always has the 6 px `ui.outline`.
 - **Sentence case**, never whole lines in capitals; a one- or two-word label may be.
 
-  So the held banner says "Three of them have hold of you", in `type.banner` and `signal.danger_text`.
+  So a banner reads "Paused", in `type.banner`. (The held banner read "Three of them have hold of you", in `signal.danger_text`, until the second playtest took grabs out.)
 - **Left-aligned** in its box, even when the box sits on the right edge. Centred only for one-line banners and titles.
 - **Lines of 80 characters at most** (news, tooltips, descriptions).
 - **Numbers:** counts as "×2", weights as "0.6 kg", times as "3h 50m", and a percentage only for condition. Figures are lining and tabular (the fonts are imported with OpenType `lnum` and `tnum`): Alegreya Sans's own old-style figures sit low among the letters, and a ticking clock or weight would shift.
@@ -426,7 +426,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 │                                                                              │
 │                                                       E  Moodles             │
 │                                                          ▣ Hungry            │
-│                   C   Three of them have hold of you     ▣ Uneasy            │
+│                   C   Paused                             ▣ Uneasy            │
 │                                                          ▣ Bleeding          │
 │ J  Skills (K)                                                                │
 │    or Making (B):                                                            │
@@ -448,7 +448,7 @@ These marks are information, so they ignore the dark: they're drawn unshaded and
 |---|---|---|---|---|
 | **A** Status | region, day and time, speed, the pressure, the Tolling, rain, where you are | top left; one line, `type.heading` | always | as here since 2026-11-13 (it was two lines: a title with the newest feature, and the seed). A trial run adds its seed at the end, for pictures and bugs |
 | **B** Body | level and XP in words; out of breath; wounds; the body diagram | top left, under A | always | since 2026-11-17 (the second playtest: "get rid of the upper left health/endurance, since we have the hot bar circles") with no bars: the globes say health and mana, faith or breath, and the bar its XP (zone K). Out of breath and the wounds in words beside the diagram |
-| **C** Banner | the one thing you must answer now: held, paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here |
+| **C** Banner | the one thing you must answer now: paused, asleep | top centre, 18% down; `type.banner` | while it holds | as here; held too, until the second playtest took grabs out (2026-11-17) |
 | **D** News | what just happened, newest at the bottom; 6 lines, each lives 6 s and fades over 1 s | top right; 620 wide, text left-aligned | when there's news | as here |
 | **E** Moodles | needs and states, worst first | right edge, under D; 44 px tiles with names, the detail on hover | while any is on | as here |
 | **F** Here and now | what you can do beside you: E's prompt, and what holding E offers besides; while E is held, all of it, numbered; and the act under way with its bar | centred just under you, about 60% down | when there's a prompt or an act | as here |
@@ -473,7 +473,7 @@ Fewer keys, in groups, with the left hand on WASD. Why, and what Zomboid, Valhei
 
 | Group | Keys | Where the hand is |
 |---|---|---|
-| **Move and fight** | WASD walk (and climb); Shift switches between walking and running (running from the start, since the first playtest); C sneak; F swing (held: struggle); Shift+F or Shift-click a heavy swing (Shift held so switches nothing); Space shove; click walk or swing; right-click held: on guard, Zomboid's stance (you face the cursor, slower, no running; a click swings that way, or shoots the bow in your hand at the spot; a shield on your arm braces), since 2026-11-17; the wheel zooms | the left hand, round WASD; the mouse |
+| **Move and fight** | WASD walk (and climb); Shift switches between walking and running (running from the start, since the first playtest); C sneak; F swing; Shift+F or Shift-click a heavy swing (Shift held so switches nothing); Space shove; click walk or swing; right-click held: on guard, Zomboid's stance (you face the cursor, slower, no running; a click swings that way, or shoots the bow in your hand at the spot; a shield on your arm braces), since 2026-11-17; the wheel zooms | the left hand, round WASD; the mouse |
 | **Here** | **E** does the likeliest thing beside you; **E held** lists all of it, numbered (a number or a click picks one, E or Esc closes it); T a light (dead, the next survivor); Z sleep | the left hand |
 | **Your powers and belt** | 1 to 4: a Cleric's turning and Mending, a Fighter's Second Wind, a Wizard's spells, in that order until you drag them into another on the bar (zone K); 5 to 8: the belt's potions | the left hand, over WASD |
 | **Panels** | I or Tab the inventory; B making; K skills; P spells; F1 the keys; F10 the settings | the right hand, in calm moments |

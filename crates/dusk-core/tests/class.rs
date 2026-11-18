@@ -56,7 +56,7 @@ fn defs(fighter: bool) -> Defs {
                 skills: vec![Skill::Blunt, Skill::Athletics],
                 learn: 1500,
                 endurance: 800,
-                grabbed: 500,
+                staggered: 500,
                 talents: (0..6).collect(),
                 ..Class::default()
             }]
@@ -165,10 +165,12 @@ fn a_fighters_swings_cost_less_breath() {
 }
 
 #[test]
-fn a_fighter_is_taken_hold_of_less_often() {
-    let (f, fighter) = field(true);
-    let (p, plain) = field(false);
-    assert_eq!(f.grab_chance(fighter), p.grab_chance(plain) / 2);
+fn a_blow_slows_a_fighter_for_less_time() {
+    let (mut f, fighter) = field(true);
+    let (mut p, plain) = field(false);
+    f.rules.combat.stagger = 10;
+    p.rules.combat.stagger = 10;
+    assert_eq!((f.stagger_ticks(fighter), p.stagger_ticks(plain)), (5, 10));
 }
 
 #[test]

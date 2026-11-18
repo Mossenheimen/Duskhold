@@ -277,3 +277,77 @@ fn with_both_hands_full_only_a_struggle_gets_you_free() {
         *e == Event::Freed { who: me, from: z }
     });
 }
+
+/// A corridor running south: one of the dead at its north end, facing you beside it. Its blows always land, scratches
+/// only, and it takes long over the next; no grabs. `stagger` ticks of the stagger, at half pace.
+fn staggering(stagger: u32) -> (World, ActorId) {
+    let (mut w, _) = World::from_text(
+        1,
+        "\
++-+
+|z|
++ +
+|@|
++ +
+|.|
++ +
+|.|
++-+
+",
+    )
+    .unwrap();
+    let z = w.creature_mut(0);
+    z.wander = 0;
+    z.attack.hit = 10_000;
+    z.attack.recovery = 200;
+    z.wounds = [10_000, 0, 0];
+    (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
+    (w.rules.combat.stagger, w.rules.combat.stagger_pace) = (stagger, 500);
+    let me = w.character().unwrap();
+    (w, me)
+}
+
+/// Steps until the dead's blow lands on `me`.
+fn struck(w: &mut World, me: ActorId) {
+    for _ in 0..100 {
+        w.step(1);
+        if w.events()
+            .any(|e| matches!(e, Event::Struck { target, .. } if target == me))
+        {
+            return;
+        }
+    }
+    panic!("never struck");
+}
+
+#[test]
+fn a_blow_of_the_deads_slows_you_a_moment_and_never_holds_you() {
+    // The same blow (the same seed, the same wound) with the stagger and without.
+    let (mut slowed, me) = staggering(10);
+    let (mut free, _) = staggering(0);
+    struck(&mut slowed, me);
+    struck(&mut free, me);
+    assert!(slowed.is_staggered(me) && !free.is_staggered(me));
+    assert!(!slowed.is_held(me), "it doesn't take hold");
+    let away = Intent::Move {
+        dir: Dir8::S,
+        run: false,
+    };
+    slowed.intent(me, away);
+    free.intent(me, away);
+    slowed.step(1);
+    free.step(1);
+    let (s, f) = (
+        slowed.actor(me).unwrap().offset.1,
+        free.actor(me).unwrap().offset.1,
+    );
+    assert!(f > 0 && s == f / 2, "half the pace: {s} against {f}");
+    // A second later it walks as it did.
+    slowed.intent(me, Intent::Idle);
+    slowed.step(10);
+    assert!(!slowed.is_staggered(me));
+    let before = slowed.actor(me).unwrap().offset.1;
+    slowed.intent(me, away);
+    slowed.step(1);
+    assert_eq!(slowed.actor(me).unwrap().offset.1 - before, f);
+}

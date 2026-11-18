@@ -7,7 +7,11 @@
 //! - `dusk-cli prefab <id>`: draws a building, and the same turned a quarter at a time.
 //! - `dusk-cli gen [--seed N] [--png PATH] [--scale N]`: makes a patch of the Hushlands and says
 //!   what's in it; with `--png`, draws its map.
+//! - `dusk-cli fight [--dead N] [--kind ID] [--class ID] [--trials N] [--grabs]`: the game's data,
+//!   a few of the dead against a class, many times over: how often it wins and what it costs
+//!   (`fight.rs`, for tuning the dead).
 
+mod fight;
 mod png;
 
 use std::path::Path;
@@ -49,10 +53,12 @@ fn main() {
         }
         Some("prefab") => prefab(args.get(1).map_or("", String::as_str)),
         Some("gen") => gen_patch(&args[1..]),
+        Some("fight") => fight::fight(&args[1..]),
         _ => {
             eprintln!(
                 "usage: dusk-cli demo | bench [--dead N] [--ticks N] [--think-every N] | check \
-                 | prefab <id> | gen [--seed N] [--png PATH] [--scale N]"
+                 | prefab <id> | gen [--seed N] [--png PATH] [--scale N] \
+                 | fight [--dead N] [--kind ID] [--class ID] [--trials N] [--grabs]"
             );
             std::process::exit(2);
         }

@@ -530,7 +530,7 @@ fn a_class_comes_in_its_armour() {
             id: "fighter".into(),
             learn: 1000,
             endurance: 1000,
-            grabbed: 1000,
+            staggered: 1000,
             wear: vec![CAP, JERKIN],
             ..Class::default()
         },
@@ -538,7 +538,7 @@ fn a_class_comes_in_its_armour() {
             id: "other".into(),
             learn: 1000,
             endurance: 1000,
-            grabbed: 1000,
+            staggered: 1000,
             ..Class::default()
         },
     ];

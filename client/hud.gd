@@ -33,7 +33,7 @@ const KEYS := [
 		["{run}", "walk or run: running from the start"],
 		["{sneak}", "sneak, or stand"],
 		["click", "walk there; beside one of the dead, swing"],
-		["{swing}", "swing; at a shut window, smash it; held, struggle"],
+		["{swing}", "swing; at a shut window, smash it"],
 		["{run}+{swing}", "a heavy swing (or {run}-click): slower, and it may knock down"],
 		["{shove}", "shove"],
 		["hold right-click", "on guard: face the cursor, slower; a click swings that way, or shoots a bow; a shield braces"],
@@ -69,7 +69,7 @@ const KEYS := [
 ## The keys panel's three columns, by KEYS' groups: moving and fighting; what you do here and your
 ## powers; the panels and the game.
 const KEY_COLUMNS := [[0], [1, 2], [3, 4]]
-const LEGEND := "Over the dead: ? heard something  ·  ! sees you  ·  red lines: the dead on you (thick: it has hold of you).\nThe settings ({settings}) can draw how far each sound carries, and what the dead can see, on the ground."
+const LEGEND := "Over the dead: ? heard something  ·  ! sees you  ·  red lines: the dead on you.\nThe settings ({settings}) can draw how far each sound carries, and what the dead can see, on the ground."
 
 ## The moodles, by DuskWorld.character_moodles() code: a name for each level; what it does to you
 ## and what eases it (shown on hover, a line for each part between "  ·  "); how bad its first
@@ -125,7 +125,7 @@ const MOODLES := [
 	[["Mana rising"], ["a potion of mana: your mana coming back, a little each moment"], -1, "mana_rising"],
 	[["Quickened"], ["a potion of haste: faster on your feet, walking and running"], -1, "quickened"],
 	[["Iron skin"], ["a potion of iron skin: blows do less harm  ·  their wounds bleed less"], -1, "iron_skin"],
-	[["Vigorous"], ["a potion of vigour: running, swings and struggles cost less breath"], -1, "vigorous"],
+	[["Vigorous"], ["a potion of vigour: running and swings cost less breath"], -1, "vigorous"],
 	[["Fearless"], ["a potion of courage: no dread rises, whatever's in the dark"], -1, "fearless"],
 	[["On guard"], ["you face the cursor, slower, no running  ·  a click swings where you face, or shoots  ·  let go of the right mouse button"], -1, "guarding"],
 ]

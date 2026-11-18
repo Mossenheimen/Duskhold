@@ -268,7 +268,8 @@ fn the_games_data_loads() {
         (s.think_every, s.forget_after, s.path_budget),
         (5, 300, 400)
     );
-    assert_eq!((s.health, s.down, s.attack.wind_up), (300, 40, 12));
+    // 24 health since the second playtest (30 before): `dusk-cli fight`.
+    assert_eq!((s.health, s.down, s.attack.wind_up), (240, 40, 12));
     let kinds = &data.region("hushlands").unwrap().dead.kinds;
     assert_eq!(
         data.defs.creature_kind(&kinds[0].creature),
@@ -391,6 +392,24 @@ fn the_fights_numbers_become_the_cores() {
     files[1].1 = &lopsided;
     let err = load(&folder("odds", &files)).unwrap_err();
     assert!(err.message.contains("add up to 1"), "{err}");
+}
+
+#[test]
+fn in_the_games_data_the_dead_never_take_hold_and_a_blow_slows_you_a_moment() {
+    // The second playtest (2026-11-17): "no grapple/freeze", only a brief slow.
+    let data = load(&default_dir()).unwrap_or_else(|e| panic!("{e}"));
+    let c = data.rules.combat;
+    assert_eq!(
+        (c.grab, c.grab_per_extra, c.grab_tired, c.parting_grab),
+        (0, 0, 0, 0)
+    );
+    assert_eq!(
+        (c.stagger, c.stagger_pace),
+        (5, 500),
+        "half a second at half pace"
+    );
+    let shrug = data.defs.talents.iter().find(|t| t.id == "shrug").unwrap();
+    assert_eq!(shrug.staggered, 0, "Shrug: blows no longer slow you");
 }
 
 #[test]
@@ -923,7 +942,7 @@ fn the_fighter_has_its_talents_and_learns_its_weapons_faster_in_the_games_data()
     let d = &data.defs;
     let fighter = d.classes.first().expect("a class");
     assert_eq!(fighter.id, "fighter");
-    assert!(fighter.learn > 1000 && fighter.endurance < 1000 && fighter.grabbed < 1000);
+    assert!(fighter.learn > 1000 && fighter.endurance < 1000 && fighter.staggered < 1000);
     use dusk_core::skills::Skill;
     for s in [Skill::Blade, Skill::Blunt, Skill::Axe] {
         assert!(fighter.skills.contains(&s));
@@ -1558,7 +1577,7 @@ fn a_class_must_make_sense_of_its_faith_and_its_kit() {
     let refused = |name: &str, class: &str, said: &str| {
         let classes = format!(
             "[[class]]\nid = \"c\"\nname = \"C\"\nskills = []\nlearn = 1.0\nendurance = 1.0\n\
-             grabbed = 1.0\ntalents = [\"a\", \"b\", \"mend\"]\n{class}"
+             staggered = 1.0\ntalents = [\"a\", \"b\", \"mend\"]\n{class}"
         );
         let mut files = test_files(PREFABS);
         files.push(("talents.toml", talents));

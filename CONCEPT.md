@@ -17,7 +17,7 @@
 - **The six regions** below, with three more on the bench.
 - **Every Default in this draft** was accepted ("everything you listed sounds great").
 - **The design research's 14 recommendations** (2026-11-06, `research/game_design.md`), with its four defaults ("defaults on all four, fold them into the concept"), each folded into its section below:
-  - a grab has a way out;
+  - a grab has a way out (since the second playtest, 2026-11-17, no grabs at all: "Crowds are the danger" below);
   - three skills can be mastered;
   - no class bias in the world's containers;
   - sieges on a calendar, as well as the Director's events.
@@ -135,7 +135,7 @@ Why build it:
 
 | Region | Creatures | They hunt by | What changes | Weakness | Day and night |
 |---|---|---|---|---|---|
-| **The Hushlands** (first) | the restless dead: shamblers, ghouls, skeletons, wights | sound | Zomboid's rules: numbers, doors thumped down, being dragged down, ghoul fever; the unburned dead get up | fire, blessed weapons; blunt for skeletons | always about; more and faster at night |
+| **The Hushlands** (first) | the restless dead: shamblers, ghouls, skeletons, wights | sound | Zomboid's rules: numbers, doors thumped down, crowds, ghoul fever; the unburned dead get up | fire, blessed weapons; blunt for skeletons | always about; more and faster at night |
 | **The Warren Hills** | goblins and kobolds | sight; they carry torches at night | they think: they loot the houses before you, trap the loot, steal from your base, raid at night, blow horns to call the warren, run and come back with friends | their leaders (kill the chief and they scatter); kobolds hate sunlight | sleep by day, raid by night |
 | **The Webwood** | giant spiders, centipedes, carrion beetles | movement: footsteps, and anything touching a web | running is loud and standing still hides you; a touched web tells every spider on it where you are; cocoons hold loot, and sometimes someone alive; venom paralyses | fire (webs burn, and so does the wood) | they hunt the ground at night; dawn dew shows the webs |
 | **The Wolfmark** | wolves, dire wolves, werewolves | scent, carried by the wind | stay downwind; blood draws them from far off; rain and rivers wash your trail; packs circle; the cold; full moons bring werewolves, and lycanthropy | silver; fire keeps wolves back | dusk and dawn; full-moon nights |
@@ -184,7 +184,7 @@ Each class plays a different part of the system:
 
 | Class | Plays like | Its part of the system | Resource | Signature |
 |---|---|---|---|---|
-| Fighter | holds doorways; heavy armour (loud); shields | engagement: the lines to adjacent enemies, and grabs | endurance, more of it than anyone | brace, shield bash, cleave, second wind; shrugs off grabs |
+| Fighter | holds doorways; heavy armour (loud); shields | engagement: the lines to adjacent enemies, and the press of their blows | endurance, more of it than anyone | brace, shield bash, cleave, second wind; shrugs off blows (one slows it less) |
 | Rogue | dark and quiet; backstabs; locks and traps | darkness and the signature | the dark itself | sneak attacks from darkness or behind; reads tracks; picks locks, disarms traps |
 | Cleric | healer, and the dead's natural enemy | dread and the dead | faith, restored by prayer at shrines | turn undead, wards, cures, steadying light |
 | Wizard | fragile, versatile, loud when it counts | the sense fields themselves | mana, coming back by the second (slots, restored by rest, until 2026-11-16) | Silence, Fog, Chill, Light, Knock; fireball (a huge noise and light); identify |
@@ -203,7 +203,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 
 *(built 2026-11-11)* **The Fighter**, the first class:
 - **Skills:** it learns Blade, Blunt, Axe and Athletics half as fast again.
-- **Endurance:** its running, swings and struggles cost 85%.
+- **Endurance:** its running and swings cost 85%.
 - **Its signature:** the dead get hold of it a quarter less often.
 - **Talents:** each level from 2 offers three of its ten, and you pick one:
   - Tough, Tireless, Second Wind and Cleave;
@@ -331,7 +331,7 @@ Anyone can learn any skill, more slowly. A region's tools (silver, salt, fire oi
 
   Both are shown, and kept apart.
 - **Endurance pays for everything active:** swings, shoves, running, climbing, casting. Heavy armour and what you carry raise the cost. Fighting and fleeing draw on the same bar, so what you spend on a fight you can't spend running away.
-- **Exhaustion is dangerous but recoverable.** An empty bar means no running, slow weak swings and an easier grab, until you stop and get your breath back. It is never an instant death: when Breath of the Wild's stamina wheel ran out on a cliff, the fall felt arbitrary.
+- **Exhaustion is dangerous but recoverable.** An empty bar means no running and slow weak swings, until you stop and get your breath back. It is never an instant death: when Breath of the Wild's stamina wheel ran out on a cliff, the fall felt arbitrary.
 - **Movement:**
   - walk, run, sneak;
   - climb fences, windows and low walls (a timed action that costs endurance);
@@ -378,7 +378,7 @@ One table of how things act on each other, written before the content, so the ga
   - reach, arc (one target or a sweep), wind-up, knockback, noise and wear;
   - blunt for skeletons, edges for flesh, points for armour, silver for werewolves and ghosts;
   - a spear holds a doorway; a mace is loud.
-- **Engagement you can see.** While paused, a line runs from each adjacent enemy to you. Stepping away from an engaged enemy gives it a free swing or a chance to grab. Doorways and corridors matter because they cap the number of lines. (Pillars of Eternity's disengagement attack was invisible, and players couldn't tell why they'd been hit.)
+- **Engagement you can see.** While paused, a line runs from each adjacent enemy to you. Stepping away from an engaged enemy gives it a free swing. Doorways and corridors matter because they cap the number of lines. (Pillars of Eternity's disengagement attack was invisible, and players couldn't tell why they'd been hit.)
 - **Every attack has a tell,** set per family in the data as a wind-up, an arc, a reach, a pose and a ground mark:
   - the dead lean in and reach;
   - goblin archers draw with a visible aim line;
@@ -391,8 +391,9 @@ One table of how things act on each other, written before the content, so the ga
 - **Light is a trade** (Darkest Dungeon's lesson). A torch shows threats early and steadies dread, but everything sees you. The dark gives you surprise (sneak attacks, crits), and gives it to them too.
 - **Crowds are the danger.**
   - Hit chances and armour stay in a narrow band (bounded accuracy), so weak enemies stay dangerous in numbers.
-  - Each adjacent attacker adds a chance to grab.
-  - **A grab has a way out** (decided): struggle free (endurance) or shove (with a hand free). Each extra grabber makes it harder, and three grabbing at once, or an empty endurance bar, is the drag-down. Deaths stay readable ("I let three get round me") without becoming rare.
+  - Each adjacent attacker is another blow coming.
+  - *(built 2026-11-17)* **No grabs: a blow slows you a moment** (the second playtest: "Being stuck, or 'grabbed', by monsters is not fun and unfair. You should only be slowed briefly when hit by monsters, no grapple/freeze"). A blow of the dead's that lands, a wound or one your armour turns, leaves you at half your pace for half a second, less for a Fighter, none with the Shrug talent; another starts it again, they don't add up. Nothing takes hold of you, so nothing drags you down: a crowd kills by its blows, and deaths stay readable ("I let three get round me"). It was: each adjacent attacker added a chance to grab, a grab had a way out (struggle free, or shove with a hand free), and three grabbing at once, or an empty endurance bar, was the drag-down. That rule is kept in the code, off, for a kind that might hold later.
+  - *(tuned 2026-11-17)* **A few in a row, not a crowd** (the first playtest: "Enemies may also be overtuned. I struggled to kill a few in a row"). Measured with `dusk-cli fight` (a Fighter with a cudgel that only stands and swings): three shamblers at once are put down 87 times in 100, four 16, five 5; two ghouls 92, three 52. Shamblers have 24 health and land two blows in five; ghouls 20, and one in two.
 - **Spells are timed actions, stated by their limits** (Sanderson: limits are more interesting than powers). Shown while paused:
   - cast time, noise and light;
   - a cost: mana, faith, a component;
@@ -564,7 +565,7 @@ One table of how things act on each other, written before the content, so the ga
 ## Death and legacy (Default: permadeath in a persistent world)
 
 - **Death ends the character,** as in Zomboid, with a recap: "You survived 23 days, 4 hours. Slain by Grimtooth the Lantern-Eater in the cellar of the old tannery, carrying a Rare longsword you never identified."
-- **A fair death has a readable cause:** tells before hits, grabs with a way out, no unseen instant kills. The recap names the moment it went wrong: "grabbed by a third shambler in the hall".
+- **A fair death has a readable cause:** tells before hits, nothing that holds you, no unseen instant kills. The recap names the moment it went wrong: "caught by a third shambler in the hall".
 - **The world keeps it:** your body and gear lie where you fell, and you rise there as a revenant. Your base stays where it is.
 - **The next character** starts at a holdout and can walk back to the old base. What carries over: the base and what's in it, the holdouts' memory of you, your map, the places found, what you've learned about the creatures.
 - *(built 2026-11-10)* Every character has a name, and the death screen tells who it was, how long they lasted, how they died and what they carried.
@@ -640,7 +641,7 @@ The first playable:
   - *(built 2026-11-11)* **the graveyard and its skeletons:** a fenced graveyard beside the chapel holds 3 to 6 skeletons, the town's old dead, and two tombs of grave goods. Blades glance off bone (a sword does 40%, a spear 30%) and blunt weapons shatter it (150%), so the mace and the hammer have their place. Skeletons see best in the dark of all the dead, but they have no bite, no fever and no groan, and once shattered they stay down;
 - one class (Fighter), perhaps two (+ Cleric);
   - *(built 2026-11-12)* **the Cleric**, and choosing a class: faith, prayer at shrines, turning the dead, consecration with holy water or faith, and ten talents (Character, above);
-- combat: endurance shared with running, the verbs, tells, engagement lines, grabs with a way out;
+- combat: endurance shared with running, the verbs, tells, engagement lines, a blow's brief slow (no grabs, since the second playtest);
   - *(built 2026-11-12)* **herbs and foraging:** wild plants grow where they would: yarrow in the open, chamomile by the water, brambles in the woods, and feverfew only where the dead lie. E picks the one beside you, and it grows back days later. Yarrow and a rag make a poultice that dresses a wound so it closes in half the time and hurts the less for it; chamomile steeped at a fire makes a tea that calms; brambles give blackberries. Foraging, the thirteenth skill, finds more;
   - *(built 2026-11-11)* **wolves:** packs of two to four out in the wilds, of the living world and not the dead. A wolf a little faster than your run, seeing in the dark, following blood, howls when it sees you and the pack comes. It lunges quicker than the dead and bites deep. The bell and fires don't draw them and they don't get up; a dead one is skinned for a pelt worth bringing home;
   - *(built 2026-11-11)* **wildlife and hunting:** deer graze in the open. They're after nobody and nobody dreads them, but they see far and nearly all round, and bolt from anyone near, from footsteps and from a blow, faster than you run. Sneak up, or shoot from where it hasn't seen you; from its blind side an arrow always drops it. A knife or an axe cuts a carcass up for venison, to roast at a fire;

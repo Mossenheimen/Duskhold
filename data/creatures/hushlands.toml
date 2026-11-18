@@ -1,4 +1,9 @@
 # The Hushlands' dead. They hunt by sound first, and see a little.
+#
+# Tuned after the second playtest (2026-11-17; the first: "Enemies may also be overtuned. I
+# struggled to kill a few in a row"), with `dusk-cli fight`: a Fighter with a cudgel, standing and
+# swinging and nothing else, puts down three shamblers coming at once 87 times in 100 (31 before,
+# with grabs), four 16, five 5: a few in a row, yes; a crowd, no. Two ghouls, 92; three, 52.
 
 [[creature]]
 id = "shambler"
@@ -12,15 +17,16 @@ think_every = 5       # ticks between thoughts (staggered, so they don't all thi
 forget_after = 30.0   # seconds before it gives up on what it heard or saw
 wander = 0.1          # the chance it shuffles a step when it thinks, if it's after nothing
 path_budget = 400     # the most tiles it searches for a way: the dead aren't clever
-health = 30           # points: three or four blows of a cudgel
+health = 24           # points: three blows of a cudgel, now and then two (30 until the second playtest)
 down = 4.0            # seconds it stays down when knocked down
 climb = 2.5           # times your time through an open window or over a fence (left out: never)
 tumble = true         # it falls over what it climbs, and lies there its `down` time
 # It leans in and reaches for 1.2 s (its tell), then strikes. Its hits wound rather than doing
 # damage of their own. The tell is long enough to answer three ways: shove it (0.2 s), hit it
-# first (a cudgel's 0.4 s), or step back out of reach (0.7 s a tile, at the risk of a parting
-# grab). At 0.8 s, stepping back left 0.1 s to react in: a tell nobody could use.
-attack = { wind_up = 1.2, recovery = 0.6, hit = 0.5, noise = 3 }
+# first (a cudgel's 0.4 s), or step back out of reach (0.3 s a tile, running). At 0.8 s,
+# stepping back left 0.1 s to react in: a tell nobody could use. Two in five land (one in two until
+# the second playtest).
+attack = { wind_up = 1.2, recovery = 0.6, hit = 0.4, noise = 3 }
 # Catching sight of you, it groans, and the others within this many tiles come to it: how one
 # becomes a crowd. One that was already after something doesn't, so they don't call for ever.
 groan = 10
@@ -46,11 +52,12 @@ think_every = 3       # quicker than the dead
 forget_after = 45.0
 wander = 0.15
 path_budget = 800     # and cleverer: it finds the way round
-health = 25           # a little frailer than a shambler: worth fighting, if it's alone
+health = 20           # a little frailer than a shambler: worth fighting alone, two a fight (25 until the second playtest)
 down = 3.0
 climb = 1.0           # as quick as you, and it lands on its feet
-# Its tell is shorter than a shambler's, but still a second to answer in.
-attack = { wind_up = 1.0, recovery = 0.5, hit = 0.6, noise = 2 }
+# Its tell is shorter than a shambler's, but still a second to answer in. One in two lands (three
+# in five until the second playtest).
+attack = { wind_up = 1.0, recovery = 0.5, hit = 0.5, noise = 2 }
 groan = 0
 blood = 12            # tiles it smells blood from, for each wound that's bleeding (up to three)
 wounds = { scratch = 0.5, laceration = 0.35, bite = 0.15 }
@@ -59,7 +66,7 @@ thump = [1, 2]        # it claws at a door rather than beating it down
 get_up = { chance = 1.0, after = [12.0, 36.0] }
 
 # What your own body rises as (rules.toml, [revenant]), at midnight unless it was burned: you, in
-# your gear, and worse. Twice a shambler's health, a quick hand, and faster than your walk, so
+# your gear, and worse. Two and a half shamblers' health, a quick hand, and faster than your walk, so
 # you don't stroll away from it. It makes no groan and it doesn't wander: it haunts the place it
 # fell. It never spawns in the region's mix (regions/*.toml), and put down, it stays down.
 [[creature]]
@@ -74,7 +81,7 @@ think_every = 3
 forget_after = 60.0
 wander = 0.0          # it stays where it fell
 path_budget = 800
-health = 60           # twice a shambler
+health = 60           # two and a half shamblers
 down = 2.0
 climb = 1.5
 attack = { wind_up = 1.0, recovery = 0.5, hit = 0.65, noise = 3 }
@@ -128,7 +135,7 @@ think_every = 3
 forget_after = 90.0
 wander = 0.1
 path_budget = 1000
-health = 60           # twice a shambler
+health = 60           # two and a half shamblers
 down = 1.5
 climb = 1.5
 attack = { wind_up = 0.9, recovery = 0.5, hit = 0.7, noise = 2 }   # cold claws

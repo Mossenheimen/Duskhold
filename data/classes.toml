@@ -7,12 +7,12 @@
 [[class]]
 id = "fighter"
 name = "Fighter"
-line = "holds doorways: more breath than anyone, and the dead get hold of you less"
-# Holds doorways; engagement and grabs are its part of the system.
+line = "holds doorways: more breath than anyone, and a blow slows you less"
+# Holds doorways; engagement and the press of the dead are its part of the system.
 skills = ["blade", "blunt", "axe", "athletics"]
 learn = 1.5           # learns those half as fast again
-endurance = 0.85      # its running, swings and struggles cost this much: more breath than anyone
-grabbed = 0.75        # it shrugs off grabs: the dead get hold of it this often
+endurance = 0.85      # its running and swings cost this much: more breath than anyone
+staggered = 0.6       # it shrugs off blows: one slows it for this share of the time (rules.toml's [stagger])
 talents = ["tough", "tireless", "second_wind", "cleave", "shrug", "bash", "doorwarden", "heavy_hand", "edge", "woodsman"]
 wear = ["padded_jerkin", "leather_cap"]   # it comes in what armour a hamlet has (items/armour.toml)
 
@@ -24,7 +24,6 @@ line = "the dead's natural enemy: faith turns them, lays the fallen to rest, and
 skills = ["blunt", "first_aid", "devotion"]
 learn = 1.5
 endurance = 1.0       # no more breath than anyone
-grabbed = 1.0
 faith = 100           # points: spent turning the dead and the rest (rules.toml's [faith]); back by
                       # prayer at a shrine
 turns = true          # its signature: held up, the holy symbol turns the dead (a power: 1)
@@ -40,7 +39,7 @@ line = "fragile, and loud when it counts: spells that work on what the dead sens
 skills = ["arcana", "first_aid"]
 learn = 1.5
 endurance = 1.1       # fragile: its breath goes quicker than anyone's
-grabbed = 1.15        # and the dead get hold of it more easily
+staggered = 1.2       # and a blow slows it longer
 mana = 40             # points of mana it holds (spells.toml: what each costs)...
 mana_regen = 0.4      # ...and how many come back a second: empty to full in 100 s (Arcana and gear, more)
 spells = ["light", "silence", "fog", "fireball"]

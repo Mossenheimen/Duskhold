@@ -513,6 +513,9 @@ pub struct Actor {
     /// On guard, Zomboid's combat stance (`guard.rs`): facing where it's turned, slower.
     #[cfg_attr(feature = "save", serde(default))]
     pub guarding: bool,
+    /// Slowed by a blow until this tick (`grab.rs`, the stagger; 0: never was).
+    #[cfg_attr(feature = "save", serde(default))]
+    pub staggered: u64,
     /// A Cleric's faith (`faith.rs`), in thousandths of a point: spent on its acts, and back by
     /// prayer at a shrine. 0 for a class without it.
     pub faith: i32,
@@ -583,6 +586,7 @@ impl Actor {
             shield: None,
             bracing: false,
             guarding: false,
+            staggered: 0,
             faith: 0,
             worn: Vec::new(),
             bag: None,

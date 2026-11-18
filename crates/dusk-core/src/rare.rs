@@ -124,10 +124,13 @@ impl World {
                 // Hurt legs slow the living (`injury.rs`).
                 // And sneaking slows them (`stealth.rs`).
                 let s = self.rules.character_speed;
-                // And on guard, more slowly still (`guard.rs`).
+                // And on guard, more slowly still (`guard.rs`); and for a moment after a blow
+                // (`grab.rs`, the stagger).
                 let pace = self.leg_pace(id) * self.sneak_pace(id) / 1000 * self.brace_pace(id)
                     / 1000
                     * self.guard_pace(id)
+                    / 1000
+                    * self.stagger_pace(id)
                     / 1000;
                 let speeds = Speeds {
                     walk: s.walk * pace / 1000,

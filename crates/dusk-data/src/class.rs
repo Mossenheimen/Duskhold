@@ -28,8 +28,9 @@ struct ClassFile {
     learn: f64,
     /// What its running, swings and struggles cost in endurance, as a multiplier.
     endurance: f64,
-    /// The chance a creature's hit takes hold of it, as a multiplier.
-    grabbed: f64,
+    /// How long a blow of the dead's slows it, as a multiplier (left out: 1).
+    #[serde(default = "one")]
+    staggered: f64,
     /// Its talents, by id (talents.toml).
     talents: Vec<String>,
     /// The faith it holds, in points (left out: none).
@@ -73,7 +74,7 @@ struct TalentFile {
     #[serde(default)]
     health: f64,
     /// Multipliers, 1.0 for none: endurance costs; a blow's harm (with any weapon, or only
-    /// `skill`'s); the chance a creature's hit takes hold of you.
+    /// `skill`'s); how long a blow of the dead's slows you.
     #[serde(default = "one")]
     endurance: f64,
     #[serde(default = "one")]
@@ -81,7 +82,7 @@ struct TalentFile {
     #[serde(default)]
     skill: Option<String>,
     #[serde(default = "one")]
-    grabbed: f64,
+    staggered: f64,
     /// Chances added, from -1 to 1: a blow landing, a shove knocking down, struggling free.
     #[serde(default)]
     hit: f64,
@@ -92,7 +93,7 @@ struct TalentFile {
     /// How many more must hold you to drag you down.
     #[serde(default)]
     hold: u32,
-    /// Its hit and grabbed count only beside a door.
+    /// Its hit and staggered count only beside a door.
     #[serde(default)]
     doorway: bool,
     /// A blow that puts one down carries on into another beside you.
@@ -184,8 +185,8 @@ fn to_class(
             "learn is 1 to 5 times, endurance a multiplier from 0.1 to 2".into(),
         ));
     }
-    if !(0.0..=2.0).contains(&c.grabbed) {
-        return Err(bad("grabbed is a multiplier from 0 to 2".into()));
+    if !(0.0..=2.0).contains(&c.staggered) {
+        return Err(bad("staggered is a multiplier from 0 to 2".into()));
     }
     if !(0.0..=500.0).contains(&c.faith) || (c.turns && c.faith <= 0.0) {
         return Err(bad(
@@ -300,7 +301,7 @@ fn to_class(
         skills,
         learn: per(c.learn),
         endurance: per(c.endurance),
-        grabbed: per(c.grabbed),
+        staggered: per(c.staggered),
         talents: picks,
         faith: (c.faith * 1000.0).round() as i32,
         turns: c.turns,
@@ -315,10 +316,10 @@ fn to_class(
 
 fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
     let bad = |m: &str| fail(file, format!("talent {:?}: {m}", t.id));
-    let multipliers = [t.endurance, t.damage, t.grabbed, t.turn_time];
+    let multipliers = [t.endurance, t.damage, t.staggered, t.turn_time];
     if multipliers.iter().any(|m| !(0.0..=5.0).contains(m)) {
         return Err(bad(
-            "endurance, damage, grabbed and turn_time are multipliers from 0 to 5",
+            "endurance, damage, staggered and turn_time are multipliers from 0 to 5",
         ));
     }
     if !(0.0..=1.0).contains(&t.steady) {
@@ -367,7 +368,7 @@ fn to_talent(file: &Path, t: &TalentFile) -> Result<Talent, DataError> {
         hit: chance(t.hit),
         knock_down: chance(t.knock_down),
         struggle: chance(t.struggle),
-        grabbed: per(t.grabbed),
+        staggered: per(t.staggered),
         hold: t.hold,
         doorway: t.doorway,
         cleave: t.cleave,
