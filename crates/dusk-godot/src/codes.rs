@@ -125,7 +125,7 @@ pub mod event {
         COLD = 107,
         CAST = 108,
         SCORCHED = 109,
-        SPELL_BROKE = 110,
+        SPELL_SET_BACK = 110,
         TERRIFIED = 112,
         SEARED = 113,
         THORNED = 114,
@@ -282,6 +282,8 @@ pub mod spell {
         SILENCE = SpellKind::Silence as i32,
         FOG = SpellKind::Fog as i32,
         FIREBALL = SpellKind::Fireball as i32,
+        BOLT = SpellKind::Bolt as i32,
+        NOVA = SpellKind::Nova as i32,
     }
 }
 

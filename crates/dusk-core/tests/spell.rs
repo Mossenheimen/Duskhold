@@ -1,7 +1,9 @@
 //! Spells: Light (free: a light on a spot, fading, and a lure at night), Silence (no sound made
 //! inside it), Fog (the dead can't see into it), Fireball (harm within its reach, what it puts down
-//! burns, heard far off); their limits (known, mana, the component, range, sight); a blow breaks
-//! the words and spends nothing; mana comes back by the second; Arcana and the talents.
+//! burns, heard far off), Firebolt (the first on its line burns; a wall stops it), Fire Nova
+//! (everyone beside you burns and is thrown back); their limits (known, mana, the component,
+//! range, sight); a blow sets the words back, and the spell goes on; mana comes back by the
+//! second; Arcana and the talents.
 
 use std::sync::Arc;
 
@@ -17,6 +19,8 @@ const LIGHT: u16 = 0;
 const SILENCE: u16 = 1;
 const FOG: u16 = 2;
 const FIREBALL: u16 = 3;
+const BOLT: u16 = 4;
+const NOVA: u16 = 5;
 const ME: TilePos = TilePos::new(0, 0, 0);
 
 fn at(x: i32, y: i32) -> TilePos {
@@ -69,7 +73,7 @@ fn defs() -> Defs {
         }),
         mana: 30_000,
         mana_regen: 0,
-        spells: vec![LIGHT, SILENCE, FOG, FIREBALL],
+        spells: vec![LIGHT, SILENCE, FOG, FIREBALL, BOLT, NOVA],
         ..Class::default()
     };
     let fighter = Class {
@@ -99,6 +103,21 @@ fn defs() -> Defs {
             spell("silence", SpellKind::Silence, 10_000, 3, 0),
             spell("fog", SpellKind::Fog, 10_000, 2, 0),
             fireball,
+            // A bolt: 2 mana, 5 ticks of words, 50 points to the first on its line.
+            SpellDef {
+                cast: 5,
+                lasts: 0,
+                damage: (500, 500),
+                ..spell("bolt", SpellKind::Bolt, 2_000, 0, 0)
+            },
+            // A nova: 5 mana, 4 ticks, 10 points to everyone beside you, thrown back.
+            SpellDef {
+                cast: 4,
+                range: 1,
+                lasts: 0,
+                damage: (100, 100),
+                ..spell("nova", SpellKind::Nova, 5_000, 1, 0)
+            },
         ],
         classes: vec![wizard, fighter],
         talents: vec![
@@ -324,17 +343,114 @@ fn a_spell_has_its_limits() {
 }
 
 #[test]
-fn a_blow_breaks_the_words_and_nothing_is_spent() {
+fn a_blow_sets_the_words_back_and_the_spell_goes_on() {
+    // Alone, the fireball's words take its 25 ticks.
+    let (mut w, me) = field(12);
+    let (alone, _) = said(&mut w, me, FIREBALL, at(4, 4));
+    // With one of the dead beside you landing every blow, each sets them back 3 ticks, and the
+    // fireball is cast all the same, later (the second playtest: "hits set a cast back not break
+    // it").
     let (mut w, me) = field(12);
     w.creature_mut(0).attack.hit = 10_000;
+    (w.rules.combat.grab, w.rules.combat.parting_grab) = (0, 0);
     w.spawn(ActorKind::Creature(0), at(1, 0)).unwrap();
-    let seen = cast(&mut w, me, FIREBALL, at(4, 4));
-    assert!(seen.contains(&Event::SpellBroke {
+    w.intent(
+        me,
+        Intent::Cast {
+            spell: FIREBALL,
+            at: at(4, 4),
+        },
+    );
+    let (mut backs, mut late) = (0, 0);
+    for _ in 0..80 {
+        w.step(1);
+        let seen: Vec<Event> = w.events().collect();
+        backs += seen
+            .iter()
+            .filter(|e| matches!(e, Event::SpellSetBack { who, .. } if *who == me))
+            .count();
+        if seen.iter().any(|e| matches!(e, Event::Cast { .. })) {
+            late = w.tick;
+            break;
+        }
+    }
+    assert!(backs >= 1, "set back");
+    assert!(late > alone, "later: {late} against {alone}");
+    assert_eq!(w.mana(me), 10_000, "and paid for");
+    assert_eq!(sulphur(&w, me), 1);
+}
+
+#[test]
+fn a_firebolt_burns_the_first_on_its_line_and_a_wall_stops_it() {
+    let (mut w, me) = field(12);
+    let near = w.spawn(ActorKind::Creature(0), at(2, 0)).unwrap();
+    let far = w.spawn(ActorKind::Creature(0), at(4, 0)).unwrap();
+    let full = w.actor(near).unwrap().body.health;
+    // Aimed at the far one, the near one on the line takes it.
+    let seen = cast(&mut w, me, BOLT, at(4, 0));
+    assert!(
+        seen.contains(&Event::Cast {
+            who: me,
+            spell: BOLT,
+            at: at(2, 0)
+        }),
+        "told where it stopped"
+    );
+    assert!(seen.contains(&Event::Scorched {
         who: me,
-        spell: FIREBALL
+        target: near,
+        damage: 500
     }));
-    assert!(!seen.iter().any(|e| matches!(e, Event::Cast { .. })));
-    assert_eq!((w.mana(me), sulphur(&w, me)), (30_000, 2));
+    assert_eq!(w.actor(near).unwrap().body.health, full - 500);
+    assert_eq!(
+        w.actor(far).unwrap().body.health,
+        full,
+        "the far one untouched"
+    );
+    assert_eq!(w.mana(me), 28_000, "two points");
+    // Aimed short of one, it flies only to its spot: nobody burns.
+    let (mut w, me) = field(12);
+    w.spawn(ActorKind::Creature(0), at(4, 0)).unwrap();
+    let seen = cast(&mut w, me, BOLT, at(3, 0));
+    assert!(seen.contains(&Event::Cast {
+        who: me,
+        spell: BOLT,
+        at: at(3, 0)
+    }));
+    assert!(!seen.iter().any(|e| matches!(e, Event::Scorched { .. })));
+}
+
+#[test]
+fn a_fire_nova_burns_everyone_beside_you_and_throws_them_back() {
+    let (mut w, me) = field(12);
+    let east = w.spawn(ActorKind::Creature(0), at(1, 0)).unwrap();
+    let corner = w.spawn(ActorKind::Creature(0), at(-1, 1)).unwrap();
+    // Three tiles north: out of its reach, and out of the way of the two thrown (one coming at
+    // you holds the tile it's stepping onto, and nobody's thrown onto a held tile).
+    let off = w.spawn(ActorKind::Creature(0), at(0, -3)).unwrap();
+    let full = w.actor(east).unwrap().body.health;
+    // Looked at as the words are said, before the burned ones come back at you.
+    let (_, seen) = said(&mut w, me, NOVA, ME);
+    for (who, to) in [(east, at(2, 0)), (corner, at(-2, 2))] {
+        let a = w.actor(who).unwrap();
+        assert_eq!(a.body.health, full - 100, "burned");
+        assert_eq!(a.pos, to, "thrown back a tile, away from you");
+        assert!(seen.contains(&Event::DrivenBack {
+            who: me,
+            target: who
+        }));
+    }
+    assert_eq!(
+        w.actor(off).unwrap().body.health,
+        full,
+        "three tiles off, untouched"
+    );
+    assert_eq!(
+        w.actor(me).unwrap().body.health,
+        w.rules.combat.character_health,
+        "not you"
+    );
+    assert!(!w.spell_catches(me, NOVA, ME), "it never catches you");
 }
 
 #[test]
@@ -463,7 +579,7 @@ fn a_wizards_powers_are_its_spells() {
     assert!(w.choose_class(me, 0));
     assert_eq!(
         w.powers(me),
-        [LIGHT, SILENCE, FOG, FIREBALL].map(Power::Spell)
+        [LIGHT, SILENCE, FOG, FIREBALL, BOLT, NOVA].map(Power::Spell)
     );
 }
 

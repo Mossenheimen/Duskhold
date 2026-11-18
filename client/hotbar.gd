@@ -29,7 +29,7 @@ const LOOP := 3
 ## A power's glyph (icons/powers/), by its code; a spell's by its kind.
 const POWER_GLYPHS := {Power.TURN: "turn", Power.SECOND_WIND: "second_wind", Power.MEND: "mend"}
 const SPELL_GLYPHS := {Spell.LIGHT: "light", Spell.SILENCE: "silence", Spell.FOG: "fog",
-	Spell.FIREBALL: "fireball"}
+	Spell.FIREBALL: "fireball", Spell.BOLT: "firebolt", Spell.NOVA: "fire_nova"}
 ## What a power that isn't a spell is called, and what it does.
 const POWER_TEXTS := {
 	Power.TURN: ["Turn the dead", "Hold up the holy symbol: the dead near you flee, till a blow ends it. It costs faith."],
@@ -350,14 +350,16 @@ func _arrange() -> Array:
 	for i in range(0, powers.size() - 1, 2):
 		all.append([powers[i], powers[i + 1]])
 	var order: PackedStringArray = settings.bar_order(_class) if settings != null else PackedStringArray()
+	# What the kept order doesn't name yet (a power new since it was kept: the second playtest's
+	# fire spells) comes first, in your class's order, so it's on the bar; then the kept order.
 	var out := []
+	for p: Array in all:
+		if not order.has(_key(p[0], p[1])):
+			out.append(p)
 	for key in order:
 		for p: Array in all:
 			if _key(p[0], p[1]) == key and not out.has(p):
 				out.append(p)
-	for p: Array in all:
-		if not out.has(p):
-			out.append(p)
 	return out
 
 

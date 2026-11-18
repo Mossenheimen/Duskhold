@@ -1,13 +1,16 @@
 //! Spells (`CONCEPT.md`: the Wizard, "Spells are timed actions, stated by their limits", and
-//! "Spells work on the sense fields"): the Wizard's first four.
+//! "Spells work on the sense fields"): the Wizard's. Since the second playtest (2026-11-17:
+//! "Spells are underwhelming") its first are for the fight, as Diablo's and Path of Exile's: a
+//! bolt, a ball and a nova of fire, none wanting a reagent; the senses' three after them.
 //!
 //! - **A spell is data** (`data/spells.toml`): what it does (`SpellKind`), the mana it costs,
 //!   its cast time, its range, how far it reaches round the spot, the light it gives and for how
 //!   long, the noise of its words, and the component it uses up.
 //! - **Casting is a timed action** (`Intent::Cast`) at a tile in range and in sight. The words
-//!   are its wind-up and its tell, heard as far as they carry; a blow during them breaks the spell
-//!   (D&D's concentration), and nothing is spent. On its strike the mana and the component go,
-//!   and it takes effect.
+//!   are its wind-up and its tell, heard as far as they carry; a blow during them sets them back
+//!   a little (rules.toml's `[casting] setback`; it broke them, D&D's concentration, until the
+//!   second playtest: "hits set a cast back not break it"). On its strike the mana and the
+//!   component go, and it takes effect.
 //! - **Mana** (`Actor::mana`; since 2026-11-16, in place of D&D's slots) is the Wizard's
 //!   resource, as Diablo's and Path of Exile's: a pool (its class's, more with a talent and with
 //!   what it carries: `Boosts::mana`) that comes back by the second, at a rate that's a stat of
@@ -19,8 +22,15 @@
 //!   - Silence: inside it no sound is made at all: not a footstep, a blow, or a hammer.
 //!   - Fog: the dead can't see into it or out of it.
 //!   - Fireball: a burst on the spot, harming everything within its reach (you too). What it puts
-//!     down burns, and the bodies there catch fire, so none of them gets up. It's heard across
-//!     the map, and lights the street for a moment.
+//!     down burns, and the bodies there catch fire, so none of them gets up. It's heard far off,
+//!     and lights the street for a moment.
+//!   - Firebolt (`SpellKind::Bolt`): fire flies the line to the spot, as an arrow does, and the
+//!     first one standing on it burns; a wall stops it. Quick words, little mana.
+//!   - Fire Nova (`SpellKind::Nova`): fire bursts out from you, and everyone round you that you
+//!     can see burns and is thrown back a tile (the shove's `knock_back`): the way out of a crowd.
+//!     Cast on your own tile.
+//!
+//!   What any of them burns is `scorch`'s: fire's harm, a body set alight.
 //! - **Arcana** is the Wizard's skill: each spell cast teaches it, and each level casts faster, a
 //!   fireball harms more, and a spell lasts longer on its spot (a fireball's flash is a moment
 //!   whatever your Arcana). Its levels are `World::skill_level`'s, so "+3 to Arcana" on a thing
@@ -41,6 +51,8 @@ pub enum SpellKind {
     Silence,
     Fog,
     Fireball,
+    Bolt,
+    Nova,
 }
 
 /// A spell, in the core's units.
@@ -209,13 +221,16 @@ impl World {
         self.rules.skills.spell_harm(s.damage, level)
     }
 
-    /// The ticks `id`'s `spell` lasts on its spot: the spell's, longer with Arcana. A fireball's
-    /// flash is a moment, whoever casts it.
+    /// The ticks `id`'s `spell` lasts on its spot: the spell's, longer with Arcana. Fire's flash
+    /// (a fireball's, a bolt's, a nova's) is a moment, whoever casts it.
     pub fn spell_lasts(&self, id: ActorId, spell: u16) -> u32 {
         let Some(s) = self.spell(spell) else {
             return 0;
         };
-        if s.kind == SpellKind::Fireball {
+        if matches!(
+            s.kind,
+            SpellKind::Fireball | SpellKind::Bolt | SpellKind::Nova
+        ) {
             return s.lasts;
         }
         let level = self.skill_level(id, Skill::Arcana);
@@ -303,6 +318,13 @@ impl World {
                 by: Some(id),
             });
         }
+        // A bolt is told where it stopped (what it struck, or a wall), a nova on you: the flight,
+        // or the ring, drawn from there.
+        let (at, struck) = match s.kind {
+            SpellKind::Bolt => self.bolt_line(id, pos, at),
+            SpellKind::Nova => (pos, None),
+            _ => (at, None),
+        };
         self.events.push(Event::Cast { who: id, spell, at });
         self.train(id, Skill::Arcana, self.rules.skills.cast, On::Once);
         let until = self.tick + u64::from(lasts);
@@ -315,6 +337,13 @@ impl World {
             }),
             SpellKind::Light => {}
             SpellKind::Fireball => self.burst(id, &s, at, harm),
+            SpellKind::Bolt => {
+                if let Some(target) = struck {
+                    let damage = self.harm_roll(target, harm);
+                    self.scorch(id, target, damage);
+                }
+            }
+            SpellKind::Nova => self.nova(id, &s, harm),
         }
         // Its light, if it gives any: Light's own, a fireball's flash.
         if s.light > 0 && lasts > 0 {
@@ -343,8 +372,6 @@ impl World {
             .filter(|(_, a)| reach.holds(a.pos))
             .map(|(n, _)| n)
             .collect();
-        let (lo, hi) = harm;
-        let span = (hi - lo).max(0) as u32 + 1;
         for target in caught {
             if self.actors.get(target).is_some_and(|a| a.dead) {
                 if self.burnable(target) {
@@ -352,30 +379,104 @@ impl World {
                 }
                 continue;
             }
-            let r = roll(self.seed, self.tick, target.index() as u64, Purpose::Burst);
-            let damage = lo + below(r, span) as i32;
-            if let Some(t) = self.actors.get_mut(target) {
-                t.body.health -= damage;
-            }
-            self.interrupt(target);
-            self.startle_by(target, id);
-            self.unturn(target, id);
-            self.wake(target, crate::needs::Woke::Hurt);
-            self.events.push(Event::Scorched {
-                who: id,
-                target,
-                damage,
-            });
-            if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
-                self.kill(target);
-                self.put_to_rest(id, target);
-                if self.burnable(target) {
-                    self.set_alight(target);
-                }
-            }
+            let damage = self.harm_roll(target, harm);
+            self.scorch(id, target, damage);
         }
         self.emit(Sound {
             at,
+            loudness: s.boom,
+            by: Some(id),
+        });
+    }
+
+    /// A spell's harm on `target`, between `harm`'s least and most, by the seed.
+    fn harm_roll(&self, target: ActorId, harm: (i32, i32)) -> i32 {
+        let (lo, hi) = harm;
+        let span = (hi - lo).max(0) as u32 + 1;
+        let r = roll(self.seed, self.tick, target.index() as u64, Purpose::Burst);
+        lo + below(r, span) as i32
+    }
+
+    /// Fire from `id`'s spell burns `target` for `damage`: it breaks off a wind-up (sets a
+    /// spell's words back), startles it, ends a turning and wakes it; put down, it's laid to
+    /// rest as `id`'s kills are, and its body burns.
+    fn scorch(&mut self, id: ActorId, target: ActorId, damage: i32) {
+        if let Some(t) = self.actors.get_mut(target) {
+            t.body.health -= damage;
+        }
+        self.interrupt(target);
+        self.startle_by(target, id);
+        self.unturn(target, id);
+        self.wake(target, crate::needs::Woke::Hurt);
+        self.events.push(Event::Scorched {
+            who: id,
+            target,
+            damage,
+        });
+        if self.actors.get(target).is_some_and(|t| t.body.health <= 0) {
+            self.kill(target);
+            self.put_to_rest(id, target);
+            if self.burnable(target) {
+                self.set_alight(target);
+            }
+        }
+    }
+
+    /// A firebolt's flight from `from` toward `at`: tile to tile until a wall stops it, or the
+    /// first one standing on the line (not its caster) takes it. Where it stopped, and who.
+    fn bolt_line(&self, id: ActorId, from: TilePos, at: TilePos) -> (TilePos, Option<ActorId>) {
+        let (mut last, mut struck) = (from, None);
+        crate::senses::walk_line(from, at, |p, dir| {
+            let next = p.step(dir);
+            if !line_of_sight(&self.grid, p, next) {
+                return false;
+            }
+            last = next;
+            if let Some(&who) = self.occupied.get(&next)
+                && who != id
+                && self
+                    .actors
+                    .get(who)
+                    .is_some_and(|a| !a.dead && a.pos == next)
+            {
+                struck = Some(who);
+                return false;
+            }
+            true
+        });
+        (last, struck)
+    }
+
+    /// A fire nova bursts out from `id`: everyone within its reach round it that it can see (not
+    /// itself) burns, and is thrown back a tile, away from it, if there's room.
+    fn nova(&mut self, id: ActorId, s: &SpellDef, harm: (i32, i32)) {
+        let Some(me) = self.actors.get(id).map(|a| a.pos) else {
+            return;
+        };
+        let caught: Vec<(ActorId, TilePos)> = self
+            .actors
+            .iter()
+            .filter(|(n, a)| {
+                *n != id
+                    && !a.dead
+                    && a.pos.z == me.z
+                    && me.steps_to(a.pos) <= s.radius.max(1)
+                    && line_of_sight(&self.grid, me, a.pos)
+            })
+            .map(|(n, a)| (n, a.pos))
+            .collect();
+        for (target, at) in caught {
+            let damage = self.harm_roll(target, harm);
+            self.scorch(id, target, damage);
+            let standing = self.actors.get(target).is_some_and(|t| !t.dead);
+            if let (true, Some(away)) = (standing, Dir8::toward(at.x - me.x, at.y - me.y))
+                && self.knock_back(target, at, away)
+            {
+                self.events.push(Event::DrivenBack { who: id, target });
+            }
+        }
+        self.emit(Sound {
+            at: me,
             loudness: s.boom,
             by: Some(id),
         });

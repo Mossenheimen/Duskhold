@@ -628,6 +628,9 @@ struct RulesFile {
     /// Optional: with no [guard], the combat stance uses the core's default pace.
     #[serde(default)]
     guard: Option<ShieldRulesFile>,
+    /// Optional: with no [casting], a blow sets a spell's words back the core's default.
+    #[serde(default)]
+    casting: Option<CastingFile>,
     /// Optional: with no [injury], wounds by where they land use the core's defaults.
     #[serde(default)]
     injury: Option<injury::InjuryFile>,
@@ -661,6 +664,13 @@ struct RulesFile {
 #[serde(deny_unknown_fields)]
 struct ShieldRulesFile {
     pace: f64,
+}
+
+/// Casting (the core's `spell.rs`): how far back a blow sets a spell's words, in seconds.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CastingFile {
+    setback: f64,
 }
 
 /// Points out of 100 (health and endurance), as the core's thousandths.
@@ -1400,6 +1410,12 @@ fn to_rules(file: &Path, r: &RulesFile) -> Result<Rules, DataError> {
             return Err(fail(file, "guard.pace is a share above 0 and at most 1"));
         }
         rules.guard_pace = (g.pace * 1000.0).round() as u32;
+    }
+    if let Some(c) = &r.casting {
+        if !(0.0..=5.0).contains(&c.setback) {
+            return Err(fail(file, "casting.setback is 0 to 5 seconds"));
+        }
+        rules.spell_setback = ticks(file, "casting.setback", c.setback)? as u32;
     }
     if let Some(s) = &r.sneak {
         rules.sneak = stealth::to_sneak(file, s)?;

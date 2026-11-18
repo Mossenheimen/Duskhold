@@ -563,15 +563,16 @@ fn event_row(world: &World, e: Event) -> Option<[i32; EVENT_SIZE]> {
         // A new level of the moodle (`cold.rs`).
         Event::Wet { who, level } => (WET, Some(who), None, at(who), i32::from(level)),
         Event::Cold { who, level } => (COLD, Some(who), None, at(who), i32::from(level)),
-        // Spells (`spell.rs`): the spell cast, the harm a fireball did, the spell broken.
+        // Spells (`spell.rs`): the spell cast (a bolt's where it stopped), the harm fire did, the
+        // words set back by a blow.
         Event::Cast { who, spell, at: p } => (CAST, Some(who), None, (p.x, p.y), i32::from(spell)),
         Event::Scorched {
             who,
             target,
             damage,
         } => (SCORCHED, Some(who), Some(target), at(target), damage),
-        Event::SpellBroke { who, spell } => {
-            (SPELL_BROKE, Some(who), None, at(who), i32::from(spell))
+        Event::SpellSetBack { who, spell } => {
+            (SPELL_SET_BACK, Some(who), None, at(who), i32::from(spell))
         }
         // The stat (0 Strength, 1 Fitness) × 100, plus the level reached.
         Event::Grew { who, stat, level } => {
@@ -3845,6 +3846,8 @@ impl DuskWorld {
                     SpellKind::Silence => spell::SILENCE,
                     SpellKind::Fog => spell::FOG,
                     SpellKind::Fireball => spell::FIREBALL,
+                    SpellKind::Bolt => spell::BOLT,
+                    SpellKind::Nova => spell::NOVA,
                 },
                 s.mana / 1000,
                 cast as i32,
@@ -3970,6 +3973,8 @@ impl DuskWorld {
                 SpellKind::Silence => spell::SILENCE,
                 SpellKind::Fog => spell::FOG,
                 SpellKind::Fireball => spell::FIREBALL,
+                SpellKind::Bolt => spell::BOLT,
+                SpellKind::Nova => spell::NOVA,
             };
             let left = z.until.saturating_sub(world.tick).min(i32::MAX as u64) as i32;
             out.extend([kind, z.at.x, z.at.y, z.radius, left]);

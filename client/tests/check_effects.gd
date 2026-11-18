@@ -31,7 +31,7 @@ func _run() -> void:
 	var at := Vector3(5, 0, 5)
 	for kind: int in [Spell.LIGHT, Spell.SILENCE, Spell.FOG, Spell.FIREBALL]:
 		_fx.spell(kind, 5, 5, 2, Vector3(1, 0, 1))
-	_fx.spell_broke(at)
+	_fx.spell_shaken(at)
 	_fx.turn(at, 8.0)
 	_fx.rise(at, Look.HOLY)
 	_fx.ward(5, 5, 0)

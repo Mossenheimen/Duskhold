@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the Firebolt spell: a dart of fire streaking up and right, its tail flickering. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" d="M60 4 L44 30 C40 36 33 38 28 34 C24 30 25 24 31 20 Z"/>
+  <path fill="#fff" d="M27 36 C21 41 14 46 6 50 C12 52 20 49 26 43 Z"/>
+  <path fill="#fff" d="M24 40 C19 47 13 53 7 60 C16 58 23 53 28 45 Z"/>
+  <path fill="#fff" d="M31 41 C29 47 26 52 22 57 C29 55 33 50 35 43 Z"/>
+</svg>

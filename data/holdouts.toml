@@ -30,7 +30,6 @@ sells = [
   { item = "candle", price = 2, stock = 4 },
   { item = "padded_jerkin", price = 12, stock = 1 },   # the sisters sew one a day
   { item = "satchel", price = 8, stock = 1 },   # and stitch a satchel
-  { item = "sulphur", price = 4, stock = 3 },   # a pinch a fireball
   { item = "life_potion", price = 12, stock = 2 },   # the sisters' still (items/potions.toml)
   { item = "mana_potion", price = 12, stock = 1 },
   { item = "courage_potion", price = 10, stock = 1 },

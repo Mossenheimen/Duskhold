@@ -1378,11 +1378,10 @@ func _read_events() -> void:
 			Event.SCORCHED:
 				if target == me:
 					hud.say("Your own fireball burns you!" if who == me else "Fire burns you!")
-			Event.SPELL_BROKE:
+			Event.SPELL_SET_BACK:
+				# A blow sets the words back a little; the spell goes on (spell.rs).
 				if who == me:
-					hud.say("The blow breaks your words: the %s is lost. Nothing's spent." % _spell_name(extra))
-					effects.spell_broke(actors[me].position)
-					effects.rise(actors[me].position, Look.ARCANE)
+					effects.spell_shaken(actors[me].position)
 			Event.GREW:
 				# At midnight: the day's exertion made you stronger or fitter (extra: the stat × 100
 				# plus the level).
@@ -2559,7 +2558,7 @@ func _run_script() -> void:
 				if print_news:
 					for row in spells.rows():
 						print("Spell: ", row)
-			"cast_light", "cast_silence", "cast_fog", "cast_fireball":
+			"cast_light", "cast_silence", "cast_fog", "cast_fireball", "cast_firebolt", "cast_fire_nova":
 				# The spell of that name, on the nearest of the dead you see, else 3 tiles east; or, with
 				# --aim, where it says.
 				var spell := spell_names.find(action.substr(5).capitalize())
@@ -2692,6 +2691,11 @@ func _ready_spell(spell: int) -> void:
 		_let_go()
 		return
 	var info: PackedInt32Array = dusk.spell_info()
+	# A nova is cast on yourself: at once, nothing to aim.
+	if spell * Spells.INFO < info.size() and info[spell * Spells.INFO] == Spell.NOVA:
+		readied = spell
+		_cast_on(_my_tile())
+		return
 	var reach: int = info[spell * Spells.INFO + 3] if spell * Spells.INFO + 3 < info.size() else 0
 	readied = spell
 	hud.say("%s ready: click a spot within %d tiles. Right-click lets it go." % [_spell_name(spell), reach])
@@ -2812,6 +2816,10 @@ func _spell_effect(spell: int, x: int, y: int) -> void:
 ## The readied spell, cast on `tile`: the core says whether it can be, and this says why not.
 func _cast_on(tile: Vector2i) -> void:
 	var spell := readied
+	# A nova bursts round you, wherever it was aimed.
+	var kinds_of: PackedInt32Array = dusk.spell_info()
+	if spell * Spells.INFO < kinds_of.size() and kinds_of[spell * Spells.INFO] == Spell.NOVA:
+		tile = _my_tile()
 	match dusk.cast_check(spell, tile.x, tile.y):
 		0:
 			dusk.cast(spell, tile.x, tile.y)

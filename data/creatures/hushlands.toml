@@ -32,9 +32,10 @@ attack = { wind_up = 1.2, recovery = 0.6, hit = 0.4, noise = 3 }
 groan = 10
 wounds = { scratch = 0.7, laceration = 0.25, bite = 0.05 }   # what a hit leaves
 thump = [2, 4]        # what a blow does to a shut door in its way (rules.toml, [door])
-# Put down, it gets up again half a day to a day and a half later, unless it's burned (rules.toml,
-# [burning]). It gets up once: put down a second time, it stays down.
-get_up = { chance = 1.0, after = [12.0, 36.0] }   # game hours after it fell
+# Put down, two in five get up again half a day to a day and a half later, unless burned (rules.toml,
+# [burning]); the rest stay down (all got up until the second playtest: "I don't so much care about
+# stopping zombies from getting up"). It gets up once: put down a second time, it stays down.
+get_up = { chance = 0.4, after = [12.0, 36.0] }   # game hours after it fell; two in five do (all, until the second playtest)
 
 # The reason to run (CONCEPT.md, the Hushlands' four): faster than your walk (2.0), slower than
 # your run (3.5), even at night (3.0). You out-run one, while your breath lasts; you don't
@@ -63,7 +64,7 @@ blood = 12            # tiles it smells blood from, for each wound that's bleedi
 wounds = { scratch = 0.5, laceration = 0.35, bite = 0.15 }
 fever = { scratch = 0.05, laceration = 0.25, bite = 0.75 }   # the chance each carries ghoul fever
 thump = [1, 2]        # it claws at a door rather than beating it down
-get_up = { chance = 1.0, after = [12.0, 36.0] }
+get_up = { chance = 0.4, after = [12.0, 36.0] }   # two in five (all, until the second playtest)
 
 # What your own body rises as (rules.toml, [revenant]), at midnight unless it was burned: you, in
 # your gear, and worse. Two and a half shamblers' health, a quick hand, and faster than your walk, so

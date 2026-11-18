@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Duskhold, the Fire Nova spell: a ring of fire thrown outward, flames licking off its outer edge; hollow, so it never reads as Light's sun. A solid white silhouette (VISUALS.md, section 11). -->
+  <path fill="#fff" fill-rule="evenodd" d="M32 14 A18 18 0 1 1 31.99 14 Z M32 22 A10 10 0 1 0 32.01 22 Z"/>
+  <path fill="#fff" d="M26 15 C24 9 27 5 32 1 C31 6 34 9 38 15 Z"/>
+  <path fill="#fff" d="M38 49 C40 55 37 59 32 63 C33 58 30 55 26 49 Z"/>
+  <path fill="#fff" d="M15 38 C9 40 5 37 1 32 C6 33 9 30 15 26 Z"/>
+  <path fill="#fff" d="M49 26 C55 24 59 27 63 32 C58 31 55 34 49 38 Z"/>
+  <path fill="#fff" d="M15 21 C10 17 10 12 11 6 C13 11 17 12 22 15 Z"/>
+  <path fill="#fff" d="M49 43 C54 47 54 52 53 58 C51 53 47 52 42 49 Z"/>
+  <path fill="#fff" d="M43 15 C47 10 52 10 58 11 C53 13 52 17 49 22 Z"/>
+  <path fill="#fff" d="M21 49 C17 54 12 54 6 53 C11 51 12 47 15 42 Z"/>
+</svg>

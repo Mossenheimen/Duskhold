@@ -4,10 +4,12 @@
 //! playtest: "Enemies may also be overtuned. I struggled to kill a few in a row").
 //!
 //! The character stands and fights: whenever it's free, it swings at the one on it that's
-//! winding up a blow, else the first on it; held (only with `--grabs`), it struggles. It drinks
-//! no potion and binds no wound: a fair, plain player's worst case, not their best.
+//! winding up a blow, else the first on it; held (only with `--grabs`), it struggles. With
+//! `--cast` (spells by id, `firebolt,fire_nova`), it casts first when it can: a nova with two or
+//! more on it, the others at the nearest (never a fireball that would catch it). It drinks no
+//! potion and binds no wound: a fair, plain player's worst case, not their best.
 
-use dusk_core::{ActorId, ActorKind, Dir8, Event, Intent, Tile, TilePos, World};
+use dusk_core::{ActorId, ActorKind, Dir8, Event, Intent, SpellKind, Tile, TilePos, World};
 
 use crate::{flag, load_data};
 
@@ -23,6 +25,7 @@ struct Tally {
     grabs: u32,
     dragged: u32,
     breathless: u32,
+    casts: u32,
 }
 
 pub fn fight(args: &[String]) {
@@ -32,6 +35,22 @@ pub fn fight(args: &[String]) {
     let kind_id: String = flag(args, "--kind").unwrap_or_else(|| "shambler".into());
     let class_id: String = flag(args, "--class").unwrap_or_else(|| "fighter".into());
     let grabs = args.iter().any(|a| a == "--grabs");
+    let cast: String = flag(args, "--cast").unwrap_or_default();
+    let spells: Vec<u16> = cast
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .map(|id| {
+            data.defs
+                .spells
+                .iter()
+                .position(|s| s.id == id)
+                .map(|n| n as u16)
+                .unwrap_or_else(|| {
+                    eprintln!("no spell {id:?} in data/spells.toml");
+                    std::process::exit(2);
+                })
+        })
+        .collect();
     let Some(kind) = data.defs.creature_kind(&kind_id) else {
         eprintln!("no creature {kind_id:?} in data/creatures");
         std::process::exit(2);
@@ -48,7 +67,7 @@ pub fn fight(args: &[String]) {
             let c = &mut w.rules.combat;
             (c.grab, c.grab_per_extra, c.grab_tired, c.parting_grab) = (1500, 1500, 2000, 2500);
         }
-        one_fight(&mut w, kind, class as u8, dead, &mut t);
+        one_fight(&mut w, kind, class as u8, dead, &spells, &mut t);
     }
     let n = trials as f64;
     let won = f64::from(t.won).max(1.0);
@@ -63,10 +82,15 @@ pub fn fight(args: &[String]) {
         .unwrap_or_else(|| "fists".into())
     };
     println!(
-        "{dead} {kind_id} against a {class_id} ({weapon}){}, {trials} fights: won {:.0}%, in {:.1} s; \
+        "{dead} {kind_id} against a {class_id} ({weapon}){}{}, {trials} fights: won {:.0}%, in {:.1} s; \
          health left {:.0} (worst {:.0}); blows at you {:.1}, landing {:.1}; out of breath in {:.0}%; \
-         grabbed {:.1} times, dragged down in {:.0}%",
+         grabbed {:.1} times, dragged down in {:.0}%; spells cast {:.1}",
         if grabs { ", grabs on" } else { "" },
+        if cast.is_empty() {
+            String::new()
+        } else {
+            format!(", casting {cast}")
+        },
         100.0 * f64::from(t.won) / n,
         t.seconds / won,
         t.health_left / won,
@@ -76,11 +100,19 @@ pub fn fight(args: &[String]) {
         100.0 * f64::from(t.breathless) / n,
         f64::from(t.grabs) / n,
         100.0 * f64::from(t.dragged) / n,
+        f64::from(t.casts) / n,
     );
 }
 
 /// One fight: `dead` of `kind` on a ring four tiles out, heard and coming.
-fn one_fight(w: &mut World, kind: ActorKind, class: u8, dead: usize, t: &mut Tally) {
+fn one_fight(
+    w: &mut World,
+    kind: ActorKind,
+    class: u8,
+    dead: usize,
+    spells: &[u16],
+    t: &mut Tally,
+) {
     const SIZE: i32 = 25;
     for y in 0..SIZE {
         for x in 0..SIZE {
@@ -108,7 +140,7 @@ fn one_fight(w: &mut World, kind: ActorKind, class: u8, dead: usize, t: &mut Tal
     w.make_sound(centre, 12, Some(me));
     let mut breathless = false;
     for tick in 1..=1200u32 {
-        if let Some(intent) = choose(w, me) {
+        if let Some(intent) = choose(w, me, &foes, spells) {
             w.intent(me, intent);
         }
         w.step(1);
@@ -122,6 +154,7 @@ fn one_fight(w: &mut World, kind: ActorKind, class: u8, dead: usize, t: &mut Tal
                 Event::Missed { who, .. } if foes.contains(&who) => t.blows += 1,
                 Event::Grabbed { target, .. } if target == me => t.grabs += 1,
                 Event::DraggedDown { who, .. } if who == me => t.dragged += 1,
+                Event::Cast { who, .. } if who == me => t.casts += 1,
                 _ => {}
             }
         }
@@ -142,17 +175,36 @@ fn one_fight(w: &mut World, kind: ActorKind, class: u8, dead: usize, t: &mut Tal
     t.breathless += u32::from(breathless);
 }
 
-/// What a plain player does now, if anything: swing at the one about to strike, else the first
-/// on you; struggle when held.
-fn choose(w: &World, me: ActorId) -> Option<Intent> {
+/// What a plain player does now, if anything: a spell when one can be cast (a nova with two or
+/// more on it, the rest at the nearest), else swing at the one about to strike, else the first on
+/// it; struggle when held.
+fn choose(w: &World, me: ActorId, foes: &[ActorId], spells: &[u16]) -> Option<Intent> {
     let a = w.actor(me)?;
-    if a.dead || a.action.is_some() {
+    if a.dead || a.action.is_some() || matches!(a.intent, Intent::Cast { .. }) {
         return None;
     }
     if w.is_held(me) {
         return Some(Intent::Struggle);
     }
     let on_me = w.engaged(me);
+    let nearest = foes
+        .iter()
+        .filter_map(|&f| w.actor(f).filter(|f| !f.dead).map(|f| f.pos))
+        .min_by_key(|p| p.dist2(a.pos));
+    for &spell in spells {
+        let Some(s) = w.spell(spell) else { continue };
+        let at = match s.kind {
+            SpellKind::Nova if on_me.len() >= 2 => a.pos,
+            SpellKind::Nova => continue,
+            _ => match nearest {
+                Some(p) => p,
+                None => continue,
+            },
+        };
+        if w.can_cast(me, spell, at).is_ok() && !w.spell_catches(me, spell, at) {
+            return Some(Intent::Cast { spell, at });
+        }
+    }
     let target = on_me
         .iter()
         .copied()

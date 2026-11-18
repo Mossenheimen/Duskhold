@@ -160,6 +160,11 @@ bleeding = 0.5        # health a second for each wound that's bleeding
 time = 0.5            # seconds
 pace = 0.5            # what's left of your pace meanwhile
 
+[casting]
+# A blow on you during a spell's words sets them back this long, rather than breaking them (the
+# second playtest: "hits set a cast back not break it"). The spell goes on: a crowd only slows it.
+setback = 0.3         # seconds
+
 [grab]
 # Off: no kind takes hold of you (the second playtest, above). The rule is kept for a kind that
 # might hold later (the core's grab.rs). On, a hit could take hold, the likelier the more of them

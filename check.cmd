@@ -36,8 +36,9 @@ rem A Wizard's spells by number, every panel and the settings, opened and closed
 rem First a weapon's card: a unique given (Redhand, a hand axe: its class's edge, the bleeding, on
 rem its card too), and a masterwork Rare sword, named, set against the staff;
 rem then the sword taken in hand, and a magic helm put on, so the skills panel shows what they give,
-rem and the spells panel the sword's +3 to Arcana: a fireball's harm and Silence's time, as yours.
-call :run 2500 "--seed=7 --class=wizard --give=redhand,sword:masterwork:keen+swift+sorcerous,iron_helm:fine:warded+brawny --do=0.5:card,1:power1,2:power4,3:esc,3.2:wield,4.2:wear,4.5:spells,5:skills,6:craft,7:keys,7.5:keys,8:settings,9:esc,9.5:cast_light,10:cast_fireball"
+rem and the spells panel the sword's +3 to Arcana: a fireball's harm and Silence's time, as yours;
+rem then Light, a fireball, a firebolt and a fire nova cast (no reagent wanted).
+call :run 2900 "--seed=7 --class=wizard --give=redhand,sword:masterwork:keen+swift+sorcerous,iron_helm:fine:warded+brawny --do=0.5:card,1:power1,2:power4,3:esc,3.2:wield,4.2:wear,4.5:spells,5:skills,6:craft,7:keys,7.5:keys,8:settings,9:esc,9.5:cast_light,10:cast_fireball,12:cast_firebolt,13.5:cast_fire_nova"
 rem The bar and the belt (hotbar.gd, potion.rs): a Wizard's spells on the number keys, its kit's
 rem potions on the belt; one from the kit drunk, and one given put on the belt (into the loop it
 rem left empty) and drunk; then the bar's first two powers swapped, the first key readying what's
@@ -56,7 +57,7 @@ echo   every effect, once
 "%LOCALAPPDATA%\Programs\Godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path client --quit-after 5000 -s res://tests/check_effects.gd >> "%LOG%" 2>&1
 findstr /c:"SCRIPT ERROR" /c:"ERROR:" /c:"Parse Error" "%LOG%" >nul && goto failed_game
 rem And each run got where it was going: no news of these, and it didn't play at all.
-for %%m in ("Going after it." "You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: every wound closed" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Silence ready" "Menu opened" "Walking." "You put on the traveller's pack" "Inventory opened." "Taking the" "Arranged the" "On guard." "EFFECTS OK") do (
+for %%m in ("You cast Firebolt" "You cast Fire Nova" "Going after it." "You pick it" "You pray" "Fireball ready" "You cast Light" "Pick the bramble" "Against your quarterstaff" "Card: Redhand" "You put on the iron helm" "Card: Far-flung Kindled masterwork hunting bow" "You took up the wooden buckler" "Card: The Wasp" "28.7 to 40.2 damage" "lasts 39 s" "A blow bleeds 4 damage over 8 s" "You wind the decoy" "You put up the wall of planks" "You drink the potion of life: every wound closed" "You drink the potion of haste" "You drink the potion of mana: 25 mana back over 4 s" "Firebolt ready" "Menu opened" "Walking." "You put on the traveller's pack" "Inventory opened." "Taking the" "Arranged the" "On guard." "EFFECTS OK") do (
   findstr /c:%%m "%LOG%" >nul || (echo A run never got to %%m. & goto failed_game)
 )
 goto passed

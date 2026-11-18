@@ -114,7 +114,7 @@ enum Event {
 	COLD = 107,
 	CAST = 108,
 	SCORCHED = 109,
-	SPELL_BROKE = 110,
+	SPELL_SET_BACK = 110,
 	TERRIFIED = 112,
 	SEARED = 113,
 	THORNED = 114,
@@ -269,6 +269,8 @@ enum Spell {
 	SILENCE = 1,
 	FOG = 2,
 	FIREBALL = 3,
+	BOLT = 4,
+	NOVA = 5,
 }
 
 ## What a potion does (DuskWorld.potion_info(), character_doses()).

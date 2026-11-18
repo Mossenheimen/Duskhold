@@ -2199,7 +2199,18 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
         .iter()
         .map(|&s| defs.spells[usize::from(s)].id.as_str())
         .collect();
-    assert_eq!(known, ["light", "silence", "fog", "fireball"]);
+    // Since the second playtest, the fight's spells first (the bar's four), none wanting a reagent.
+    assert_eq!(
+        known,
+        [
+            "firebolt",
+            "fireball",
+            "fire_nova",
+            "light",
+            "silence",
+            "fog"
+        ]
+    );
     let fireball = defs.spells.iter().find(|s| s.id == "fireball").unwrap();
     assert_eq!(
         (
@@ -2208,11 +2219,30 @@ fn the_wizard_and_its_spells_load_and_a_spell_that_does_nothing_is_refused() {
             fireball.radius,
             fireball.damage
         ),
-        (20_000, 25, 2, (250, 350)),
-        "20 mana, 2.5 s of words, 25 to 35 points"
+        (16_000, 15, 2, (250, 350)),
+        "16 mana, 1.5 s of words, 25 to 35 points"
     );
-    let sulphur = defs.items.iter().position(|i| i.id == "sulphur").unwrap() as u16;
-    assert_eq!(fireball.component, Some(sulphur));
+    assert!(
+        wizard
+            .spells
+            .iter()
+            .all(|&s| defs.spells[usize::from(s)].component.is_none()),
+        "no reagents at the first level"
+    );
+    let bolt = defs.spells.iter().find(|s| s.id == "firebolt").unwrap();
+    assert_eq!(
+        (bolt.kind, bolt.mana, bolt.cast, bolt.range, bolt.damage),
+        (dusk_core::SpellKind::Bolt, 6_000, 5, 10, (100, 150))
+    );
+    let nova = defs.spells.iter().find(|s| s.id == "fire_nova").unwrap();
+    assert_eq!(
+        (nova.kind, nova.radius, nova.cast),
+        (dusk_core::SpellKind::Nova, 1, 4)
+    );
+    assert_eq!(
+        data.rules.spell_setback, 3,
+        "a blow sets the words back 0.3 s"
+    );
     // Arcana: quicker words, a fireball's harm, a spell lasting longer, a level at a time.
     let s = &data.rules.skills;
     assert_eq!(

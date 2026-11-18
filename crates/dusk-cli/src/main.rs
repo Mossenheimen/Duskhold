@@ -851,7 +851,9 @@ fn describe(w: &World, e: Event) -> String {
             name(who),
             name(target)
         ),
-        Event::SpellBroke { who, spell } => format!("{}'s spell {spell} is broken", name(who)),
+        Event::SpellSetBack { who, spell } => {
+            format!("{}'s spell {spell} is set back", name(who))
+        }
         Event::Grew { who, stat, level } => format!(
             "{}'s {} reached {level}",
             name(who),

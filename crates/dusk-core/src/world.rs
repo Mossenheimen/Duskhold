@@ -99,6 +99,8 @@ pub struct Rules {
     pub building: crate::build::Building,
     /// Per mille: what's left of your pace on guard, the combat stance (`guard.rs`).
     pub guard_pace: u32,
+    /// Ticks a blow sets a spell's words back (`spell.rs`; rules.toml's `[casting]`).
+    pub spell_setback: u32,
     /// The belt of potions (`potion.rs`).
     pub belt: crate::potion::Belt,
     /// Strength and Fitness: how they grow, and what they do (`fitness.rs`).
@@ -347,6 +349,7 @@ impl Default for Rules {
             edges: crate::edge::Edges::default(),
             building: crate::build::Building::default(),
             guard_pace: 700,
+            spell_setback: 3,
             belt: crate::potion::Belt::default(),
             strength: crate::fitness::StrengthRules::default(),
             fitness: crate::fitness::FitnessRules::default(),
@@ -445,7 +448,8 @@ pub enum Event {
         target: ActorId,
         damage: i32,
     },
-    SpellBroke {
+    /// A blow set `who`'s words back (`Rules::spell_setback`): the spell goes on.
+    SpellSetBack {
         who: ActorId,
         spell: u16,
     },

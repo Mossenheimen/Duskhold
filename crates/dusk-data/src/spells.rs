@@ -72,7 +72,9 @@ fn to_spell(file: &Path, s: &SpellFile, defs: &Defs) -> Result<SpellDef, DataErr
         "silence" => SpellKind::Silence,
         "fog" => SpellKind::Fog,
         "fireball" => SpellKind::Fireball,
-        _ => return Err(bad("kind is light, silence, fog or fireball")),
+        "bolt" => SpellKind::Bolt,
+        "nova" => SpellKind::Nova,
+        _ => return Err(bad("kind is light, silence, fog, fireball, bolt or nova")),
     };
     let tiles = [s.range, s.radius, s.light];
     if tiles.iter().any(|t| !(0..=20).contains(t)) || s.range < 1 {
@@ -93,12 +95,13 @@ fn to_spell(file: &Path, s: &SpellFile, defs: &Defs) -> Result<SpellDef, DataErr
     let empty = match kind {
         SpellKind::Light => s.light == 0 || s.lasts <= 0.0,
         SpellKind::Silence | SpellKind::Fog => s.radius == 0 || s.lasts <= 0.0,
-        SpellKind::Fireball => s.radius == 0 || s.damage.1 <= 0.0,
+        SpellKind::Fireball | SpellKind::Nova => s.radius == 0 || s.damage.1 <= 0.0,
+        SpellKind::Bolt => s.damage.1 <= 0.0,
     };
     if empty {
         return Err(bad(
             "it does nothing: a light lights and lasts, a silence or fog reaches and lasts, a \
-             fireball reaches and harms",
+             fireball or a nova reaches and harms, a bolt harms",
         ));
     }
     let component = match &s.component {

@@ -3,12 +3,20 @@
 # them with its mana (mana: points; classes.toml's mana, coming back by the second).
 #
 # Casting is a timed action at a tile within range that you can see: the words (cast, seconds) are
-# its wind-up and its tell, heard noise tiles off, and a blow during them breaks the spell, spending
-# nothing. On the spot it reaches radius tiles, lights light tiles, and lasts seconds. kind is what
-# it does: light (a light to see by; at night the dead that see it come to it), silence (no sound is
-# made inside it), fog (the dead can't see into it or out of it), fireball (a burst: damage points to
-# everything within its reach, you too, and what it puts down burns; heard boom tiles off).
-# component: the item each cast uses up.
+# its wind-up and its tell, heard noise tiles off, and a blow during them sets them back a little
+# (rules.toml's [casting]). On the spot it reaches radius tiles, lights light tiles, and lasts
+# seconds. kind is what it does: light (a light to see by; at night the dead that see it come to
+# it), silence (no sound is made inside it), fog (the dead can't see into it or out of it),
+# fireball (a burst: damage points to everything within its reach, you too, and what it puts down
+# burns; heard boom tiles off), bolt (fire flies the line to the spot, and the first one on it
+# takes damage points; a wall stops it), nova (fire bursts out from you: everyone within radius
+# tiles that you can see takes damage points and is thrown back a tile; cast on yourself).
+# component: the item each cast uses up (none at the Wizard's first level: the second playtest).
+#
+# Since the second playtest (2026-11-17: "Spells are underwhelming. I don't so much care about
+# stopping zombies from getting up"), the Wizard's first spells are for the fight, as Diablo's and
+# Path of Exile's: Firebolt, Fireball and Fire Nova, then the senses' three (classes.toml's order is
+# the bar's). They're last here so the older spells keep their numbers.
 #
 # Arcana changes the numbers (rules.toml's [skills.level]): its levels quicken the words, add to a
 # fireball's damage, and make a spell last longer (not a fireball's flash). The spells panel shows
@@ -53,15 +61,38 @@ noise = 2
 [[spell]]
 id = "fireball"
 name = "Fireball"
-line = "a burst of fire 2 tiles round a spot (you too): it burns what it puts down, and the bodies there; heard across the map"
+line = "a burst of fire 2 tiles round a spot (you too): it burns what it puts down, and the bodies there; heard far off"
 kind = "fireball"
-mana = 20
-cast = 2.5
+mana = 16             # 20, and sulphur, and 2.5 s of words, until the second playtest
+cast = 1.5
 range = 8
 radius = 2
 light = 7             # the flash...
 lasts = 1.5           # ...for a moment
 noise = 3
-boom = 35
+boom = 20             # heard across a good part of the map (35, all of it, until the second playtest)
 damage = [25, 35]     # most of the common dead fall to one; a revenant or a wight is only singed
-component = "sulphur"
+
+[[spell]]
+id = "firebolt"
+name = "Firebolt"
+line = "fire flies the line to a spot, and the first one on it burns; a wall stops it"
+kind = "bolt"
+mana = 6              # cheap: the one you cast most
+cast = 0.5            # quick words, a little longer than a cudgel's swing
+range = 10
+noise = 2
+damage = [10, 15]     # a shambler (24) falls to two, most often
+
+[[spell]]
+id = "fire_nova"
+name = "Fire Nova"
+line = "fire bursts out from you: everyone beside you burns, and is thrown back a tile"
+kind = "nova"
+mana = 10
+cast = 0.4            # the way out of a crowd: quicker than a shambler's reach (1.2 s)
+range = 1             # cast on yourself
+radius = 1            # everyone beside you, the corners too
+noise = 3
+boom = 8
+damage = [8, 12]

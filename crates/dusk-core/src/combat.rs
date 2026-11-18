@@ -675,16 +675,23 @@ impl World {
         }
     }
 
-    /// A blow during the wind-up breaks it off.
+    /// A blow during the wind-up breaks it off; a spell's words, it sets back.
     pub(crate) fn interrupt(&mut self, id: ActorId) {
         if let Some(a) = self.actors.get_mut(id)
             && let Some(act) = a.action.filter(|act| act.winding_up())
         {
-            a.action = None;
-            // A spell's words broken: it's lost, and nothing's spent (`spell.rs`).
+            // A spell's words are set back a little, not broken (`spell.rs`; the second
+            // playtest: "hits set a cast back not break it").
             if let ActionKind::Cast { spell, .. } = act.kind {
-                self.events.push(Event::SpellBroke { who: id, spell });
+                let back = self.rules.spell_setback;
+                a.action = Some(Action {
+                    elapsed: act.elapsed.saturating_sub(back),
+                    ..act
+                });
+                self.events.push(Event::SpellSetBack { who: id, spell });
+                return;
             }
+            a.action = None;
         }
     }
 

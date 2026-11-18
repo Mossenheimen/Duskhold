@@ -34,7 +34,7 @@ talents = ["tough", "heavy_hand", "devout", "mending", "purify", "warding", "ste
 [[class]]
 id = "wizard"
 name = "Wizard"
-line = "fragile, and loud when it counts: spells that work on what the dead sense, paid for in mana that comes back by the second"
+line = "fragile, and fire when it counts: a bolt, a ball and a nova of fire, and spells that work on what the dead sense, paid for in mana that comes back by the second"
 # Fragile and versatile: the sense fields themselves are its part of the system (spells.toml).
 skills = ["arcana", "first_aid"]
 learn = 1.5
@@ -42,8 +42,8 @@ endurance = 1.1       # fragile: its breath goes quicker than anyone's
 staggered = 1.2       # and a blow slows it longer
 mana = 40             # points of mana it holds (spells.toml: what each costs)...
 mana_regen = 0.4      # ...and how many come back a second: empty to full in 100 s (Arcana and gear, more)
-spells = ["light", "silence", "fog", "fireball"]
+spells = ["firebolt", "fireball", "fire_nova", "light", "silence", "fog"]   # the bar's first four, in this order
 wield = "quarterstaff"
-kit = ["bandage", "sulphur", "sulphur", "life_potion", "mana_potion"]
+kit = ["bandage", "life_potion", "mana_potion", "mana_potion"]
 wear = ["wool_cloak"]
 talents = ["tough", "arcane_reserve", "quick_casting", "far_reach", "hushed_words", "steady"]

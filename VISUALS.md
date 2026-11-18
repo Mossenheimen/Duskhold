@@ -627,7 +627,7 @@ A power or a spell as it happens: glowing motes, rings and a flash of light, bri
 - **Fewer flashes, less motion** (§13): half as many motes, and no flash of light.
 
 **Today** (2026-11-13): `client/effects.gd`, from the core's events, and each actor's pose and glow (`actor_view.gd`'s `POSES`).
-- **Spells:** a Light's pale motes rise from its spot; a Silence's ring draws in to it; a Fog puffs out; a Fireball flies from the hand as a trail of fire, then flashes, with flames, embers falling, smoke rising and an ember ring out to its reach. The words broken: the motes fall away. While the words are said, the Wizard glows arcane, leaning back, motes rising round it.
+- **Spells:** a Light's pale motes rise from its spot; a Silence's ring draws in to it; a Fog puffs out; a Fireball flies from the hand as a trail of fire, then flashes, with flames, embers falling, smoke rising and an ember ring out to its reach; a Firebolt flies quicker and smaller, to where it stopped, and bursts small; a Fire Nova throws a ring of fire out from you, the flames flung outward, a flash. The words set back by a blow: some motes fall away (until the second playtest, broken, and all of them). While the words are said, the Wizard glows arcane, leaning back, motes rising round it.
 - **The Cleric's:** turning sends a holy wave out to as far as it reaches (`DuskWorld.turn_reach()`, its talents in it); prayer and consecration lift holy motes from the body, a ward puts them on the door. Mending lifts motes in good's green.
 - **The Fighter's:** the Second Wind blows a breath out round you.
 - **Skills and levels:** gold motes round your feet as a skill rises a level or is mastered; a level of your own, more, and a gold ring.
@@ -738,7 +738,7 @@ These are standard pictures for checking the look. Each takes no special data. A
 | A unique's card: The Last Vigil in the pack, its name in copper, its effect and its story | `--seed=7 --hour=12 --give=last_vigil,hand_axe:crude --do=1:card --shot=PNG --shot-after=2.5` |
 | The inventory (Path of Exile 2's) in the near farm's kitchen: the figure and what's on it (a jerkin in Body, faint in Arms), the belt, the pockets and a traveller's pack side by side, what was taken from the stove on its cell, the stove and the cupboard as tabs on the left, and a masterwork Rare sword's card | `--seed=7 --hour=12 --speed=4 --walk=118,84 --give=travellers_pack,sword:masterwork:keen+swift+sorcerous --do=11:wear,12.5:inventory,13:takein,13.5:card --shot=PNG --shot-after=14.5` |
 | The abbey's counter as a vendor: what it sells today as a grid of icons with their prices, what it's short of, the bounties posted | `--seed=7 --hour=12 --walk=80,120 --give=sword:masterwork:keen+swift+sorcerous,bread,wolf_pelt --do=4:inventory --shot=PNG --shot-after=5.5` |
-| A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power4 --shot=PNG --shot-after=2` |
+| A fireball aimed one tile off: the range ring, the burst's ring in danger's red, and zone F's words | `--seed=7 --hour=22 --class=wizard --aim=1,1 --do=1:power2 --shot=PNG --shot-after=2` |
 | The lasting spells at night, alive: a Light inside a Fog, a Silence round them | `--seed=7 --hour=22 --class=wizard --aim=0,4 --do=1:cast_light,3.5:cast_silence,6.5:cast_fog --shot=PNG --shot-after=10` |
 
 The moodles in every tint, with a detail open, need a copy of `data/` whose needs climb fast and then hold (`CLAUDE.md`, something timed). In the copy's `rules.toml`, set:

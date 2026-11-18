@@ -93,10 +93,14 @@ func spell(kind: int, x: int, y: int, reach: int, from: Vector3) -> void:
 			_burst(at + Vector3(0, 0.5, 0), Look.FOG, [18, 1.6, 1.4, 0.15, maxf(reach, 1.0) * 0.5, 1.4], true)
 		Spell.FIREBALL:
 			_fireball(from + Vector3(0, 1.1, 0), at, maxf(reach, 1.0))
+		Spell.BOLT:
+			_firebolt(from + Vector3(0, 1.1, 0), at)
+		Spell.NOVA:
+			_nova(at, maxf(reach, 1.0))
 
 
-## The words broken by a blow, at the caster: the gathered motes fall away.
-func spell_broke(at: Vector3) -> void:
+## The words set back by a blow, at the caster: some of the gathered motes fall away.
+func spell_shaken(at: Vector3) -> void:
 	_burst(at + Vector3(0, 1.1, 0), Look.ARCANE, [12, 0.7, 1.0, -3.0, 0.3, 0.16])
 
 
@@ -231,6 +235,42 @@ func _fireball(from: Vector3, to: Vector3, reach: float) -> void:
 		bolt.emitting = false
 		get_tree().create_timer(0.4).timeout.connect(bolt.queue_free)
 		_explode(to, reach))
+
+
+## A firebolt from `from` to `to` (where it stopped: what it struck, or a wall): a fireball's
+## flight, quicker to the eye, and a small burst where it lands.
+func _firebolt(from: Vector3, to: Vector3) -> void:
+	var bolt := _burst(from, Look.FIRE, [10, 0.18, 0.2, 0.0, 0.05, 0.36], false, false)
+	bolt.one_shot = false
+	bolt.explosiveness = 0.0
+	var fly := create_tween()
+	fly.tween_property(bolt, "position", to + Vector3(0, 0.9, 0), maxf(from.distance_to(to) / (BOLT_SPEED * 1.5), 0.06))
+	fly.tween_callback(func() -> void:
+		bolt.emitting = false
+		get_tree().create_timer(0.3).timeout.connect(bolt.queue_free)
+		_burst(to + Vector3(0, 0.9, 0), Look.FIRE, [16, 0.35, 1.8, 0.3, 0.15, 0.4])
+		_burst(to + Vector3(0, 0.8, 0), Look.EMBER, [12, 0.6, 2.4, -2.0, 0.1, 0.18]))
+
+
+## A fire nova out from `at` (the caster) to `reach` tiles: a ring of fire and the flames thrown
+## outward, a flash.
+func _nova(at: Vector3, reach: float) -> void:
+	_wave(at, reach + 0.5, Look.FIRE, 0.35)
+	var out := _burst(at + Vector3(0, 0.5, 0), Look.FIRE, [40, 0.4, 3.6, 0.2, 0.35, 0.55])
+	out.radial_accel_min = 6.0
+	out.radial_accel_max = 9.0
+	_burst(at + Vector3(0, 0.4, 0), Look.EMBER, [24, 0.8, 3.0, -2.5, 0.4, 0.2])
+	if Look.reduce_motion:
+		return
+	var flash := OmniLight3D.new()
+	flash.light_color = Look.FIRE
+	flash.omni_range = reach + 3.0
+	flash.light_energy = 4.0
+	flash.position = at + Vector3(0, 1.0, 0)
+	add_child(flash)
+	var fade := create_tween()
+	fade.tween_property(flash, "light_energy", 0.0, 0.35)
+	fade.tween_callback(flash.queue_free)
 
 
 func _explode(at: Vector3, reach: float) -> void:
